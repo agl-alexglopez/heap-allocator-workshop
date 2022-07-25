@@ -61,18 +61,10 @@ typedef struct heap_node_t {
     // The header will store block size, allocation status, left neighbor status, and node color.
     header_t header;
     struct heap_node_t *parent;
-    /* This looks funky but this array, along with a direction_t enum will help us unify all left
-     * and right cases for red black tree operations. This cuts total lines of code in half.
-     */
     struct heap_node_t *links[2];
 }heap_node_t;
 
-/* Here is how to unify all left and right cases for red black tree functions. Rotations,
- * insert fixup, deletion fixup, and some searching cases can be united into one function or one
- * case. This is easier to read, debug, and saves many lines on insert and delete fixups. Using the
- * NOT(!) operator will flip this enum to the opposite field. !LEFT == RIGHT and !RIGHT == LEFT;
- * We can also use this type to be more specific and versatile with naming variables. See rotation.
- */
+// NOT(!) operator will flip this enum to the opposite field. !LEFT == RIGHT and !RIGHT == LEFT;
 typedef enum direction_t {
     // These represent indices in the lr_array array of a heap_node_t node in the tree.
     LEFT = 0,
