@@ -1,11 +1,6 @@
 # A simple makefile for building a program composed of C source files.
 # Refer to CS107 guide to Make for background info on makefiles
 
-# Set project directory one level above of Makefile directory. $(CURDIR) is a GNU make variable containing the path to the current working directory
-PROJDIR := $(realpath $(CURDIR)/..)
-SOURCEDIR := $(PROJDIR)/src
-OBJDIR := $(PROJDIR)/obj
-
 # EDIT HERE to apply different gcc optimization flags (-Ox and -fxxx)
 # Initially, the flags are configured for no optimization (to enable better
 # debugging) but you can experiment with different compiler settings
@@ -35,11 +30,6 @@ CFLAGS = -g3 -std=gnu99 -Wall $$warnflags -fcf-protection=none -fno-pic -no-pie
 export warnflags = -Wfloat-equal -Wtype-limits -Wpointer-arith -Wlogical-op -Wshadow -Winit-self -fno-diagnostics-show-option
 LDFLAGS =
 LDLIBS =
-
-$(OBJDIR)/$(all): %.c
-	@echo "COMPILING SOURCE $< INTO OBJECT $@"
-	@mkdir -p '$(@D)'
-	@$(CC) $(CFLAGS) $< -o $@
 
 $(PROGRAMS): test_%:%.o segment.c test_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
