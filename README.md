@@ -248,9 +248,11 @@ This implementation seems to speed up the allocator slightly on my desktop runni
 
 > **Read my code here ([`explicit_tree_unified_doubly.c`](/src/explicit_tree_unified_doubly.c)).**
 
-However, this implementation is well suited to try out even more creative strategies for using an array and an enum. Recall in both implementations that duplicate nodes are allowed. This makes the allocator fast by giving us immediate access to free any node from the tree and then fix the removal, but what if we could get a best case of constant time removals and cut down on the size of our tree? This might help with costly rotations.
+Unified left and right cases makes an implmentation well suited to try out even more creative strategies for using an array and an enum. Recall in both implementations that duplicate nodes are allowed. This makes the allocator fast by giving us immediate access to free any node from the tree and then fix the removal, but what if we could get a best case of constant time removals and cut down on the size of our tree? This might help with costly fixup operations.
 
-One idea I wanted to try was to take what I learned from the explicit allocator that used a doubly linked list, and apply that idea to duplicate nodes in the tree. The left and right fields of a normal binary tree node are just arbitrary names we give to help us organize the relationship between data in our algorithms. We can, at any time, adjust how we interpret the relationship between nodes, thus transforming a tree into a doubly linked list. What if instead of looking at the `links[]` array as a `LEFT`-`RIGHT` array, we switched to viewing it as a `NEXT`-`PREV` array. We can then use the duplicate node in the tree as a dummy head. The black sentinel we have been using at the base of our red-black tree can also become the dummy tail of every doubly linked list for every duplicate. If we also make the parent field of all the nodes in the linked list NULL rather than the black sentinel we can also tell where we are in the list when we check to our left to see if the node to our left is the head node or not (we know the head node will have a valid parent field, either to its parent or the black sentinel). This makes managing the doubly linked list slightly less invariant than a normal doubly linked list with a head and tail, but ensures we maintain both the tree and the list. All of this combines nicely to make fast coalescing possible.
+One idea I wanted to try was to take what I learned from the explicit allocator that used a doubly linked list, and apply that idea to duplicate nodes in the tree. The left and right fields of a normal binary tree node are just arbitrary names we give to help us organize the relationship between data in our algorithms. We can, at any time, adjust how we interpret the relationship between nodes, thus transforming a tree into a doubly linked list. What if instead of looking at the `links[]` array as a `LEFT`-`RIGHT` array, we switched to viewing it as a `NEXT`-`PREV` array. We can then use the duplicate node in the tree as a dummy head. The black sentinel we have been using at the base of our red-black tree can also become the dummy tail of every doubly linked list for every duplicate. If we also make the parent field of all the nodes in the linked list NULL rather than the black sentinel we can also tell where we are in the list when we check to our left to see if the node to our left is the head node or not (we know the head node will have a valid parent field, either to its parent or the black sentinel). This makes managing the doubly linked list slightly less invariant than a normal doubly linked list with a head and tail, but ensures we maintain both the tree and the list. All of this combines nicely to make fast coalescing possible. Here is the scheme.
+
+![rb-doubly-scheme](/images/rb-doubly-scheme.png)
 
 We can create another enum to help. This will make it clear when we are referring to nodes as connections in a linked list and nodes in a tree.
 
@@ -288,12 +290,12 @@ heap_node_t *free_coalesced_node(heap_node_t *to_coalesce) {
     if (to_coalesce->list_start == black_sentinel) {
        return delete_rb_node(to_coalesce);
     }
-    header_t size_and_bits = to_coalesce->header;
-    heap_node_t *tree_parent = to_coalesce->parent;
-    heap_node_t *tree_right = to_coalesce->links[RIGHT];
-    heap_node_t *tree_left = to_coalesce->links[LEFT];
     // to_coalesce is the head of a doubly linked list. Remove and make a new head.
     if (to_coalesce->parent) {
+        header_t size_and_bits = to_coalesce->header;
+        heap_node_t *tree_parent = to_coalesce->parent;
+        heap_node_t *tree_right = to_coalesce->links[RIGHT];
+        heap_node_t *tree_left = to_coalesce->links[LEFT];
         heap_node_t *new_head = to_coalesce->list_start;
         new_head->header = size_and_bits;
         // Make sure we set up new start of list correctly for linked list.
