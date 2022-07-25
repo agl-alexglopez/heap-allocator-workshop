@@ -354,7 +354,9 @@ typedef struct heap_node_t {
 
 There is one problem with this approach for a heap allocator however. I could not think of a good way to coalesce nodes with the above struct. The problem arises with duplicates. When we insert duplicates into a red black tree, we know that they will always follow the rules of a binary search tree in relation to their parent, but we do not know where rotation may put them over the lifetime of the heap. This is a problem for a coalescing operation that needs to find the exact address of the node it needs.
 
-When we search the tree by block size, as we normally do, there is no garuntee the first node of the correct size we find will be the one we are coalescing. This would result in a non sequential block of memory and corrupt the heap. So, we will simply take from our previous allocator, and store duplicates in a doubly linked list. Then we are free to use the stack, because we know that all nodes in the tree will be unique. We also have immediate access to coalesce any duplicate safely in constant time from its linked list. Here is the node.
+When we search the tree by block size, as we normally do, there is no garuntee the first node of the correct size we find will be the one we are coalescing. This would result in a non sequential block of memory and corrupt the heap. So, we will simply take from our previous allocator, and store duplicates in a doubly linked list. Then we are free to use the stack, because we know that all nodes in the tree will be unique. We also have immediate access to coalesce any duplicate safely in constant time from its linked list. Here is the node. Here is the new tree scheme without a parent field. Now, the only way we know we are in the linked list is by setting the `list_start` field to `NULL` rather than `black_null`.
+
+![rb-stack-scheme](/images/rb-duplicates-no-parent.png)
 
 ```c
 typedef struct heap_node_t {
@@ -384,7 +386,9 @@ This implementation will use the same array based struct to represent the `LEFT/
 
 The challenge to this approach is that it is not designed to handle duplicates. In fact, Walker explicitly states that insertion and deletion cannot accomodate duplicates. Another challenge arises in how Walker handles deletions. Instead of rewiring pointers to replace a node that needs to be transplanted in, Walker simply swaps the data in the node to be removed with its inorder predecessor. All of these factors present a challenge to this implementation. I need to be able to add and remove duplicates from the tree and I must repair all pointers for any insertion or removal request because users expect my functions to handle exactly the memory that they need or refer to. My heap also is made up of unique addresses that are finite and must be managed in memory exactly.
 
-We can overcome the insertion problem rather easily. When we encounter a duplicate, we simply perform one final fixup but instead of ending the function, we use the doubly linked list we have been employing over the last few iterations of our allocator and add the duplicate to that list. This prevents problems that would otherwise arise with the logic and sequence of fixups on the way down the tree.
+We can overcome the insertion problem rather easily. When we encounter a duplicate, we simply perform one final fixup but instead of ending the function, we use the doubly linked list we have been employing over the last few iterations of our allocator and add the duplicate to that list. This prevents problems that would otherwise arise with the logic and sequence of fixups on the way down the tree. Here is the new scheme. It is an identical setup to the stack duplicate model from the last allocator.
+
+![rb-topdown-scheme](/images/rb-duplicates-no-parent.png)
 
 Deletion of nodes requiring pointer maintenance and duplicates is by far the most complex aspect of this implementation. Here are all of the pointers that need to accurately represent all paths to their descendants during various and complex rotations.
 
