@@ -1,4 +1,4 @@
-/* Last Updated: Alex G. Lopez, 2022.07.14
+/* Last Updated: Alex G. Lopez, 2022.07.25
  * Assignment: Bonus, Tree Heap Allocator
  *
  * File: explicit_tree_clrs.c
@@ -27,6 +27,34 @@
  *  4. I took my function to verify black node paths of a red black tree from kraskevich on
  *     stackoverflow in the following answer:
  *          https://stackoverflow.com/questions/27731072/check-whether-a-tree-satisfies-the-black-height-property-of-red-black-tree
+ *
+ * The header stays as the first field of the heap_node_t and must remain accessible at all times.
+ * The size of the block is a multiple of eight to leave the bottom three bits accessible for info.
+ *
+ *   v--Most Significnat bit                               v--Least Significnat Bit
+ *   0        ...00000000      0             0            0
+ *   +--------------------+----------+---------------+----------+
+ *   |                    |          |               |          |
+ *   |                    |  red     |      left     |allocation|
+ *   |            size_t  |  or      |    neighbor   |  status  |----
+ *   |            bytes   |  black   |   allocation  |          |   |
+ *   |                    |          |     status    |          |   |
+ *   +--------------------+----------+---------------+----------+   |
+ *  |_____________________________________________________________| |
+ *                             |                                    |
+ *                        64-bit header                             |
+ * |-----------------------------------------------------------------
+ * |    +---------+------------+--------------+----------+---------+
+ * |    |         |            |              |          |         |
+ * |--> |         |            |              |          |         |
+ *      | *parent | *left      | *right       | user     | footer  |
+ *      |         |            |              | data     |         |
+ *      |         |            |              |          | ...     |
+ *      +---------+------------+--------------+----------+---------+
+ *
+ * The rest of the heap_node_t remains accessible for the user, even the footer. We only need the
+ * information in the rest of the struct when it is free and either in our tree or doubly linked
+ * list.
  */
 #include <limits.h>
 #include <stdio.h>
@@ -239,7 +267,6 @@ void insert_rb_node(heap_node_t *current) {
     while (child != tree.black_null) {
         parent = child;
         size_t child_size = extract_block_size(child->header);
-
         if (current_key < child_size) {
             child = child->left;
         } else {
@@ -247,7 +274,6 @@ void insert_rb_node(heap_node_t *current) {
         }
     }
     current->parent = parent;
-    // check that the parent is still tree.black_null because it did not get reassigned.
     if (parent == tree.black_null) {
         tree.root = current;
     } else if (current_key < extract_block_size(parent->header)) {
@@ -258,7 +284,6 @@ void insert_rb_node(heap_node_t *current) {
     current->left = tree.black_null;
     current->right = tree.black_null;
     paint_node(current, RED);
-    // Fix the tree!
     fix_rb_insert(current);
 }
 
@@ -299,7 +324,6 @@ void fix_rb_delete(heap_node_t *current) {
                 left_rotate(current->parent);
                 right_sibling = current->parent->right;
             }
-
             // The previous left rotation may have made the right sibling black null.
             if (extract_color(right_sibling->left->header) == BLACK
                     && extract_color(right_sibling->right->header) == BLACK) {
@@ -319,7 +343,6 @@ void fix_rb_delete(heap_node_t *current) {
                 current = tree.root;
             }
         } else {
-
             // This is a symmetric case, so it is identical with left and right switched.
             heap_node_t *left_sibling = current->parent->left;
             if (extract_color(left_sibling->header) == RED) {
@@ -328,7 +351,6 @@ void fix_rb_delete(heap_node_t *current) {
                 right_rotate(current->parent);
                 left_sibling = current->parent->left;
             }
-
             // The previous left rotation may have made the right sibling black null.
             if (extract_color(left_sibling->right->header) == BLACK
                     && extract_color(left_sibling->left->header) == BLACK) {
@@ -352,11 +374,11 @@ void fix_rb_delete(heap_node_t *current) {
     paint_node(current, BLACK);
 }
 
-/* @brief manage_deletion  performs the necessary steps to have a functional, balanced tree after
- *                         deletion of any node in the tree.
- * @param *to_remove       the node to remove from the tree from a call to malloc or coalesce.
+/* @brief delete_rb_node  performs the necessary steps to have a functional, balanced tree after
+ *                        deletion of any node in the tree.
+ * @param *to_remove      the node to remove from the tree from a call to malloc or coalesce.
  */
-heap_node_t *manage_deletion(heap_node_t *to_remove) {
+heap_node_t *delete_rb_node(heap_node_t *to_remove) {
     heap_node_t *current = to_remove;
     heap_node_t *directional_child = tree.black_null;
     node_color_t original_color = extract_color(to_remove->header);
@@ -416,27 +438,7 @@ heap_node_t *find_best_fit(size_t key) {
         }
     }
     // We can decompose the Corment et.al. deletion logic because coalesce and malloc use it.
-    return manage_deletion(to_remove);
-}
-
-/* @brief find_node_size  performs a standard binary search for a node based on the value of key.
- * @param key             the size_t representing the number of bytes a node must have in the tree.
- * @return                a pointer to the node with the desired size or NULL if size is not found.
- */
-heap_node_t *find_node_size(size_t key) {
-    heap_node_t *current = tree.root;
-    while (current != tree.black_null) {
-        size_t cur_size = extract_block_size(current->header);
-        if (key == cur_size) {
-            return current;
-        }
-        if (key < cur_size) {
-            current = current->left;
-        } else {
-            current = current->right;
-        }
-    }
-    return NULL;
+    return delete_rb_node(to_remove);
 }
 
 
@@ -530,10 +532,8 @@ void init_footer(heap_node_t *node, size_t payload) {
 void init_free_node(heap_node_t *to_free, size_t block_size) {
     to_free->header = LEFT_ALLOCATED | block_size;
     to_free->header |= RED_PAINT;
-    // Block sizes don't include header size so this is safe addition.
-    header_t *footer = (header_t *)((byte_t *)to_free + block_size);
-    *footer = to_free->header;
-    heap_node_t *neighbor = (heap_node_t *)((byte_t *) footer + HEADERSIZE);
+    init_footer(to_free, block_size);
+    heap_node_t *neighbor = get_right_neighbor(to_free, block_size);
     neighbor->header &= LEFT_FREE;
     insert_rb_node(to_free);
 }
@@ -629,14 +629,14 @@ heap_node_t *coalesce(heap_node_t *leftmost_node) {
     heap_node_t *rightmost_node = get_right_neighbor(leftmost_node, coalesced_space);
     if (!is_block_allocated(rightmost_node->header)) {
         coalesced_space += extract_block_size(rightmost_node->header) + HEADERSIZE;
-        rightmost_node = manage_deletion(rightmost_node);
+        rightmost_node = delete_rb_node(rightmost_node);
     }
     if (leftmost_node != heap.client_start && is_left_space(leftmost_node)) {
         leftmost_node = get_left_neighbor(leftmost_node);
         coalesced_space += extract_block_size(leftmost_node->header) + HEADERSIZE;
-        leftmost_node = manage_deletion(leftmost_node);
+        leftmost_node = delete_rb_node(leftmost_node);
     }
-    // We do not initialize a footer here because we don't want to overwrite user data.
+    // Do not initialize footer here because we may coalesce during realloc. Preserve user data.
     init_header_size(leftmost_node, coalesced_space);
     return leftmost_node;
 }

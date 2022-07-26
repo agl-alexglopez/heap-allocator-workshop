@@ -1,0 +1,19 @@
+# A basic pattern to see if we can free and coalesce.
+#a 1 400
+#a 2 5
+#a 3 400
+#a 4 8
+#a 5 700
+#a 6 10
+#a 7 100
+#f 4
+#f 6 
+#f 5
+#f 3
+#f 1
+#f 2
+a 11 755
+a 12 276
+a 13 670
+f 12
+a 14 142

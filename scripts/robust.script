@@ -1,0 +1,20 @@
+# This script issues a few targeted requests
+# that are valid, but odd. See the man page
+# for what is the expected handling of these cases
+# and be sure your allocator is in compliance.
+# Are there other weird cases to validate?
+
+# request malloc(0)
+a 1 0
+a 2 100
+r 2 200
+r 2 5
+f 2
+f 1
+# request free(NULL)
+f 3
+# request realloc(NULL, 100)
+r 4 100
+a 5 10
+# request realloc(ptr, 0)
+r 5 0

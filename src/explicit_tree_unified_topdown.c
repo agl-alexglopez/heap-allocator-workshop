@@ -136,11 +136,6 @@ typedef enum header_status_t {
 
 static struct tree {
     heap_node_t *root;
-    /* All leaves of the tree will point to this sentinel at the bottom of the tree. It is black.
-     * In many cases we need to store duplicate nodes in the tree, because the memory block is the
-     * same number of bytes. In this case the linked list of next nodes will also use this as a
-     * sentinel.
-     */
     heap_node_t *black_null;
 }tree;
 

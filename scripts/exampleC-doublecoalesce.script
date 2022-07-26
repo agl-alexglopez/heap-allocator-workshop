@@ -1,0 +1,55 @@
+a 1 50
+a 2 200
+a 3 90
+a 4 500
+a 5 300
+a 6 600
+a 7 900
+a 8 86
+a 9 943
+a 10 777
+a 11 76
+a 12 88
+a 13 444
+a 14 876
+a 15 2000
+a 16 5000
+a 17 76
+a 18 99
+a 19 900
+a 20 67895
+a 21 1432
+a 22 838
+a 23 9999
+a 24 23
+a 25 88
+a 26 689
+# We can set up every other as free so future frees will double coalesce left and right.
+f 1
+f 3
+f 5
+f 7
+f 9
+f 11
+f 13
+f 15
+f 17
+f 19
+f 21
+f 23
+f 25
+# Coalescing will begin now.
+f 12
+f 2
+f 26
+f 4
+f 24
+f 6
+f 22
+f 8
+f 20
+f 10
+f 18
+f 12
+f 14
+f 16

@@ -1,0 +1,19 @@
+# Trace of heap activity for firefox browser loading class page http://cs107.stanford.edu
+a 1 18
+a 2 16
+a 3 64
+f 2
+f 3
+a 4 2
+a 6 64
+a 7 18
+a 8 124
+a 5 16
+f 8
+f 4
+f 6
+a 9 21144
+a 10 16
+a 11 8
+r 11 2132
+f 7
