@@ -1,7 +1,7 @@
 /* Last Updated: Alex G. Lopez, 2022.07.14
  * Assignment: Bonus, Tree Heap Allocator
  *
- * File: explicit_tree.c
+ * File: explicit_tree_clrs.c
  * ---------------------
  *  This file contains my implementation of an explicit heap allocator. This allocator uses a tree
  *  implementation to track the free space in the heap, relying on the properties of a red-black
@@ -59,12 +59,10 @@ typedef struct heap_node_t {
     // header_t footer; which can also be overwritten.
 }heap_node_t;
 
-static heap_node_t *tree_root;
-/* All leaves of the tree will point to this sentinel at the bottom of the tree. It is black.
- * In rare cases we need to store duplicate nodes in the tree, because the memory block is the same
- * number of bytes. In this case the linked list of next nodes will also use this as a sentinel.
- */
-static heap_node_t *black_sentinel;
+static struct tree {
+    heap_node_t *root;
+    heap_node_t *black_null;
+}tree;
 
 typedef enum header_status_t {
     FREE = 0x0UL,
@@ -129,27 +127,27 @@ size_t extract_block_size(header_t header_val) {
  * @return              a pointer to the minimum node in a valid binary search tree.
  */
 heap_node_t *tree_minimum(heap_node_t *root) {
-    while (root->left != black_sentinel) {
+    while (root->left != tree.black_null) {
         root = root->left;
     }
     return root;
 }
 
 /* @brief left_rotate  complete a left rotation to help repair a red-black tree. Assumes current is
- *                     not the black_sentinel and that the right child is not black sentinel.
+ *                     not the tree.black_null and that the right child is not black sentinel.
  * @param *current     current will move down the tree, it's right child will move up to replace.
- * @warning            this function assumes current and current->right are not black_sentinel.
+ * @warning            this function assumes current and current->right are not tree.black_null.
  */
 void left_rotate(heap_node_t *current) {
     heap_node_t *right_child = current->right;
     current->right = right_child->left;
-    if (right_child->left != black_sentinel) {
+    if (right_child->left != tree.black_null) {
         right_child->left->parent = current;
     }
     right_child->parent = current->parent;
     // Take care of the root edgecase and find where the parent is in relation to current.
-    if (current->parent == black_sentinel) {
-        tree_root = right_child;
+    if (current->parent == tree.black_null) {
+        tree.root = right_child;
     } else if (current == current->parent->left) {
         current->parent->left = right_child;
     } else {
@@ -160,20 +158,20 @@ void left_rotate(heap_node_t *current) {
 }
 
 /* @brief right_rotate  completes a right rotation to help repair a red-black tree. Assumes current
- *                      is not the black_sentinel and the right child is not black_sentinel.
+ *                      is not the tree.black_null and the right child is not tree.black_null.
  * @param *current      the current node moves down the tree and the left child moves up.
- * @warning            this function assumes current and current->right are not black_sentinel.
+ * @warning            this function assumes current and current->right are not tree.black_null.
  */
 void right_rotate(heap_node_t *current) {
     heap_node_t *left_child = current->left;
     current->left = left_child->right;
-    if (left_child->right != black_sentinel) {
+    if (left_child->right != tree.black_null) {
         left_child->right->parent = current;
     }
     left_child->parent = current->parent;
     // Take care of the root edgecase and find where the parent is in relation to current.
-    if (current->parent == black_sentinel) {
-        tree_root = left_child;
+    if (current->parent == tree.black_null) {
+        tree.root = left_child;
     } else if (current == current->parent->right) {
         current->parent->right = left_child;
     } else {
@@ -227,7 +225,7 @@ void fix_rb_insert(heap_node_t *current) {
             }
         }
     }
-    paint_node(tree_root, BLACK);
+    paint_node(tree.root, BLACK);
 }
 
 /* @brief insert_rb_node  a modified insertion with additional logic to add duplicates if the
@@ -235,10 +233,10 @@ void fix_rb_insert(heap_node_t *current) {
  * @param *current        we must insert to tree or add to a list as duplicate.
  */
 void insert_rb_node(heap_node_t *current) {
-    heap_node_t *child = tree_root;
-    heap_node_t *parent = black_sentinel;
+    heap_node_t *child = tree.root;
+    heap_node_t *parent = tree.black_null;
     size_t current_key = extract_block_size(current->header);
-    while (child != black_sentinel) {
+    while (child != tree.black_null) {
         parent = child;
         size_t child_size = extract_block_size(child->header);
 
@@ -249,16 +247,16 @@ void insert_rb_node(heap_node_t *current) {
         }
     }
     current->parent = parent;
-    // check that the parent is still black_sentinel because it did not get reassigned.
-    if (parent == black_sentinel) {
-        tree_root = current;
+    // check that the parent is still tree.black_null because it did not get reassigned.
+    if (parent == tree.black_null) {
+        tree.root = current;
     } else if (current_key < extract_block_size(parent->header)) {
         parent->left = current;
     } else {
         parent->right = current;
     }
-    current->left = black_sentinel;
-    current->right = black_sentinel;
+    current->left = tree.black_null;
+    current->right = tree.black_null;
     paint_node(current, RED);
     // Fix the tree!
     fix_rb_insert(current);
@@ -270,11 +268,11 @@ void insert_rb_node(heap_node_t *current) {
 
 /* @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
  * @param *to_remove     the node we are removing from the tree.
- * @param *replacement   the node that will fill the to_remove position. It can be black_sentinel.
+ * @param *replacement   the node that will fill the to_remove position. It can be tree.black_null.
  */
 void rb_transplant(heap_node_t *to_remove, heap_node_t *replacement) {
-    if (to_remove->parent == black_sentinel) {
-        tree_root = replacement;
+    if (to_remove->parent == tree.black_null) {
+        tree.root = replacement;
     } else if (to_remove == to_remove->parent->left) {
         to_remove->parent->left = replacement;
     } else {
@@ -292,7 +290,7 @@ void rb_transplant(heap_node_t *to_remove, heap_node_t *replacement) {
  *                       may have broken rules of the tree or thrown off balance.
  */
 void fix_rb_delete(heap_node_t *current) {
-    while (current != tree_root && extract_color(current->header) == BLACK) {
+    while (current != tree.root && extract_color(current->header) == BLACK) {
         if (current == current->parent->left) {
             heap_node_t *right_sibling = current->parent->right;
             if (extract_color(right_sibling->header) == RED) {
@@ -318,7 +316,7 @@ void fix_rb_delete(heap_node_t *current) {
                 paint_node(current->parent, BLACK);
                 paint_node(right_sibling->right, BLACK);
                 left_rotate(current->parent);
-                current = tree_root;
+                current = tree.root;
             }
         } else {
 
@@ -347,7 +345,7 @@ void fix_rb_delete(heap_node_t *current) {
                 paint_node(current->parent, BLACK);
                 paint_node(left_sibling->left, BLACK);
                 right_rotate(current->parent);
-                current = tree_root;
+                current = tree.root;
             }
         }
     }
@@ -360,14 +358,14 @@ void fix_rb_delete(heap_node_t *current) {
  */
 heap_node_t *manage_deletion(heap_node_t *to_remove) {
     heap_node_t *current = to_remove;
-    heap_node_t *directional_child = black_sentinel;
+    heap_node_t *directional_child = tree.black_null;
     node_color_t original_color = extract_color(to_remove->header);
 
     // First two checks for if node is missing a child, makes rb_transplant easier.
-    if (to_remove->left == black_sentinel) {
+    if (to_remove->left == tree.black_null) {
         directional_child = to_remove->right;
         rb_transplant(to_remove, to_remove->right);
-    } else if (to_remove->right == black_sentinel) {
+    } else if (to_remove->right == tree.black_null) {
         directional_child = to_remove->left;
         rb_transplant(to_remove, to_remove->left);
     } else {
@@ -399,10 +397,10 @@ heap_node_t *manage_deletion(heap_node_t *to_remove) {
  * @return               the pointer to the heap_node_t that is the best fit for our need.
  */
 heap_node_t *find_best_fit(size_t key) {
-    heap_node_t *seeker = tree_root;
+    heap_node_t *seeker = tree.root;
     size_t best_fit_size = ULLONG_MAX;
     heap_node_t *to_remove = seeker;
-    while (seeker != black_sentinel) {
+    while (seeker != tree.black_null) {
         size_t seeker_size = extract_block_size(seeker->header);
         if (key == seeker_size) {
             to_remove = seeker;
@@ -426,8 +424,8 @@ heap_node_t *find_best_fit(size_t key) {
  * @return                a pointer to the node with the desired size or NULL if size is not found.
  */
 heap_node_t *find_node_size(size_t key) {
-    heap_node_t *current = tree_root;
-    while (current != black_sentinel) {
+    heap_node_t *current = tree.root;
+    while (current != tree.black_null) {
         size_t cur_size = extract_block_size(current->header);
         if (key == cur_size) {
             return current;
@@ -559,20 +557,20 @@ bool myinit(void *heap_start, size_t heap_size) {
     heap.heap_size = client_request;
     heap.client_end = (byte_t *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
     // Set up the dummy base of the tree to which all leaves will point.
-    black_sentinel = heap.client_end;
-    black_sentinel->header = 1UL;
-    black_sentinel->parent = NULL;
-    black_sentinel->left = NULL;
-    black_sentinel->right = NULL;
-    paint_node(black_sentinel, BLACK);
+    tree.black_null = heap.client_end;
+    tree.black_null->header = 1UL;
+    tree.black_null->parent = NULL;
+    tree.black_null->left = NULL;
+    tree.black_null->right = NULL;
+    paint_node(tree.black_null, BLACK);
     // Set up the root of the tree (top) that starts as our largest free block.
-    tree_root = heap.client_start;
-    init_header_size(tree_root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
-    paint_node(tree_root, BLACK);
-    init_footer(tree_root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
-    tree_root->parent = black_sentinel;
-    tree_root->left = black_sentinel;
-    tree_root->right = black_sentinel;
+    tree.root = heap.client_start;
+    init_header_size(tree.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
+    paint_node(tree.root, BLACK);
+    init_footer(tree.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
+    tree.root->parent = tree.black_null;
+    tree.root->left = tree.black_null;
+    tree.root->right = tree.black_null;
     return true;
 }
 
@@ -748,7 +746,7 @@ bool is_memory_balanced(size_t *total_free_mem) {
  * @return                  the black height from the current node as an integer.
  */
 int get_black_height(heap_node_t *root) {
-    if (root == black_sentinel) {
+    if (root == tree.black_null) {
         return 0;
     }
     if (extract_color(root->left->header) == BLACK) {
@@ -762,7 +760,7 @@ int get_black_height(heap_node_t *root) {
  * @return                 the int of the max height of the tree.
  */
 int get_tree_height(heap_node_t *root) {
-    if (root == black_sentinel) {
+    if (root == tree.black_null) {
         return 0;
     }
     int left_height = 1 + get_tree_height(root->left);
@@ -774,8 +772,8 @@ int get_tree_height(heap_node_t *root) {
  * @param *root       the current root of the tree to begin at for checking all subtrees.
  */
 bool is_red_red(heap_node_t *root) {
-    if (root == black_sentinel ||
-            (root->right == black_sentinel && root->left == black_sentinel)) {
+    if (root == tree.black_null ||
+            (root->right == tree.black_null && root->left == tree.black_null)) {
         return false;
     }
     if (extract_color(root->header) == RED) {
@@ -788,13 +786,13 @@ bool is_red_red(heap_node_t *root) {
     return is_red_red(root->right) || is_red_red(root->left);
 }
 
-/* @brief calculate_bheight  determines if every path from a node to the black_sentinel has the
+/* @brief calculate_bheight  determines if every path from a node to the tree.black_null has the
  *                           same number of black nodes.
  * @param *root              the root of the tree to begin searching.
  * @return                   -1 if the rule was not upheld, the black height if the rule is held.
  */
 int calculate_bheight(heap_node_t *root) {
-    if (root == black_sentinel) {
+    if (root == tree.black_null) {
         return 0;
     }
     int lf_bheight = calculate_bheight(root->left);
@@ -821,7 +819,7 @@ bool is_bheight_valid(heap_node_t *root) {
  * @return                  the total memory in bytes as a size_t in the red black tree.
  */
 size_t extract_tree_mem(heap_node_t *root) {
-    if (root == black_sentinel) {
+    if (root == tree.black_null) {
         return 0UL;
     }
     size_t total_mem = extract_tree_mem(root->right) + extract_tree_mem(root->left);
@@ -843,13 +841,13 @@ bool is_rbtree_mem_valid(heap_node_t *root, size_t total_free_mem) {
  * @param *root            the root to start at for the recursive search.
  */
 bool is_parent_valid(heap_node_t *root) {
-    if (root == black_sentinel) {
+    if (root == tree.black_null) {
         return true;
     }
-    if (root->left != black_sentinel && root->left->parent != root) {
+    if (root->left != tree.black_null && root->left->parent != root) {
         return false;
     }
-    if (root->right != black_sentinel && root->right->parent != root) {
+    if (root->right != tree.black_null && root->right->parent != root) {
         return false;
     }
     return is_parent_valid(root->left) && is_parent_valid(root->right);
@@ -860,7 +858,7 @@ bool is_parent_valid(heap_node_t *root) {
  *                              reliable source, because I saw results that made me doubt V1.
  */
 int calculate_bheight_V2(heap_node_t *root) {
-    if (root == black_sentinel) {
+    if (root == tree.black_null) {
         return 1;
     }
     heap_node_t *left = root->right;
@@ -882,7 +880,7 @@ int calculate_bheight_V2(heap_node_t *root) {
  * @param *root                the starting node of the red black tree to check.
  */
 bool is_bheight_valid_V2(heap_node_t *root) {
-    return calculate_bheight_V2(tree_root) != 0;
+    return calculate_bheight_V2(tree.root) != 0;
 }
 
 
@@ -905,27 +903,27 @@ bool validate_heap() {
         return false;
     }
     // Does a tree search for all memory match the linear heap search for totals?
-    if (!is_rbtree_mem_valid(tree_root, total_free_mem)) {
+    if (!is_rbtree_mem_valid(tree.root, total_free_mem)) {
         breakpoint();
         return false;
     }
     // Two red nodes in a row are invalid for the table.
-    if (is_red_red(tree_root)) {
+    if (is_red_red(tree.root)) {
         breakpoint();
         return false;
     }
     // Does every path from a node to the black sentinel contain the same number of black nodes.
-    if (!is_bheight_valid(tree_root)) {
+    if (!is_bheight_valid(tree.root)) {
         breakpoint();
         return false;
     }
     // Check that the parents and children are updated correctly if duplicates are deleted.
-    if (!is_parent_valid(tree_root)) {
+    if (!is_parent_valid(tree.root)) {
         breakpoint();
         return false;
     }
     // This comes from a more official write up on red black trees so I included it.
-    if (!is_bheight_valid_V2(tree_root)) {
+    if (!is_bheight_valid_V2(tree.root)) {
         breakpoint();
         return false;
     }
@@ -956,7 +954,7 @@ typedef enum print_node_t {
 void print_node(heap_node_t *root) {
     size_t block_size = extract_block_size(root->header);
     printf(COLOR_CYN);
-    if (root->parent != black_sentinel) {
+    if (root->parent != tree.black_null) {
         root->parent->left == root ? printf("L:") : printf("R:");
     }
     printf(COLOR_NIL);
@@ -976,7 +974,7 @@ void print_node(heap_node_t *root) {
  * @param node_type         the node to print can either be a leaf or internal branch.
  */
 void print_inner_tree(heap_node_t *root, char *prefix, print_node_t node_type) {
-    if (root == black_sentinel) {
+    if (root == tree.black_null) {
         return;
     }
     // Print the root node
@@ -992,9 +990,9 @@ void print_inner_tree(heap_node_t *root, char *prefix, print_node_t node_type) {
         snprintf(str, string_length, "%s%s", prefix, node_type == LEAF ? "     " : " │   ");
     }
     if (str != NULL) {
-        if (root->right == black_sentinel) {
+        if (root->right == tree.black_null) {
             print_inner_tree(root->left, str, LEAF);
-        } else if (root->left == black_sentinel) {
+        } else if (root->left == tree.black_null) {
             print_inner_tree(root->right, str, LEAF);
         } else {
             print_inner_tree(root->right, str, BRANCH);
@@ -1010,7 +1008,7 @@ void print_inner_tree(heap_node_t *root, char *prefix, print_node_t node_type) {
  * @param *root          the root node to begin at for printing recursively.
  */
 void print_rb_tree(heap_node_t *root) {
-    if (root == black_sentinel) {
+    if (root == tree.black_null) {
         return;
     }
     // Print the root node
@@ -1018,9 +1016,9 @@ void print_rb_tree(heap_node_t *root) {
     print_node(root);
 
     // Print any subtrees
-    if (root->right == black_sentinel) {
+    if (root->right == tree.black_null) {
         print_inner_tree(root->left, "", LEAF);
-    } else if (root->left == black_sentinel) {
+    } else if (root->left == tree.black_null) {
         print_inner_tree(root->right, "", LEAF);
     } else {
         print_inner_tree(root->right, "", BRANCH);
@@ -1116,7 +1114,7 @@ void print_bad_jump(heap_node_t *current, heap_node_t *prev) {
     printf("\tBlock Byte Value: %zubytes:\n", cur_size);
     printf("\nJump by %zubytes...\n", cur_size);
     printf("Current state of the free tree:\n");
-    print_rb_tree(tree_root);
+    print_rb_tree(tree.root);
 }
 
 /* @brief dump_tree  prints just the tree with addresses, colors, black heights, and whether a
@@ -1126,7 +1124,7 @@ void print_bad_jump(heap_node_t *current, heap_node_t *prev) {
 void dump_tree() {
     printf(COLOR_CYN "(+X)" COLOR_NIL);
     printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A NEXT NODE.\n");
-    print_rb_tree(tree_root);
+    print_rb_tree(tree.root);
 }
 
 /* * * * * * * * * * * *   Printing Debugger   * * * * * * * * * * */
@@ -1168,9 +1166,9 @@ void dump_heap() {
         prev = node;
         node = get_right_neighbor(node, full_size);
     }
-    extract_color(black_sentinel->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
+    extract_color(tree.black_null->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
     printf("%p: BLACK NULL HDR->0x%016zX\n" COLOR_NIL,
-            black_sentinel, black_sentinel->header);
+            tree.black_null, tree.black_null->header);
     printf("%p: FINAL ADDRESS", (byte_t *)heap.client_end + HEAP_NODE_WIDTH);
     printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
     printf("COLOR KEY: "
@@ -1182,6 +1180,6 @@ void dump_heap() {
     printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
     printf(COLOR_CYN "(+X)" COLOR_NIL);
     printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A NEXT NODE.\n");
-    print_rb_tree(tree_root);
+    print_rb_tree(tree.root);
 }
 
