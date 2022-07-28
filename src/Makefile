@@ -1,24 +1,22 @@
-# A simple makefile for building a program composed of C source files.
-# Refer to CS107 guide to Make for background info on makefiles
+SRCDIR = ../src
+OBJDIR = ../obj
+SRC := $(wildcard $(SRCDIR)/*.c)
+OBJ := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o,$(SRC))
 
-# EDIT HERE to apply different gcc optimization flags (-Ox and -fxxx)
-# Initially, the flags are configured for no optimization (to enable better
-# debugging) but you can experiment with different compiler settings
-# (e.g. different levels and enabling/disabling specific optimizations)
-rbtree_clrs.o: CFLAGS += -O0
-rbtree_unified.o: CFLAGS += -O0
-rbtree_linked.o: CFLAGS += -O0
-rbtree_stack.o: CFLAGS += -O0
-rbtree_topdown.o: CFLAGS += -O0
+# They had us try different optimization levels here (-O0, -O2, etc).
+$(OBJDIR)/rbtree_clrs.o: CFLAGS += -O0
+$(OBJDIR)/rbtree_unified.o: CFLAGS += -O0
+$(OBJDIR)/rbtree_linked.o: CFLAGS += -O0
+$(OBJDIR)/rbtree_stack.o: CFLAGS += -O0
+$(OBJDIR)/rbtree_topdown.o: CFLAGS += -O0
 
 ALLOCATORS = rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
-PROGRAMS = $(ALLOCATORS:%=test_%)
-MY_PROGRAMS = $(ALLOCATORS:%=my_optional_program_%)
+PROGRAMS = $(addprefix $(OBJDIR)/test_,$(ALLOCATORS))
+MY_PROGRAMS = $(addprefix $(OBJDIR)/my_optional_program_,$(ALLOCATORS))
 
 all:: $(PROGRAMS) $(MY_PROGRAMS)
 
-# Mac needs gcc-11 and some path trickery to compile with a proper gcc compiler and not clang.
-# Mac uses a homebrew install of gcc and puts it before clang in the $PATH. Linux is fine with gcc.
+# I had to use gcc-11 on mac to be able to build this project.
 UNAME := $(shell uname)
 ifeq ($(UNAME),Darwin)
 CC = gcc-11
@@ -31,15 +29,14 @@ export warnflags = -Wfloat-equal -Wtype-limits -Wpointer-arith -Wlogical-op -Wsh
 LDFLAGS =
 LDLIBS =
 
-$(PROGRAMS): test_%:%.o segment.c test_harness.c
+$(OBJ): $(OBJDIR)/%.o: $(SRCDIR)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(PROGRAMS): $(OBJDIR)/test_%: $(OBJDIR)/%.o segment.c test_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(MY_PROGRAMS): my_optional_program_%:my_optional_program.c %.o segment.c
+$(MY_PROGRAMS): $(OBJDIR)/my_optional_program_%: my_optional_program.c $(OBJDIR)/%.o segment.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean::
-	rm -f $(PROGRAMS) $(MY_PROGRAMS) *.o callgrind.out.*
-
-.PHONY: clean all
-
-.INTERMEDIATE: $(ALLOCATORS:%=%.o)
+	rm -f $(PROGRAMS) $(MY_PROGRAMS) $(OBJ) callgrind.out.*
