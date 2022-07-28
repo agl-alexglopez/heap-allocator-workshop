@@ -1,7 +1,7 @@
 /* Last Updated: Alex G. Lopez, 2022.07.25
  * Assignment: Bonus, Tree Heap Allocator
  *
- * File: explicit_tree_unified.c
+ * File: rbtree_unified.c
  * ---------------------
  *  This file contains my implementation of an explicit heap allocator. This allocator uses a tree
  *  implementation to track the free space in the heap, relying on the properties of a red-black
