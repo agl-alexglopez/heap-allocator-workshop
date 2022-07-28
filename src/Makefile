@@ -5,13 +5,13 @@
 # Initially, the flags are configured for no optimization (to enable better
 # debugging) but you can experiment with different compiler settings
 # (e.g. different levels and enabling/disabling specific optimizations)
-explicit_tree_clrs.o: CFLAGS += -O0
-explicit_tree_unified.o: CFLAGS += -O0
-explicit_tree_unified_doubly.o: CFLAGS += -O0
-explicit_tree_unified_stack.o: CFLAGS += -O0
-explicit_tree_unified_topdown.o: CFLAGS += -O0
+rbtree_clrs.o: CFLAGS += -O0
+rbtree_unified.o: CFLAGS += -O0
+rbtree_linked.o: CFLAGS += -O0
+rbtree_stack.o: CFLAGS += -O0
+rbtree_topdown.o: CFLAGS += -O0
 
-ALLOCATORS = explicit_tree_clrs explicit_tree_unified explicit_tree_unified_stack explicit_tree_unified_doubly explicit_tree_unified_topdown
+ALLOCATORS = rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
 PROGRAMS = $(ALLOCATORS:%=test_%)
 MY_PROGRAMS = $(ALLOCATORS:%=my_optional_program_%)
 

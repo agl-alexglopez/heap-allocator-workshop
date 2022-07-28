@@ -14,7 +14,7 @@ I spent much of the summer of 2022 exploring the different ways that I could imp
 
 ## CLRS Allocator
 
-> **Read my code here ([`explicit_tree_clrs.c`](/src/explicit_tree_clrs.c)).**
+> **Read my code here ([`rbtree_clrs.c`](/src/rbtree_clrs.c)).**
 
 I modeled the code in my first allocator directly from the pseudocode in the textbook and it was a challenging endeavor. Making sure that all the code across every symmetric case is correct, well named, and specific to the needs of a heap allocator was a bug prone journey. However, I now have a faithful reproduction of the textbook algorithm where applicable. I added logic to make deleting from the tree a best fit approach. For a call to `malloc` we are able to service the request in $\Theta(lgN)$ time while providing the best possible fitting node and splitting off any extra space and returning it to the tree if it is far too big.
 
@@ -38,7 +38,7 @@ It also turns out that red-black trees are perfectly capable of handling duplica
 
 ## Unified Allocator
 
-> **Read my code here ([`explicit_tree_unified.c`](/src/explicit_tree_unified.c)).**
+> **Read my code here ([`rbtree_unified.c`](/src/rbtree_unified.c)).**
 
 The downside to the CLRS implementation of a Red Black Tree is that there are many cases to consider, and for the major fixup operations after inserting and deleting, we have to consider two symmetric cases. It would be much more readable code if we could unite these cases and functions into the minimum possible lines of code. A great way to do this is with an array and an enum!
 
@@ -246,7 +246,7 @@ This implementation seems to speed up the allocator slightly on my desktop runni
 
 ## Doubly Linked Duplicates
 
-> **Read my code here ([`explicit_tree_unified_doubly.c`](/src/explicit_tree_unified_doubly.c)).**
+> **Read my code here ([`rbtree_linked.c`](/src/rbtree_linked.c)).**
 
 Unified left and right cases makes an implmentation well suited to try out even more creative strategies for using an array and an enum. Recall in both implementations that duplicate nodes are allowed. This makes the allocator fast by giving us immediate access to free any node from the tree and then fix the removal, but what if we could get a best case of constant time removals and cut down on the size of our tree? This might help with costly fixup operations.
 
@@ -341,7 +341,7 @@ This implementation comes out slightly faster than a normal red black tree. I on
 
 ## Unified Stack
 
-> **Read my code here ([`explicit_tree_unified_stack.c`](/src/explicit_tree_unified_stack.c)).**
+> **Read my code here ([`rbtree_stack.c`](/src/rbtree_stack.c)).**
 
 If we now bring all of the strengths of the past improvements I have discussed, we can make a more space efficient, fast allocator that solves some of the challenges a heap allocator implementation poses for red black trees. One technique that is common when we want to save space in a red black tree is to eliminate the parent field. Instead, we use an array and treat it as a stack to represent the path down to the nodes we need to work with. This eliminates an eight byte pointer from the struct and in a normal red black tree might look something like this. Please note, I am using my array method for this implementation as well to eliminate symmetric cases.
 
@@ -378,7 +378,7 @@ This allocator will be slightly slower than the previous allocator with a parent
 
 ## Unified Topdown
 
-> **Read my code here ([`explicit_tree_unified_topdown.c`](/src/explicit_tree_unified_topdown.c)).**
+> **Read my code here ([`rbtree_topdown.c`](/src/rbtree_topdown.c)).**
 
 Just when I thought that a stack was a space efficient implementation, but sacrificed on some speed, it turns out there is an optimal solution that mitigates the cost of forgoing a parent field. We can consider repairing a Red Black tree on the way down to a node that we need to insert or remove. This is an amazing idea that I read on Julienne Walker's [**`Eternally Confuzzled`**](https://web.archive.org/web/20141129024312/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx) website. I could only find the archived website at this point, but I am glad I did. This algorithm solves most of the problems that come with forgoing the parent field in a red black tree. There are, however, significant modifications to Walker's implementation required to make the topdown algorithms work with a heap allocator.
 
