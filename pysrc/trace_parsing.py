@@ -156,11 +156,11 @@ def add_line(call_type, memory_id, total_bytes):
     r 3 1200
     """
     if call_type == Heap_Call.free:
-        print(f"{Print_Call.free} {memory_id}")
+        return f'{Print_Call.free} {memory_id}'
     elif call_type == Heap_Call.alloc:
-        print(f"{Print_Call.alloc} {memory_id} {total_bytes}")
+        return f'{Print_Call.alloc} {memory_id} {total_bytes}'
     elif call_type == Heap_Call.realloc:
-        print(f"{Print_Call.realloc} {memory_id} {total_bytes}")
+        return f'{Print_Call.realloc} {memory_id} {total_bytes}'
 
 def parse_file_heap_use(input_trace):
     """
@@ -169,7 +169,6 @@ def parse_file_heap_use(input_trace):
     """
     memory_dict = {}
     memory_ids = 0
-
     # open the file
     with open(input_trace, encoding='utf-8') as f:
         # For each line in the file
@@ -184,10 +183,10 @@ def parse_file_heap_use(input_trace):
                 call = get_heap_call(line)
                 # check if the call is free or realloc
                 if call == Heap_Call.free:
-                    add_line(Heap_Call.free, memory_dict[heap_address], 0)
+                    print(add_line(Heap_Call.free, memory_dict[heap_address], 0))
                     memory_dict.pop(heap_address)
                 elif call == Heap_Call.realloc:
-                    add_line(Heap_Call.realloc, memory_dict[heap_address], get_heap_bytes(line))
+                    print(add_line(Heap_Call.realloc, memory_dict[heap_address], get_heap_bytes(line)))
             # If the call is new
             elif heap_address:
                 # If the call is free and address not in dict, discard
@@ -195,11 +194,52 @@ def parse_file_heap_use(input_trace):
                 # If the call is realloc
                 if call == Heap_Call.realloc:
                     memory_dict[heap_address] = memory_ids
-                    add_line(Heap_Call.alloc, memory_ids, 8)
-                    add_line(Heap_Call.realloc, memory_ids, get_heap_bytes(line))
+                    print(add_line(Heap_Call.alloc, memory_ids, 8))
+                    print(add_line(Heap_Call.realloc, memory_ids, get_heap_bytes(line)))
                     memory_ids += 1
                     # If the address is not in the dict, make a malloc then realloc call.
                 elif call == Heap_Call.alloc:
                     memory_dict[heap_address] = memory_ids
-                    add_line(Heap_Call.alloc, memory_ids, get_heap_bytes(line))
+                    print(add_line(Heap_Call.alloc, memory_ids, get_heap_bytes(line)))
                     memory_ids += 1
+
+
+def validate_script(file):
+    # Track the most recent request for each memory id number. Make sure they are logical.
+    memory_request_dict = {}
+    with open(file, 'r', encoding='utf-8') as f:
+        for line in f:
+            line_lst = line.split(' ')
+            memory_id = line_lst[1]
+            request_type = line_lst[0]
+            if memory_id not in memory_request_dict:
+                if request_type == 'r':
+                    raise ValueError('Did not properly add alloc before incoming realloc.')
+                elif request_type == 'f':
+                    raise ValueError('Free request for memory id not in the script yet.')
+                else:
+                    memory_request_dict[memory_id] = request_type
+            else:
+                # Keeping the last request should be helpful because we can spot use after free.
+                if memory_request_dict[memory_id] == 'f':
+                    raise ValueError('Use of memory id after free. Bad script.')
+                elif request_type == 'a':
+                    raise ValueError('Two allocations with same memory id should not be possible.')
+
+
+def main():
+    args = sys.argv[1:]
+
+    # -parse trace_input parsed_file_output
+    if len(args) == 3 and args[0] == '-parse':
+        original_stdout = sys.stdout
+        with open(args[2], 'w') as f:
+            sys.stdout = f
+            parse_file_heap_use(args[1])
+            sys.stdout = original_stdout
+            validate_script(args[2])
+            print('Done!')
+
+
+if __name__ == '__main__':
+    main()
