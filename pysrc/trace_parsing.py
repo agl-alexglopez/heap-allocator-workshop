@@ -184,8 +184,8 @@ def parse_file_heap_use(input_trace):
                 call = get_heap_call(line)
                 # check if the call is free or realloc
                 if call == Heap_Call.free:
-                    memory_dict.pop(heap_address)
                     add_line(Heap_Call.free, memory_dict[heap_address], 0)
+                    memory_dict.pop(heap_address)
                 elif call == Heap_Call.realloc:
                     add_line(Heap_Call.realloc, memory_dict[heap_address], get_heap_bytes(line))
             # If the call is new
