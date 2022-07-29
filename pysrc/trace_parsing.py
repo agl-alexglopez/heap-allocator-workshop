@@ -15,7 +15,7 @@ The four outputs of interest from the heap tracing files are as follows:
     make->realloc(0x56167a22c440, 8)                 = 0x56167a252a00
     make->free(0x56167a22c440)                       = <void>
 
-Their outputs should be to a file with the following format:
+Their outputs should be to a .script file with the following format:
 
     a 1 8192
     a 2 48
@@ -23,33 +23,48 @@ Their outputs should be to a file with the following format:
     f 1
 
 Malloc and calloc are the same in the view of this program and we will always produce a valid
-allocation before a reallocation. Freeing an address that has not yet been allocated will be
-ignored.
+allocation before a reallocation, even if we must quickly make one artificially. Freeing an
+address that has not yet been allocated will be ignored.
 """
 
 import sys
 import enum
+
 
 class Heap_Call(enum.Enum):
     alloc = 1
     realloc = 2
     free = 3
 
+
 def get_heap_address(line):
-    line_lst = line.split('=')
-    if len(line_lst) == 1:
+    """
+    Given a line of text, determines the hexadecimal address of the heap request. However, we will
+    just take the number as a unique integer to put into our map, base 10.
+
+    >>> get_heap_address('gcc->malloc(48)=0x18102a0')
+    25232032
+    >>> get_heap_address('gcc->free(0x1836e50)=<void>')
+    25390672
+    >>> get_heap_address('gcc -g3 -O0 -std=gnu99 -Wall $warnflags  triangle.c  -o triangle')
+    >>> get_heap_address('+++ exited (status 0) +++')
+    >>> get_heap_address('---SIGCHLD (Child exited)---')
+    """
+    # The arrow prepends any malloc, calloc, realloc, or free.
+    if '->' not in line:
         return None
-    if line_lst[1] == '<void>':
-        first_half = line_lst[0]
-        open_bracket = first_half.find('free(0x')
-        i = open_bracket + 7
-        while i < len(first_half) and first_half[i].isdigit():
+    equals = line.find('=')
+    first_half = line[:equals]
+    second_half = line[equals + 1:]
+    # Free only has the hex id in the first half in the free() call.
+    if second_half == '<void>':
+        open_bracket = first_half.find('free(')
+        i = open_bracket + 5
+        while i < len(first_half) and first_half[i] != ')':
             i += 1
-        address = first_half[open_bracket + 7: i]
-
-
-
-
+        address = first_half[open_bracket + 5: i]
+        return int(address, 16)
+    return int(second_half, 16)
 
 
 def parse_file_heap_use(input_trace):
@@ -74,8 +89,8 @@ def parse_file_heap_use(input_trace):
                 call = get_heap_call(line)
                 # check if the call is free or realloc
                 if call == Heap_Call.free:
-                    memory_dict.pop(heap_address);
-                    add_line(Heap_Call.free, memory_dict[heap_address], 0);
+                    memory_dict.pop(heap_address)
+                    add_line(Heap_Call.free, memory_dict[heap_address], 0)
                 elif call == Heap_Call.realloc:
                     add_line(Heap_Call.realloc, memory_dict[heap_address], get_heap_bytes(line))
             # If the call is new
@@ -93,4 +108,3 @@ def parse_file_heap_use(input_trace):
                     memory_dict[heap_address] = memory_ids
                     add_line(Heap_Call.alloc, memory_ids, get_heap_bytes(line))
                     memory_ids += 1
-
