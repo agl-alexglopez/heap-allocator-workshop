@@ -30,11 +30,22 @@ address that has not yet been allocated will be ignored.
 import sys
 import enum
 
+class Heap_Strings():
+    malloc = 'malloc'
+    calloc = 'calloc'
+    realloc = 'realloc'
+    free = 'free'
+
 
 class Heap_Call(enum.Enum):
     alloc = 1
     realloc = 2
     free = 3
+
+class Print_Call():
+    alloc = 'a'
+    realloc = 'r'
+    free = 'f'
 
 
 def get_heap_address(line):
@@ -66,6 +77,90 @@ def get_heap_address(line):
         return int(address, 16)
     return int(second_half, 16)
 
+
+def get_heap_call(line):
+    """
+    >>> get_heap_call('make->calloc(8192, 1)=0x56167a22c440')
+    <Heap_Call.alloc: 1>
+    >>> get_heap_call('make->malloc(8192)=0x56167a22c440')
+    <Heap_Call.alloc: 1>
+    >>> get_heap_call('make->free(0x56167a22c440)=<void>')
+    <Heap_Call.free: 3>
+    >>> get_heap_call('make->realloc(0x56167a22c440, 8192)=0x56167a22c440')
+    <Heap_Call.realloc: 2>
+    >>> get_heap_address('gcc -g3 -O0 -std=gnu99 -Wall $warnflags  triangle.c  -o triangle')
+    >>> get_heap_address('+++ exited (status 0) +++')
+    >>> get_heap_address('---SIGCHLD (Child exited)---')
+    """
+    call_index = line.find('->')
+    if call_index == -1:
+        return None
+    i = call_index + 2
+    while i < len(line) and line[i] != '(':
+        i += 1
+    call = line[call_index + 2: i]
+    if call == Heap_Strings.calloc or call == Heap_Strings.malloc:
+        return Heap_Call.alloc
+    elif call == Heap_Strings.realloc:
+        return Heap_Call.realloc
+    elif call == Heap_Strings.free:
+        return Heap_Call.free
+
+
+def get_heap_bytes(line):
+    """
+    >>> get_heap_bytes('make->calloc(8192,1)=0x56167a22c440')
+    '8192'
+    >>> get_heap_bytes('make->calloc(8192,4)=0x56167a22c440')
+    '32768'
+    >>> get_heap_bytes('make->malloc(8192)=0x56167a22c440')
+    '8192'
+    >>> get_heap_bytes('make->free(0x56167a22c440)=<void>')
+    >>> get_heap_bytes('make->realloc(0x56167a22c440,8192)=0x56167a22c440')
+    '8192'
+    >>> get_heap_bytes('gcc-g3-O0-std=gnu99-Wall$warnflagstriangle.c-otriangle')
+    >>> get_heap_bytes('+++exited(status 0)+++')
+    >>> get_heap_bytes('---SIGCHLD(Childexited)---')
+    """
+    arrow = line.find('->')
+    if arrow == -1:
+        return None
+    open_bracket = line.find('(', arrow)
+    specific_call = line[arrow + 2: open_bracket]
+    if specific_call == Heap_Strings.calloc:
+        comma = line.find(',', open_bracket)
+        number_of_items = line[open_bracket + 1: comma]
+        closing_bracket = line.find(')', comma)
+        byte_size = line[comma + 1: closing_bracket]
+        full_bytes = str(int(number_of_items) * int(byte_size))
+        return full_bytes
+    elif specific_call == Heap_Strings.malloc:
+        closing_bracket = line.find(')', open_bracket)
+        full_bytes = line[open_bracket + 1: closing_bracket]
+        return full_bytes
+    elif specific_call == Heap_Strings.realloc:
+        comma = line.find(',', open_bracket)
+        closing_bracket = line.find(')', comma)
+        full_bytes = line[comma + 1: closing_bracket]
+        return full_bytes
+    return None
+
+
+def add_line(call_type, memory_id, total_bytes):
+    """
+    >>> add_line(Heap_Call.free, 4, '0')
+    f 4
+    >>> add_line(Heap_Call.alloc, 3, '900')
+    a 3 900
+    >>> add_line(Heap_Call.realloc, 3, '1200')
+    r 3 1200
+    """
+    if call_type == Heap_Call.free:
+        print(f"{Print_Call.free} {memory_id}")
+    elif call_type == Heap_Call.alloc:
+        print(f"{Print_Call.alloc} {memory_id} {total_bytes}")
+    elif call_type == Heap_Call.realloc:
+        print(f"{Print_Call.realloc} {memory_id} {total_bytes}")
 
 def parse_file_heap_use(input_trace):
     """
