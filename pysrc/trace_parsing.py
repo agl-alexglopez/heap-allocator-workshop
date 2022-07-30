@@ -27,8 +27,11 @@ allocation before a reallocation, even if we must quickly make one artificially.
 address that has not yet been allocated will be ignored.
 """
 
-import sys
 import enum
+import random
+import sys
+
+ALL_IDS = -2
 
 class Heap_Strings():
     malloc = 'malloc'
@@ -162,6 +165,7 @@ def add_line(call_type, memory_id, total_bytes):
     elif call_type == Heap_Call.realloc:
         return f'{Print_Call.realloc} {memory_id} {total_bytes}'
 
+
 def parse_file_heap_use(input_trace):
     """
     Given a file with the output from the ltrace command on unix like systems, add lines to a
@@ -204,6 +208,136 @@ def parse_file_heap_use(input_trace):
                     memory_ids += 1
 
 
+def identify_call(call_string):
+    """
+    Given a string containing a heap request determine the request and return the appropriate
+    printable request type.
+    >>> identify_call('realloc ')
+    'r'
+    >>> identify_call('alloc(200) ')
+    'a'
+    >>> identify_call('free 500')
+    'f'
+    """
+    i = 0
+    while i < len(call_string) and call_string[i].isalpha():
+        i += 1
+    call = call_string[:i]
+    if call == 'alloc':
+        return Print_Call.alloc
+    elif call == 'realloc':
+        return Print_Call.realloc
+    elif call == 'free':
+        return Print_Call.free
+
+
+def identify_byte_range(call_str):
+    """
+    Given a string of a heap request, returns a tuple of the byte
+    range the user desires as an integer. The user may not specify
+    the single size or range they desire in which case a random
+    allocation will be generated for them.
+    >>> identify_byte_range('alloc(500) ')
+    (500, None)
+    >>> identify_byte_range('alloc(50,500) ')
+    (50, 500)
+    >>> identify_byte_range('realloc(500,1200) ')
+    (500, 1200)
+    """
+    i = 0
+    while i < len(call_str) and call_str[i] != '(' and call_str[i] != ' ':
+        i += 1
+    # The user has not made any specification on range so we choose random
+    if call_str[i] == ' ':
+        return random.randint(8, 50), random.randint(200, 1200)
+    j = i + 1
+    while j < len(call_str) and call_str[j] != ',' and call_str[j] != ')':
+        j += 1
+    # The user has requested uniform sizes of all requests.
+    if call_str[j] == ')':
+        uniform_byte_size = call_str[i + 1: j]
+        return int(uniform_byte_size), None
+    # The user has entered alloc(lower_bound,upper_bound)
+    lower_bound = call_str[i + 1: j]
+    closing_bracket = call_str.find(')', j)
+    upper_bound = call_str[j + 1: closing_bracket]
+    return int(lower_bound), int(upper_bound)
+
+
+def identify_num_requests(call_str):
+    """
+    Given a string with a request pattern from the user, return the integer number of
+    requests. If there is no number specifying the number of arguments, we will run over
+    all current allocations with the given request by returning the ALL_IDS constant.
+    >>> identify_num_requests('alloc(single_byte_size) 10000 -realloc')
+    10000
+    >>> identify_num_requests('-realloc(500) 600 -free')
+    600
+    >>> identify_num_requests('-realloc(500,1200) -free')
+    -2
+    >>> identify_num_requests('-free')
+    -2
+    >>> identify_num_requests('-free 600')
+    600
+    >>> identify_num_requests('-free')
+    -2
+    """
+    space = call_str.find(' ')
+    # We are out of arguments
+    if space == -1 or call_str[space + 1] == '-':
+        return ALL_IDS
+    next_space = call_str.find(' ', space + 1)
+    # Free a certain number was the last user request.
+    if next_space == -1:
+        return int(call_str[space + 1:])
+    return int(call_str[space + 1: next_space])
+
+
+def generate_file_heap_use(arg_array):
+    """
+    Given an array of heap requests to process of the pattern '-request number_of_requests'
+    generate a script that follows the requested pattern. By default requests to free
+    memory will free every other memory address, otherwise coalescing would create one large
+    free block.
+    """
+    alloc_ids = 0
+    free_ids = 0
+    realloc_ids = 0
+    for arg in arg_array:
+        if arg[0] == '-':
+            # Identify the argument
+            arg_call = identify_call(arg[1:])
+            if arg_call == Print_Call.free:
+                num_requests = identify_num_requests(arg[1:])
+                if num_requests == ALL_IDS:
+                    num_requests = alloc_ids
+                for i in range(free_ids, num_requests):
+                    print(f'{Print_Call.free} {free_ids}')
+                    free_ids += 1
+            elif arg_call == Print_Call.alloc:
+                byte_tuple = identify_byte_range(arg[1:])
+                num_requests = identify_num_requests(arg[1:])
+                for i in range(num_requests):
+                    if byte_tuple[0] and byte_tuple[1]:
+                        print(f'{Print_Call.alloc} {alloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
+                    else:
+                        print(f'{Print_Call.alloc} {alloc_ids} {byte_tuple[0]}')
+                    alloc_ids += 1
+            elif arg_call == Print_Call.realloc:
+                byte_tuple = identify_byte_range(arg[1:])
+                num_requests = identify_num_requests(arg[1:])
+                if num_requests == ALL_IDS:
+                    num_requests = alloc_ids
+                # reallocs are not harmful and can operate on the same memory address multiple times.
+                for i in range(num_requests):
+                    if byte_tuple[0] and byte_tuple[1]:
+                        print(f'{Print_Call.realloc} {realloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
+                    else:
+                        print(f'{Print_Call.realloc} {realloc_ids} {byte_tuple[0]}')
+                    # reallocs will just wrap around to more allocated memory if necessary.
+                    realloc_ids = (realloc_ids + 1) % alloc_ids
+
+
 def validate_script(file):
     # Track the most recent request for each memory id number. Make sure they are logical.
     memory_request_dict = {}
@@ -238,7 +372,32 @@ def main():
             parse_file_heap_use(args[1])
             sys.stdout = original_stdout
             validate_script(args[2])
-            print('Done!')
+            print('Ltrace successfully parsed!')
+
+    # Requests to generate custom scripts must always begin with alloc.
+    # Unspecified range of request size will be random.
+    # -generate filename -alloc 10000 -free 5000
+
+    # DO NOT USE SPACES FOR BYTE RANGES BETWEEN PARENTHESIS
+    # -generate filename -alloc(smallest_byte_size,largest_byte_size) 10000 -free 5000
+    # -generate filename -alloc(single_byte_size) 10000 -free 5000
+
+    # realloc will default to reallocing every alloc to a random size.
+    # -generate filename -alloc(single_byte_size) 10000 -realloc
+    # or it can realloc all to a specified size
+    # -generate filename -alloc(single_byte_size) 10000 -realloc(800)
+    # or it can realloc all within a random range.
+    # -generate filename -alloc(single_byte_size) 10000 -realloc(800,1200)
+    # or it can realloc a certain number of allocations.
+    # -generate filename -alloc(single_byte_size) 10000 -realloc(800,1200) 500 -free
+    if len(args) >= 4 and args[0] == '-generate':
+        original_stdout = sys.stdout
+        with open(args[1], 'w') as f:
+            sys.stdout = f
+            generate_file_heap_use(args[2:])
+            sys.stdout = original_stdout
+            validate_script(args[1])
+            print('Script successfully generated!')
 
 
 if __name__ == '__main__':
