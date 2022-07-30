@@ -49,6 +49,7 @@ class Print_Call():
     alloc = 'a'
     realloc = 'r'
     free = 'f'
+    leak = 'l'
 
 
 def get_heap_address(line):
@@ -189,7 +190,9 @@ def parse_file_heap_use(input_trace):
                 call = get_heap_call(line)
                 # check if the call is free or realloc
                 if call == Heap_Call.free:
-                    print(add_line(Heap_Call.free, memory_dict[heap_address], 0))
+                    id_list = memory_dict[heap_address]
+                    to_del = id_list[len(id_list) - 1]
+                    print(add_line(Heap_Call.free, to_del, 0))
                     memory_dict.pop(heap_address)
                 elif call == Heap_Call.realloc:
                     # We have multiple malloc callocs under same id so just choose one at random to realloc.
@@ -245,6 +248,8 @@ def identify_call(call_string):
         return Print_Call.realloc
     elif call == 'free':
         return Print_Call.free
+    elif call == 'leak':
+        return Print_Call.leak
 
 
 def identify_byte_range(call_str):
@@ -330,18 +335,18 @@ def generate_file_heap_use(arg_array):
                 if num_requests == ALL_IDS:
                     num_requests = len(alloc_ids_set)
                 for i in range(free_ids, num_requests):
-                    print(f'{Print_Call.free} {free_ids}\n', end='')
                     alloc_ids_set.remove(free_ids)
+                    print(f'{Print_Call.free} {free_ids}')
                     free_ids += 2
             elif arg_call == Print_Call.alloc:
                 byte_tuple = identify_byte_range(arg_string[1:])
                 num_requests = identify_num_requests(arg_string[1:])
                 for i in range(num_requests):
-                    if byte_tuple[0] and byte_tuple[1]:
-                        print(f'{Print_Call.alloc} {alloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}\n', end='')
-                    else:
-                        print(f'{Print_Call.alloc} {alloc_ids} {byte_tuple[0]}\n', end='')
                     alloc_ids_set.add(alloc_ids)
+                    if byte_tuple[0] and byte_tuple[1]:
+                        print(f'{Print_Call.alloc} {alloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
+                    else:
+                        print(f'{Print_Call.alloc} {alloc_ids} {byte_tuple[0]}')
                     alloc_ids += 1
             elif arg_call == Print_Call.realloc:
                 byte_tuple = identify_byte_range(arg_string[1:])
@@ -351,11 +356,14 @@ def generate_file_heap_use(arg_array):
                 # reallocs are not harmful and can operate on the same memory address multiple times.
                 for i in range(num_requests):
                     if byte_tuple[0] and byte_tuple[1]:
-                        print(f'{Print_Call.realloc} {realloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}\n', end='')
+                        print(f'{Print_Call.realloc} {realloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
                     else:
                         print(f'{Print_Call.realloc} {realloc_ids} {byte_tuple[0]}\n', end='')
                     # reallocs will just wrap around to more allocated memory if necessary.
                     realloc_ids = (realloc_ids + 1) % alloc_ids
+            # Heap calls will be left as is and we will not automatically free all allocated memory.
+            elif arg_call == Print_Call.leak:
+                return
     for idx, item in enumerate(alloc_ids_set):
         if idx == len(alloc_ids_set) - 1:
             print(f'{Print_Call.free} {item}', end='')
@@ -363,28 +371,26 @@ def generate_file_heap_use(arg_array):
             print(f'{Print_Call.free} {item}')
 
 
-
-def validate_script(file):
+def validate_script(file, leak=False):
     # Track the most recent request for each memory id number. Make sure they are logical.
     memory_request_dict = {}
     with open(file, 'r', encoding='utf-8') as f:
-        for idx,line in enumerate(f):
-            line_lst = line.split(' ')
-            memory_id = line_lst[1]
+        for idx, line in enumerate(f):
+            line_lst = line.split()
             request_type = line_lst[0]
+            memory_id = line_lst[1]
             if memory_id not in memory_request_dict:
                 if request_type == 'r':
-                    raise ValueError(f'line {idx}. Did not properly add alloc before incoming realloc.')
+                    raise ValueError(f'line {idx + 1}. Did not properly add alloc before incoming realloc.')
                 elif request_type == 'f':
-                    raise ValueError(f'line {idx}. Free request for memory id not in the script yet.')
-                else:
-                    memory_request_dict[memory_id] = request_type
+                    raise ValueError(f'line {idx + 1}. Free request for memory id not in the script.')
+                memory_request_dict[memory_id] = request_type
             else:
                 # Keeping the last request should be helpful because we can spot use after free.
-                if memory_request_dict[memory_id] == 'f':
-                    raise ValueError(f'line {idx}. Use of memory id after free. Bad script.')
-                elif request_type == 'a':
-                    raise ValueError(f'line {idx}. Two allocations with same memory id should not be possible.')
+                if request_type == 'a' and memory_request_dict[memory_id] == 'a':
+                    raise ValueError(f'line {idx + 1}. Two allocations with same memory id should not be possible.')
+                elif request_type == 'f':
+                    memory_request_dict.pop(memory_id)
 
 
 def main():
@@ -393,7 +399,7 @@ def main():
     # -parse trace_input parsed_file_output
     if len(args) == 3 and args[0] == '-parse':
         original_stdout = sys.stdout
-        with open(args[2], 'w') as f:
+        with open(args[2], 'w', encoding='utf-8') as f:
             sys.stdout = f
             parse_file_heap_use(args[1])
             sys.stdout = original_stdout
@@ -416,9 +422,11 @@ def main():
     # -generate filename '-alloc(single_byte_size)' 10000 '-realloc(800,1200)'
     # or it can realloc a certain number of allocations.
     # -generate filename '-alloc(single_byte_size)' 10000 '-realloc(800,1200)' 500 -free
+    # Finally, if you do not want to automatically free all memory at end of script use -leak flag.
+    # -generate filename '-alloc(single_byte_size)' 10000 '-free(800,1200) 5000' -leak
     if len(args) >= 4 and args[0] == '-generate':
         original_stdout = sys.stdout
-        with open(args[1], 'w') as f:
+        with open(args[1], 'w', encoding='utf-8') as f:
             print('Generating script...')
             sys.stdout = f
             generate_file_heap_use(args[2:])
