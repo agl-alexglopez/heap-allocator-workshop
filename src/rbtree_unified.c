@@ -64,6 +64,11 @@
 #include "./allocator.h"
 #include "./debug_break.h"
 
+
+/* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */
+
+
+#define TWO_NODE_ARRAY (unsigned short)2
 typedef size_t header_t;
 typedef unsigned char byte_t;
 
@@ -82,7 +87,7 @@ typedef struct heap_node_t {
     header_t header;
     struct heap_node_t *parent;
     // Unify left and right cases with an array.
-    struct heap_node_t *links[2];
+    struct heap_node_t *links[TWO_NODE_ARRAY];
 }heap_node_t;
 
 typedef enum node_color_t {
