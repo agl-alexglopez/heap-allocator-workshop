@@ -145,7 +145,8 @@ void rotate(heap_node_t *current, direction_t rotation) {
     if (parent == black_sentinel) {
         tree_root = child;
     } else {
-        direction_t parent_link = current == parent->links[rotation] ? rotation : opposite;
+        // Another idiom for direction. Think of how we can use True/False.
+        direction_t parent_link = parent->links[RIGHT] == current;
         parent->links[parent_link] = child;
     }
     child->links[rotation] = current;
@@ -213,7 +214,7 @@ Here is the unified version.
 void fix_rb_insert(heap_node_t *current) {
     while(extract_color(current->parent->header) == RED) {
         heap_node_t *parent = current->parent;
-        direction_t grandparent_link = parent->parent->links[LEFT] == parent ? LEFT : RIGHT;
+        direction_t grandparent_link = parent->parent->links[RIGHT] == parent;
         direction_t opposite_link = !grandparent_link;
         heap_node_t *aunt = parent->parent->links[opposite_link];
         if (extract_color(aunt->header) == RED) {
@@ -310,7 +311,7 @@ heap_node_t *free_coalesced_node(heap_node_t *to_coalesce) {
         if (tree_parent == black_sentinel) {
             tree_root = new_head;
         } else {
-            direction_t parent_link = tree_parent->links[LEFT] == to_coalesce ? LEFT : RIGHT;
+            direction_t parent_link = tree_parent->links[RIGHT] == to_coalesce;
             tree_parent->links[parent_link] = new_head;
         }
     // to_coalesce is next after the head and needs special attention due to list_start field.
