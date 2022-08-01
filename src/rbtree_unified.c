@@ -847,10 +847,33 @@ int calculate_bheight_V2(heap_node_t *root) {
 /* @brief is_bheight_valid_V2  the wrapper for calculate_bheight_V2 that verifies that the black
  *                             height property is upheld.
  * @param *root                the starting node of the red black tree to check.
+ * @return                     true if the paths are valid, false if not.
  */
 bool is_bheight_valid_V2(heap_node_t *root) {
     return calculate_bheight_V2(tree.root) != 0;
 }
+
+/* @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left should
+ *                        be less than the root and nodes to the right should be greater.
+ * @param *root           the root of the tree from which we examine children.
+ * @return                true if the tree is valid, false if not.
+ */
+bool is_binary_tree(heap_node_t *root) {
+    if (root == tree.black_null) {
+        return true;
+    }
+    size_t root_value = extract_block_size(root->header);
+    if (root->links[LEFT] != tree.black_null
+            && root_value < extract_block_size(root->links[LEFT]->header)) {
+        return false;
+    }
+    if (root->links[RIGHT] != tree.black_null
+            && root_value > extract_block_size(root->links[RIGHT]->header)) {
+        return false;
+    }
+    return is_binary_tree(root->links[LEFT]) && is_binary_tree(root->links[RIGHT]);
+}
+
 
 /* * * * * * * * * * *      Debugging       * * * * * * * * * * * * * */
 
@@ -893,6 +916,10 @@ bool validate_heap() {
 
     // This comes from a more official write up on red black trees so I included it.
     if (!is_bheight_valid_V2(tree.root)) {
+        breakpoint();
+        return false;
+    }
+    if (!is_binary_tree(tree.root)) {
         breakpoint();
         return false;
     }
