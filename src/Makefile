@@ -4,12 +4,12 @@ SRC := $(wildcard $(SRCDIR)/*.c)
 OBJ := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o,$(SRC))
 
 # They had us try different optimization levels here (-O0, -O2, etc).
-$(OBJDIR)/explicit_list.o: CFLAGS += -Og
-$(OBJDIR)/rbtree_clrs.o: CFLAGS += -Og
-$(OBJDIR)/rbtree_unified.o: CFLAGS += -Og
-$(OBJDIR)/rbtree_linked.o: CFLAGS += -Og
-$(OBJDIR)/rbtree_stack.o: CFLAGS += -Og
-$(OBJDIR)/rbtree_topdown.o: CFLAGS += -Og
+$(OBJDIR)/explicit_list.o: CFLAGS += -O3
+$(OBJDIR)/rbtree_clrs.o: CFLAGS += -O3
+$(OBJDIR)/rbtree_unified.o: CFLAGS += -O3
+$(OBJDIR)/rbtree_linked.o: CFLAGS += -O3
+$(OBJDIR)/rbtree_stack.o: CFLAGS += -O3
+$(OBJDIR)/rbtree_topdown.o: CFLAGS += -O3
 
 ALLOCATORS = explicit_list rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
 PROGRAMS = $(addprefix $(OBJDIR)/test_,$(ALLOCATORS))
