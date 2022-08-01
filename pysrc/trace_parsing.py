@@ -411,7 +411,7 @@ def main():
     # Unspecified range of request size will be random.
     # -generate filename -alloc 10000 -free 5000
 
-    # DO NOT USE SPACES FOR BYTE RANGES BETWEEN PARENTHESIS AND WRAP IN QUOTES
+    # DO NOT USE SPACES FOR BYTE RANGES BETWEEN PARENTHESIS. WRAP IN 'QUOTES'
     # -generate filename '-alloc(smallest_byte_size,largest_byte_size)' 10000 -free 5000
     # -generate filename '-alloc(single_byte_size)' 10000 -free 5000
 
@@ -438,3 +438,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

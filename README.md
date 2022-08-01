@@ -31,7 +31,7 @@ It also turns out that red-black trees are perfectly capable of handling duplica
 
 ### CLRS Analysis
 
-- **`free()`**- Freeing an allocated block, thus inserting it into a red black tree, takes one $\Theta(lgN)$ search to find the place for a new node. The insertion fixup algorithm calls for a worst case of $O(lgN)$ fixup operations as we work back up the tree, giving us $\Theta(lgN) + \Theta(lgN)$, or just $\Theta(lgN)$ in big-O time complexity.
+- **`free()`**- Freeing an allocated block, thus inserting it into a red black tree, takes one $\Theta(lgN)$ search to find the place for a new node. The insertion fixup algorithm calls for a worst case of $\Theta(lgN)$ fixup operations as we work back up the tree, giving us $\Theta(lgN) + \Theta(lgN)$, or just $\Theta(lgN)$ in big-O time complexity.
 - **`malloc()`**- Searching the tree for the best fitting block requires one $\Theta(lgN)$ search of the tree. Deleting from a red black tree takes at most three rotations, but $\Theta(lgN)$ color adjustments on the way back up the tree in the worst case.
 - **`coalesce()`**- Both `free()` and `realloc()` coalesce left and right to maximize on reclaimed space. When they do this, if they find a block they will be able to immediately free it from its position in the tree and start the fixup operations. This is because we have the memory address of the block in our heap, and thus our tree. So, we use the parent field to start fixups immediately, costing $\Theta(lgN)$ time.
 - **`style`**- The style of this code is direct and understandable. It is clear what is happening in any given code block due to the use of the left and right cases. However, it can become overwhelming to try to trace through the code for a series of tree operations due to the length of the functions and the cost of the symmetry.
@@ -145,7 +145,8 @@ void rotate(heap_node_t *current, direction_t rotation) {
     if (parent == black_sentinel) {
         tree_root = child;
     } else {
-        direction_t parent_link = current == parent->links[rotation] ? rotation : opposite;
+        // Another idiom for direction. Think of how we can use True/False.
+        direction_t parent_link = parent->links[RIGHT] == current;
         parent->links[parent_link] = child;
     }
     child->links[rotation] = current;
@@ -213,7 +214,7 @@ Here is the unified version.
 void fix_rb_insert(heap_node_t *current) {
     while(extract_color(current->parent->header) == RED) {
         heap_node_t *parent = current->parent;
-        direction_t grandparent_link = parent->parent->links[LEFT] == parent ? LEFT : RIGHT;
+        direction_t grandparent_link = parent->parent->links[RIGHT] == parent;
         direction_t opposite_link = !grandparent_link;
         heap_node_t *aunt = parent->parent->links[opposite_link];
         if (extract_color(aunt->header) == RED) {
@@ -276,7 +277,7 @@ typedef struct heap_node_t {
 }heap_node_t;
 ```
 
-Over the course of an allocator there are many free blocks of the same size that arise and cannot be coalesced because they are not directly next to one another. When coalescing left and right, we may still have a uniquely sized node to delete, resulting in the normal O(logN) deletion operations. However, if the block that we coalesce is a duplicate, we are garunteed O(1) time to absorb and free the node from the doubly linked list. Here is one of the core functions for coalescing that shows just how easy it is with the help of our enum to switch between referring to nodes as nodes in a tree and links in a list.
+Over the course of an allocator there are many free blocks of the same size that arise and cannot be coalesced because they are not directly next to one another. When coalescing left and right, we may still have a uniquely sized node to delete, resulting in the normal $\Theta(lgN)$ deletion operations. However, if the block that we coalesce is a duplicate, we are garunteed $\Theta(1)$ time to absorb and free the node from the doubly linked list. Here is one of the core functions for coalescing that shows just how easy it is with the help of our enum to switch between referring to nodes as nodes in a tree and links in a list.
 
 ```c
 /* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
@@ -310,7 +311,7 @@ heap_node_t *free_coalesced_node(heap_node_t *to_coalesce) {
         if (tree_parent == black_sentinel) {
             tree_root = new_head;
         } else {
-            direction_t parent_link = tree_parent->links[LEFT] == to_coalesce ? LEFT : RIGHT;
+            direction_t parent_link = tree_parent->links[RIGHT] == to_coalesce;
             tree_parent->links[parent_link] = new_head;
         }
     // to_coalesce is next after the head and needs special attention due to list_start field.
@@ -330,7 +331,7 @@ Here is the same picture from the earlier tree with these new linked nodes in th
 
 ![rb-tree-shallow](/images/rb-tree-shallow.png)
 
-This implementation comes out slightly faster than a normal red black tree. I only observed a 1% drop in overall utilization. However, I am sure that under the right use cases we would begin to suffer the cost of adding another field to the struct. This increases the internal fragmentation of the heap by creating hefty nodes with many fields. Small requests will chew through more memory than they need. However, I hypothesize that this approach would scale well when the number of free nodes grows significantly, especially if there are many duplicates. We get an absolute worst case operation of O(logN) for any operation on the heap, but the garunteed best case for coalescing a duplicate becomes O(1). We also do not have to rebalance, recolor, or rotate the tree for calls to malloc if the best fit search happens to yeild a duplicate. I will have to put together a more thorough testing framework later to see if this implementation yeilds any benefits. Overall, this was an interesting exercise in thinking about the difference in how we interpret the connections between nodes.
+This implementation comes out slightly faster than a normal red black tree. I only observed a 1% drop in overall utilization. However, I am sure that under the right use cases we would begin to suffer the cost of adding another field to the struct. This increases the internal fragmentation of the heap by creating hefty nodes with many fields. Small requests will chew through more memory than they need. However, I hypothesize that this approach would scale well when the number of free nodes grows significantly, especially if there are many duplicates. We get an absolute worst case operation of $\Theta(lgN)$ for any operation on the heap, but the garunteed best case for coalescing a duplicate becomes $\Theta(1)$. We also do not have to rebalance, recolor, or rotate the tree for calls to malloc if the best fit search happens to yeild a duplicate. I will have to put together a more thorough testing framework later to see if this implementation yeilds any benefits. Overall, this was an interesting exercise in thinking about the difference in how we interpret the connections between nodes.
 
 ### Unified Doubly Analysis
 

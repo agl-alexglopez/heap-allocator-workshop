@@ -85,6 +85,10 @@
 #include "./allocator.h"
 #include "./debug_break.h"
 
+
+/* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */
+
+
 #define TWO_NODE_ARRAY (unsigned short)2
 typedef size_t header_t;
 typedef unsigned char byte_t;

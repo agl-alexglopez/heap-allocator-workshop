@@ -63,6 +63,10 @@
 #include "./allocator.h"
 #include "./debug_break.h"
 
+
+/* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */
+
+
 typedef size_t header_t;
 typedef unsigned char byte_t;
 
@@ -114,7 +118,6 @@ static struct heap {
     void *client_end;
     size_t heap_size;
 }heap;
-
 
 #define SIZE_MASK ~0x7UL
 #define COLOR_MASK 0x4UL
@@ -1126,6 +1129,7 @@ void dump_tree() {
     printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A NEXT NODE.\n");
     print_rb_tree(tree.root);
 }
+
 
 /* * * * * * * * * * * *   Printing Debugger   * * * * * * * * * * */
 
