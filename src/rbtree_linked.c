@@ -158,7 +158,7 @@ void paint_node(heap_node_t *node, node_color_t color) {
  * @return               RED or BLACK
  */
 node_color_t extract_color(header_t header_val) {
-    return (header_val & COLOR_MASK) == RED_PAINT ? RED : BLACK;
+    return (header_val & COLOR_MASK) == RED_PAINT;
 }
 
 /* @brief extract_block_size  returns size in bytes as a size_t from the value of node's header.
@@ -174,8 +174,7 @@ size_t extract_block_size(header_t header_val) {
  * @return              a pointer to the minimum node in a valid binary search tree.
  */
 heap_node_t *tree_minimum(heap_node_t *root) {
-    while (root->links[LEFT] != tree.black_null) {
-        root = root->links[LEFT];
+    for (; root->links[LEFT] != tree.black_null; root = root->links[LEFT]) {
     }
     return root;
 }

@@ -172,7 +172,7 @@ void paint_node(heap_node_t *node, node_color_t color) {
  * @return               RED or BLACK
  */
 node_color_t extract_color(header_t header_val) {
-    return (header_val & COLOR_MASK) == RED_PAINT ? RED : BLACK;
+    return (header_val & COLOR_MASK) == RED_PAINT;
 }
 
 /* @brief extract_block_size  returns size in bytes as a size_t from the value of node's header.
@@ -254,7 +254,6 @@ void add_duplicate(heap_node_t *head, heap_node_t *to_add) {
 
 
 /* * * * * * * * * *     Red-Black Tree Insertion Logic     * * * * * * * * * * */
-
 
 
 /* @brief insert_rb_topdown  performs a topdown insertion of a node into a redblack tree, fixing
@@ -486,7 +485,6 @@ heap_node_t *delete_rb_topdown(size_t key) {
                 gparent = new_gparent;
             }
         }
-
     }
     paint_node(tree.root, BLACK);
     paint_node(tree.black_null, BLACK);

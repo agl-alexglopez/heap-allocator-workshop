@@ -146,7 +146,7 @@ void paint_node(heap_node_t *node, node_color_t color) {
  * @return               RED or BLACK
  */
 node_color_t extract_color(header_t header_val) {
-    return (header_val & COLOR_MASK) == RED_PAINT ? RED : BLACK;
+    return (header_val & COLOR_MASK) == RED_PAINT;
 }
 
 /* @brief extract_block_size  returns size in bytes as a size_t from the value of node's header.
@@ -162,8 +162,7 @@ size_t extract_block_size(header_t header_val) {
  * @return              a pointer to the minimum node in a valid binary search tree.
  */
 heap_node_t *tree_minimum(heap_node_t *root) {
-    while (root->links[LEFT] != tree.black_null) {
-        root = root->links[LEFT];
+    for (; root->links[LEFT] != tree.black_null; root = root->links[LEFT]) {
     }
     return root;
 }
@@ -208,22 +207,22 @@ void fix_rb_insert(heap_node_t *current) {
     while(extract_color(current->parent->header) == RED) {
         heap_node_t *parent = current->parent;
         // Store the link from ancestor to parent. True == 1 == RIGHT, otherwise False == 0 == LEFT
-        direction_t direction_to_parent = parent->parent->links[RIGHT] == parent;
-        direction_t opposite_direction = !direction_to_parent;
-        heap_node_t *aunt = parent->parent->links[opposite_direction];
+        direction_t symmetric_case = parent->parent->links[RIGHT] == parent;
+        direction_t other_direction = !symmetric_case;
+        heap_node_t *aunt = parent->parent->links[other_direction];
         if (extract_color(aunt->header) == RED) {
             paint_node(aunt, BLACK);
             paint_node(parent, BLACK);
             paint_node(parent->parent, RED);
             current = parent->parent;
         } else {
-            if (current == parent->links[opposite_direction]) {
+            if (current == parent->links[other_direction]) {
                 current = current->parent;
-                rotate(current, direction_to_parent);
+                rotate(current, symmetric_case);
             }
             paint_node(current->parent, BLACK);
             paint_node(current->parent->parent, RED);
-            rotate(current->parent->parent, opposite_direction);
+            rotate(current->parent->parent, other_direction);
         }
     }
     paint_node(tree.root, BLACK);
@@ -290,30 +289,30 @@ void rb_transplant(heap_node_t *to_remove, heap_node_t *replacement) {
 void fix_rb_delete(heap_node_t *current) {
     while (current != tree.root && extract_color(current->header) == BLACK) {
         // Store the link from parent to child. True == 1 == RIGHT, otherwise False == 0 == LEFT
-        direction_t direction_to_cur = current->parent->links[RIGHT] == current;
-        direction_t opposite_direction = !direction_to_cur;
-        heap_node_t *sibling = current->parent->links[opposite_direction];
+        direction_t symmetric_case = current->parent->links[RIGHT] == current;
+        direction_t other_direction = !symmetric_case;
+        heap_node_t *sibling = current->parent->links[other_direction];
         if (extract_color(sibling->header) == RED) {
             paint_node(sibling, BLACK);
             paint_node(current->parent, RED);
-            rotate(current->parent, direction_to_cur);
-            sibling = current->parent->links[opposite_direction];
+            rotate(current->parent, symmetric_case);
+            sibling = current->parent->links[other_direction];
         }
         if (extract_color(sibling->links[LEFT]->header) == BLACK
                 && extract_color(sibling->links[RIGHT]->header) == BLACK) {
             paint_node(sibling, RED);
             current = current->parent;
         } else {
-            if (extract_color(sibling->links[opposite_direction]->header) == BLACK) {
-                paint_node(sibling->links[direction_to_cur], BLACK);
+            if (extract_color(sibling->links[other_direction]->header) == BLACK) {
+                paint_node(sibling->links[symmetric_case], BLACK);
                 paint_node(sibling, RED);
-                rotate(sibling, opposite_direction);
-                sibling = current->parent->links[opposite_direction];
+                rotate(sibling, other_direction);
+                sibling = current->parent->links[other_direction];
             }
             paint_node(sibling, extract_color(current->parent->header));
             paint_node(current->parent, BLACK);
-            paint_node(sibling->links[opposite_direction], BLACK);
-            rotate(current->parent, direction_to_cur);
+            paint_node(sibling->links[other_direction], BLACK);
+            rotate(current->parent, symmetric_case);
             current = tree.root;
         }
     }
