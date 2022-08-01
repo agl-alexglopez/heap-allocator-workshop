@@ -379,19 +379,22 @@ heap_node_t *remove_node(heap_node_t *to_remove_parent, heap_node_t *to_remove,
     }
 
     if (replacement == to_remove) {
+        // If this is a link to black_null in the other direction, that's ok.
         direction_t replacement_link = !(replacement->links[RIGHT] == tree.black_null);
-        heap_node_t *unknown_node = replacement->links[replacement_link];
-        rb_transplant(replacement_parent, replacement, unknown_node);
+        heap_node_t *other_node = replacement->links[replacement_link];
+        rb_transplant(replacement_parent, replacement, other_node);
     } else if (replacement_parent == to_remove) {
         rb_transplant(to_remove_parent, to_remove, replacement);
         direction_t available_link = replacement->links[RIGHT] == tree.black_null;
-        direction_t unknown_subtree_link = !(to_remove->links[RIGHT] == replacement);
-        replacement->links[available_link] = to_remove->links[unknown_subtree_link];
+        direction_t subtree_link = !(to_remove->links[RIGHT] == replacement);
+        replacement->links[available_link] = to_remove->links[subtree_link];
     } else {
-        direction_t unknown_subtree = !(replacement->links[RIGHT] == tree.black_null);
-        direction_t previous_replacement_link = replacement_parent->links[RIGHT] == replacement;
-        replacement_parent->links[previous_replacement_link] = replacement->links[unknown_subtree];
+        // Repair the site where we found the replacement.
+        direction_t other_subtree = !(replacement->links[RIGHT] == tree.black_null);
+        direction_t old_replacement_link = replacement_parent->links[RIGHT] == replacement;
+        replacement_parent->links[old_replacement_link] = replacement->links[other_subtree];
 
+        // Repair back up the tree at the transplant location.
         rb_transplant(to_remove_parent, to_remove, replacement);
         replacement->links[LEFT] = to_remove->links[LEFT];
         replacement->links[RIGHT] = to_remove->links[RIGHT];
@@ -436,62 +439,58 @@ heap_node_t *delete_rb_topdown(size_t key) {
             return delete_duplicate(best);
         }
 
-        // No double blacks ahead so no changes to black height need repair.
-        if (extract_color(seeker->header) == RED
-                || extract_color(seeker->links[search]->header) == RED) {
-            continue;
-        }
+        // Double black needs our attention due to black height requirements.
+        if (extract_color(seeker->header) == BLACK
+                && extract_color(seeker->links[search]->header) == BLACK) {
 
-        // A double black is ahead and we may need to rotate or color flip to fix it.
-        heap_node_t *nxt_sibling = seeker->links[!search];
-        heap_node_t *sibling = parent->links[!last_link];
-        if (extract_color(nxt_sibling->header) == RED) {
-            gparent = nxt_sibling;
-            if (seeker == best) {
-                best_parent = gparent;
-            }
-            parent = parent->links[last_link] = single_rotation(seeker, search);
-
-        // Our black height will be altered. Recolor.
-        } else if (sibling != tree.black_null
-                     && extract_color(nxt_sibling->header) == BLACK
-                       && extract_color(sibling->links[!last_link]->header) == BLACK
-                         && extract_color(sibling->links[last_link]->header) == BLACK) {
-            paint_node(parent, BLACK);
-            paint_node(sibling, RED);
-            paint_node(seeker, RED);
-
-        // Another black is waiting down the tree. Red violations and path violations possible.
-        } else if (sibling != tree.black_null
-                     && extract_color(nxt_sibling->header) == BLACK) {
             // We need access to six pointers, and two directions. Decomposition is difficult.
-            direction_t parent_link = gparent->links[RIGHT] == parent;
-            heap_node_t *new_gparent = tree.black_null;
+            heap_node_t *nxt_sibling = seeker->links[!search];
+            heap_node_t *sibling = parent->links[!last_link];
+            if (extract_color(nxt_sibling->header) == RED) {
+                gparent = nxt_sibling;
+                if (seeker == best) {
+                    best_parent = gparent;
+                }
+                parent = parent->links[last_link] = single_rotation(seeker, search);
+            // Our black height will be altered. Recolor.
+            } else if (sibling != tree.black_null
+                         && extract_color(nxt_sibling->header) == BLACK
+                           && extract_color(sibling->links[!last_link]->header) == BLACK
+                             && extract_color(sibling->links[last_link]->header) == BLACK) {
+                paint_node(parent, BLACK);
+                paint_node(sibling, RED);
+                paint_node(seeker, RED);
+            // Another black is waiting down the tree. Red violations and path violations possible.
+            } else if (sibling != tree.black_null
+                         && extract_color(nxt_sibling->header) == BLACK) {
+                direction_t parent_link = gparent->links[RIGHT] == parent;
+                heap_node_t *new_gparent = tree.black_null;
 
-            // These two cases may ruin lineage of node to be removed. Repair if necessary.
-            if (extract_color(sibling->links[last_link]->header) == RED) {
-                new_gparent = gparent->links[parent_link] = double_rotation(parent, last_link);
-                if (best == parent) {
-                    best_parent = new_gparent;
+                // These two cases may ruin lineage of node to be removed. Repair if necessary.
+                if (extract_color(sibling->links[last_link]->header) == RED) {
+                    new_gparent = gparent->links[parent_link] = double_rotation(parent, last_link);
+                    if (best == parent) {
+                        best_parent = new_gparent;
+                    }
+                } else if (extract_color(sibling->links[!last_link]->header) == RED) {
+                    new_gparent = gparent->links[parent_link] = single_rotation(parent, last_link);
+                    if (best == parent) {
+                        best_parent = sibling;
+                    }
                 }
-            } else if (extract_color(sibling->links[!last_link]->header) == RED) {
-                new_gparent = gparent->links[parent_link] = single_rotation(parent, last_link);
-                if (best == parent) {
-                    best_parent = sibling;
-                }
+                paint_node(seeker, RED);
+                paint_node(gparent->links[parent_link], RED);
+                paint_node(gparent->links[parent_link]->links[LEFT], BLACK);
+                paint_node(gparent->links[parent_link]->links[RIGHT], BLACK);
+                // Either single or double rotation has adjusted grandparent position.
+                gparent = new_gparent;
             }
-            paint_node(seeker, RED);
-            paint_node(gparent->links[parent_link], RED);
-            paint_node(gparent->links[parent_link]->links[LEFT], BLACK);
-            paint_node(gparent->links[parent_link]->links[RIGHT], BLACK);
-            // Either single or double rotation has adjusted grandparent position.
-            gparent = new_gparent;
         }
+
     }
-    best = remove_node(best_parent, best, parent, seeker);
     paint_node(tree.root, BLACK);
     paint_node(tree.black_null, BLACK);
-    return best;
+    return remove_node(best_parent, best, parent, seeker);
 }
 
 
