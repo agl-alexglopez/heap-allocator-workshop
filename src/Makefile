@@ -4,18 +4,19 @@ SRC := $(wildcard $(SRCDIR)/*.c)
 OBJ := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o,$(SRC))
 
 # They had us try different optimization levels here (-O0, -O2, etc).
-$(OBJDIR)/explicit_list.o: CFLAGS += -O3
-$(OBJDIR)/rbtree_clrs.o: CFLAGS += -O3
-$(OBJDIR)/rbtree_unified.o: CFLAGS += -O3
-$(OBJDIR)/rbtree_linked.o: CFLAGS += -O3
-$(OBJDIR)/rbtree_stack.o: CFLAGS += -O3
-$(OBJDIR)/rbtree_topdown.o: CFLAGS += -O3
+$(OBJDIR)/explicit_list.o: CFLAGS += -Og
+$(OBJDIR)/rbtree_clrs.o: CFLAGS += -Og
+$(OBJDIR)/rbtree_unified.o: CFLAGS += -Og
+$(OBJDIR)/rbtree_linked.o: CFLAGS += -Og
+$(OBJDIR)/rbtree_stack.o: CFLAGS += -Og
+$(OBJDIR)/rbtree_topdown.o: CFLAGS += -Og
 
 ALLOCATORS = explicit_list rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
 PROGRAMS = $(addprefix $(OBJDIR)/test_,$(ALLOCATORS))
+TIMERS = $(addprefix $(OBJDIR)/time_,$(ALLOCATORS))
 MY_PROGRAMS = $(addprefix $(OBJDIR)/my_optional_program_,$(ALLOCATORS))
 
-all:: $(PROGRAMS) $(MY_PROGRAMS)
+all:: $(PROGRAMS) $(TIMERS) $(MY_PROGRAMS)
 
 # I had to use gcc-11 on mac to be able to build this project.
 UNAME := $(shell uname)
@@ -36,8 +37,11 @@ $(OBJ): $(OBJDIR)/%.o: $(SRCDIR)/%.c
 $(PROGRAMS): $(OBJDIR)/test_%: $(OBJDIR)/%.o segment.c test_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
+$(TIMERS): $(OBJDIR)/time_%: $(OBJDIR)/%.o segment.c time_harness.c
+	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
+
 $(MY_PROGRAMS): $(OBJDIR)/my_optional_program_%: my_optional_program.c $(OBJDIR)/%.o segment.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean::
-	rm -f $(PROGRAMS) $(MY_PROGRAMS) $(OBJ) callgrind.out.*
+	rm -f $(PROGRAMS) $(TIMERS) $(MY_PROGRAMS) $(OBJ) callgrind.out.*
