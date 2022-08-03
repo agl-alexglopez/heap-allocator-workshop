@@ -152,7 +152,7 @@ void validate_intervals(script_t *script, interval_t lines_to_time[], int num_li
             abort();
         }
         if (script->num_ops - 1 < lines_to_time[req].end_req || !lines_to_time[req].end_req) {
-            lines_to_time[req].end_req = script->num_ops;
+            lines_to_time[req].end_req = script->num_ops - 1;
         }
     }
 }
