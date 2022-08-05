@@ -428,8 +428,17 @@ Here are the key details from the above graph.
 - The time complexity of inserting and deleting N elements into and out of the list is $\Theta(N^2)$.
   - There may also be some intermittent extra work every time we delete a node from the list because we split of any extra part of a block that is too big and re-insert it into the list.
 - As the number of free blocks grows in size the list becomes increasingly impractical taking over a minute to cycle through all requests at the peak of requests.
-- The tree implementation is hardly measureable in comparison to the list. Not only do we never exceed one second to service any number of requests on this chart, but the time scale of seconds is not informative.
+- The tree implementation is hardly measureable in comparison to the list. Not only do we never exceed one second to service any number of requests on this chart, but also the time scale of seconds is not informative.
 
-So, for further analysis of our tree implementations, we reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree implementations.
+So, for further analysis of our tree implementations, we reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree allocators.
 
 ![insert-delete](/images/chart-insert-delete.png)
+
+*Pictured Above: The five allocators compared on a runtime graph for insert delete requests. The time is now measured in milliseconds, while the number of requests remains the same as our previous comparison.*
+
+Here are the key details from the above graph.
+
+- The time complexity of inserting and deleting N elements into our tree is $\Theta(NlgN)$.
+  - We may also see some extra time cost from breaking off extra space from a block that is too large and reinserting it into the tree. However, this is hard to predictably measure and does not seem to have an effect on the Big-$\Theta$ time complexity.
+- We see an improvement exceeding $50%$ in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
+- The time savings when compared to a doubly linked list allocator are impressive.
