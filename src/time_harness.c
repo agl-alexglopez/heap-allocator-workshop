@@ -268,7 +268,7 @@ static size_t time_allocator(script_t *script, bool *success,
     // Send each request to the heap allocator and check the resulting behavior
     int req = 0;
     while (req < script->num_ops) {
-        if (lines_to_time[0].start_req == req) {
+        if (num_lines_to_time && lines_to_time[0].start_req == req) {
             interval_t sect = lines_to_time[0];
             clock_t start = 0;
             clock_t end = 0;
