@@ -417,4 +417,8 @@ The best part of this implementation is seeing the variety in tree that is produ
 
 ## Formal Analysis
 
+Now that we have gone over the basics for each heap allocator, we can now see how they perform in relation to one another. Let's start by gaining some perspective in terms of how much faster a Red Black Tree implementation is compared to a simple doubly linked list.
+
+![list-v-tree](/images/list-v-tree.png)
+
 ![insert-delete](/images/chart-insert-delete.png)
