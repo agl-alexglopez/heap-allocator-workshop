@@ -475,6 +475,8 @@ For more details about how the timing functions work or how the program parses a
 
 ### Inserting and Deleting
 
+To set up a measurement of inserting and deleting into a Red-Black Tree we start by forming a script with $2N$ allocations and then measure the time to insert $N$ elements, `free()`, and delete $N$ elements, `malloc()` from our tree. Here are the results across allocators.
+
 ![insert-delete](/images/chart-insert-delete.png)
 
 *Pictured Above: The five allocators compared on a runtime graph for insert delete requests. The time is now measured in milliseconds, while the number of requests remains the same as our previous comparison.*
