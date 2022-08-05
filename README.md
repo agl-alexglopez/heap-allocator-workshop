@@ -417,8 +417,19 @@ The best part of this implementation is seeing the variety in tree that is produ
 
 ## Formal Analysis
 
-Now that we have gone over the basics for each heap allocator, we can now see how they perform in relation to one another. Let's start by gaining some perspective in terms of how much faster a Red Black Tree implementation is compared to a simple doubly linked list.
+Now that we have gone over the basics for each heap allocator, we can see how they perform in relation to one another. Let's start by gaining some perspective in terms of how much faster a Red Black Tree implementation is compared to a simple doubly linked list. While we have not discussed the doubly linked list implementation in detail, it is a simple implementation that involves maintaining a sorted doubly linked list by block size and taking the best fit block for any given request. A doubly linked list has a worst case of $\Theta(N)$ for any single request from free to insert a block into the list and $\Theta(N)$ for any request to malloc to free the block from the list.
 
 ![list-v-tree](/images/list-v-tree.png)
+
+*Pictured Above: A chart representing the time to complete (N) insert delete requests. The first implementation is a simple doubly linked list that maintains sorted order by free block size to acheive best fit. The second red line that is hardly visible at the bottom is a Red Black Tree that maintains sorted order to acheive best fit.*
+
+Here are the key details from the above graph.
+
+- The time complexity of inserting and deleting N elements into and out of the list is $\Theta(N^2)$.
+  - There may also be some intermittent extra work every time we delete a node from the list because we split of any extra part of a block that is too big and re-insert it into the list.
+- As the number of free blocks grows in size the list becomes increasingly impractical taking over a minute to cycle through all requests at the peak of requests.
+- The tree implementation is hardly measureable in comparison to the list. Not only do we never exceed one second to service any number of requests on this chart, but the time scale of seconds is not informative.
+
+So, for further analysis of our tree implementations, we reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree implementations.
 
 ![insert-delete](/images/chart-insert-delete.png)
