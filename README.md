@@ -475,7 +475,7 @@ For more details about how the timing functions work or how the program parses a
 
 ### Inserting and Deleting
 
-To set up a measurement of inserting and deleting into a Red-Black Tree we start by forming a script with $2N$ allocations and then measure the time to insert $N$ elements, `free()`, and delete $N$ elements, `malloc()` from our tree. Here are the results across allocators.
+To set up a measurement of inserting and deleting into a Red-Black Tree we start by forming a script with $2N$ allocations and then measure the time to insert $N$ elements, `free()`, and delete $N$ elements, `malloc()` from our tree. Remember, we have now dropped down to the milliseconds level, compared to the seconds level we used when analyzing a doubly linked list allocator. Here are the results across allocators.
 
 ![insert-delete](/images/chart-insert-delete.png)
 
@@ -483,8 +483,13 @@ To set up a measurement of inserting and deleting into a Red-Black Tree we start
 
 Here are the key details from the above graph.
 
+- Lower time in milliseconds is better.
 - The time complexity of inserting and deleting N elements into our tree is $\Theta(NlgN)$.
   - We may also see some extra time cost from breaking off extra space from a block that is too large and reinserting it into the tree. However, this is hard to predictably measure and does not seem to have an effect on the Big-O time complexity.
 - We see an improvement exceeding 50% in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
-- The time savings when compared to a doubly linked list allocator are impressive.
+- The topdown approach to managing a Red-Black tree is not the fastest in terms of inserting and deleting from the tree.
+
+Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably. The topdown approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the linked list approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implmentation seem the most pointless at this point if the same speed can be acheived with more space efficiency.
+
+Finally, the performance gap scales as a percentage, meaning we will remain 50% faster when we manage duplicates to trim the tree even when we are dealing with millions of elements and our times have increased greatly. Managing duplicates in a linked list with only the use of one pointer is a worthwile optimization.
 
