@@ -439,6 +439,6 @@ So, for further analysis of our tree implementations, we reduce our time scale b
 Here are the key details from the above graph.
 
 - The time complexity of inserting and deleting N elements into our tree is $\Theta(NlgN)$.
-  - We may also see some extra time cost from breaking off extra space from a block that is too large and reinserting it into the tree. However, this is hard to predictably measure and does not seem to have an effect on the Big-$\Theta$ time complexity.
-- We see an improvement exceeding $50%$ in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
+  - We may also see some extra time cost from breaking off extra space from a block that is too large and reinserting it into the tree. However, this is hard to predictably measure and does not seem to have an effect on the Big-O time complexity.
+- We see an improvement exceeding 50% in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
 - The time savings when compared to a doubly linked list allocator are impressive.
