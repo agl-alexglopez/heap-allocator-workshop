@@ -417,6 +417,5 @@ The best part of this implementation is seeing the variety in tree that is produ
 
 ## Formal Analysis
 
-<iframe width="1768" height="1218" seamless frameborder="0" scrolling="no" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQlG6XjZNUT5C5fm7Fkkmxby_ohRw9IXCWlXWky6_F5JMluFBWhMyvx_--3KEH2HtkCtZpVDDjdgdZS/pubchart?oid=421528167&amp;format=interactive"></iframe>
-
+<iframe width="1768" height="1218" seamless frameborder="0" scrolling="no" src="https://docs.google.com/spreadsheets/d/e/2PACX-1vQlG6XjZNUT5C5fm7Fkkmxby_ohRw9IXCWlXWky6_F5JMluFBWhMyvx_--3KEH2HtkCtZpVDDjdgdZS/pubchart?oid=421528167&amp;format=image"></iframe>
 
