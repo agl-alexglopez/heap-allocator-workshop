@@ -441,13 +441,39 @@ The following test methods and analysis are not targeted towards any specific ap
 - When we abandon the parent field of the tree node in exchange for the linked list field, do we sacrifice performance?
 - Does a topdown approach to fixing a Red Black Tree reduce the number of $\Theta(lgN)$ operations enough to make a difference in performance?
 
-In order to answer these questions I wrote a `time-harness.c` program based upon the `test-harness.c` program the Stanford course staff wrote for us. The original `test-harness.c` program was focussed on correctness. Along with our own debugging and printing functions, the goal of the test harness was to be as thorough as possible in finding bugs quickly and ensuring our allocators functioned properly. This meant that the programs produced for each allocator were painfully slow. There were numerous $\Theta(N)$ operations built into the provided program and I added many more $\Theta(N)$ checks into my own implementations. For a red-black tree these checks only grow as the necessity to ensure to ensure the rules of a Red Black Tree are followed becomes critical.
+In order to answer these questions I wrote a `time-harness.c` program based upon the `test-harness.c` program the Stanford course staff wrote for us. The original `test-harness.c` program was focussed on correctness. Along with our own debugging and printing functions, the goal of the test harness was to be as thorough as possible in finding bugs quickly and ensuring our allocators functioned properly. This meant that the programs produced for each allocator were painfully slow. There were numerous $\Theta(N)$ operations built into the provided program and I added many more $\Theta(N)$ checks into my own implementations. For a red-black tree these checks only grow as the necessity to ensure the rules of a Red Black Tree are followed becomes critical.
 
-For the `time-harness.c` implementation, we abandon all safety and correctness checks. We should only use this program once we know beyond a doubt that the implementations are correct. We acheive faster testing by leaving all "client" available memory uninitialized, performing no checks on the boundaries of the blocks we give to the user, and cutting out any unecessary $\Theta(N)$ operations from the program while it calls upon the functions in our allocators. This results in the ability to check the performance of requests ranging anywhere from 50,000 to 1,000,000 quickly.
+For the `time-harness.c` implementation, we abandon all safety and correctness checks. We should only use this program once we know beyond a doubt that the implementations are correct. We acheive faster testing by leaving all "client" available memory uninitialized, performing no checks on the boundaries of the blocks we give to the user, and cutting out any unecessary $\Theta(N)$ operations from the program while it calls upon the functions in our allocators. We do not want $\Theta(N)$ work clouding the runtime efficiency of what would otherwise be $\Theta(lgN)$ operations, for example. This results in the ability to check the performance of requests ranging anywhere from 50,000 to 1,000,000 quickly.
 
 While it would have been nice to time our code with a simple `time` command and call it a day, we need a custom program like this is because timing specific functions of an allocator can be tricky for two main reasons: allocations and coalescing. In order to create a tree of $N$ nodes of free memory for the user, you may think we could just create $N$ allocated blocks of memory and then free them all, thus inserting them into the tree. This would not work. Because we coalesce blocks to our left and right by address in memory, when we went to free the next allocation, it would absorb its left neighbor and simply grow in size with each `free()` call and be inserted back into the tree. We would end up with our original large pool of free memory by the end of all `free()` requests.
 
-Instead, we will allocate $2 * N$ blocks of memory and then call `free()` on every other block of allocated memory to measure the performance of $N$ insertions into a tree. Coalescing will not occur on the two adjacent blocks because they remain allocated.
+Instead, we will allocate $2N$ blocks of memory and then call `free()` on every other block of allocated memory to measure the performance of $N$ insertions into a tree. Coalescing will not occur on the two adjacent blocks because they remain allocated.
+
+The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only a specific line numbers representing requests.
+
+```bash
+$ ./obj/time_rbtree_clrs -s 10001 -e 20000 scripts/time-05kinsertdelete.script
+```
+
+- The above command is for timing five thousand insertions, `free()`, and five thousand removals, `malloc()`, from our tree.
+- Notice that we use the `-s` flag to start timing on a line number and the `-e` flag to end our timer.
+- We also must start our timer after ten thousand `malloc()` requests to set up a scenario where we can insert five thousand nodes into the tree.
+- This program can time multiple sections of a script as long as they do not overlap and will output the timing result of all requested sections.
+
+We would then get output such as the following.
+
+```output
+Evaluating allocator on time-05kinsertdelete.script...
+Execution time for script lines 10001-20000 (seconds): 0.000760
+...successfully serviced 30000 requests. (payload/segment = 2514877/2969215)
+Utilization averaged 84%
+```
+
+For more details about how the timing functions work or how the program parses arguments please see the code.
+
+> **Read my code here ([`time-harness.c`](/src/time-harness.c)).**
+
+### Inserting and Deleting
 
 ![insert-delete](/images/chart-insert-delete.png)
 
