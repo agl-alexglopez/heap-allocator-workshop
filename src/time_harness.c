@@ -82,7 +82,7 @@ static int time_script(char *script_name, interval_t lines_to_time[], int num_li
 static bool read_line(char buffer[], size_t buffer_size, FILE *fp, int *pnread);
 static script_t parse_script(const char *filename);
 static request_t parse_script_line(char *buffer, int lineno, char *script_name);
-static size_t eval_time(script_t *script, bool *success,
+static size_t time_allocator(script_t *script, bool *success,
                         interval_t lines_to_time[], int num_lines_to_time);
 static void *eval_malloc(int req, size_t requested_size, script_t *script, bool *failptr);
 static void *eval_realloc(int req, size_t requested_size, script_t *script, bool *failptr);
@@ -147,10 +147,11 @@ void validate_intervals(script_t *script, interval_t lines_to_time[], int num_li
     for (int req = 0; req < num_lines_to_time; req++) {
         if (script->num_ops - 1 < lines_to_time[req].start_req) {
             printf("Interval start is outside of script range:\n");
-            printf("Interval start: %d", lines_to_time[req].start_req);
-            printf("Script range: %d-%d", 1, script->num_ops);
+            printf("Interval start: %d\n", lines_to_time[req].start_req);
+            printf("Script range: %d-%d\n", 1, script->num_ops);
             abort();
         }
+        // Users might be familiar with python-like slices that take too large end ranges as valid.
         if (script->num_ops - 1 < lines_to_time[req].end_req || !lines_to_time[req].end_req) {
             lines_to_time[req].end_req = script->num_ops - 1;
         }
@@ -177,7 +178,7 @@ static int time_script(char *script_name, interval_t lines_to_time[], int num_li
     // Evaluate this script and record the results
     printf("\nEvaluating allocator on %s...\n", script.name);
     bool success;
-    size_t used_segment = eval_time(&script, &success, lines_to_time, num_lines_to_time);
+    size_t used_segment = time_allocator(&script, &success, lines_to_time, num_lines_to_time);
     if (success) {
         printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)",
             script.num_ops, script.peak_size, used_segment);
@@ -248,7 +249,7 @@ int eval_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
  * errors (returning blocks outside the heap, unaligned,
  * overlapping blocks, etc.)
  */
-static size_t eval_time(script_t *script, bool *success,
+static size_t time_allocator(script_t *script, bool *success,
                         interval_t lines_to_time[], int num_lines_to_time) {
     *success = false;
 
@@ -267,9 +268,8 @@ static size_t eval_time(script_t *script, bool *success,
     // Send each request to the heap allocator and check the resulting behavior
     int req = 0;
     while (req < script->num_ops) {
-        if (num_lines_to_time && lines_to_time[0].start_req == req) {
+        if (lines_to_time[0].start_req == req) {
             interval_t sect = lines_to_time[0];
-            // Do a few final boundary checks for the user requests.
             clock_t start = 0;
             clock_t end = 0;
             double cpu_time = 0;
@@ -282,7 +282,7 @@ static size_t eval_time(script_t *script, bool *success,
             cpu_time = ((double) (end - start)) / CLOCKS_PER_SEC;
             printf("Execution time for script lines %d-%d (seconds): %f\n",
                     sect.start_req + 1, sect.end_req + 1, cpu_time);
-            // This way we don't have to interrupt or think too much about outer loop.
+
             lines_to_time++;
             num_lines_to_time--;
         } else {
