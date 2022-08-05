@@ -471,7 +471,7 @@ Utilization averaged 84%
 
 For more details about how the timing functions work or how the program parses arguments please see the code.
 
-> **Read my code here ([`time-harness.c`](/src/time-harness.c)).**
+> **Read my code here ([`time_harness.c`](/src/time_harness.c)).**
 
 ### Inserting and Deleting
 
