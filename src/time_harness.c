@@ -1,18 +1,21 @@
-/*
+/* Last Updated: Alex G. Lopez, 2022.08.07
+ *
  * Files: time_harness.c
  * ---------------------
  * Reads and interprets text-based script files containing a sequence of
  * allocator requests. Runs the allocator on a script and times the requested
  * sequence of requests from that script. Outputs the time taken to complete
- * requests for the requested line numbers.
+ * requests for the requested line numbers and total utilization percentage.
  *
  * When you compile using `make`, it will create 3 different
  * compiled versions of this program, one using each type of
  * heap allocator.
  *
  * Written by jzelenski, updated by Nick Troccoli Winter 18-19 as a test harness to validate
- * code but adapted by Alex Lopez for timing and performance measurements. Please see
- * test_harness.c for the original implementation.
+ * code but adapted by Alex Lopez for timing and performance measurements, with all checks and
+ * safety measures deleted for speed. This also helps view the runtime efficiency in the correct
+ * time complexity without O(N) measures clouding accurate timing between calls. Please see
+ * test_harness.c for the original implementation by course staff.
  */
 
 #include <getopt.h>
@@ -64,7 +67,7 @@ typedef struct {
     size_t peak_size;              // total payload bytes at peak in-use
 } script_t;
 
-// Create targeted scripts with sections you want to time, no point in too many requests.
+// Create targeted scripts with intervals you want to time, no point in too many requests.
 const short MAX_TIMER_REQUESTS = 100;
 
 // Amount by which we resize ops when needed when reading in from file
@@ -92,38 +95,41 @@ static void allocator_error(script_t *script, int lineno, char* format, ...);
 /* TIME EVALUATION IMPLEMENTATION */
 
 
-/* Function: main
- * --------------
- * The main function parses command-line arguments (currently only -q for quiet)
- * and any script files that follow and runs the heap allocator on the specified
- * script files.  It outputs statistics about the run of each script, such as
- * the number of successful runs, number of failures, and average utilization.
+/* @brief main  parses command line arguments that request a range of lines to be timed for
+ *              performance. Arguments may take the following form:
+ *
+ *              ./time_rbtree_clrs -s 10001 -e 15000 -s 15001 scripts/time-insertdelete-5k.script
+ *
+ * @arg -s      the flag to start the timer on a certain line number. May be followed by -e flag.
+ *              If no -e flag follows, the program will time the remainder of lines to execute.
+ * @arg -e      the flag to end the timer on a certain line number. Invalid if not preceeded by -s.
+ * @warning     time intervals may not overlap and with no arguments the entire program execution
+ *              will be timed.
  */
 int main(int argc, char *argv[]) {
-    // Parse command line arguments
-
     interval_t lines_to_time[MAX_TIMER_REQUESTS];
     int num_lines_to_time = 0;
     // -s flag to start timer on line number, -e flag to end flag on line number.
     int opt = getopt(argc, argv, "s:");
     while (opt != -1) {
-        interval_t section = { .start_req = 0, .end_req = 0 };
+        interval_t interval = { .start_req = 0, .end_req = 0 };
         char *ptr;
 
         // It's easier for the user to enter line numbers. We will convert to zero indexed request.
-        section.start_req = strtol(optarg, &ptr, 10) - 1;
+        interval.start_req = strtol(optarg, &ptr, 10) - 1;
         if (num_lines_to_time
-                && lines_to_time[num_lines_to_time - 1].end_req >= section.start_req) {
-            printf("Timing intervals can't overlap (e.g. -e 5 -s 2). Revisit script line ranges.");
+                && lines_to_time[num_lines_to_time - 1].end_req >= interval.start_req) {
+            printf("Timing intervals can't overlap. Revisit script line ranges.\n");
+            printf("Example of Bad Input Flags: -s 1 -e 5 -s 2\n");
             abort();
         }
 
         // Hide the end argument behind the start case to prevent ill formed args.
         opt = getopt(argc, argv, "e:");
         if (opt != -1) {
-            section.end_req = strtol(optarg, &ptr, 10) - 1;
+            interval.end_req = strtol(optarg, &ptr, 10) - 1;
         }
-        lines_to_time[num_lines_to_time++] = section;
+        lines_to_time[num_lines_to_time++] = interval;
         opt = getopt(argc, argv, "s:");
     }
     // We will default to timing the entire script if the user does not enter arguments.
@@ -142,9 +148,16 @@ int main(int argc, char *argv[]) {
     return time_script(argv[optind], lines_to_time, num_lines_to_time);
 }
 
+/* @brief validate_intervals  checks the array of line intervals the user wants timed for validity.
+ *                            Valid intervals do not overlap and start within the file line range.
+ * @param *script             the script_t passed in with information about the file we parsed.
+ * @param lines_to_time[]     the array of lines to time for the user. Check all O(N).
+ * @param num_lines_to_time   lenghth of the lines to time array.
+ */
 void validate_intervals(script_t *script, interval_t lines_to_time[], int num_lines_to_time) {
     // We can tidy up lazy user input by making sure the end of the time interval makes sense.
     for (int req = 0; req < num_lines_to_time; req++) {
+        // If the start is too large, the user may have mistaken the file they wish to time.
         if (script->num_ops - 1 < lines_to_time[req].start_req) {
             printf("Interval start is outside of script range:\n");
             printf("Interval start: %d\n", lines_to_time[req].start_req);
@@ -158,11 +171,11 @@ void validate_intervals(script_t *script, interval_t lines_to_time[], int num_li
     }
 }
 
-/* Function: time_script
- * ----------------------
- * Runs the scripts with names in the specified array, with more or less output
- * depending on the value of `quiet`.  Returns the number of failures during all
- * the tests.
+/* @brief time_script        completes a series of 1 or more time requests for a script file and
+ *                           outputs the times for the lines and overall utilization.
+ * @param *script_name       the script we are tasked with timing.
+ * @param lines_to_time[]    the array of line ranges to time.
+ * @param num_lines_to_time  the size of the array of lines to time.
  */
 static int time_script(char *script_name, interval_t lines_to_time[], int num_lines_to_time) {
     int nsuccesses = 0;
@@ -178,6 +191,7 @@ static int time_script(char *script_name, interval_t lines_to_time[], int num_li
     // Evaluate this script and record the results
     printf("\nEvaluating allocator on %s...\n", script.name);
     bool success;
+    // We will bring back useful utilization info while we time.
     size_t used_segment = time_allocator(&script, &success, lines_to_time, num_lines_to_time);
     if (success) {
         printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)",
@@ -199,6 +213,14 @@ static int time_script(char *script_name, interval_t lines_to_time[], int num_li
     return nfailures;
 }
 
+/* @brief eval_request  a helper function to complete a single call to the heap allocator. It may
+ *                      may call malloc(), realloc(), or free().
+ * @param *script       the script_t with the information regarding the script file we execute.
+ * @param req           the zero-based index of the request to the heap allocator.
+ * @param *cur_size     the current size of the heap overall.
+ * @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
+ * @return              0 if there are no errors, -1 if there is an error.
+ */
 int eval_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
 
     int id = script->ops[req].id;
@@ -242,15 +264,15 @@ int eval_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
     return 0;
 }
 
-/* Function: eval_correctness
- * --------------------------
- * Check the allocator for correctness on given script. Interprets the
- * script operation-by-operation and reports if it detects any "obvious"
- * errors (returning blocks outside the heap, unaligned,
- * overlapping blocks, etc.)
+/* @brief time_allocator     times all requested interval line numbers from the script file.
+ * @param *script            the script_t with all info for the script file to execute.
+ * @param *success           true if all calls to the allocator completed without error.
+ * @param lines_to_time[]    the array of all lines to time.
+ * @param num_lines_to_time  the size of the array of lines to time.
+ * @return                   the size of the heap overall.
  */
 static size_t time_allocator(script_t *script, bool *success,
-                        interval_t lines_to_time[], int num_lines_to_time) {
+                             interval_t lines_to_time[], int num_lines_to_time) {
     *success = false;
 
     init_heap_segment(HEAP_SIZE);
@@ -294,15 +316,12 @@ static size_t time_allocator(script_t *script, bool *success,
     return (char *)heap_end - (char *)heap_segment_start();
 }
 
-/* Function: eval_malloc
- * ---------------------
- * Performs a test of a call to mymalloc of the given size.  The req number
- * specifies the operation's index within the script.  This function verifies
- * the entire malloc'ed block and fills in the payload with a low-order byte
- * of the request id.  If the request fails, the boolean pointed to by
- * failptr is set to true - otherwise, it is set to false.  If it is set to
- * true this function returns NULL; otherwise, it returns what was returned
- * by mymalloc.
+/* @breif eval_malloc     performs a test of a call to mymalloc of the given size.
+ * @param req             the request zero indexed within the script.
+ * @param requested_size  the block size requested from the client.
+ * @param *script         the script_t with information we track from the script file requests.
+ * @param *failptr        a pointer to indicate if the request to malloc failed.
+ * @return                the generic memory provided by malloc for the client. NULL on failure.
  */
 static void *eval_malloc(int req, size_t requested_size, script_t *script, bool *failptr) {
 
@@ -321,18 +340,14 @@ static void *eval_malloc(int req, size_t requested_size, script_t *script, bool 
     return p;
 }
 
-/* Function: eval_realloc
- * ---------------------
- * Performs a test of a call to myrealloc of the given size.  The req number
- * specifies the operation's index within the script.  This function verifies
- * the entire realloc'ed block and fills in the payload with a low-order byte
- * of the request id.  If the request fails, the boolean pointed to by
- * failptr is set to true - otherwise, it is set to false.  If it is set to true
- * this function returns NULL; otherwise, it returns what was returned by
- * myrealloc.
+/* @brief eval_realloc  performs a test of a call to myrealloc of the given size.
+ * @param req             the request zero indexed within the script.
+ * @param requested_size  the block size requested from the client.
+ * @param *script         the script_t with information we track from the script file requests.
+ * @param *failptr        a pointer to indicate if the request to malloc failed.
+ * @return                the generic memory provided by realloc for the client. NULL on failure.
  */
-static void *eval_realloc(int req, size_t requested_size, script_t *script,
-    bool *failptr) {
+static void *eval_realloc(int req, size_t requested_size, script_t *script, bool *failptr) {
 
     int id = script->ops[req].id;
     void *oldp = script->blocks[id].ptr;
@@ -350,11 +365,10 @@ static void *eval_realloc(int req, size_t requested_size, script_t *script,
     return newp;
 }
 
-/* Function: allocator_error
- * ------------------------
- * Report an error while running an allocator script.  Prints out the script
- * name and line number where the error occured, and the specified format
- * string, including any additional arguments as part of that format string.
+/* @brief allocator_error  reports an error while running an allocator script.
+ * @param *script          the script_t with information we track form the script file requests.
+ * @param lineno           the line number where the error occured.
+ * @param *format          the specified format string.
  */
 static void allocator_error(script_t *script, int lineno, char* format, ...) {
     va_list args;
@@ -370,13 +384,13 @@ static void allocator_error(script_t *script, int lineno, char* format, ...) {
 /* SCRIPT PARSING IMPLEMENTATION */
 
 
-/* Fuction: parse_script
- * ---------------------
- * This function parses the script file at the specified path, and returns an
- * object with info about it.  It expects one request per line, and adds each
- * request's information to the ops array within the script.  This function
- * throws an error if the file can't be opened, if a line is malformed, or if
- * the file is too long to store each request on the heap.
+/* @breif parse_script  parses the script file at the specified path, and returns an object with
+ *                      info about it.  It expects one request per line, and adds each request's
+ *                      information to the ops array within the script.  This function throws an
+ *                      error if the file can't be opened, if a line is malformed, or if the file
+ *                      is too long to store each request on the heap.
+ * @param *path         the path to the .script file to parse.
+ * @return              a pointer to the script_t with information regarding the .script requests.
  */
 static script_t parse_script(const char *path) {
     FILE *fp = fopen(path, "r");
@@ -431,17 +445,18 @@ static script_t parse_script(const char *path) {
     return script;
 }
 
-/* Function: read_line
- * --------------------
- * This function reads one line from the specified file and stores at most
- * buffer_size characters from it in buffer, removing any trailing newline.
- * It skips lines that are all-whitespace or that contain comments (begin with
- * # as first non-whitespace character).  When reading a line, it increments the
- * counter pointed to by `pnread` once for each line read/skipped. This function
- * returns true if did read a valid line eventually, or false otherwise.
+/* @brief read_line    reads one line from the specified file and stores at most buffer_size
+ *                     characters from it in buffer, removing any trailing newline. It skips lines
+ *                     that are all-whitespace or that contain comments (begin with # as first
+ *                     non-whitespace character).  When reading a line, it increments the
+ *                     counter pointed to by `pnread` once for each line read/skipped.
+ * @param buffer[]     the buffer in which we store the line from the .script line.
+ * @param buffer_size  the allowable size for the buffer.
+ * @param *fp          the file for which we are parsing requests.
+ * @param *pnread      the pointer we use to progress past a line whether it is read or skipped.
+ * @return             true if did read a valid line eventually, or false otherwise.
  */
-static bool read_line(char buffer[], size_t buffer_size, FILE *fp,
-    int *pnread) {
+static bool read_line(char buffer[], size_t buffer_size, FILE *fp, int *pnread) {
 
     while (true) {
         if (fgets(buffer, buffer_size, fp) == NULL) {
@@ -465,15 +480,16 @@ static bool read_line(char buffer[], size_t buffer_size, FILE *fp,
     }
 }
 
-/* Function: parse_script_line
- * ---------------------------
- * This function parses the provided line from the script and returns info
- * about it as a request_t object filled in with the type of the request,
- * the size, the ID, and the line number.  If the line is malformed, this
- * function throws an error.
+/* @brief parse_script_line  parses the provided line from the script and returns info about it
+ *                           as a request_t object filled in with the type of the request, the
+ *                           size, the ID, and the line number.
+ * @param *buffer            the individual line we are parsing for a heap request.
+ * @param lineno             the line in the file we are parsing.
+ * @param *script_name       the name of the current script we can output if an error occurs.
+ * @return                   the request_t for the individual line parsed.
+ * @warning                  if the line is malformed, this function throws an error.
  */
-static request_t parse_script_line(char *buffer, int lineno,
-    char *script_name) {
+static request_t parse_script_line(char *buffer, int lineno, char *script_name) {
 
     request_t request = { .lineno = lineno, .op = 0, .size = 0};
 
