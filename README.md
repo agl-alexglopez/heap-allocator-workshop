@@ -497,3 +497,18 @@ Finally, the performance gap scales as a percentage, meaning we will remain over
 
 Coalescing left and right in all implementations occurs whenever we `free()` or `realloc()` a block of memory. One of my initial reasons for implementing doubly linked duplicate nodes was to see if we could gain speed when we begin coalescing on a large tree. I hypothesized that heap allocators have many duplicate sized nodes and that if we reduce the time to coalesce duplicates to $\Theta(1)$ whenever possible, we might see some speedup in an otherwise slow operation.
 
+In order to test the speed of coalescing across implementations we can set up a similar heap to the one we used for our insertion and deletion test. If we want to test the speed of $N$ coalescing operations, we will create $2N$ allocations. Then, we will free $N$ blocks of memory to insert into the tree such that every other allocation is freed to prevent premature coalescing. Finally, we will call `realloc()` on every allocation that we have remaining, $N$ blocks. My implementation of `realloc()` and `free()` coalesce left and right every time, whether the reallocation request is for more or less space. I have set up a random distribution of calls for more or less space, with a slight skew towards asking for more space. This means we are garunteed to left and right coalesce for every call to `realloc()` giving us the maximum possible number of encounters with nodes that are in the tree. We will find a number of different coalescing scenarios this way as mentioned in the allocator summaries.
+
+If we are using a normal Red Black Tree with a parent field, we treat all alocations the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost $\Theta(lgN)$ operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in a $\Theta(1)$ operation. No rotations, fixups, or searches are necessary. This is great! However, if we have abandoned the parent field and are managing duplicates in a linked list we have a few scenarios that are possible.
+
+- Case 1: We coalesce a normal node in the tree.
+  - Remove the node and repair the tree.
+- Case 2: We coalesce a duplicate node that is the head of the doubly linked list.
+  - Find the node's parent and link it to the next node in the list.
+- Case 3: We coalesce a duplicate node that is somewhere in the doubly linked list.
+  - Remove the node from the list. No searches or fixups necessary.
+
+As you can see, cases 1 and 2 will cost us some time, even with the optimization of a doubly linked list. Case 2 is the only downside to abandoning the parent field when we must coalesce blocks of memory. We can see these costs and benefits reflected in the runtime plot of the data.
+
+![chart-realloc-free](/images/chart-realloc-free.png)
+
