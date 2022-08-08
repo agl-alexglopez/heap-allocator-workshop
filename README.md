@@ -514,6 +514,7 @@ As you can see, cases 1 and 2 will cost us some time, even with the optimization
 
 Here are the key details from the above graph.
 
+- The runtime of $N$ reallocations is $\Theta(NlgN)$.
 - The `rbtree_linked` implementation with nodes that have a `*parent`, `links[LEFT-RIGHT]`, and `*list_start` field is the clear winner. The number of $\Theta(1)$ encounters with duplicates reduces the overall runtime of the allocator significantly.
 - The stack approach is again a solid balance of space efficiency and speed.
 - The topdown approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
