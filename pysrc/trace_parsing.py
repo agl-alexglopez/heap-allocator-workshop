@@ -297,6 +297,8 @@ def identify_num_requests(call_str):
     600
     >>> identify_num_requests('-realloc(500,1200) -free')
     -2
+    >>> identify_num_requests('-realloc(500,1200) 5000')
+    5000
     >>> identify_num_requests('-free')
     -2
     >>> identify_num_requests('-free 600')
@@ -322,7 +324,8 @@ def generate_file_heap_use(arg_array):
     memory will free every other memory address, otherwise coalescing would create one large
     free block.
     """
-    alloc_ids_set = set({})
+
+    id_byte_map = {}
     alloc_ids = 0
     free_ids = 0
     realloc_ids = 0
@@ -331,42 +334,47 @@ def generate_file_heap_use(arg_array):
         if arg_string[0] == '-':
             # Identify the argument
             arg_call = identify_call(arg_string[1:])
+
             if arg_call == Print_Call.free:
                 num_requests = identify_num_requests(arg_string[1:])
                 if num_requests == ALL_IDS:
-                    num_requests = len(alloc_ids_set)
+                    num_requests = len(id_byte_map)
                 for i in range(free_ids, num_requests):
-                    alloc_ids_set.remove(free_ids)
+                    id_byte_map.pop(free_ids)
                     print(f'{Print_Call.free} {free_ids}')
                     free_ids += 2
             elif arg_call == Print_Call.alloc:
                 byte_tuple = identify_byte_range(arg_string[1:])
                 num_requests = identify_num_requests(arg_string[1:])
                 for i in range(num_requests):
-                    alloc_ids_set.add(alloc_ids)
                     if byte_tuple[0] and byte_tuple[1]:
-                        print(f'{Print_Call.alloc} {alloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
+                        id_byte_map[alloc_ids] = random.randint(byte_tuple[0], byte_tuple[1])
+                        print(f'{Print_Call.alloc} {alloc_ids} {id_byte_map[alloc_ids]}')
                     else:
-                        print(f'{Print_Call.alloc} {alloc_ids} {byte_tuple[0]}')
+                        id_byte_map[alloc_ids] = byte_tuple[0]
+                        print(f'{Print_Call.alloc} {alloc_ids} {id_byte_map[alloc_ids]}')
                     alloc_ids += 1
             elif arg_call == Print_Call.realloc:
                 byte_tuple = identify_byte_range(arg_string[1:])
                 num_requests = identify_num_requests(arg_string[1:])
                 if num_requests == ALL_IDS:
-                    num_requests = len(alloc_ids_set)
-                # reallocs are not harmful and can operate on the same memory address multiple times.
+                    num_requests = len(id_byte_map)
                 for i in range(num_requests):
-                    if byte_tuple[0] and byte_tuple[1]:
-                        print(f'{Print_Call.realloc} {realloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
-                    else:
-                        print(f'{Print_Call.realloc} {realloc_ids} {byte_tuple[0]}\n', end='')
-                    # reallocs will just wrap around to more allocated memory if necessary.
-                    realloc_ids = (realloc_ids + 1) % alloc_ids
+                    # You cannot reallocate a block that is not allocated.
+                    if realloc_ids in id_byte_map:
+                        if byte_tuple[0] and byte_tuple[1]:
+                            print(f'{Print_Call.realloc} {realloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
+                        else:
+                            print(f'{Print_Call.realloc} {realloc_ids} {byte_tuple[0]}')
+                    # If we just want to have a certain number of reallocs as a test they will just wrap.
+                    realloc_ids = (realloc_ids + 1) % len(id_byte_map)
+                    while realloc_ids not in id_byte_map:
+                        realloc_ids = (realloc_ids + 1) % len(id_byte_map)
             # Heap calls will be left as is and we will not automatically free all allocated memory.
             elif arg_call == Print_Call.leak:
                 return
-    for idx, item in enumerate(alloc_ids_set):
-        if idx == len(alloc_ids_set) - 1:
+    for idx, item in enumerate(id_byte_map):
+        if idx == len(id_byte_map) - 1:
             print(f'{Print_Call.free} {item}', end='')
         else:
             print(f'{Print_Call.free} {item}')
