@@ -72,17 +72,16 @@ def get_heap_address(line):
     call_index = line.find('->')
     if call_index == -1:
         return None
-    equals = line.find('=', call_index)
-    first_half = line[:equals]
-    second_half = line[equals + 1:]
-    # Free only has the hex id in the first half in the free() call.
-    if second_half == '<void>':
-        open_bracket = first_half.find('free(', call_index + 2)
-        i = open_bracket + 5
-        while i < len(first_half) and first_half[i] != ')':
+    open_paren = line.find('(', call_index)
+    # Some edgecase errors can interrupt a normal free line, so find free id by name rather than = sign.
+    if line[call_index + 2:open_paren] == 'free':
+        i = open_paren + 1
+        while i < len(line) and line[i].isalnum():
             i += 1
-        address = first_half[open_bracket + 5: i]
-        return int(address, 16)
+        return int(line[open_paren + 1: i], 16)
+    # Now we have a more simple search because we know ID is on the right side of equals sign.
+    equals = line.find('=', call_index)
+    second_half = line[equals + 1:]
     return int(second_half, 16)
 
 
