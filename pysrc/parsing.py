@@ -65,6 +65,8 @@ def get_heap_address(line):
     >>> get_heap_address('gcc-g3-O0-std=gnu99-Wall$warnflagstriangle.c-otriangle')
     >>> get_heap_address('+++exited(status0)+++')
     >>> get_heap_address('---SIGCHLD(Childexited)---')
+    >>> get_heap_address('nvim->free(0x22e8f10<noreturn...>')
+    36605712
     """
     # The arrow prepends any malloc, calloc, realloc, or free.
     call_index = line.find('->')

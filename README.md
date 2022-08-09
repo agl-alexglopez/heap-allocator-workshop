@@ -551,3 +551,12 @@ The Linux `tree` command will print out all directory contents in a tree structu
 It is again unproductive to discuss a speed comparison between the Red Black Tree allocators on this scale, so we will drop the list allocator for further comparison.
 
 ![chart-rbtracetree](/images/chart-rbtracetree.png)
+
+Here are the key details from the above graph.
+
+- Requests for the `tree` command consist mostly of `malloc()` and `free()` and the free tree remains small over the course of the program's lifetime.
+- The `rbtree_unified` implementation is surprisingly slow in this scenario.
+- Again, no compromises in the `rbtree_linked` implementation make it fast, even if it is not space efficient.
+
+#### Neovim
+
