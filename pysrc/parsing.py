@@ -1,7 +1,7 @@
 """
 Alex G. Lopez 2022.07.28
 
-trace_parsing.py
+parsing.py
 
 This file contains the python program for generating scripts for heap allocators. This program
 can generate artificial scripts or process the heap traces of real programs run in the terminal.
