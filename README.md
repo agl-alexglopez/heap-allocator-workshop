@@ -594,3 +594,5 @@ Let's revisit the questions I was most interested in when starting the runtime a
 - Does a topdown approach to fixing a Red Black Tree reduce the number of $\Theta(lgN)$ operations enough to make a difference in performance?
   - **Yes. The difference is that the topdown algorithm is slower than the bottom up algorithm. Perhaps the added logic of handling duplicates and needing to rewire pointers slows down this implementation of an allocator initially intended for no duplicates and transplanting removed nodes by copying data from the replacement node to the one being removed.**
 
+For further exploration, I would be interested in finding real world programs with more diverse heap calls, such as `realloc()`. The current real world tests were mostly calls to `malloc()` and `free()`, keeping our tree small.
+
