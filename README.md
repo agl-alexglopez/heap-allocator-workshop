@@ -542,3 +542,12 @@ If we then write a simple parsing program we can turn the somewhat verbose outpu
 
 > **Read my code here ([`parsing.py`](/pysrc/parsing.py)).**
 
+#### Linux Tree Command
+
+The Linux `tree` command will print out all directory contents in a tree structure from the current directory as root. This is similar to my tree printing function you have seen me use to illustrate Red Black trees throughout this write up. There are many options for this command but I am choosing to start in the `home/` directory of Ubuntu on WSL2 and use the `-f` and `-a` flags which will output full paths and hidden files for all directories. Again, for perspective here is the full comparison with the list allocator.
+
+![chart-tracetree](/images/chart-tracetree.png)
+
+It is again unproductive to discuss a speed comparison between the Red Black Tree allocators on this scale, so we will drop the list allocator for further comparison.
+
+![chart-rbtracetree](/images/chart-rbtracetree.png)
