@@ -560,3 +560,37 @@ Here are the key details from the above graph.
 
 #### Neovim
 
+Neovim is my editor of choice for this project. It is a text editor based off of Vim and we can actually trace its heap usage while we use it to edit a document. We will trace the heap usage while we edit the README.md for the project. This program usage is similar to the Linux Tree command with many `malloc()` and `free()` calls. However, among the roughly one million requests to the heap for a short editing session, there are also twenty-eight thousand calls to realloc, so we have more diverse heap usage.
+
+![chart-nvim](/images/chart-nvim.png)
+
+Here are the key observations from the above graph.
+
+- The traditional CLRS implementation of a Red Black tree will perform well in any application where there are many calls `malloc()` and `free()` and the tree remains small.
+- The extra complexity of managing duplicates speeds up the tree slightly when the tree remains small.
+
+#### Utilization
+
+While it was not productive to compare speeds of the list allocator to the tree allocator, the list allocator can show value in its high utilization due to low overhead to maintain the list. Let's compare utilization across the insertion/deletion, coalescing, and tracing applications.
+
+![chart-utilization](/images/chart-utilization.png)
+
+Here are the key details from the above graph.
+
+- While slow, the doubly linked list allocator has excellent utilization.
+- The implementations of the `rbtree_clrs`, `rbtree_unified`, `rbtree_stack`, and `rbtree_topdown` are different in terms of the details of their code and algorithms. However, they have the exact same space used in their nodes, therefore the utilization is identical.
+- Perhaps this view makes the cost of the speed gained by the `rbtree_linked` approach more apparent.
+
+### Conclusions
+
+Let's revisit the questions I was most interested in when starting the runtime analysis of these allocators.
+
+- Is there any cost or benefit to uniting the left and right cases of Red Black trees into one case with the use of an array of pointers?
+  - **Our initial runtime informations suggests that accessing pointers to other nodes in the tree from an array is slightly slower. We can explore the assembly of the traditional node versus the array based node to see for sure where the instruction counts expand. This is a possible extension to pursue in this project.**
+- Does the approach of storing duplicate node sizes in a linked list benefit performance by trimming the tree?
+  - **Absolutely. In fact, if you wish to make no compromises in terms of performance then simply add the linked list pointer to the traditional node. However, if you want a more space efficient approach use an explicit stack to track lineage of the tree, and store duplicates in a linked list pointer.**
+- When we abandon the parent field of the tree node in exchange for the linked list field, do we sacrifice performance?
+  - **If we use the CLRS algorithm to fix the tree with a bottom up approach, we do not lose much speed. However when we fix the tree with a topdown approach, we will lose some time even though we have eliminated the need for a parent field. This seems to be because we do extra work whenever we fix the tree on the way down, and our bottom up approach may not perform the worst case number of fixups on every execution.**
+- Does a topdown approach to fixing a Red Black Tree reduce the number of $\Theta(lgN)$ operations enough to make a difference in performance?
+  - **Yes. The difference is that the topdown algorithm is slower than the bottom up algorithm. Perhaps the added logic of handling duplicates and needing to rewire pointers slows down this implementation of an allocator initially intended for no duplicates and transplanting removed nodes by copying data from the replacement node to the one being removed.**
+
