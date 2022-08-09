@@ -499,7 +499,7 @@ Coalescing left and right in all implementations occurs whenever we `free()` or 
 
 In order to test the speed of coalescing across implementations we can set up a similar heap to the one we used for our insertion and deletion test. If we want to test the speed of $N$ coalescing operations, we will create $2N$ allocations. Then, we will free $N$ blocks of memory to insert into the tree such that every other allocation is freed to prevent premature coalescing. Finally, we will call `realloc()` on every allocation that we have remaining, $N$ blocks. My implementation of `realloc()` and `free()` coalesce left and right every time, whether the reallocation request is for more or less space. I have set up a random distribution of calls for more or less space, with a slight skew towards asking for more space. This means we are garunteed to left and right coalesce for every call to `realloc()` giving us the maximum possible number of encounters with nodes that are in the tree. We will find a number of different coalescing scenarios this way as mentioned in the allocator summaries.
 
-If we are using a normal Red Black Tree with a parent field, we treat all alocations the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost $\Theta(lgN)$ operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in a $\Theta(1)$ operation. No rotations, fixups, or searches are necessary. This is great! However, if we have abandoned the parent field and are managing duplicates in a linked list we have a few scenarios that are possible.
+If we are using a normal Red Black Tree with a parent field, we treat all coalescing the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost $\Theta(lgN)$ operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in an $\Theta(1)$ operation. No rotations, fixups, or searches are necessary. This is great! However, if we have abandoned the parent field and are managing duplicates in a linked list we have a few scenarios that are possible.
 
 - Case 1: We coalesce a normal node in the tree.
   - Remove the node and repair the tree.
@@ -511,4 +511,30 @@ If we are using a normal Red Black Tree with a parent field, we treat all alocat
 As you can see, cases 1 and 2 will cost us some time, even with the optimization of a doubly linked list. Case 2 is the only downside to abandoning the parent field when we must coalesce blocks of memory. We can see these costs and benefits reflected in the runtime plot of the data.
 
 ![chart-realloc-free](/images/chart-realloc-free.png)
+
+Here are the key details from the above graph.
+
+- The runtime of $N$ reallocations is $\Theta(NlgN)$.
+- The `rbtree_linked` implementation with nodes that have a `*parent`, `links[LEFT-RIGHT]`, and `*list_start` field is the clear winner. The number of $\Theta(1)$ encounters with duplicates reduces the overall runtime of the allocator significantly.
+- The stack approach is again a solid balance of space-efficiency and speed.
+- The topdown approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
+- The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is faster in this application.
+
+These results make the most wasteful implementation in terms of space, `rbtree_linked`, earn some credit it terms of its raw speed. In these artificial tests, we can claim that it is the fastest implementation in terms of inserting, deleting, and coalescing. The only problem is that it requires four fields in any node to be implemented.
+
+I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deltions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a blessing in disguise in terms of speed.
+
+### Tracing Programs
+
+While the initial artificial tests were fun for me to lab and consider in terms of how to best measure and execute parts of scripts, we are leaving out a major testing component. Real world testing is key! I will reiterate, I have no specific application in mind for any of these allocators. This makes choosing the programs to test somewhat arbitrary. I am choosing programs or Linux commands that are interesting to me and I will seek some variety wherever possible. If this were a more serious piece of research, this would be a key moment to begin forming the cost and benefit across a wide range of applications.
+
+To trace programs we use the `ltrace` command (thank you to my professor of CS107 at Stanford, Nick Troccoli for giving me the tutorial on how to trace memory usage in Linux). This command has many options and one set of instructions will allow you to trace `malloc`, `calloc`, `realloc`, and `free` calls like this.
+
+```bash
+ltrace -e malloc+realloc+calloc -e free-@libc.so* --output [FILENAME] [COMMAND]
+```
+
+If we then write a simple parsing program we can turn the somewhat verbose output of the ltrace command into a cleaned up and more simple `.script` file. If you would like to see how that parsing is done, read my implementation in Python.
+
+> **Read my code here ([`parsing.py`](/pysrc/parsing.py)).**
 
