@@ -62,9 +62,9 @@ def get_heap_address(line):
     25232032
     >>> get_heap_address('gcc->free(0x1836e50)=<void>')
     25390672
-    >>> get_heap_address('gcc -g3 -O0 -std=gnu99 -Wall $warnflags  triangle.c  -o triangle')
-    >>> get_heap_address('+++ exited (status 0) +++')
-    >>> get_heap_address('---SIGCHLD (Child exited)---')
+    >>> get_heap_address('gcc-g3-O0-std=gnu99-Wall$warnflagstriangle.c-otriangle')
+    >>> get_heap_address('+++exited(status0)+++')
+    >>> get_heap_address('---SIGCHLD(Childexited)---')
     """
     # The arrow prepends any malloc, calloc, realloc, or free.
     call_index = line.find('->')
@@ -86,17 +86,17 @@ def get_heap_address(line):
 
 def get_heap_call(line):
     """
-    >>> get_heap_call('make->calloc(8192, 1)=0x56167a22c440')
+    >>> get_heap_call('make->calloc(8192,1)=0x56167a22c440')
     <Heap_Call.alloc: 1>
     >>> get_heap_call('make->malloc(8192)=0x56167a22c440')
     <Heap_Call.alloc: 1>
     >>> get_heap_call('make->free(0x56167a22c440)=<void>')
     <Heap_Call.free: 3>
-    >>> get_heap_call('make->realloc(0x56167a22c440, 8192)=0x56167a22c440')
+    >>> get_heap_call('make->realloc(0x56167a22c440,8192)=0x56167a22c440')
     <Heap_Call.realloc: 2>
-    >>> get_heap_address('gcc -g3 -O0 -std=gnu99 -Wall $warnflags  triangle.c  -o triangle')
-    >>> get_heap_address('+++ exited (status 0) +++')
-    >>> get_heap_address('---SIGCHLD (Child exited)---')
+    >>> get_heap_address('gcc-g3-O0-std=gnu99-Wall$warnflagstriangle.c-otriangle')
+    >>> get_heap_address('+++exited(status0)+++')
+    >>> get_heap_address('---SIGCHLD(Childexited)---')
     """
     call_index = line.find('->')
     if call_index == -1:
@@ -125,7 +125,7 @@ def get_heap_bytes(line):
     >>> get_heap_bytes('make->realloc(0x56167a22c440,8192)=0x56167a22c440')
     '8192'
     >>> get_heap_bytes('gcc-g3-O0-std=gnu99-Wall$warnflagstriangle.c-otriangle')
-    >>> get_heap_bytes('+++exited(status 0)+++')
+    >>> get_heap_bytes('+++exited(status0)+++')
     >>> get_heap_bytes('---SIGCHLD(Childexited)---')
     """
     arrow = line.find('->')
@@ -181,6 +181,7 @@ def parse_file_heap_use(input_trace):
         # For each line in the file
         for line in f:
             line = line.strip()
+            line = line.replace(" ", "")
             # Get the call and memory address
             heap_address = get_heap_address(line)
 
