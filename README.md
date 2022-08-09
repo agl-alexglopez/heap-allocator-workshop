@@ -520,3 +520,21 @@ Here are the key details from the above graph.
 - The topdown approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
 - The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is faster in this application.
 
+These results make the most wasteful implementation in terms of space, `rbtree_linked`, earn some credit it terms of its raw speed. In these artificial tests, we can claim that it is the fastest implementation in terms of inserting, deleting, and coalescing. The only problem is that it requires four fields in any node to be implemented.
+
+I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deltions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a blessing in disguise in terms of speed.
+
+### Tracing Programs
+
+While the initial artificial tests were fun for me to lab and consider in terms of how to best measure and execute parts of scripts, we are leaving out a major testing component. Real world testing is key! I will reiterate, I have no specific application in mind for any of these allocators. This makes choosing the programs to test somewhat arbitrary. I am choosing programs or Linux commands that are interesting to me and I will seek some variety wherever possible. If this were a more serious piece of research, this would be a key moment to begin forming the cost and benefit across a wide range of applications.
+
+To trace programs we use the `ltrace` command (thank you to my professor of CS107 at Stanford, Nick Troccoli for giving me the tutorial on how to trace memory usage in Linux). This command has many options and one set of instructions will allow you to trace `malloc`, `calloc`, `realloc`, and `free` calls like this.
+
+```bash
+ltrace -e malloc+realloc+calloc -e free-@libc.so* --output [FILENAME] [COMMAND]
+```
+
+If we then write a simple parsing program we can turn the somewhat verbose output of the ltrace command into a cleaned up and more simple `.script` file. If you would like to see how that parsing is done, read my implementation in Python.
+
+> **Read my code here ([`parsing.py`](/pysrc/parsing.py)).**
+
