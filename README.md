@@ -522,7 +522,11 @@ Here are the key details from the above graph.
 
 These results make the most wasteful implementation in terms of space, `rbtree_linked`, earn some credit it terms of its raw speed. In these artificial tests, we can claim that it is the fastest implementation in terms of inserting, deleting, and coalescing. The only problem is that it requires four fields in any node to be implemented.
 
-I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deltions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a blessing in disguise in terms of speed.
+I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deltions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a blessing in disguise in terms of speed. To get an idea of just how many duplicates the allocators may encounter in these artificial workloads, here is a picture of the tree configuration for 50,000 insert delete requests at the peak of the tree size.
+
+![50k-insert-delete](/images/rb-tree-50k-insertdelete.png)
+
+*Pictured Above: A Red Black tree after 50,000 insertions of nodes into the tree. Notice how many duplicates we have and imagine thest duplicates spread across an entire tree if we did not manage them in a list.*
 
 ### Tracing Programs
 
