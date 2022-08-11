@@ -37,7 +37,7 @@ When we insert a node and have a double red we are most concerned with two cases
 
 Here is an example of a basic color flip we need to perform after inserting the node with the value `105`.
 
-![red-aunt](/images/red-aunt)
+![red-aunt](/images/red-aunt.png)
 
 ### Deleting
 
