@@ -12,6 +12,16 @@ I spent much of the summer of 2022 exploring the different ways that I could imp
 
 *Pictured Above: From left to right: the CLRS allocator, the unified allocator, the unified doubly linked list allocator, the unified stack allocator, and finally the unified topdown allocator. To learn more about the different implementations of a Red-Black Tree heap allocator and how the implementations evolved and improved over five iterations read on.*
 
+## Background
+
+While there are many excellent explanations of a Red Black tree that I drew upon for this allocator, I can go over the basics as I understand them. For a more detailed, world-class dive into Red-Black Trees, please read *Introduction to Algorithms*, Chapter 13, by Cormen, Leiserson, Rivest, and Stein.
+
+### The Properties
+
+### Inserting
+
+### Deleting
+
 ## CLRS Allocator
 
 > **Read my code here ([`rbtree_clrs.c`](/src/rbtree_clrs.c)).**
