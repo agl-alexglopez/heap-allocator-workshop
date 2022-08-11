@@ -18,7 +18,26 @@ While there are many excellent explanations of a Red Black tree that I drew upon
 
 ### The Properties
 
+In order to maintain $\Theta(lgN)$ single operations on a binary tree, Red-Black Trees operate under 5 rules.
+
+1. Every node is either red or black.
+2. The root is black.
+3. Every leaf, `Nil` is black. Instead we will have a black sentinel node wait at the bottom of the tree and any fields in a node that would be `NULL` will point to the sentinel. This is critical to all of these implementations.
+4. A red node has two black children.
+5. The black height, the number of black nodes on any path from the root to the black sentinel, must be the same for every path.
+
 ### Inserting
+
+We always insert new nodes into the tree as red nodes. This is because we will have the least impact on property 4 and 5 with this approach. If we insert a node and its parent is black, we do not need to fix the tree. If we insert a node and the parent is red, we will launch into our fixup operations.
+
+When we insert a node and have a double red we are most concerned with two cases.
+
+1. If we have a black aunt node, remember the black sentinel can be an aunt, we rotate.
+2. If we have a red aunt node, we color flip.
+
+Here is an example of a basic color flip we need to perform after inserting the node with the value `105`.
+
+![red-aunt](/images/red-aunt)
 
 ### Deleting
 
