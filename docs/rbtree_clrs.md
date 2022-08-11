@@ -1,6 +1,6 @@
 # CLRS Allocator
 
-> **Take me back to [`README.md`](/README.md).**
+> **Take me back to [`README.md`](/README.md)**.
 
 ## Overview
 

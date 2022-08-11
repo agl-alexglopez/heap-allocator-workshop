@@ -1,6 +1,6 @@
 # Unified Stack
 
-> **Take me back to the [`README.md`](/README.md)**
+> **Take me back to the [`README.md`](/README.md)**.
 
 ## Overview
 
