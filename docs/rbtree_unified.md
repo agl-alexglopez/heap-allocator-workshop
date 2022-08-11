@@ -211,4 +211,5 @@ This implementation seems to speed up the allocator slightly on my desktop runni
 - **`coalesce()`**- Both `free()` and `realloc()` coalesce left and right to maximize on reclaimed space. When they do this, if they find a block they will be able to immediately free it from its position in the tree and start the fixup operations. This is because we have the memory address of the block in our heap, and thus our tree. So, we use the parent field to start fixups immediately, costing $\Theta(lgN)$ time.
 - **`style`**- The style of this implementation is short, readable, and simple. The symmetric cases being unified helps make the key functions shorter to read. Thinking about the clearest way to name the `direction_t` and `links[]` pointer array operations for every function is key to helping others understand this more generalized code.
 
-> **Read about the next allocator, [`rbtree_linked`](/docs/rbtree_linked.md)**.
+> **Read the writeup for the next allocator, [`rbtree_linked`](/docs/rbtree_linked.md)**.
+
