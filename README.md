@@ -572,7 +572,7 @@ Here are the key details from the above graph.
 
 Neovim is my editor of choice for this project. It is a text editor based off of Vim and we can actually trace its heap usage while we use it to edit a document. We will trace the heap usage while we edit the README.md for the project. This program usage is similar to the Linux Tree command with many `malloc()` and `free()` calls. However, among the roughly one million requests to the heap for a short editing session, there are also twenty-eight thousand calls to realloc, so we have more diverse heap usage.
 
-![chart-nvim](/images/chart-nvim.png)
+![chart-nvim](/images/chart-tracenvim.png)
 
 Here are the key observations from the above graph.
 
@@ -603,4 +603,6 @@ Let's revisit the questions I was most interested in when starting the runtime a
   - **If we use the CLRS algorithm to fix the tree with a bottom up approach, we do not lose much speed. However when we fix the tree with a topdown approach, we will lose some time even though we have eliminated the need for a parent field. This seems to be because we do extra work whenever we fix the tree on the way down, and our bottom up approach may not perform the worst case number of fixups on every execution.**
 - Does a topdown approach to fixing a Red Black Tree reduce the number of $\Theta(lgN)$ operations enough to make a difference in performance?
   - **Yes. The difference is that the topdown algorithm is slower than the bottom up algorithm. Perhaps the added logic of handling duplicates and needing to rewire pointers slows down this implementation of an allocator initially intended for no duplicates and transplanting removed nodes by copying data from the replacement node to the one being removed.**
+
+For further exploration, I would be interested in finding real world programs with more diverse heap calls, such as `realloc()`. The current real world tests were mostly calls to `malloc()` and `free()`, keeping our tree small.
 
