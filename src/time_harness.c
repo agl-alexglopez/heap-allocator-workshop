@@ -32,6 +32,8 @@
 
 /* TYPE DECLARATIONS */
 
+typedef unsigned char byte_t;
+
 // enum and struct for a single allocator request
 enum request_type {
     ALLOC = 1,
@@ -112,7 +114,7 @@ int main(int argc, char *argv[]) {
     // -s flag to start timer on line number, -e flag to end flag on line number.
     int opt = getopt(argc, argv, "s:");
     while (opt != -1) {
-        interval_t interval = { .start_req = 0, .end_req = 0 };
+        interval_t interval = {0};
         char *ptr;
 
         // It's easier for the user to enter line numbers. We will convert to zero indexed request.
@@ -234,8 +236,8 @@ int eval_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
         }
 
         *cur_size += requested_size;
-        if ((char *)p + requested_size > (char *)(*heap_end)) {
-            *heap_end = (char *)p + requested_size;
+        if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
+            *heap_end = (byte_t *)p + requested_size;
         }
     } else if (script->ops[req].op == REALLOC) {
         size_t old_size = script->blocks[id].size;
@@ -246,8 +248,8 @@ int eval_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
         }
 
         *cur_size += (requested_size - old_size);
-        if ((char *)p + requested_size > (char *)(*heap_end)) {
-            *heap_end = (char *)p + requested_size;
+        if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
+            *heap_end = (byte_t *)p + requested_size;
         }
     } else if (script->ops[req].op == FREE) {
         size_t old_size = script->blocks[id].size;
@@ -313,7 +315,7 @@ static size_t time_allocator(script_t *script, bool *success,
         }
     }
     *success = true;
-    return (char *)heap_end - (char *)heap_segment_start();
+    return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }
 
 /* @breif eval_malloc     performs a test of a call to mymalloc of the given size.
