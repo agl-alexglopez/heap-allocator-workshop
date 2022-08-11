@@ -51,6 +51,8 @@ The `*` marks the `current` node under consideration. We define the `parent` and
 
 ### Deleting
 
+To be completed soon.
+
 ## CLRS Allocator
 
 > **Read my code here ([`rbtree_clrs.c`](/src/rbtree_clrs.c)).**
