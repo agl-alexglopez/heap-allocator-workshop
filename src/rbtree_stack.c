@@ -97,8 +97,14 @@ typedef struct heap_node_t {
     header_t header;
     struct heap_node_t *links[TWO_NODE_ARRAY];
     // Use list_start to maintain doubly linked list, using the links[PREV]-links[NEXT] fields
-    struct heap_node_t *list_start;
+    struct list_node_t *list_start;
 }heap_node_t;
+
+typedef struct list_node_t {
+    header_t header;
+    struct list_node_t *links[TWO_NODE_ARRAY];
+    struct heap_node_t *parent;
+} list_node_t;
 
 typedef enum node_color_t {
     BLACK = 0,
@@ -188,22 +194,6 @@ heap_node_t *tree_minimum(heap_node_t *root, heap_node_t *path[], int *path_len)
     return root;
 }
 
-/* @brief find_parent  searches a binary search tree with unique nodes for the parent of child.
- * @param *child       the heap_node_t who's parent we are searching for.
- * @note               this function assumes that the unique child exists and is in the tree.
- */
-heap_node_t *find_parent(heap_node_t *child) {
-    heap_node_t *seeker = tree.root;
-    size_t child_size = extract_block_size(child->header);
-    while (seeker != tree.black_null &&
-            seeker->links[LEFT] != child &&
-             seeker->links[RIGHT] != child) {
-        tree_link_t search_direction = extract_block_size(seeker->header) < child_size;
-        seeker = seeker->links[search_direction];
-    }
-    return seeker;
-}
-
 /* @brief rotate     a unified version of the traditional left and right rotation functions. The
  *                   rotation is either left or right and opposite is its opposite direction. We
  *                   take the current nodes child, and swap them and their arbitrary subtrees are
@@ -220,12 +210,12 @@ void rotate(tree_link_t rotation, heap_node_t *current, heap_node_t *path[], int
     current->links[opposite] = child->links[rotation];
 
     if (child->links[rotation] != tree.black_null) {
-        child->links[rotation]->list_start->list_start = current;
+        child->links[rotation]->list_start->parent = current;
     }
 
     heap_node_t *parent = path[path_len - 2];
     if (child != tree.black_null) {
-        child->list_start->list_start = parent;
+        child->list_start->parent = parent;
     }
 
     if (parent == tree.black_null) {
@@ -235,7 +225,7 @@ void rotate(tree_link_t rotation, heap_node_t *current, heap_node_t *path[], int
         parent->links[parent_link] = child;
     }
     child->links[rotation] = current;
-    current->list_start->list_start = child;
+    current->list_start->parent = child;
 }
 
 
@@ -248,20 +238,20 @@ void rotate(tree_link_t rotation, heap_node_t *current, heap_node_t *path[], int
  * @param *head          the node currently organized in the tree. We will add to its list.
  * @param *to_add        the node to add to the linked list.
  */
-void add_duplicate(heap_node_t *head, heap_node_t *add, heap_node_t *parent) {
+void add_duplicate(heap_node_t *head, list_node_t *add, heap_node_t *parent) {
     add->header = head->header;
     // The first node in the list can store the tree nodes parent for faster coalescing later.
-    if (head->list_start == tree.black_null) {
-        add->list_start = parent;
+    if (head->list_start == (list_node_t *)tree.black_null) {
+        add->parent = parent;
     } else {
-        add->list_start = head->list_start->list_start;
-        head->list_start->list_start = NULL;
+        add->parent = head->list_start->parent;
+        head->list_start->parent = NULL;
     }
     // Get the first next node in the doubly linked list, invariant and correct its left field.
     head->list_start->links[PREV] = add;
     add->links[NEXT] = head->list_start;
-    add->links[PREV] = head;
     head->list_start = add;
+    add->links[PREV] = (list_node_t*)head;
 }
 
 
@@ -329,7 +319,7 @@ void insert_rb_node(heap_node_t *current) {
 
         // Duplicates with a linked list. No duplicates in tree while staying O(1) coalescing.
         if (current_key == seeker_size) {
-            add_duplicate(seeker, current, path[path_len - 2]);
+            add_duplicate(seeker, (list_node_t *)current, path[path_len - 2]);
             return;
         }
         // You may see this idiom throughout. LEFT(0) if key fits in tree to left, RIGHT(1) if not.
@@ -346,7 +336,7 @@ void insert_rb_node(heap_node_t *current) {
     current->links[LEFT] = tree.black_null;
     current->links[RIGHT] = tree.black_null;
     // Store the doubly linked duplicates in list. Tree node is head black_null is tail.
-    current->list_start = tree.black_null;
+    current->list_start = (list_node_t *)tree.black_null;
     paint_node(current, RED);
     path[path_len++] = current;
     fix_rb_insert(path, path_len);
@@ -369,7 +359,7 @@ void rb_transplant(heap_node_t *parent, heap_node_t *to_remove, heap_node_t *rep
         parent->links[direction] = replacement;
     }
     if (replacement != tree.black_null) {
-        replacement->list_start->list_start = parent;
+        replacement->list_start->parent = parent;
     }
 }
 
@@ -379,14 +369,14 @@ void rb_transplant(heap_node_t *parent, heap_node_t *to_remove, heap_node_t *rep
  * @param *head             We know this node has a next node and it must be removed for malloc.
  */
 heap_node_t *delete_duplicate(heap_node_t *head) {
-    heap_node_t *next_node = head->list_start;
+    list_node_t *next_node = head->list_start;
     /* Take care of the possible node to the right in the doubly linked list first. This could be
      * another node or it could be tree.black_null, it does not matter either way.
      */
-    next_node->links[NEXT]->list_start = next_node->list_start;
-    next_node->links[NEXT]->links[PREV] = head;
+    next_node->links[NEXT]->parent = next_node->parent;
+    next_node->links[NEXT]->links[PREV] = (list_node_t *)head;
     head->list_start = next_node->links[NEXT];
-    return next_node;
+    return (heap_node_t *)next_node;
 }
 
 
@@ -468,7 +458,7 @@ heap_node_t *delete_rb_node(heap_node_t *to_remove, heap_node_t *path[], int pat
             rb_transplant(parent, right_min, fixup_starting_node);
             path[path_len - 1] = fixup_starting_node;
             right_min->links[RIGHT] = to_remove->links[RIGHT];
-            right_min->links[RIGHT]->list_start->list_start = right_min;
+            right_min->links[RIGHT]->list_start->parent = right_min;
         } else {
             path[path_len - 1] = fixup_starting_node;
         }
@@ -476,8 +466,8 @@ heap_node_t *delete_rb_node(heap_node_t *to_remove, heap_node_t *path[], int pat
         rb_transplant(parent, to_remove, right_min);
         path[len_to_removed_node - 1] = right_min;
         right_min->links[LEFT] = to_remove->links[LEFT];
-        right_min->links[LEFT]->list_start->list_start = right_min;
-        right_min->list_start->list_start = parent;
+        right_min->links[LEFT]->list_start->parent = right_min;
+        right_min->list_start->parent = parent;
         paint_node(right_min, extract_color(to_remove->header));
     }
     if (original_color == BLACK) {
@@ -521,7 +511,7 @@ heap_node_t *find_best_fit(size_t key) {
         seeker = seeker->links[search_direction];
     }
 
-    if (to_remove->list_start != tree.black_null) {
+    if (to_remove->list_start != (list_node_t *)tree.black_null) {
         // We will keep to_remove in the tree and just get the first node in doubly linked list.
         return delete_duplicate(to_remove);
     }
@@ -620,7 +610,7 @@ void init_footer(heap_node_t *node, size_t payload) {
 void init_free_node(heap_node_t *to_free, size_t block_size) {
     to_free->header = LEFT_ALLOCATED | block_size;
     to_free->header |= RED_PAINT;
-    to_free->list_start = tree.black_null;
+    to_free->list_start = (list_node_t *)tree.black_null;
     // Block sizes don't include header size so this is safe addition.
     header_t *footer = (header_t *)((byte_t *)to_free + block_size);
     *footer = to_free->header;
@@ -649,10 +639,8 @@ bool myinit(void *heap_start, size_t heap_size) {
     heap.client_end = (byte_t *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
     // Set up the dummy base of the tree to which all leaves will point.
     tree.black_null = heap.client_end;
+    tree.black_null = (heap_node_t *){0};
     tree.black_null->header = 1UL;
-    tree.black_null->links[LEFT] = NULL;
-    tree.black_null->links[RIGHT] = NULL;
-    tree.black_null->list_start = NULL;
     paint_node(tree.black_null, BLACK);
     // Set up the root of the tree (top) that starts as our largest free block.
     tree.root = heap.client_start;
@@ -661,7 +649,7 @@ bool myinit(void *heap_start, size_t heap_size) {
     init_footer(tree.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
     tree.root->links[LEFT] = tree.black_null;
     tree.root->links[RIGHT] = tree.black_null;
-    tree.root->list_start = tree.black_null;
+    tree.root->list_start = (list_node_t *)tree.black_null;
     return true;
 }
 
@@ -703,18 +691,6 @@ void *mymalloc(size_t requested_size) {
     return NULL;
 }
 
-/* TODO: There may be a solution to the search for a parent when deleting the head of the linked
- *       list. Consider storing the parent node of the node in the tree in the first node of the
- *       linked list. This list_start field might be available:
- *
- *          - Should the tree nodes have NULL or black_null as placeholder?
- *          - How can we test and trust that the next node in the list has the right parent?
- *          - When and how should we keep the parent updated as the tree rotates?
- *          - How do we distinguish node holding the parent in list_start from other nodes in list?
- *
- *        Instant coalescing complete!!!
- */
-
 /* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
  *                             need to free from the tree before absorbing into our coalescing. If
  *                             this node is a duplicate we can splice it from a linked list.
@@ -723,42 +699,45 @@ void *mymalloc(size_t requested_size) {
  */
 heap_node_t *free_coalesced_node(heap_node_t *to_coalesce) {
     // Go find and fix the node the normal way if it is unique.
-    if (to_coalesce->list_start == tree.black_null) {
+    if (to_coalesce->list_start == (list_node_t *)tree.black_null) {
        return find_best_fit(extract_block_size(to_coalesce->header));
     }
     // coalescing the first node in linked list. Notice how we use tree and list terminology.
     if (to_coalesce->links[LEFT] != tree.black_null &&
-            to_coalesce->links[PREV]->list_start == to_coalesce) {
-        to_coalesce->links[NEXT]->list_start = to_coalesce->list_start;
-        to_coalesce->links[PREV]->list_start = to_coalesce->links[NEXT];
-        to_coalesce->links[NEXT]->links[PREV] = to_coalesce->links[PREV];
+            to_coalesce->links[PREV]->list_start == (list_node_t *)to_coalesce) {
+        list_node_t *first_in_list = (list_node_t *)to_coalesce;
+        heap_node_t *tree_head = (heap_node_t *)to_coalesce->links[PREV];
+        first_in_list->links[NEXT]->parent = first_in_list->parent;
+        tree_head->list_start = first_in_list->links[NEXT];
+        first_in_list->links[NEXT]->links[PREV] = first_in_list->links[PREV];
     // to_coalesce is the head of a doubly linked list. Remove and make a new head.
     } else if (to_coalesce->list_start) {
         header_t size_and_bits = to_coalesce->header;
 
         // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
-        heap_node_t *tree_parent = to_coalesce->list_start->list_start;
+        heap_node_t *tree_parent = to_coalesce->list_start->parent;
 
         heap_node_t *tree_right = to_coalesce->links[RIGHT];
         heap_node_t *tree_left = to_coalesce->links[LEFT];
 
-        heap_node_t *new_head = to_coalesce->list_start;
-        new_head->header = size_and_bits;
+        list_node_t *first_in_list = to_coalesce->list_start;
+        first_in_list->header = size_and_bits;
 
         // Set up the new head and store the current parent in the next node's list_start field.
-        new_head->links[NEXT]->list_start = new_head->list_start;
-        new_head->list_start = new_head->links[NEXT];
+        first_in_list->links[NEXT]->parent = first_in_list->parent;
+        heap_node_t *new_head = (heap_node_t *)first_in_list;
+        new_head->list_start = first_in_list->links[NEXT];
 
-        // Now transition to thinking about this new_head as a node in a tree, not a list.
+        // Now transition to thinking about this first_in_list as a node in a tree, not a list.
         new_head->links[LEFT] = tree_left;
         new_head->links[RIGHT] = tree_right;
 
         // We will will have unpredictable results if we access black_null's list_start field.
         if (tree_left != tree.black_null) {
-            tree_left->list_start->list_start = new_head;
+            tree_left->list_start->parent = new_head;
         }
         if (tree_right != tree.black_null) {
-            tree_right->list_start->list_start = new_head;
+            tree_right->list_start->parent = new_head;
         }
 
         if (tree_parent == tree.black_null) {
@@ -990,11 +969,13 @@ size_t extract_tree_mem(heap_node_t *root) {
     // We may have repeats so make sure to add the linked list values.
     size_t node_size = extract_block_size(root->header) + HEADERSIZE;
     total_mem += node_size;
-    if ((root = root->list_start) != tree.black_null) {
+    list_node_t *tally_list = root->list_start;
+    list_node_t *list_tail = (list_node_t *)tree.black_null;
+    if (tally_list != list_tail) {
         // We have now entered a doubly linked list that uses left(prev) and right(next).
-        while (root != tree.black_null) {
+        while (tally_list != list_tail) {
             total_mem += node_size;
-            root = root->links[NEXT];
+            tally_list = tally_list->links[NEXT];
         }
     }
     return total_mem;
@@ -1064,7 +1045,7 @@ bool is_duplicate_storing_parent(heap_node_t *root, heap_node_t *parent) {
     if (root == tree.black_null) {
         return true;
     }
-    if (root->list_start != tree.black_null && root->list_start->list_start != parent) {
+    if (root->list_start != (list_node_t *)tree.black_null && root->list_start->parent != parent) {
         breakpoint();
         return false;
     }
@@ -1153,10 +1134,11 @@ void print_node(heap_node_t *root) {
     printf("(bh: %d)", get_black_height(root));
     printf(COLOR_CYN);
     // If a node is a duplicate, we will give it a special mark among nodes.
-    if (root->list_start != tree.black_null) {
+    if (root->list_start != (list_node_t *)tree.black_null) {
         int duplicates = 1;
-        heap_node_t *duplicate = root->list_start;
-        for (;(duplicate = duplicate->links[NEXT]) != tree.black_null; duplicates++) {
+        list_node_t *duplicate = root->list_start;
+        list_node_t *list_tail = (list_node_t *)tree.black_null;
+        for (;(duplicate = duplicate->links[NEXT]) != list_tail; duplicates++) {
         }
         printf("(+%d)", duplicates);
     }
