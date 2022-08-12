@@ -9,7 +9,7 @@ $(OBJDIR)/list_addressorder.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_clrs.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_unified.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_linked.o: CFLAGS += -O3
-$(OBJDIR)/rbtree_stack.o: CFLAGS += -O3
+$(OBJDIR)/rbtree_stack.o: CFLAGS += -Og
 $(OBJDIR)/rbtree_topdown.o: CFLAGS += -O3
 
 ALLOCATORS = list_bestfit list_addressorder rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
