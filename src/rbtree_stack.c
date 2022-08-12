@@ -336,7 +336,7 @@ void insert_rb_node(heap_node_t *current) {
     }
     current->links[LEFT] = free_nodes.black_nil;
     current->links[RIGHT] = free_nodes.black_nil;
-    // Store the doubly linked duplicates in list. Tree node is head black_nil is tail.
+    // Store the doubly linked duplicates in list. list_tail aka black_nil is the dummy tail.
     current->list_start = free_nodes.list_tail;
     paint_node(current, RED);
     path[path_len++] = current;
