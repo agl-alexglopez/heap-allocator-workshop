@@ -36,7 +36,7 @@
  *          https://web.archive.org/web/20190207151651/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx
  *
  *
- * The header stays as the first field of the heap_node_t and must remain accessible at all times.
+ * The header stays as the first field of the tree_node_t and must remain accessible at all times.
  * The size of the block is a multiple of eight to leave the bottom three bits accessible for info.
  *
  *   v--Most Significnat bit                               v--Least Significnat Bit
@@ -61,7 +61,7 @@
  *      +------------+--------------+----------+------+---------+
  *
  *
- * The rest of the heap_node_t remains accessible for the user, even the footer. We only need the
+ * The rest of the tree_node_t remains accessible for the user, even the footer. We only need the
  * information in the rest of the struct when it is free and either in our tree or doubly linked
  * list.
  */
@@ -92,20 +92,20 @@ typedef unsigned char byte_t;
  *  - The 1st LSB holds the allocated status and 2nd LSB holds left neighbor status for coalescing.
  *  - Use a next pointer to a doubly linked list of duplicate nodes of the same size.
  */
-typedef struct heap_node_t {
+typedef struct tree_node_t {
     // The header will store block size, allocation status, left neighbor status, and node color.
     header_t header;
-    struct heap_node_t *links[TWO_NODE_ARRAY];
+    struct tree_node_t *links[TWO_NODE_ARRAY];
     // Use list_start to maintain doubly linked list, using the links[PREV]-links[NEXT] fields
-    struct list_node_t *list_start;
-}heap_node_t;
+    struct duplicate_t *list_start;
+}tree_node_t;
 
-typedef struct list_node_t {
+typedef struct duplicate_t {
     header_t header;
-    struct list_node_t *links[TWO_NODE_ARRAY];
+    struct duplicate_t *links[TWO_NODE_ARRAY];
     // We will always store the tree parent in first duplicate node in the list. O(1) coalescing.
-    struct heap_node_t *parent;
-} list_node_t;
+    struct tree_node_t *parent;
+} duplicate_t;
 
 typedef enum node_color_t {
     BLACK = 0,
@@ -134,10 +134,10 @@ typedef enum header_status_t {
 } header_status_t;
 
 static struct free_nodes {
-    heap_node_t *root;
+    tree_node_t *tree_root;
     // These two pointers will point to the same address. Used for clarity between tree and list.
-    heap_node_t *black_nil;
-    list_node_t *list_tail;
+    tree_node_t *black_nil;
+    duplicate_t *list_tail;
 }free_nodes;
 
 static struct heap {
@@ -162,7 +162,7 @@ static struct heap {
  * @param *node       the node we need to paint.
  * @param color       the color the user wants to paint the node.
  */
-void paint_node(heap_node_t *node, node_color_t color) {
+void paint_node(tree_node_t *node, node_color_t color) {
     color == RED ? (node->header |= RED_PAINT) : (node->header &= BLK_PAINT);
 }
 
@@ -186,7 +186,7 @@ size_t extract_block_size(header_t header_val) {
  * @param *root         the root of any valid binary search tree.
  * @return              a pointer to the minimum node in a valid binary search tree.
  */
-heap_node_t *tree_minimum(heap_node_t *root, heap_node_t *path[], int *path_len) {
+tree_node_t *tree_minimum(tree_node_t *root, tree_node_t *path[], int *path_len) {
     for (; root->links[LEFT] != free_nodes.black_nil; root = root->links[LEFT]) {
         path[(*path_len)++] = root;
     }
@@ -204,22 +204,22 @@ heap_node_t *tree_minimum(heap_node_t *root, heap_node_t *path[], int *path_len)
  *                   appropriately. Rotations can occur for siblings that might not be of interest
  *                   to the path we are working up the tree.
  */
-void rotate(tree_link_t rotation, heap_node_t *current, heap_node_t *path[], int path_len) {
+void rotate(tree_link_t rotation, tree_node_t *current, tree_node_t *path[], int path_len) {
     tree_link_t opposite = !rotation;
-    heap_node_t *child = current->links[opposite];
+    tree_node_t *child = current->links[opposite];
     current->links[opposite] = child->links[rotation];
 
     if (child->links[rotation] != free_nodes.black_nil) {
         child->links[rotation]->list_start->parent = current;
     }
 
-    heap_node_t *parent = path[path_len - 2];
+    tree_node_t *parent = path[path_len - 2];
     if (child != free_nodes.black_nil) {
         child->list_start->parent = parent;
     }
 
     if (parent == free_nodes.black_nil) {
-        free_nodes.root = child;
+        free_nodes.tree_root = child;
     } else {
         tree_link_t parent_link = parent->links[RIGHT] == current;
         parent->links[parent_link] = child;
@@ -238,7 +238,7 @@ void rotate(tree_link_t rotation, heap_node_t *current, heap_node_t *path[], int
  * @param *head          the node currently organized in the tree. We will add to its list.
  * @param *to_add        the node to add to the linked list.
  */
-void add_duplicate(heap_node_t *head, list_node_t *add, heap_node_t *parent) {
+void add_duplicate(tree_node_t *head, duplicate_t *add, tree_node_t *parent) {
     add->header = head->header;
     // The first node in the list can store the tree nodes parent for faster coalescing later.
     if (head->list_start == free_nodes.list_tail) {
@@ -251,7 +251,7 @@ void add_duplicate(heap_node_t *head, list_node_t *add, heap_node_t *parent) {
     head->list_start->links[PREV] = add;
     add->links[NEXT] = head->list_start;
     head->list_start = add;
-    add->links[PREV] = (list_node_t*)head;
+    add->links[PREV] = (duplicate_t*)head;
 }
 
 
@@ -264,16 +264,16 @@ void add_duplicate(heap_node_t *head, list_node_t *add, heap_node_t *parent) {
  * @param *path[]        the path representing the route down to the node we have inserted.
  * @param path_len       the length of the path.
  */
-void fix_rb_insert(heap_node_t *path[], int path_len) {
+void fix_rb_insert(tree_node_t *path[], int path_len) {
     while(path_len >= 3 && extract_color(path[path_len - 2]->header) == RED) {
-        heap_node_t *current = path[path_len - 1];
-        heap_node_t *parent = path[path_len - 2];
-        heap_node_t *ancestor = path[path_len - 3];
+        tree_node_t *current = path[path_len - 1];
+        tree_node_t *parent = path[path_len - 2];
+        tree_node_t *ancestor = path[path_len - 3];
 
         // We can store the case we need to complete and its opposite rather than repeat code.
         tree_link_t symmetric_case = ancestor->links[RIGHT] == parent;
         tree_link_t other_direction = !symmetric_case;
-        heap_node_t *aunt = ancestor->links[other_direction];
+        tree_node_t *aunt = ancestor->links[other_direction];
         if (extract_color(aunt->header) == RED) {
             paint_node(aunt, BLACK);
             paint_node(parent, BLACK);
@@ -283,7 +283,7 @@ void fix_rb_insert(heap_node_t *path[], int path_len) {
         } else {
             if (current == parent->links[other_direction]) {
                 current = parent;
-                heap_node_t *other_child = current->links[other_direction];
+                tree_node_t *other_child = current->links[other_direction];
                 rotate(symmetric_case, current, path, path_len - 1);
                 // The lineage has changed due to rotation, so we must repair.
                 path[path_len - 2] = other_child;
@@ -299,20 +299,20 @@ void fix_rb_insert(heap_node_t *path[], int path_len) {
             path_len--;
         }
     }
-    paint_node(free_nodes.root, BLACK);
+    paint_node(free_nodes.tree_root, BLACK);
 }
 
 /* @brief insert_rb_node  a modified insertion with additional logic to add duplicates if the
  *                        size in bytes of the block is already in the tree.
  * @param *current        we must insert to tree or add to a list as duplicate.
  */
-void insert_rb_node(heap_node_t *current) {
+void insert_rb_node(tree_node_t *current) {
     size_t current_key = extract_block_size(current->header);
 
-    heap_node_t *path[MAX_TREE_HEIGHT];
+    tree_node_t *path[MAX_TREE_HEIGHT];
     path[0] = free_nodes.black_nil;
     int path_len = 1;
-    heap_node_t *seeker = free_nodes.root;
+    tree_node_t *seeker = free_nodes.tree_root;
     while (seeker != free_nodes.black_nil) {
         size_t seeker_size = extract_block_size(seeker->header);
         // Track the stack
@@ -320,16 +320,16 @@ void insert_rb_node(heap_node_t *current) {
 
         // Duplicates with a linked list. No duplicates in tree while staying O(1) coalescing.
         if (current_key == seeker_size) {
-            add_duplicate(seeker, (list_node_t *)current, path[path_len - 2]);
+            add_duplicate(seeker, (duplicate_t *)current, path[path_len - 2]);
             return;
         }
         // You may see this idiom throughout. LEFT(0) if key fits in tree to left, RIGHT(1) if not.
         tree_link_t direction = seeker_size < current_key;
         seeker = seeker->links[direction];
     }
-    heap_node_t *parent = path[path_len - 1];
+    tree_node_t *parent = path[path_len - 1];
     if (parent == free_nodes.black_nil) {
-        free_nodes.root = current;
+        free_nodes.tree_root = current;
     } else {
         tree_link_t direction = extract_block_size(parent->header) < current_key;
         parent->links[direction] = current;
@@ -352,9 +352,9 @@ void insert_rb_node(heap_node_t *current) {
  * @param *to_remove     the node we are removing from the tree.
  * @param *replacement   the node that will fill the to_remove position. It can be tree.black_nil.
  */
-void rb_transplant(heap_node_t *parent, heap_node_t *to_remove, heap_node_t *replacement) {
+void rb_transplant(tree_node_t *parent, tree_node_t *to_remove, tree_node_t *replacement) {
     if (parent == free_nodes.black_nil) {
-        free_nodes.root = replacement;
+        free_nodes.tree_root = replacement;
     } else {
         tree_link_t direction = parent->links[RIGHT] == to_remove;
         parent->links[direction] = replacement;
@@ -369,15 +369,15 @@ void rb_transplant(heap_node_t *parent, heap_node_t *to_remove, heap_node_t *rep
  *                          remove the first node from the linked list.
  * @param *head             We know this node has a next node and it must be removed for malloc.
  */
-heap_node_t *delete_duplicate(heap_node_t *head) {
-    list_node_t *next_node = head->list_start;
+tree_node_t *delete_duplicate(tree_node_t *head) {
+    duplicate_t *next_node = head->list_start;
     /* Take care of the possible node to the right in the doubly linked list first. This could be
      * another node or it could be free.black_nil, it does not matter either way.
      */
     next_node->links[NEXT]->parent = next_node->parent;
-    next_node->links[NEXT]->links[PREV] = (list_node_t *)head;
+    next_node->links[NEXT]->links[PREV] = (duplicate_t *)head;
     head->list_start = next_node->links[NEXT];
-    return (heap_node_t *)next_node;
+    return (tree_node_t *)next_node;
 }
 
 
@@ -391,12 +391,12 @@ heap_node_t *delete_duplicate(heap_node_t *head) {
  * @param *path[]        the path representing the route down to the node we have inserted.
  * @param path_len       the length of the path.
  */
-void fix_rb_delete(heap_node_t *current, heap_node_t *path[], int path_len) {
-    while (current != free_nodes.root && extract_color(current->header) == BLACK) {
-        heap_node_t *parent = path[path_len - 2];
+void fix_rb_delete(tree_node_t *current, tree_node_t *path[], int path_len) {
+    while (current != free_nodes.tree_root && extract_color(current->header) == BLACK) {
+        tree_node_t *parent = path[path_len - 2];
         tree_link_t symmetric_case = parent->links[RIGHT] == current;
         tree_link_t other_direction = !symmetric_case;
-        heap_node_t *sibling = parent->links[other_direction];
+        tree_node_t *sibling = parent->links[other_direction];
         if (extract_color(sibling->header) == RED) {
             paint_node(sibling, BLACK);
             paint_node(parent, RED);
@@ -422,7 +422,7 @@ void fix_rb_delete(heap_node_t *current, heap_node_t *path[], int path_len) {
             paint_node(parent, BLACK);
             paint_node(sibling->links[other_direction], BLACK);
             rotate(symmetric_case, parent, path, path_len - 1);
-            current = free_nodes.root;
+            current = free_nodes.tree_root;
         }
     }
     paint_node(current, BLACK);
@@ -434,10 +434,10 @@ void fix_rb_delete(heap_node_t *current, heap_node_t *path[], int path_len) {
  * @param *path[]         the path representing the route down to the node we have inserted.
  * @param path_len        the length of the path.
  */
-heap_node_t *delete_rb_node(heap_node_t *to_remove, heap_node_t *path[], int path_len) {
-    heap_node_t *fixup_starting_node = free_nodes.black_nil;
+tree_node_t *delete_rb_node(tree_node_t *to_remove, tree_node_t *path[], int path_len) {
+    tree_node_t *fixup_starting_node = free_nodes.black_nil;
     node_color_t original_color = extract_color(to_remove->header);
-    heap_node_t *parent = path[path_len - 2];
+    tree_node_t *parent = path[path_len - 2];
 
     if (to_remove->links[LEFT] == free_nodes.black_nil) {
         fixup_starting_node = to_remove->links[RIGHT];
@@ -450,7 +450,7 @@ heap_node_t *delete_rb_node(heap_node_t *to_remove, heap_node_t *path[], int pat
     } else {
         int len_to_removed_node = path_len;
         // Warning, path_len may have changed.
-        heap_node_t *right_min = tree_minimum(to_remove->links[RIGHT], path, &path_len);
+        tree_node_t *right_min = tree_minimum(to_remove->links[RIGHT], path, &path_len);
         original_color = extract_color(right_min->header);
 
         fixup_starting_node = right_min->links[RIGHT];
@@ -480,18 +480,18 @@ heap_node_t *delete_rb_node(heap_node_t *to_remove, heap_node_t *path[], int pat
 /* @brief find_best_fit  a red black tree is well suited to best fit search in O(logN) time. We
  *                       will find the best fitting node possible given the options in our tree.
  * @param key            the size_t number of bytes we are searching for in our tree.
- * @return               the pointer to the heap_node_t that is the best fit for our need.
+ * @return               the pointer to the tree_node_t that is the best fit for our need.
  */
-heap_node_t *find_best_fit(size_t key) {
-    heap_node_t *path[MAX_TREE_HEIGHT];
+tree_node_t *find_best_fit(size_t key) {
+    tree_node_t *path[MAX_TREE_HEIGHT];
     path[0] = free_nodes.black_nil;
     int path_len = 1;
     int len_to_best_fit = 1;
 
-    heap_node_t *seeker = free_nodes.root;
+    tree_node_t *seeker = free_nodes.tree_root;
     // We will use this sentinel to start our competition while we search for best fit.
     size_t best_fit_size = ULLONG_MAX;
-    heap_node_t *to_remove = seeker;
+    tree_node_t *to_remove = seeker;
     while (seeker != free_nodes.black_nil) {
         size_t seeker_size = extract_block_size(seeker->header);
         path[path_len++] = seeker;
@@ -512,7 +512,7 @@ heap_node_t *find_best_fit(size_t key) {
         seeker = seeker->links[search_direction];
     }
 
-    if (to_remove->list_start != (list_node_t *)free_nodes.black_nil) {
+    if (to_remove->list_start != (duplicate_t *)free_nodes.black_nil) {
         // We will keep to_remove in the tree and just get the first node in doubly linked list.
         return delete_duplicate(to_remove);
     }
@@ -526,14 +526,14 @@ heap_node_t *find_best_fit(size_t key) {
  * @return                     the address of the node that was either in our tree or list.
  */
 void *free_coalesced_node(void *to_coalesce) {
-    heap_node_t *tree_node = to_coalesce;
+    tree_node_t *tree_node = to_coalesce;
     // Go find and fix the node the normal way if it is unique.
     if (tree_node->list_start == free_nodes.list_tail) {
        return find_best_fit(extract_block_size(tree_node->header));
     }
 
-    heap_node_t *left_tree_node = tree_node->links[LEFT];
-    list_node_t *list_node = to_coalesce;
+    tree_node_t *left_tree_node = tree_node->links[LEFT];
+    duplicate_t *list_node = to_coalesce;
     // coalescing the first node in linked list. Dummy head, aka left_tree_node, is to the left.
     if (left_tree_node != free_nodes.black_nil &&
             left_tree_node->list_start == list_node) {
@@ -547,17 +547,17 @@ void *free_coalesced_node(void *to_coalesce) {
         header_t size_and_bits = tree_node->header;
 
         // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
-        heap_node_t *tree_parent = tree_node->list_start->parent;
+        tree_node_t *tree_parent = tree_node->list_start->parent;
 
-        heap_node_t *tree_right = tree_node->links[RIGHT];
-        heap_node_t *tree_left = tree_node->links[LEFT];
+        tree_node_t *tree_right = tree_node->links[RIGHT];
+        tree_node_t *tree_left = tree_node->links[LEFT];
 
-        list_node_t *first_in_list = tree_node->list_start;
+        duplicate_t *first_in_list = tree_node->list_start;
         first_in_list->header = size_and_bits;
 
         // Always carefully track the parent when we remove from head or first list node.
         first_in_list->links[NEXT]->parent = first_in_list->parent;
-        heap_node_t *new_tree_node = (heap_node_t *)first_in_list;
+        tree_node_t *new_tree_node = (tree_node_t *)first_in_list;
         new_tree_node->list_start = first_in_list->links[NEXT];
 
         new_tree_node->links[LEFT] = tree_left;
@@ -571,13 +571,13 @@ void *free_coalesced_node(void *to_coalesce) {
         }
 
         if (tree_parent == free_nodes.black_nil) {
-            free_nodes.root = new_tree_node;
+            free_nodes.tree_root = new_tree_node;
         } else {
             tree_link_t parent_link = tree_parent->links[LEFT] == to_coalesce ? LEFT : RIGHT;
             tree_parent->links[parent_link] = new_tree_node;
         }
 
-    // All other nodes must be list_node_t's with the parent field set to NULL.
+    // All other nodes must be duplicate_t's with the parent field set to NULL.
     } else {
         list_node->links[PREV]->links[NEXT] = list_node->links[NEXT];
         list_node->links[NEXT]->links[PREV] = list_node->links[PREV];
@@ -610,17 +610,17 @@ bool is_block_allocated(header_t header) {
  * @param *node          the node to check.
  * @return               true if left is free false if left is allocated.
  */
-bool is_left_space(heap_node_t *node) {
+bool is_left_space(tree_node_t *node) {
     return !(node->header & LEFT_ALLOCATED);
 }
 
-/* @brief get_right_neighbor  gets the address of the next heap_node_t in the heap to the right.
- * @param *current            the heap_node_t we start at to then jump to the right.
- * @param payload             the size in bytes as a size_t of the current heap_node_t block.
- * @return                    the heap_node_t to the right of the current.
+/* @brief get_right_neighbor  gets the address of the next tree_node_t in the heap to the right.
+ * @param *current            the tree_node_t we start at to then jump to the right.
+ * @param payload             the size in bytes as a size_t of the current tree_node_t block.
+ * @return                    the tree_node_t to the right of the current.
  */
-heap_node_t *get_right_neighbor(heap_node_t *current, size_t payload) {
-    return (heap_node_t *)((byte_t *)current + HEADERSIZE + payload);
+tree_node_t *get_right_neighbor(tree_node_t *current, size_t payload) {
+    return (tree_node_t *)((byte_t *)current + HEADERSIZE + payload);
 }
 
 /* @brief *get_left_neighbor  uses the left block size gained from the footer to move to the header.
@@ -628,9 +628,9 @@ heap_node_t *get_right_neighbor(heap_node_t *current, size_t payload) {
  * @param left_block_size     the space of the left block as reported by its footer.
  * @return                    a header_t pointer to the header for the block to the left.
  */
-heap_node_t *get_left_neighbor(heap_node_t *node) {
+tree_node_t *get_left_neighbor(tree_node_t *node) {
     header_t *left_footer = (header_t *)((byte_t *)node - HEADERSIZE);
-    return (heap_node_t *)((byte_t *)node - (*left_footer & SIZE_MASK) - HEADERSIZE);
+    return (tree_node_t *)((byte_t *)node - (*left_footer & SIZE_MASK) - HEADERSIZE);
 }
 
 /* @brief init_header_size  initializes any node as the size and indicating left is allocated. Left
@@ -638,30 +638,30 @@ heap_node_t *get_left_neighbor(heap_node_t *node) {
  * @param *node             the region of possibly uninitialized heap we must initialize.
  * @param payload           the payload in bytes as a size_t of the current block we initialize
  */
-void init_header_size(heap_node_t *node, size_t payload) {
+void init_header_size(tree_node_t *node, size_t payload) {
     node->header = LEFT_ALLOCATED | payload;
 }
 
-/* @brief get_client_space  steps into the client space just after the header of a heap_node_t.
- * @param *node_header      the heap_node_t we start at before retreiving the client space.
+/* @brief get_client_space  steps into the client space just after the header of a tree_node_t.
+ * @param *node_header      the tree_node_t we start at before retreiving the client space.
  * @return                  the void* address of the client space they are now free to use.
  */
-void *get_client_space(heap_node_t *node_header) {
+void *get_client_space(tree_node_t *node_header) {
     return (byte_t *) node_header + HEADERSIZE;
 }
 
-/* @brief get_heap_node  steps to the heap_node_t header from the space the client was using.
+/* @brief get_heap_node  steps to the tree_node_t header from the space the client was using.
  * @param *client_space  the void* the client was using for their type. We step to the left.
- * @return               a pointer to the heap_node_t of our heap block.
+ * @return               a pointer to the tree_node_t of our heap block.
  */
-heap_node_t *get_heap_node(void *client_space) {
-    return (heap_node_t *)((byte_t *) client_space - HEADERSIZE);
+tree_node_t *get_heap_node(void *client_space) {
+    return (tree_node_t *)((byte_t *) client_space - HEADERSIZE);
 }
 
 /* @brief init_footer  initializes footer at end of the heap block to matcht the current header.
  * @param *node        the current node with a header field we will use to set the footer.
  */
-void init_footer(heap_node_t *node, size_t payload) {
+void init_footer(tree_node_t *node, size_t payload) {
     header_t *footer = (header_t *)((byte_t *)node + payload);
     *footer = node->header;
 }
@@ -674,14 +674,14 @@ void init_footer(heap_node_t *node, size_t payload) {
  * @param *to_free        the heap_node to add to the red black tree.
  * @param block_size      the size we use to initialize the node and find the right place in tree.
  */
-void init_free_node(heap_node_t *to_free, size_t block_size) {
+void init_free_node(tree_node_t *to_free, size_t block_size) {
     to_free->header = LEFT_ALLOCATED | block_size;
     to_free->header |= RED_PAINT;
     to_free->list_start = free_nodes.list_tail;
     // Block sizes don't include header size so this is safe addition.
     header_t *footer = (header_t *)((byte_t *)to_free + block_size);
     *footer = to_free->header;
-    heap_node_t *neighbor = (heap_node_t *)((byte_t *) footer + HEADERSIZE);
+    tree_node_t *neighbor = (tree_node_t *)((byte_t *) footer + HEADERSIZE);
     neighbor->header &= LEFT_FREE;
     insert_rb_node(to_free);
 }
@@ -711,13 +711,13 @@ bool myinit(void *heap_start, size_t heap_size) {
     free_nodes.black_nil->header = 1UL;
     paint_node(free_nodes.black_nil, BLACK);
 
-    free_nodes.root = heap.client_start;
-    init_header_size(free_nodes.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
-    paint_node(free_nodes.root, BLACK);
-    init_footer(free_nodes.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
-    free_nodes.root->links[LEFT] = free_nodes.black_nil;
-    free_nodes.root->links[RIGHT] = free_nodes.black_nil;
-    free_nodes.root->list_start = free_nodes.list_tail;
+    free_nodes.tree_root = heap.client_start;
+    init_header_size(free_nodes.tree_root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
+    paint_node(free_nodes.tree_root, BLACK);
+    init_footer(free_nodes.tree_root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE);
+    free_nodes.tree_root->links[LEFT] = free_nodes.black_nil;
+    free_nodes.tree_root->links[RIGHT] = free_nodes.black_nil;
+    free_nodes.tree_root->list_start = free_nodes.list_tail;
     return true;
 }
 
@@ -728,8 +728,8 @@ bool myinit(void *heap_start, size_t heap_size) {
  * @param block_space   the entire space that we have to work with.
  * @return              a void pointer to generic space that is now ready for the client.
  */
-void *split_alloc(heap_node_t *free_block, size_t request, size_t block_space) {
-    heap_node_t *neighbor = NULL;
+void *split_alloc(tree_node_t *free_block, size_t request, size_t block_space) {
+    tree_node_t *neighbor = NULL;
     if (block_space >= request + MIN_BLOCK_SIZE) {
         neighbor = get_right_neighbor(free_block, request);
         // This takes care of the neighbor and ITS neighbor with appropriate updates.
@@ -753,13 +753,13 @@ void *mymalloc(size_t requested_size) {
     if (requested_size != 0 && requested_size <= MAX_REQUEST_SIZE) {
         size_t client_request = roundup(requested_size + HEAP_NODE_WIDTH, ALIGNMENT);
         // Search the tree for the best possible fitting node.
-        heap_node_t *found_node = find_best_fit(client_request);
+        tree_node_t *found_node = find_best_fit(client_request);
         return split_alloc(found_node, client_request, extract_block_size(found_node->header));
     }
     return NULL;
 }
 
-/* @brief coalesce        attempts to coalesce left and right if the left and right heap_node_t
+/* @brief coalesce        attempts to coalesce left and right if the left and right tree_node_t
  *                        are free. Runs the search to free the specific free node in O(logN) + d
  *                        where d is the number of duplicate nodes of the same size.
  * @param *leftmost_node  the current node that will move left if left is free to coalesce.
@@ -768,11 +768,11 @@ void *mymalloc(size_t requested_size) {
  * @warning               this function does not overwrite the data that may be in the middle if we
  *                        expand left and write. The user may wish to move elsewhere if reallocing.
  */
-heap_node_t *coalesce(heap_node_t *leftmost_node) {
+tree_node_t *coalesce(tree_node_t *leftmost_node) {
     // What if your left or right free node to coalesce is a repeat?
     // It may not be the first node in the repeat list.
     size_t coalesced_space = extract_block_size(leftmost_node->header);
-    heap_node_t *rightmost_node = get_right_neighbor(leftmost_node, coalesced_space);
+    tree_node_t *rightmost_node = get_right_neighbor(leftmost_node, coalesced_space);
     if (!is_block_allocated(rightmost_node->header)) {
         coalesced_space += extract_block_size(rightmost_node->header) + HEADERSIZE;
         rightmost_node = free_coalesced_node(rightmost_node);
@@ -807,10 +807,10 @@ void *myrealloc(void *old_ptr, size_t new_size) {
         return NULL;
     }
     size_t request = roundup(new_size + HEAP_NODE_WIDTH, ALIGNMENT);
-    heap_node_t *old_node = get_heap_node(old_ptr);
+    tree_node_t *old_node = get_heap_node(old_ptr);
     size_t old_size = extract_block_size(old_node->header);
 
-    heap_node_t *leftmost_node = coalesce(old_node);
+    tree_node_t *leftmost_node = coalesce(old_node);
     size_t coalesced_space = extract_block_size(leftmost_node->header);
     void *client_space = get_client_space(leftmost_node);
 
@@ -831,7 +831,7 @@ void *myrealloc(void *old_ptr, size_t new_size) {
  */
 void myfree(void *ptr) {
     if (ptr != NULL) {
-        heap_node_t *to_insert = get_heap_node(ptr);
+        tree_node_t *to_insert = get_heap_node(ptr);
         to_insert = coalesce(to_insert);
         init_free_node(to_insert, extract_block_size(to_insert->header));
     }
@@ -866,7 +866,7 @@ bool check_init() {
  */
 bool is_memory_balanced(size_t *total_free_mem) {
     // Check that after checking all headers we end on size 0 tail and then end of address space.
-    heap_node_t *cur_node = heap.client_start;
+    tree_node_t *cur_node = heap.client_start;
     size_t size_used = HEAP_NODE_WIDTH;
     while (cur_node != heap.client_end) {
         size_t block_size_check = extract_block_size(cur_node->header);
@@ -891,7 +891,7 @@ bool is_memory_balanced(size_t *total_free_mem) {
  * @param *root             the starting root to search from to find the height.
  * @return                  the black height from the current node as an integer.
  */
-int get_black_height(heap_node_t *root) {
+int get_black_height(tree_node_t *root) {
     if (root == free_nodes.black_nil) {
         return 0;
     }
@@ -905,7 +905,7 @@ int get_black_height(heap_node_t *root) {
  * @param *root            the root to start at to measure the height of the tree.
  * @return                 the int of the max height of the tree.
  */
-int get_tree_height(heap_node_t *root) {
+int get_tree_height(tree_node_t *root) {
     if (root == free_nodes.black_nil) {
         return 0;
     }
@@ -917,7 +917,7 @@ int get_tree_height(heap_node_t *root) {
 /* @brief is_red_red  determines if a red red violation of a red black tree has occured.
  * @param *root       the current root of the tree to begin at for checking all subtrees.
  */
-bool is_red_red(heap_node_t *root) {
+bool is_red_red(tree_node_t *root) {
     if (root == free_nodes.black_nil ||
             (root->links[RIGHT] == free_nodes.black_nil
              && root->links[LEFT] == free_nodes.black_nil)) {
@@ -938,7 +938,7 @@ bool is_red_red(heap_node_t *root) {
  * @param *root              the root of the tree to begin searching.
  * @return                   -1 if the rule was not upheld, the black height if the rule is held.
  */
-int calculate_bheight(heap_node_t *root) {
+int calculate_bheight(tree_node_t *root) {
     if (root == free_nodes.black_nil) {
         return 0;
     }
@@ -956,7 +956,7 @@ int calculate_bheight(heap_node_t *root) {
  *                          property is upheld.
  * @param *root             the starting node of the red black tree to check.
  */
-bool is_bheight_valid(heap_node_t *root) {
+bool is_bheight_valid(tree_node_t *root) {
     return calculate_bheight(root) != -1;
 }
 
@@ -965,7 +965,7 @@ bool is_bheight_valid(heap_node_t *root) {
  * @param *root             the root to start at for the summing recursive search.
  * @return                  the total memory in bytes as a size_t in the red black tree.
  */
-size_t extract_tree_mem(heap_node_t *root) {
+size_t extract_tree_mem(tree_node_t *root) {
     if (root == free_nodes.black_nil) {
         return 0UL;
     }
@@ -974,7 +974,7 @@ size_t extract_tree_mem(heap_node_t *root) {
     // We may have repeats so make sure to add the linked list values.
     size_t node_size = extract_block_size(root->header) + HEADERSIZE;
     total_mem += node_size;
-    list_node_t *tally_list = root->list_start;
+    duplicate_t *tally_list = root->list_start;
     if (tally_list != free_nodes.list_tail) {
         // We have now entered a doubly linked list that uses left(prev) and right(next).
         while (tally_list != free_nodes.list_tail) {
@@ -989,7 +989,7 @@ size_t extract_tree_mem(heap_node_t *root) {
  * @param *root                the root node to begin at for the recursive summing search.
  * @return                     true if the totals match false if they do not.
  */
-bool is_rbtree_mem_valid(heap_node_t *root, size_t total_free_mem) {
+bool is_rbtree_mem_valid(tree_node_t *root, size_t total_free_mem) {
     return extract_tree_mem(root) == total_free_mem;
 }
 
@@ -997,12 +997,12 @@ bool is_rbtree_mem_valid(heap_node_t *root, size_t total_free_mem) {
  *                              similar function to calculate_bheight but comes from a more
  *                              reliable source, because I saw results that made me doubt V1.
  */
-int calculate_bheight_V2(heap_node_t *root) {
+int calculate_bheight_V2(tree_node_t *root) {
     if (root == free_nodes.black_nil) {
         return 1;
     }
-    heap_node_t *left = root->links[LEFT];
-    heap_node_t *right = root->links[RIGHT];
+    tree_node_t *left = root->links[LEFT];
+    tree_node_t *right = root->links[RIGHT];
     int left_height = calculate_bheight_V2(left);
     int right_height = calculate_bheight_V2(right);
     if (left_height != 0 && right_height != 0 && left_height != right_height) {
@@ -1020,8 +1020,8 @@ int calculate_bheight_V2(heap_node_t *root) {
  * @param *root                the starting node of the red black tree to check.
  * @return                     true if the paths are valid, false if not.
  */
-bool is_bheight_valid_V2(heap_node_t *root) {
-    return calculate_bheight_V2(free_nodes.root) != 0;
+bool is_bheight_valid_V2(tree_node_t *root) {
+    return calculate_bheight_V2(free_nodes.tree_root) != 0;
 }
 
 /* @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left should
@@ -1029,7 +1029,7 @@ bool is_bheight_valid_V2(heap_node_t *root) {
  * @param *root           the root of the tree from which we examine children.
  * @return                true if the tree is valid, false if not.
  */
-bool is_binary_tree(heap_node_t *root) {
+bool is_binary_tree(tree_node_t *root) {
     if (root == free_nodes.black_nil) {
         return true;
     }
@@ -1053,7 +1053,7 @@ bool is_binary_tree(heap_node_t *root) {
  * @param *parent                      the parent of the current node.
  * @return                             true if we store the parent in first duplicate list node.
  */
-bool is_duplicate_storing_parent(heap_node_t *root, heap_node_t *parent) {
+bool is_duplicate_storing_parent(tree_node_t *root, tree_node_t *parent) {
     if (root == free_nodes.black_nil) {
         return true;
     }
@@ -1085,31 +1085,31 @@ bool validate_heap() {
         return false;
     }
     // Does a tree search for all memory match the linear heap search for totals?
-    if (!is_rbtree_mem_valid(free_nodes.root, total_free_mem)) {
+    if (!is_rbtree_mem_valid(free_nodes.tree_root, total_free_mem)) {
         breakpoint();
         return false;
     }
     // Two red nodes in a row are invalid for the table.
-    if (is_red_red(free_nodes.root)) {
+    if (is_red_red(free_nodes.tree_root)) {
         breakpoint();
         return false;
     }
     // Does every path from a node to the black sentinel contain the same number of black nodes.
-    if (!is_bheight_valid(free_nodes.root)) {
+    if (!is_bheight_valid(free_nodes.tree_root)) {
         breakpoint();
         return false;
     }
 
     // This comes from a more official write up on red black trees so I included it.
-    if (!is_bheight_valid_V2(free_nodes.root)) {
+    if (!is_bheight_valid_V2(free_nodes.tree_root)) {
         breakpoint();
         return false;
     }
-    if (!is_binary_tree(free_nodes.root)) {
+    if (!is_binary_tree(free_nodes.tree_root)) {
         breakpoint();
         return false;
     }
-    if (!is_duplicate_storing_parent(free_nodes.root, free_nodes.black_nil)) {
+    if (!is_duplicate_storing_parent(free_nodes.tree_root, free_nodes.black_nil)) {
         return false;
     }
     return true;
@@ -1136,7 +1136,7 @@ typedef enum print_node_t {
 /* @brief print_node  prints an individual node in its color and status as left or right child.
  * @param *root       the root we will print with the appropriate info.
  */
-void print_node(heap_node_t *root) {
+void print_node(tree_node_t *root) {
     size_t block_size = extract_block_size(root->header);
     extract_color(root->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
     printf("%p:", root);
@@ -1148,7 +1148,7 @@ void print_node(heap_node_t *root) {
     // If a node is a duplicate, we will give it a special mark among nodes.
     if (root->list_start != free_nodes.list_tail) {
         int duplicates = 1;
-        list_node_t *duplicate = root->list_start;
+        duplicate_t *duplicate = root->list_start;
         for (;(duplicate = duplicate->links[NEXT]) != free_nodes.list_tail; duplicates++) {
         }
         printf("(+%d)", duplicates);
@@ -1163,7 +1163,7 @@ void print_node(heap_node_t *root) {
  * @param *prefix           the string we print spacing and characters across recursive calls.
  * @param node_type         the node to print can either be a leaf or internal branch.
  */
-void print_inner_tree(heap_node_t *root, char *prefix, print_node_t node_type, tree_link_t dir) {
+void print_inner_tree(tree_node_t *root, char *prefix, print_node_t node_type, tree_link_t dir) {
     if (root == free_nodes.black_nil) {
         return;
     }
@@ -1200,7 +1200,7 @@ void print_inner_tree(heap_node_t *root, char *prefix, print_node_t node_type, t
 /* @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
  * @param *root          the root node to begin at for printing recursively.
  */
-void print_rb_tree(heap_node_t *root) {
+void print_rb_tree(tree_node_t *root) {
     if (root == free_nodes.black_nil) {
         return;
     }
@@ -1220,9 +1220,9 @@ void print_rb_tree(heap_node_t *root) {
 }
 
 /* @brief print_alloc_block  prints the contents of an allocated block of memory.
- * @param *node              a valid heap_node_t to a block of allocated memory.
+ * @param *node              a valid tree_node_t to a block of allocated memory.
  */
-void print_alloc_block(heap_node_t *node) {
+void print_alloc_block(tree_node_t *node) {
     size_t block_size = extract_block_size(node->header);
     // We will see from what direction our header is messed up by printing 16 digits.
     printf(COLOR_GRN "%p: HDR->0x%016zX(%zubytes)\n"
@@ -1232,7 +1232,7 @@ void print_alloc_block(heap_node_t *node) {
 /* @brief print_free_block  prints the contents of a free block of heap memory.
  * @param *header           a valid header to a block of allocated memory.
  */
-void print_free_block(heap_node_t *node) {
+void print_free_block(tree_node_t *node) {
     size_t block_size = extract_block_size(node->header);
     header_t *footer = (header_t *)((byte_t *)node + block_size);
     // We should be able to see the header is the same as the footer. However, due to fixup
@@ -1276,7 +1276,7 @@ void print_free_block(heap_node_t *node) {
  * @param *header            a header to a block of memory.
  * @param full_size          the full size of a block of memory, not just the user block size.
  */
-void print_error_block(heap_node_t *node, size_t block_size) {
+void print_error_block(tree_node_t *node, size_t block_size) {
     printf("\n%p: HDR->0x%016zX->%zubyts\n",
             node, node->header, block_size);
     printf("Block size is too large and header is corrupted.\n");
@@ -1287,7 +1287,7 @@ void print_error_block(heap_node_t *node, size_t block_size) {
  * @param *current        the current node that is likely garbage values that don't make sense.
  * @param *prev           the previous node that we jumped from.
  */
-void print_bad_jump(heap_node_t *current, heap_node_t *prev) {
+void print_bad_jump(tree_node_t *current, tree_node_t *prev) {
     size_t prev_size = extract_block_size(prev->header);
     size_t cur_size = extract_block_size(current->header);
     printf("A bad jump from the value of a header has occured. Bad distance to next header.\n");
@@ -1300,7 +1300,7 @@ void print_bad_jump(heap_node_t *current, heap_node_t *prev) {
     printf("\tBlock Byte Value: %zubytes:\n", cur_size);
     printf("\nJump by %zubytes...\n", cur_size);
     printf("Current state of the free tree:\n");
-    print_rb_tree(free_nodes.root);
+    print_rb_tree(free_nodes.tree_root);
 }
 
 /* @brief dump_tree  prints just the tree with addresses, colors, black heights, and whether a
@@ -1310,7 +1310,7 @@ void print_bad_jump(heap_node_t *current, heap_node_t *prev) {
 void dump_tree() {
     printf(COLOR_CYN "(+X)" COLOR_NIL);
     printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A NEXT NODE.\n");
-    print_rb_tree(free_nodes.root);
+    print_rb_tree(free_nodes.tree_root);
 }
 
 
@@ -1322,7 +1322,7 @@ void dump_tree() {
  *                   between heap blocks or corrupted headers.
  */
 void dump_heap() {
-    heap_node_t *node = heap.client_start;
+    tree_node_t *node = heap.client_start;
     printf("Heap client segment starts at address %p, ends %p. %zu total bytes currently used.\n",
             node, heap.client_end, heap.heap_size);
     printf("A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
@@ -1332,7 +1332,7 @@ void dump_heap() {
             COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n");
 
     printf("%p: START OF HEAP. HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", heap.client_start);
-    heap_node_t *prev = node;
+    tree_node_t *prev = node;
     while (node != heap.client_end) {
         size_t full_size = extract_block_size(node->header);
 
@@ -1367,6 +1367,6 @@ void dump_heap() {
     printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
     printf(COLOR_CYN "(+X)" COLOR_NIL);
     printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A NEXT NODE.\n");
-    print_rb_tree(free_nodes.root);
+    print_rb_tree(free_nodes.tree_root);
 }
 

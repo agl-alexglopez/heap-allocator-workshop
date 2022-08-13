@@ -86,16 +86,7 @@ Coalescing left and right in all implementations occurs whenever we `free()` or 
 
 In order to test the speed of coalescing across implementations we can set up a similar heap to the one we used for our insertion and deletion test. If we want to test the speed of $N$ coalescing operations, we will create $2N$ allocations. Then, we will free $N$ blocks of memory to insert into the tree such that every other allocation is freed to prevent premature coalescing. Finally, we will call `realloc()` on every allocation that we have remaining, $N$ blocks. My implementation of `realloc()` and `free()` coalesce left and right every time, whether the reallocation request is for more or less space. I have set up a random distribution of calls for more or less space, with a slight skew towards asking for more space. This means we are garunteed to left and right coalesce for every call to `realloc()` giving us the maximum possible number of encounters with nodes that are in the tree. We will find a number of different coalescing scenarios this way as mentioned in the allocator summaries.
 
-If we are using a normal Red Black Tree with a parent field, we treat all coalescing the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost $\Theta(lgN)$ operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in an $\Theta(1)$ operation. No rotations, fixups, or searches are necessary. This is great! However, if we have abandoned the parent field and are managing duplicates in a linked list we have a few scenarios that are possible.
-
-- Case 1: We coalesce a normal node in the tree.
-  - Remove the node and repair the tree.
-- Case 2: We coalesce a duplicate node that is the head of the doubly linked list.
-  - Find the node's parent and link it to the next node in the list.
-- Case 3: We coalesce a duplicate node that is somewhere in the doubly linked list.
-  - Remove the node from the list. No searches or fixups necessary.
-
-As you can see, cases 1 and 2 will cost us some time, even with the optimization of a doubly linked list. Case 2 is the only downside to abandoning the parent field when we must coalesce blocks of memory. We can see these costs and benefits reflected in the runtime plot of the data.
+If we are using a normal Red Black Tree with a parent field, we treat all coalescing the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost $\Theta(lgN)$ operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in an $\Theta(1)$ operation. No rotations, fixups, or searches are necessary. This is great! For the `rbtree_stack` and `rbtree_topdown` implementations, we were able to acheive the same time complexity by thinking creatively about how we view nodes and how they store the parent field if they are a duplicate. Both of those allocators represent advanced optimizations in speed and space efficiency.
 
 ![chart-realloc-free](/images/chart-realloc-free.png)
 
@@ -107,7 +98,7 @@ Here are the key details from the above graph.
 - The topdown approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
 - The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is faster in this application.
 
-These results make the most wasteful implementation in terms of space, `rbtree_linked`, earn some credit it terms of its raw speed. In these artificial tests, we can claim that it is the fastest implementation in terms of inserting, deleting, and coalescing. The only problem is that it requires four fields in any node to be implemented.
+These results make the most wasteful implementation in terms of space, `rbtree_linked`, more of a proof of concept. If the same results can be acheived with more space efficiency, the implementation loses value.
 
 I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deltions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a blessing in disguise in terms of speed. To get an idea of just how many duplicates the allocators may encounter in these artificial workloads, here is a picture of the tree configuration for 50,000 insert delete requests at the peak of the tree size.
 
