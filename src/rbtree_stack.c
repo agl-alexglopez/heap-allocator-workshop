@@ -107,10 +107,10 @@ typedef struct duplicate_t {
     struct tree_node_t *parent;
 } duplicate_t;
 
-typedef enum node_color_t {
+typedef enum rb_color_t {
     BLACK = 0,
     RED = 1
-}node_color_t;
+}rb_color_t;
 
 // Symmetry can be unified to one case because (!LEFT == RIGHT) and (!RIGHT == LEFT).
 typedef enum tree_link_t {
@@ -162,7 +162,7 @@ static struct heap {
  * @param *node       the node we need to paint.
  * @param color       the color the user wants to paint the node.
  */
-void paint_node(tree_node_t *node, node_color_t color) {
+void paint_node(tree_node_t *node, rb_color_t color) {
     color == RED ? (node->header |= RED_PAINT) : (node->header &= BLK_PAINT);
 }
 
@@ -170,7 +170,7 @@ void paint_node(tree_node_t *node, node_color_t color) {
  * @param header_val     the value of the node in question passed by value.
  * @return               RED or BLACK
  */
-node_color_t extract_color(header_t header_val) {
+rb_color_t extract_color(header_t header_val) {
     return (header_val & COLOR_MASK) == RED_PAINT;
 }
 
@@ -347,20 +347,21 @@ void insert_rb_node(tree_node_t *current) {
 /* * * * * * * * * *    Red-Black Tree Deletion Helper Functions   * * * * * * * * * * */
 
 
-/* @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
- * @param *parent        the parent of the node we are removing.
- * @param *to_remove     the node we are removing from the tree.
- * @param *replacement   the node that will fill the to_remove position. It can be tree.black_nil.
+/* @brief rb_transplant      replaces node with the appropriate node to start balancing the tree.
+ * @param *to_remove_parent  the parent of the node we are removing.
+ * @param *to_remove         the node we are removing from the tree.
+ * @param *replacement       the node that will fill the to_remove position. It can be black_nil.
  */
-void rb_transplant(tree_node_t *parent, tree_node_t *to_remove, tree_node_t *replacement) {
-    if (parent == free_nodes.black_nil) {
+void rb_transplant(tree_node_t *to_remove_parent,
+                   tree_node_t *to_remove, tree_node_t *replacement) {
+    if (to_remove_parent == free_nodes.black_nil) {
         free_nodes.tree_root = replacement;
     } else {
-        tree_link_t direction = parent->links[RIGHT] == to_remove;
-        parent->links[direction] = replacement;
+        tree_link_t direction = to_remove_parent->links[RIGHT] == to_remove;
+        to_remove_parent->links[direction] = replacement;
     }
     if (replacement != free_nodes.black_nil) {
-        replacement->list_start->parent = parent;
+        replacement->list_start->parent = to_remove_parent;
     }
 }
 
@@ -386,22 +387,26 @@ tree_node_t *delete_duplicate(tree_node_t *head) {
 
 /* @brief fix_rb_delete  completes a unified Cormen et.al. fixup function. Uses a direction enum
  *                       and an array to help unify code paths based on direction and opposites.
- * @param *current       the current node that was moved into place from the previous delete. It
+ * @param *extra_black   the current node that was moved into place from the previous delete. It
  *                       may have broken rules of the tree or thrown off balance.
  * @param *path[]        the path representing the route down to the node we have inserted.
  * @param path_len       the length of the path.
  */
-void fix_rb_delete(tree_node_t *current, tree_node_t *path[], int path_len) {
-    while (current != free_nodes.tree_root && extract_color(current->header) == BLACK) {
+void fix_rb_delete(tree_node_t *extra_black, tree_node_t *path[], int path_len) {
+    // The extra_black is "doubly black" if we enter the loop, requiring repairs.
+    while (extra_black != free_nodes.tree_root && extract_color(extra_black->header) == BLACK) {
         tree_node_t *parent = path[path_len - 2];
-        tree_link_t symmetric_case = parent->links[RIGHT] == current;
+
+        // We can cover left and right cases in one with simple directional link and its opposite.
+        tree_link_t symmetric_case = parent->links[RIGHT] == extra_black;
         tree_link_t other_direction = !symmetric_case;
+
         tree_node_t *sibling = parent->links[other_direction];
         if (extract_color(sibling->header) == RED) {
             paint_node(sibling, BLACK);
             paint_node(parent, RED);
             rotate(symmetric_case, parent, path, path_len - 1);
-            path[path_len++] = current;
+            path[path_len++] = extra_black;
             path[path_len - 2] = parent;
             path[path_len - 3] = sibling;
             sibling = parent->links[other_direction];
@@ -409,7 +414,7 @@ void fix_rb_delete(tree_node_t *current, tree_node_t *path[], int path_len) {
         if (extract_color(sibling->links[LEFT]->header) == BLACK
                 && extract_color(sibling->links[RIGHT]->header) == BLACK) {
             paint_node(sibling, RED);
-            current = path[path_len - 2];
+            extra_black = path[path_len - 2];
             path_len--;
         } else {
             if (extract_color(sibling->links[other_direction]->header) == BLACK) {
@@ -422,10 +427,11 @@ void fix_rb_delete(tree_node_t *current, tree_node_t *path[], int path_len) {
             paint_node(parent, BLACK);
             paint_node(sibling->links[other_direction], BLACK);
             rotate(symmetric_case, parent, path, path_len - 1);
-            current = free_nodes.tree_root;
+            extra_black = free_nodes.tree_root;
         }
     }
-    paint_node(current, BLACK);
+    // The extra_black has reached a red node, making it "red-and-black", or the root. Paint BLACK.
+    paint_node(extra_black, BLACK);
 }
 
 /* @brief delete_rb_node  performs the necessary steps to have a functional, balanced tree after
@@ -435,33 +441,30 @@ void fix_rb_delete(tree_node_t *current, tree_node_t *path[], int path_len) {
  * @param path_len        the length of the path.
  */
 tree_node_t *delete_rb_node(tree_node_t *to_remove, tree_node_t *path[], int path_len) {
-    tree_node_t *fixup_starting_node = free_nodes.black_nil;
-    node_color_t original_color = extract_color(to_remove->header);
+    tree_node_t *extra_black = free_nodes.black_nil;
+    rb_color_t fixup_color_check = extract_color(to_remove->header);
     tree_node_t *parent = path[path_len - 2];
 
-    if (to_remove->links[LEFT] == free_nodes.black_nil) {
-        fixup_starting_node = to_remove->links[RIGHT];
-        rb_transplant(parent, to_remove, fixup_starting_node);
-        path[path_len - 1] = fixup_starting_node;
-    } else if (to_remove->links[RIGHT] == free_nodes.black_nil) {
-        fixup_starting_node = to_remove->links[LEFT];
-        rb_transplant(parent, to_remove, fixup_starting_node);
-        path[path_len - 1] = fixup_starting_node;
+    if (to_remove->links[LEFT] == free_nodes.black_nil ||
+            to_remove->links[RIGHT] == free_nodes.black_nil) {
+        tree_link_t link_to_nil = to_remove->links[LEFT] != free_nodes.black_nil;
+        rb_transplant(parent, to_remove, (extra_black = to_remove->links[!link_to_nil]));
+        path[path_len - 1] = extra_black;
     } else {
         int len_to_removed_node = path_len;
         // Warning, path_len may have changed.
         tree_node_t *right_min = tree_minimum(to_remove->links[RIGHT], path, &path_len);
-        original_color = extract_color(right_min->header);
+        fixup_color_check = extract_color(right_min->header);
 
-        fixup_starting_node = right_min->links[RIGHT];
+        extra_black = right_min->links[RIGHT];
         if (right_min != to_remove->links[RIGHT]) {
             parent = path[path_len - 2];
-            rb_transplant(parent, right_min, fixup_starting_node);
-            path[path_len - 1] = fixup_starting_node;
+            rb_transplant(parent, right_min, extra_black);
+            path[path_len - 1] = extra_black;
             right_min->links[RIGHT] = to_remove->links[RIGHT];
             right_min->links[RIGHT]->list_start->parent = right_min;
         } else {
-            path[path_len - 1] = fixup_starting_node;
+            path[path_len - 1] = extra_black;
         }
         parent = path[len_to_removed_node - 2];
         rb_transplant(parent, to_remove, right_min);
@@ -471,8 +474,9 @@ tree_node_t *delete_rb_node(tree_node_t *to_remove, tree_node_t *path[], int pat
         right_min->list_start->parent = parent;
         paint_node(right_min, extract_color(to_remove->header));
     }
-    if (original_color == BLACK) {
-        fix_rb_delete(fixup_starting_node, path, path_len);
+    // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
+    if (fixup_color_check == BLACK) {
+        fix_rb_delete(extra_black, path, path_len);
     }
     return to_remove;
 }
@@ -512,7 +516,7 @@ tree_node_t *find_best_fit(size_t key) {
         seeker = seeker->links[search_direction];
     }
 
-    if (to_remove->list_start != (duplicate_t *)free_nodes.black_nil) {
+    if (to_remove->list_start != free_nodes.list_tail) {
         // We will keep to_remove in the tree and just get the first node in doubly linked list.
         return delete_duplicate(to_remove);
     }
@@ -545,10 +549,8 @@ void *free_coalesced_node(void *to_coalesce) {
     // to_coalesce is the head of a doubly linked list. Remove and make a new head.
     } else if (tree_node->list_start) {
         header_t size_and_bits = tree_node->header;
-
         // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
         tree_node_t *tree_parent = tree_node->list_start->parent;
-
         tree_node_t *tree_right = tree_node->links[RIGHT];
         tree_node_t *tree_left = tree_node->links[LEFT];
 

@@ -119,10 +119,10 @@ typedef struct duplicate_t {
     struct tree_node_t *parent;
 } duplicate_t;
 
-typedef enum node_color_t {
+typedef enum rb_color_t {
     BLACK = 0,
     RED = 1
-}node_color_t;
+}rb_color_t;
 
 // Symmetry can be unified to one case because !LEFT == RIGHT and !RIGHT == LEFT.
 typedef enum tree_link_t {
@@ -171,7 +171,7 @@ static struct heap {
  * @param *node       the node we need to paint.
  * @param color       the color the user wants to paint the node.
  */
-void paint_node(tree_node_t *node, node_color_t color) {
+void paint_node(tree_node_t *node, rb_color_t color) {
     color == RED ? (node->header |= RED_PAINT) : (node->header &= BLK_PAINT);
 }
 
@@ -179,7 +179,7 @@ void paint_node(tree_node_t *node, node_color_t color) {
  * @param header_val     the value of the node in question passed by value.
  * @return               RED or BLACK
  */
-node_color_t extract_color(header_t header_val) {
+rb_color_t extract_color(header_t header_val) {
     return (header_val & COLOR_MASK) == RED_PAINT;
 }
 
@@ -500,6 +500,66 @@ tree_node_t *delete_rb_topdown(size_t key) {
     return remove_node(best_parent, best, parent, seeker);
 }
 
+/* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
+ *                             need to free from the tree before absorbing into our coalescing. If
+ *                             this node is a duplicate we can splice it from a linked list.
+ * @param *to_coalesce         the address for a node we must treat as a list or tree node.
+ * @return                     the node we have now correctly freed given all cases to find it.
+ */
+void *free_coalesced_node(void *to_coalesce) {
+    tree_node_t *tree_node = to_coalesce;
+    // Go find and fix the node the normal way if it is unique.
+    if (tree_node->list_start == free_nodes.list_tail) {
+       // return find_best_fit(extract_block_size(to_coalesce->header));
+        return delete_rb_topdown(extract_block_size(tree_node->header));
+    }
+    tree_node_t *left_tree_node = tree_node->links[LEFT];
+    duplicate_t *list_node = to_coalesce;
+    // to_coalesce is next after the head and needs special attention due to list_start field.
+    if (left_tree_node != free_nodes.black_nil &&
+            left_tree_node->list_start == list_node) {
+        list_node->links[NEXT]->parent = list_node->parent;
+        left_tree_node->list_start = list_node->links[NEXT];
+        list_node->links[NEXT]->links[PREV] = list_node->links[PREV];
+    // to_coalesce is the head of a doubly linked list. Remove and make a new head.
+    } else if (tree_node->list_start) {
+        header_t size_and_bits = tree_node->header;
+
+        // Storing parent with first list node ensures O(1) duplicate coalescing, in any case.
+        tree_node_t *tree_parent = tree_node->list_start->parent;
+
+        tree_node_t *tree_right = tree_node->links[RIGHT];
+        tree_node_t *tree_left = tree_node->links[LEFT];
+        duplicate_t *first_in_list = tree_node->list_start;
+        first_in_list->header = size_and_bits;
+        first_in_list->links[NEXT]->parent = first_in_list->parent;
+        // Make sure we have our new tree node correctly point to the start of the list.
+        tree_node_t *new_tree_node = (tree_node_t *)first_in_list;
+        new_tree_node->list_start = first_in_list->links[NEXT];
+
+        // Now transition to thinking about this new_tree_node as a node in a tree, not a list.
+        new_tree_node->links[LEFT] = tree_left;
+        new_tree_node->links[RIGHT] = tree_right;
+        if (tree_left != free_nodes.black_nil) {
+            tree_left->list_start->parent = new_tree_node;
+        }
+        if (tree_right != free_nodes.black_nil) {
+            tree_right->list_start->parent = new_tree_node;
+        }
+
+        if (tree_parent == free_nodes.black_nil) {
+            free_nodes.tree_root = new_tree_node;
+        } else {
+            tree_link_t parent_link = tree_parent->links[RIGHT] == to_coalesce;
+            tree_parent->links[parent_link] = new_tree_node;
+        }
+    // Finally the simple invariant case of the node being in middle or end of list.
+    } else {
+        list_node->links[PREV]->links[NEXT] = list_node->links[NEXT];
+        list_node->links[NEXT]->links[PREV] = list_node->links[PREV];
+    }
+    return to_coalesce;
+}
 
 /* * * * * * * * * * * *    Minor Heap Methods    * * * * * * * * * */
 
@@ -672,67 +732,6 @@ void *mymalloc(size_t requested_size) {
         return split_alloc(found_node, client_request, extract_block_size(found_node->header));
     }
     return NULL;
-}
-
-/* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
- *                             need to free from the tree before absorbing into our coalescing. If
- *                             this node is a duplicate we can splice it from a linked list.
- * @param *to_coalesce         the address for a node we must treat as a list or tree node.
- * @return                     the node we have now correctly freed given all cases to find it.
- */
-void *free_coalesced_node(void *to_coalesce) {
-    tree_node_t *tree_node = to_coalesce;
-    // Go find and fix the node the normal way if it is unique.
-    if (tree_node->list_start == free_nodes.list_tail) {
-       // return find_best_fit(extract_block_size(to_coalesce->header));
-        return delete_rb_topdown(extract_block_size(tree_node->header));
-    }
-    tree_node_t *left_tree_node = tree_node->links[LEFT];
-    duplicate_t *list_node = to_coalesce;
-    // to_coalesce is next after the head and needs special attention due to list_start field.
-    if (left_tree_node != free_nodes.black_nil &&
-            left_tree_node->list_start == list_node) {
-        list_node->links[NEXT]->parent = list_node->parent;
-        left_tree_node->list_start = list_node->links[NEXT];
-        list_node->links[NEXT]->links[PREV] = list_node->links[PREV];
-    // to_coalesce is the head of a doubly linked list. Remove and make a new head.
-    } else if (tree_node->list_start) {
-        header_t size_and_bits = tree_node->header;
-
-        // Storing parent with first list node ensures O(1) duplicate coalescing, in any case.
-        tree_node_t *tree_parent = tree_node->list_start->parent;
-
-        tree_node_t *tree_right = tree_node->links[RIGHT];
-        tree_node_t *tree_left = tree_node->links[LEFT];
-        duplicate_t *first_in_list = tree_node->list_start;
-        first_in_list->header = size_and_bits;
-        first_in_list->links[NEXT]->parent = first_in_list->parent;
-        // Make sure we have our new tree node correctly point to the start of the list.
-        tree_node_t *new_tree_node = (tree_node_t *)first_in_list;
-        new_tree_node->list_start = first_in_list->links[NEXT];
-
-        // Now transition to thinking about this new_tree_node as a node in a tree, not a list.
-        new_tree_node->links[LEFT] = tree_left;
-        new_tree_node->links[RIGHT] = tree_right;
-        if (tree_left != free_nodes.black_nil) {
-            tree_left->list_start->parent = new_tree_node;
-        }
-        if (tree_right != free_nodes.black_nil) {
-            tree_right->list_start->parent = new_tree_node;
-        }
-
-        if (tree_parent == free_nodes.black_nil) {
-            free_nodes.tree_root = new_tree_node;
-        } else {
-            tree_link_t parent_link = tree_parent->links[RIGHT] == to_coalesce;
-            tree_parent->links[parent_link] = new_tree_node;
-        }
-    // Finally the simple invariant case of the node being in middle or end of list.
-    } else {
-        list_node->links[PREV]->links[NEXT] = list_node->links[NEXT];
-        list_node->links[NEXT]->links[PREV] = list_node->links[PREV];
-    }
-    return to_coalesce;
 }
 
 /* @brief coalesce        attempts to coalesce left and right if the left and right tree_node_t

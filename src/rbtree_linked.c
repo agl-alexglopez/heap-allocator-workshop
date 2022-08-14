@@ -104,22 +104,22 @@ typedef struct duplicate_t {
     struct heap_node_t *list_start;
 }duplicate_t;
 
-typedef enum node_color_t {
+typedef enum rb_color_t {
     BLACK = 0,
     RED = 1
-}node_color_t;
+}rb_color_t;
 
 // We can unify symmetric cases with an enum because (!LEFT == RIGHT) and (!RIGHT == LEFT).
-typedef enum direction_t {
+typedef enum tree_link_t {
     LEFT = 0,
     RIGHT = 1
-} direction_t;
+} tree_link_t;
 
 // When you see these, know that we are working with a doubly linked list, not a tree.
-typedef enum list_t {
+typedef enum list_link_t {
     PREV = 0,
     NEXT = 1
-} list_t;
+} list_link_t;
 
 typedef enum header_status_t {
     FREE = 0x0UL,
@@ -157,7 +157,7 @@ static struct heap {
  * @param *node       the node we need to paint.
  * @param color       the color the user wants to paint the node.
  */
-void paint_node(heap_node_t *node, node_color_t color) {
+void paint_node(heap_node_t *node, rb_color_t color) {
     color == RED ? (node->header |= RED_PAINT) : (node->header &= BLK_PAINT);
 }
 
@@ -165,7 +165,7 @@ void paint_node(heap_node_t *node, node_color_t color) {
  * @param header_val     the value of the node in question passed by value.
  * @return               RED or BLACK
  */
-node_color_t extract_color(header_t header_val) {
+rb_color_t extract_color(header_t header_val) {
     return (header_val & COLOR_MASK) == RED_PAINT;
 }
 
@@ -194,8 +194,8 @@ heap_node_t *tree_minimum(heap_node_t *root) {
  * @param *current   the node around which we will rotate.
  * @param rotation   either left or right. Determines the rotation and its opposite direction.
  */
-void rotate(heap_node_t *current, direction_t rotation) {
-    direction_t opposite = !rotation;
+void rotate(heap_node_t *current, tree_link_t rotation) {
+    tree_link_t opposite = !rotation;
     heap_node_t *child = current->links[opposite];
     current->links[opposite] = child->links[rotation];
     if (child->links[rotation] != free_nodes.black_nil) {
@@ -206,7 +206,7 @@ void rotate(heap_node_t *current, direction_t rotation) {
     if (parent == free_nodes.black_nil) {
         free_nodes.tree_root = child;
     } else {
-        direction_t parent_link = parent->links[RIGHT] == current;
+        tree_link_t parent_link = parent->links[RIGHT] == current;
         parent->links[parent_link] = child;
     }
     child->links[rotation] = current;
@@ -241,14 +241,14 @@ void add_duplicate(heap_node_t *head, duplicate_t *to_add) {
 
 /* @brief fix_rb_insert  implements a modified Cormen et.al. red black fixup after the insertion of
  *                       a new node. Unifies the symmetric left and right cases with the use of
- *                       an array and an enum direction_t.
+ *                       an array and an enum tree_link_t.
  * @param *current       the current node that has just been added to the red black tree.
  */
 void fix_rb_insert(heap_node_t *current) {
     while(extract_color(current->parent->header) == RED) {
         heap_node_t *parent = current->parent;
-        direction_t symmetric_case = parent->parent->links[RIGHT] == parent;
-        direction_t other_direction = !symmetric_case;
+        tree_link_t symmetric_case = parent->parent->links[RIGHT] == parent;
+        tree_link_t other_direction = !symmetric_case;
         heap_node_t *aunt = parent->parent->links[other_direction];
         if (extract_color(aunt->header) == RED) {
             paint_node(aunt, BLACK);
@@ -286,14 +286,14 @@ void insert_rb_node(heap_node_t *current) {
             return;
         }
         // You may see this idiom throughout. LEFT(0) if key fits in tree to left, RIGHT(1) if not.
-        direction_t search_direction = seeker_size < current_key;
+        tree_link_t search_direction = seeker_size < current_key;
         seeker = seeker->links[search_direction];
     }
     current->parent = parent;
     if (parent == free_nodes.black_nil) {
         free_nodes.tree_root = current;
     } else {
-        direction_t new_link_direction = extract_block_size(parent->header) < current_key;
+        tree_link_t new_link_direction = extract_block_size(parent->header) < current_key;
         parent->links[new_link_direction] = current;
     }
     current->links[LEFT] = free_nodes.black_nil;
@@ -317,7 +317,7 @@ void rb_transplant(heap_node_t *to_remove, heap_node_t *replacement) {
     if (parent == free_nodes.black_nil) {
         free_nodes.tree_root = replacement;
     } else {
-        direction_t direction = parent->links[RIGHT] == to_remove;
+        tree_link_t direction = parent->links[RIGHT] == to_remove;
         parent->links[direction] = replacement;
     }
     replacement->parent = parent;
@@ -341,40 +341,44 @@ heap_node_t *delete_duplicate(heap_node_t *head) {
 
 /* @brief fix_rb_delete  completes a unified Cormen et.al. fixup function. Uses a direction enum
  *                       and an array to help unify code paths based on direction and opposites.
- * @param *current       the current node that was moved into place from the previous delete. It
+ * @param *extra_black       the extra_black node that was moved into place from the previous delete. It
  *                       may have broken rules of the tree or thrown off balance.
  */
-void fix_rb_delete(heap_node_t *current) {
-    while (current != free_nodes.tree_root && extract_color(current->header) == BLACK) {
-        // Rotations in this function are very specific so we will forgoe making a parent variable.
-        direction_t symmetric_case = current->parent->links[RIGHT] == current;
-        direction_t other_direction = !symmetric_case;
-        heap_node_t *sibling = current->parent->links[other_direction];
+void fix_rb_delete(heap_node_t *extra_black) {
+    // The extra_black is "doubly black" if we enter the loop, requiring repairs.
+    while (extra_black != free_nodes.tree_root && extract_color(extra_black->header) == BLACK) {
+
+        // We can cover left and right cases in one with simple directional link and its opposite.
+        tree_link_t symmetric_case = extra_black->parent->links[RIGHT] == extra_black;
+        tree_link_t other_direction = !symmetric_case;
+
+        heap_node_t *sibling = extra_black->parent->links[other_direction];
         if (extract_color(sibling->header) == RED) {
             paint_node(sibling, BLACK);
-            paint_node(current->parent, RED);
-            rotate(current->parent, symmetric_case);
-            sibling = current->parent->links[other_direction];
+            paint_node(extra_black->parent, RED);
+            rotate(extra_black->parent, symmetric_case);
+            sibling = extra_black->parent->links[other_direction];
         }
         if (extract_color(sibling->links[LEFT]->header) == BLACK
                 && extract_color(sibling->links[RIGHT]->header) == BLACK) {
             paint_node(sibling, RED);
-            current = current->parent;
+            extra_black = extra_black->parent;
         } else {
             if (extract_color(sibling->links[other_direction]->header) == BLACK) {
                 paint_node(sibling->links[symmetric_case], BLACK);
                 paint_node(sibling, RED);
                 rotate(sibling, other_direction);
-                sibling = current->parent->links[other_direction];
+                sibling = extra_black->parent->links[other_direction];
             }
-            paint_node(sibling, extract_color(current->parent->header));
-            paint_node(current->parent, BLACK);
+            paint_node(sibling, extract_color(extra_black->parent->header));
+            paint_node(extra_black->parent, BLACK);
             paint_node(sibling->links[other_direction], BLACK);
-            rotate(current->parent, symmetric_case);
-            current = free_nodes.tree_root;
+            rotate(extra_black->parent, symmetric_case);
+            extra_black = free_nodes.tree_root;
         }
     }
-    paint_node(current, BLACK);
+    // The extra_black has reached a red node, making it "red-and-black", or the root. Paint BLACK.
+    paint_node(extra_black, BLACK);
 }
 
 /* @brief delete_rb_node  performs the necessary steps to have a functional, balanced tree after
@@ -382,34 +386,31 @@ void fix_rb_delete(heap_node_t *current) {
  * @param *to_remove      the node to remove from the tree from a call to malloc or coalesce.
  */
 heap_node_t *delete_rb_node(heap_node_t *to_remove) {
-    heap_node_t *current = to_remove;
-    heap_node_t *fixup_starting_node = free_nodes.black_nil;
-    node_color_t original_color = extract_color(to_remove->header);
+    heap_node_t *extra_black = free_nodes.black_nil;
+    rb_color_t fixup_color_check = extract_color(to_remove->header);
 
-    if (to_remove->links[LEFT] == free_nodes.black_nil) {
-        fixup_starting_node = to_remove->links[RIGHT];
-        rb_transplant(to_remove, fixup_starting_node);
-    } else if (to_remove->links[RIGHT] == free_nodes.black_nil) {
-        fixup_starting_node = to_remove->links[LEFT];
-        rb_transplant(to_remove, fixup_starting_node);
+    if (to_remove->links[LEFT] == free_nodes.black_nil ||
+            to_remove->links[RIGHT] == free_nodes.black_nil) {
+        tree_link_t link_to_nil = to_remove->links[LEFT] != free_nodes.black_nil;
+        rb_transplant(to_remove, (extra_black = to_remove->links[!link_to_nil]));
     } else {
-        current = tree_minimum(to_remove->links[RIGHT]);
-        original_color = extract_color(current->header);
-        fixup_starting_node = current->links[RIGHT];
-        if (current != to_remove->links[RIGHT]) {
-            rb_transplant(current, fixup_starting_node);
-            current->links[RIGHT] = to_remove->links[RIGHT];
-            current->links[RIGHT]->parent = current;
+        heap_node_t *replacement = tree_minimum(to_remove->links[RIGHT]);
+        fixup_color_check = extract_color(replacement->header);
+        extra_black = replacement->links[RIGHT];
+        if (replacement != to_remove->links[RIGHT]) {
+            rb_transplant(replacement, extra_black);
+            replacement->links[RIGHT] = to_remove->links[RIGHT];
+            replacement->links[RIGHT]->parent = replacement;
         } else {
-            fixup_starting_node->parent = current;
+            extra_black->parent = replacement;
         }
-        rb_transplant(to_remove, current);
-        current->links[LEFT] = to_remove->links[LEFT];
-        current->links[LEFT]->parent = current;
-        paint_node(current, extract_color(to_remove->header));
+        rb_transplant(to_remove, replacement);
+        replacement->links[LEFT] = to_remove->links[LEFT];
+        replacement->links[LEFT]->parent = replacement;
+        paint_node(replacement, extract_color(to_remove->header));
     }
-    if (original_color == BLACK) {
-        fix_rb_delete(fixup_starting_node);
+    if (fixup_color_check == BLACK) {
+        fix_rb_delete(extra_black);
     }
     return to_remove;
 }
@@ -431,7 +432,7 @@ heap_node_t *find_best_fit(size_t key) {
             to_remove = seeker;
             break;
         }
-        direction_t search_direction = seeker_size < key;
+        tree_link_t search_direction = seeker_size < key;
         /* The key is less than the current found size but let's remember this size on the way down
          * as a candidate for the best fit. The closest fit will have won when we reach the bottom.
          */
@@ -459,7 +460,7 @@ heap_node_t *free_coalesced_node(void *to_coalesce) {
     heap_node_t *tree_node = to_coalesce;
     // Quick return if we just have a standard deletion.
     if (tree_node->list_start == free_nodes.list_tail) {
-       return delete_rb_node(to_coalesce);
+       return delete_rb_node(tree_node);
     }
     duplicate_t *list_node = to_coalesce;
     // to_coalesce is the head of a doubly linked list. Remove and make a new head.
@@ -482,7 +483,7 @@ heap_node_t *free_coalesced_node(void *to_coalesce) {
         if (tree_parent == free_nodes.black_nil) {
             free_nodes.tree_root = new_head;
         } else {
-            direction_t parent_link = tree_parent->links[RIGHT] == to_coalesce;
+            tree_link_t parent_link = tree_parent->links[RIGHT] == to_coalesce;
             tree_parent->links[parent_link] = new_head;
         }
     // to_coalesce is next after the head and needs special attention due to list_start field.
