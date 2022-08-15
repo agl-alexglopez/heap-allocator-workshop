@@ -17,24 +17,34 @@ typedef struct heap_node_t {
 
 There is one problem with this approach for a heap allocator however. I could not think of a good way to coalesce nodes with the above struct. The problem arises with duplicates. When we insert duplicates into a red black tree, we know that they will always follow the rules of a binary search tree in relation to their parent, but we do not know where rotation may put them over the lifetime of the heap. This is a problem for a coalescing operation that needs to find the exact address of the node it needs.
 
-When we search the tree by block size, as we normally do, there is no garuntee the first node of the correct size we find will be the one we are coalescing. This would result in a non sequential block of memory and corrupt the heap. So, we will simply take from our previous allocator, and store duplicates in a doubly linked list. Then we are free to use the stack, because we know that all nodes in the tree will be unique. We also have immediate access to coalesce any duplicate safely in constant time from its linked list. Here is the node. Here is the new tree scheme without a parent field. Now, the only way we know we are in the linked list is by setting the `list_start` field to `NULL` rather than `black_null`.
+When we search the tree by block size, as we normally do, there is no garuntee the first node of the correct size we find will be the one we are coalescing. This would result in a non sequential block of memory and corrupt the heap. So, we will simply take from our previous allocator, and store duplicates in a doubly linked list. Then we are free to use the stack, because we know that all nodes in the tree will be unique. We also have immediate access to coalesce any duplicate safely in constant time from its linked list. Here is the node. Here is the new tree scheme without a parent field. Now, we have a series of constant time checks we can use to tell where we are in the list and who the parent node is.
 
 ![rb-stack-scheme](/images/rb-duplicates-no-parent.png)
 
 ```c
-typedef struct heap_node_t {
-    // block size, allocation status, left neighbor status, and node color.
+typedef struct tree_node_t {
     header_t header;
-    struct heap_node_t *links[2];
-    struct list_node_t *list_start;
-}heap_node_t;
+    struct tree_node_t *links[TWO_NODE_ARRAY];
+    struct duplicate_t *list_start;
+}tree_node_t;
 
-typedef struct list_node_t {
+typedef struct duplicate_t {
     header_t header;
-    struct heap_node_t *links[2];
-    // This is a neat trick for storing the parent node.
-    struct heap_node_t *parent;
-}
+    struct duplicate_t *links[TWO_NODE_ARRAY];
+    // We will always store the tree parent in first duplicate node in the list. O(1) coalescing.
+    struct tree_node_t *parent;
+} duplicate_t;
+
+typedef enum tree_link_t {
+    LEFT = 0,
+    RIGHT = 1
+} tree_link_t;
+
+// We use these fields to refer to our doubly linked duplicate nodes.
+typedef enum list_link_t {
+    PREV = 0,
+    NEXT = 1
+} list_link_t;
 ```
 
 We can acheive the same speed as the `rbtree_linked` allocator with this more space efficient implementation if we get creative. If we put a duplicate node in a linked list, it will have an extra field of the node going to waste. Why not create another node type, designated specifically for being a duplicate in a list, and have the first node in the linked list always store the parent? This way we acheive our garuntee of $\Theta(1)$ to coalesce any duplicate node. This is tricky to pull of but will produce a superior allocator in every way.
