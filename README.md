@@ -59,7 +59,7 @@ Here is an example of a basic color flip we need to perform after inserting the 
 
 *Pictured Above: A color flip to repair insertion into a Red-Black tree. Note that the root is temporarily colored red in this fixup, but we always recolor the root black as an invariant to satisfy propery 2.*
 
-Finally here is a more complex example to show what we do if we encounter a red aunt and a black aunt. I found it more helpful to consider how dramatically a larger tree can change when these cases occur, then just looking at the smallest subcases. The tree in phases 3 and 4 is still part of the same case that occurs when we encounter a black aunt. It is possible for a black aunt to force two rotations in order to correct the tree.
+Finally here is a more complex example to show what we do if we encounter a red aunt and a black aunt. I found it more helpful to consider how dramatically a larger tree can change when these cases occur, then just looking at the smallest subcases. This illustration exercises all code paths of the insert fixup operations. The tree in phases 3 and 4 is still part of the same case that occurs when we encounter a black aunt. It is possible for a black aunt to force two rotations in order to correct the tree.
 
 The `*` marks the `current` node under consideration. We define the `parent` and `grandparent` in relation to the `current` node marked with the `*` as we move up the tree.
 
@@ -69,7 +69,7 @@ The `*` marks the `current` node under consideration. We define the `parent` and
 
 ### Deleting
 
-If you are familiar with the delete operation for normal Binary Trees, the operation is similar for Red Black Trees. The initial three cases, in broad terms, for deleting a node are demonstrated below. There are a few more subtleties that can pop up in the bottom case, but we will explore those later. Note, the top two cases are occuring somewhere down an arbitrary tree, illustrated by the squiggly line, while the third case shows a complete tree. The blue x indicates the node being deleted, the `*` represents the replacement node, and the second black circle represents the node that we give an *extra black* that it must get rid of as we fix the tree.
+If you are familiar with the delete operation for normal Binary Trees, the operation is similar for Red Black Trees. The initial three cases, in broad terms, for deleting a node are demonstrated below. There are a few more subtleties that can pop up in the bottom case, but you can explore those in the code. Note, the top two cases are occuring somewhere down an arbitrary tree, illustrated by the squiggly line, while the third case shows a complete tree. The blue x indicates the node being deleted, the `*` represents the replacement node, and the second black circle represents the node that we give an *extra black* that it must get rid of as we fix the tree.
 
 ![rb-delete-cases](/images/rb-delete-cases.png)
 
@@ -79,6 +79,8 @@ All three of these cases will require us to at least enter the fixup helper func
 
 In the third case, when we need to go find an inorder successor for the node being deleted, we give the *extra black* to the right child of the replacement node. The black sentinel is a valid node in a Red Black Tree, so it is acceptable to give it the *extra black*. There are then four cases to consider when fixing up a tree. We only enter a loop to fix the tree if the current node with the *extra black* is black. In the case we are discussing now, the fix is relatively simple and we will go over the other cases shortly.
 
+The `*` marks the `current` node under consideration. We define the `parent` and in relation to the `current` node marked with the `*` as we move up the tree.
+
 ![rb-delete-case-2](/images/rb-delete-case-2.png)
 
-
+*Pictured Above: Case 2 for a Red Black Tree delete. While this illustration has a node with two children that are `Null`, in reality, we just point both fields to the black sentinel that we have waiting at the bottom of the tree.*
