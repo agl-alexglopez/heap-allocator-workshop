@@ -13,8 +13,6 @@
 
 ## Overview
 
-> **Read my code here ([`rbtree_clrs.c`](/src/rbtree_clrs.c))**.
-
 I modeled the code in my first allocator directly from the pseudocode in the textbook and it was a challenging endeavor. Making sure that all the code across every symmetric case is correct, well named, and specific to the needs of a heap allocator was a bug prone journey. However, I now have a faithful reproduction of the textbook algorithm where applicable. I added logic to make deleting from the tree a best fit approach. For a call to `malloc` we are able to service the request in $\Theta(lgN)$ time while providing the best possible fitting node and splitting off any extra space and returning it to the tree if it is far too big.
 
 

@@ -11,8 +11,6 @@
 
 ## Overview
 
-> **Read my code here ([`rbtree_unified.c`](/src/rbtree_unified.c)).**
-
 The downside to the CLRS implementation of a Red Black Tree is that there are many cases to consider, and for the major fixup operations after inserting and deleting, we have to consider two symmetric cases. It would be much more readable code if we could unite these cases and functions into the minimum possible lines of code. A great way to do this is with an array and an enum!
 
 The traditional red-black node in the context of a heap allocator could look something like this.
