@@ -3,7 +3,7 @@
 ## Navigation
 
 - Cormen, Leiserson, Rivest, Stein Implementation (['rbtree_clrs.md'](/docs/rbtree_clrs.md))
-  - Jump to the code (['rbtree_clrs.c'](/src/rbtree_clrs.c))
+  - Jump to the code (**[`rbtree_clrs.c`](/src/rbtree_clrs.c)**)
 - Unified Symmetry Implementation (['rbtree_unified.md'](/docs/rbtree_unified.md))
   - Jump to the code (['rbtree_unified.c'](/src/rbtree_unified.c))
 - Doubly Linked Duplicates (['rbtree_linked.md'](/docs/rbtree_linked.md))
