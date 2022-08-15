@@ -69,5 +69,10 @@ The `*` marks the `current` node under consideration. We define the `parent` and
 
 ### Deleting
 
-To be completed soon.
+If you are familiar with the delete operation for normal Binary Trees, the operation is similar for Red Black Trees. The initial three cases, in broad terms, for deleting a node are demonstrated below. There are a few more subtleties that can pop up in the bottom case, but we will explore those later. Note, the top two cases are occuring somewhere down an arbitrary tree, illustrated by the squiggly line, while the third case shows a complete tree. The blue x indicates the node being removed, and the second black circle marks the replacement node.
 
+![rb-delete-cases](/images/rb-delete-cases.png)
+
+*Pictured Above: Three cases for deleting from a Red Black Tree. The top two cases occur somewhere in an arbitrary tree while the bottome case illustrates a complete tree.*
+
+All three of these cases will require us to at least enter the fixup helper function after we delete the node, because the node we are deleting is black, which could affect the black height of the tree. However, do you see a simple fix for the first two cases that would maintain the black height of the tree and not violate property 4 (property 4 states that a red node must have two black children)? It is the third case at the bottom that is most interesting to us because it presents some interesting challenges.
