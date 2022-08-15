@@ -2,8 +2,9 @@
 
 ## Navigation
 
-|Implementation|Writeup|Code|
+|Section|Writeup|Code|
 |---           |---    |--- |
+|Home|**[`README.md`](/README.md)**||
 |The CLRS Standard|**[`rbtree_clrs.md`](/docs/rbtree_clrs.md)**|**[`rbtree_clrs.c`](/src/rbtree_clrs.c)**|
 |Unified Symmetry|**[`rbtree_unified.md`](/docs/rbtree_unified.md)**|**[`rbtree_unified.c`](/src/rbtree_unified.c)**|
 |Doubly Linked Duplicates|**[`rbtree_linked.md`](/docs/rbtree_linked.md)**|**[`rbtree_linked.c`](/src/rbtree_linked.c)**|
