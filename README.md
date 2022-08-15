@@ -2,17 +2,17 @@
 
 ## Navigation
 
-- Cormen, Leiserson, Rivest, Stein Implementation (['rbtree_clrs.md'](/docs/rbtree_clrs.md))
+- Cormen, Leiserson, Rivest, Stein Implementation (**[`rbtree_clrs.md`](/docs/rbtree_clrs.md)**)
   - Jump to the code (**[`rbtree_clrs.c`](/src/rbtree_clrs.c)**)
-- Unified Symmetry Implementation (['rbtree_unified.md'](/docs/rbtree_unified.md))
-  - Jump to the code (['rbtree_unified.c'](/src/rbtree_unified.c))
-- Doubly Linked Duplicates (['rbtree_linked.md'](/docs/rbtree_linked.md))
-  - Jump to the code (['rbtree_linked.c'](/src/rbtree_linked.c))
-- Stack Based Implementation ['rbtree_stack.md'](/docs/rbtree_stack.md)
-  - Jump to the code (['rbtree_stack.c'](/src/rbtree_stack.c))
-- Topdown Implementation (['rbtree_topdown.md'](/docs/rbtree_topdown.md))
-  - Jump to the code (['rbtree_topdown.c'](/src/rbtree_topdown.c))
-- Runtime Analysis (['rbtree_analysis.md'](/src/rbtree_analysis.md))
+- Unified Symmetry Implementation (**[`rbtree_unified.md`](/docs/rbtree_unified.md)**)
+  - Jump to the code (**[`rbtree_unified.c`](/src/rbtree_unified.c)**)
+- Doubly Linked Duplicates (**[`rbtree_linked.md`](/docs/rbtree_linked.md)**)
+  - Jump to the code (**[`rbtree_linked.c`](/src/rbtree_linked.c)**)
+- Stack Based Implementation (**[`rbtree_stack.md`](/docs/rbtree_stack.md)**)
+  - Jump to the code (**[`rbtree_stack.c`](/src/rbtree_stack.c)**)
+- Topdown Implementation (**[`rbtree_topdown.md`](/docs/rbtree_topdown.md)**)
+  - Jump to the code (**[`rbtree_topdown.c`](/src/rbtree_topdown.c)**)
+- Runtime Analysis (**[`rbtree_analysis.md`](/src/rbtree_analysis.md)**)
 
 I worked through five seperate implementations of a Red-Black Tree heap allocator with different design choices, sacrifices, and optimizations. Here is a summary of each and a link if you wish to jump to any one section.
 
