@@ -1,6 +1,20 @@
 # Red Black Tree Allocators
 
-I spent much of the summer of 2022 exploring the different ways that I could implement a Red-Black Tree heap allocator. I worked through five seperate implementations of a heap allocator with different design choices, sacrifices, and optimizations. Here is a summary of each and a link if you wish to jump to any one section.
+## Navigation
+
+- Cormen, Leiserson, Rivest, Stein Implementation (['rbtree_clrs.md'](/docs/rbtree_clrs.md))
+  - Jump to the code (['rbtree_clrs.c'](/src/rbtree_clrs.c))
+- Unified Symmetry Implementation (['rbtree_unified.md'](/docs/rbtree_unified.md))
+  - Jump to the code (['rbtree_unified.c'](/src/rbtree_unified.c))
+- Doubly Linked Duplicates (['rbtree_linked.md'](/docs/rbtree_linked.md))
+  - Jump to the code (['rbtree_linked.c'](/src/rbtree_linked.c))
+- Stack Based Implementation ['rbtree_stack.md'](/docs/rbtree_stack.md)
+  - Jump to the code (['rbtree_stack.c'](/src/rbtree_stack.c))
+- Topdown Implementation (['rbtree_topdown.md'](/docs/rbtree_topdown.md))
+  - Jump to the code (['rbtree_topdown.c'](/src/rbtree_topdown.c))
+- Runtime Analysis (['rbtree_analysis.md'](/src/rbtree_analysis.md))
+
+I worked through five seperate implementations of a Red-Black Tree heap allocator with different design choices, sacrifices, and optimizations. Here is a summary of each and a link if you wish to jump to any one section.
 
 - **[`CLRS`](/docs/rbtree_clrs.md)**- An implementation of a Red Black Tree heap allocator by the book, *Introduction to Algorithms: Fourth Edition* by Cormen, Leiserson, Rivest, and Stein, to be specific. This allocator follows one of the leading implementations of a red black tree through the pseudocode outlined in chapter 13 of the textbook. With some slight adjustments as appropriate, we have a solid heap allocator with code that is straightforward to understand. The only annoyance is that we must write code for the left and right case of any fixup operation for the tree. This means the functions are lengthy and hard to decompose.
 - **[`Unified`](/docs/rbtree_unified.md)**- The next implmentation follows the structure of the first except that we cut out the need for symmetric cases, instead taking a more general approach. Instead of thinking about left and right, consider a generic direction and its opposing direction. With some modifications to the fields of our node and some custom types, we can complete an allocator that cuts the lines of code for the symmetric operations of a red black tree in half. This makes the code significantly shorter and with careful naming, arguably more readable. This convention of eliminating left and right cases continues in all subsequent implmentations.
