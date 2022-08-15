@@ -1,6 +1,15 @@
 # Unified Topdown
 
-> **Take me back to the [`README.md`](/README.md)**.
+## Navigation
+
+|Section|Writeup|Code|
+|---           |---    |--- |
+|1. Home|**[`README.md`](/README.md)**||
+|2. The CLRS Standard|**[`rbtree_clrs.md`](/docs/rbtree_clrs.md)**|**[`rbtree_clrs.c`](/src/rbtree_clrs.c)**|
+|3. Unified Symmetry|**[`rbtree_unified.md`](/docs/rbtree_unified.md)**|**[`rbtree_unified.c`](/src/rbtree_unified.c)**|
+|4. Doubly Linked Duplicates|**[`rbtree_linked.md`](/docs/rbtree_linked.md)**|**[`rbtree_linked.c`](/src/rbtree_linked.c)**|
+|5. Stack Based|**[`rbtree_stack.md`](/docs/rbtree_stack.md)**|**[`rbtree_stack.c`](/src/rbtree_stack.c)**|
+|6. Runtime Analysis|**[`rbtree_analysis.md`](/src/rbtree_analysis.md)**||
 
 ## Overview
 

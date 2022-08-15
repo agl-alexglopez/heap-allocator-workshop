@@ -1,6 +1,13 @@
 # Unified Allocator
 
-> **Take me back to the [`README.md`](/README.md)**.
+|Section|Writeup|Code|
+|---           |---    |--- |
+|1. Home|**[`README.md`](/README.md)**||
+|2. The CLRS Standard|**[`rbtree_clrs.md`](/docs/rbtree_clrs.md)**|**[`rbtree_clrs.c`](/src/rbtree_clrs.c)**|
+|3. Doubly Linked Duplicates|**[`rbtree_linked.md`](/docs/rbtree_linked.md)**|**[`rbtree_linked.c`](/src/rbtree_linked.c)**|
+|4. Stack Based|**[`rbtree_stack.md`](/docs/rbtree_stack.md)**|**[`rbtree_stack.c`](/src/rbtree_stack.c)**|
+|5. Topdown Fixups|**[`rbtree_topdown.md`](/docs/rbtree_topdown.md)**|**[`rbtree_topdown.c`](/src/rbtree_topdown.c)**|
+|6. Runtime Analysis|**[`rbtree_analysis.md`](/src/rbtree_analysis.md)**||
 
 ## Overview
 
