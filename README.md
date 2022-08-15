@@ -27,6 +27,10 @@ In order to maintain $\Theta(lgN)$ single operations on a binary tree, Red-Black
 4. A red node has two black children.
 5. The black height, the number of black nodes on any path from the root to the black sentinel, must be the same for every path.
 
+Here is a basic tree layout that utilizes a `parent` field. As you read through allocator implementations, you will see that the [`rbtree_stack`](/docs/rbtree_stack.md) and [`rbtree_topdown`](/docs/rbtree_topdown.md) implementations are able to eliminate the need for this `parent` field.
+
+![rbtree-basic](/images/rbtree-basic.png)
+
 ### Inserting
 
 We always insert new nodes into the tree as red nodes. This is because we will have the least impact on property 4 and 5 with this approach. If we insert a node and its parent is black, we do not need to fix the tree. If we insert a node and the parent is red, we will launch into our fixup operations.
