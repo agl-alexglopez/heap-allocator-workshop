@@ -103,3 +103,11 @@ We will now determine if it necessary to enter Case 2. This should look familiar
 
 ![rb-delete-case-2-abstract](/images/rb-delete-case-2-abstract.png)
 
+If we did not enter Case 2, we will determine if we should enter Case 3.
+
+![rb-delete-case-3](/images/rb-delete-case-3.png)
+
+Whether we entered Case 3 or not, we now must execute Case 4, invariant.
+
+![rb-delete-case-4](/images/rb-delete-case-4.png)
+
