@@ -111,3 +111,7 @@ Whether we entered Case 3 or not, we now must execute Case 4, invariant.
 
 ![rb-delete-case-4](/images/rb-delete-case-4.png)
 
+That completes our overview of Red Black Trees. There are many interesting optimizations both in terms of lines of code and speed of the tree I decided to pursue. There are also interesting challenges to solve for a Red Black Tree in the context of a heap allocator. Please explore the implementation write ups and code in this repository.
+
+([`Navigation`](#navigation))
+
