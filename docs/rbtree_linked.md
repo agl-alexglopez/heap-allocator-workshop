@@ -7,9 +7,10 @@
 |1. Home|**[`README.md`](/README.md)**||
 |2. The CLRS Standard|**[`rbtree_clrs.md`](/docs/rbtree_clrs.md)**|**[`rbtree_clrs.c`](/src/rbtree_clrs.c)**|
 |3. Unified Symmetry|**[`rbtree_unified.md`](/docs/rbtree_unified.md)**|**[`rbtree_unified.c`](/src/rbtree_unified.c)**|
-|4. Stack Based|**[`rbtree_stack.md`](/docs/rbtree_stack.md)**|**[`rbtree_stack.c`](/src/rbtree_stack.c)**|
-|5. Topdown Fixups|**[`rbtree_topdown.md`](/docs/rbtree_topdown.md)**|**[`rbtree_topdown.c`](/src/rbtree_topdown.c)**|
-|6. Runtime Analysis|**[`rbtree_analysis.md`](/docs/rbtree_analysis.md)**||
+|4. Doubly Linked Duplicates|**[`rbtree_linked.md`](/docs/rbtree_linked.md)**|**[`rbtree_linked.c`](/src/rbtree_linked.c)**|
+|5. Stack Based|**[`rbtree_stack.md`](/docs/rbtree_stack.md)**|**[`rbtree_stack.c`](/src/rbtree_stack.c)**|
+|6. Topdown Fixups|**[`rbtree_topdown.md`](/docs/rbtree_topdown.md)**|**[`rbtree_topdown.c`](/src/rbtree_topdown.c)**|
+|7. Runtime Analysis|**[`rbtree_analysis.md`](/docs/rbtree_analysis.md)**||
 
 ## Overview
 
@@ -22,23 +23,33 @@ One idea I wanted to try was to take what I learned from the explicit allocator 
 We can create another enum to help. This will make it clear when we are referring to nodes as connections in a linked list and nodes in a tree.
 
 ```c
-// These represent indices in the links array of a heap_node_t node in a doubly linked list.
-typedef enum list_t {
-    PREV = 0,
-    NEXT = 1
-} list_t;
+// When you see these, know that we are working with a doubly linked list, not a tree.
+typedef enum list_link_t {
+    // (P == PREVIOUS), (N == NEXT)
+    P = 0,
+    N = 1
+} list_link_t;
 ```
 
 Then when we access the indices of our links array, we do so with PREV and NEXT rather than LEFT and RIGHT. We now just need to know when we have duplicates at a given node in the tree, and where we can find the start of the doubly linked list. My approach is to use an extra field in my struct to find the first node in the doubly linked list.
 
 ```c
-typedef struct heap_node_t {
+typedef struct tree_node_t {
+    // block size, allocation status, left neighbor status, and node color.
     header_t header;
-    struct heap_node_t *parent;
-    struct heap_node_t *links[2];
-    // Use list_start to maintain doubly linked list, using the links[PREV]-links[NEXT] fields
-    struct heap_node_t *list_start;
-}heap_node_t;
+    struct tree_node_t *parent;
+    // This will combine with an enum to help unify symmetric cases for insert and delete fixes.
+    struct tree_node_t *links[TWO_NODE_ARRAY];
+    // Points to a list which we will use P and N to manage to distinguish from the tree.
+    struct duplicate_t *list_start;
+}tree_node_t;
+
+typedef struct duplicate_t {
+    header_t header;
+    struct tree_node_t *parent;
+    struct duplicate_t *links[TWO_NODE_ARRAY];
+    struct tree_node_t *list_start;
+}duplicate_t;
 ```
 
 Over the course of an allocator there are many free blocks of the same size that arise and cannot be coalesced because they are not directly next to one another. When coalescing left and right, we may still have a uniquely sized node to delete, resulting in the normal $\Theta(lgN)$ deletion operations. However, if the block that we coalesce is a duplicate, we are garunteed $\Theta(1)$ time to absorb and free the node from the doubly linked list. Here is one of the core functions for coalescing that shows just how easy it is with the help of our enum to switch between referring to nodes as nodes in a tree and links in a list.
@@ -50,42 +61,40 @@ Over the course of an allocator there are many free blocks of the same size that
  * @param *to_coalesce         the node we now must find by address in the tree.
  * @return                     the node we have now correctly freed given all cases to find it.
  */
-heap_node_t *free_coalesced_node(heap_node_t *to_coalesce) {
+tree_node_t *free_coalesced_node(void *to_coalesce) {
+    tree_node_t *tree_node = to_coalesce;
     // Quick return if we just have a standard deletion.
-    if (to_coalesce->list_start == black_sentinel) {
-       return delete_rb_node(to_coalesce);
+    if (tree_node->list_start == free_nodes.list_tail) {
+       return delete_rb_node(tree_node);
     }
+    duplicate_t *list_node = to_coalesce;
     // to_coalesce is the head of a doubly linked list. Remove and make a new head.
-    if (to_coalesce->parent) {
-        header_t size_and_bits = to_coalesce->header;
-        heap_node_t *tree_parent = to_coalesce->parent;
-        heap_node_t *tree_right = to_coalesce->links[RIGHT];
-        heap_node_t *tree_left = to_coalesce->links[LEFT];
-        heap_node_t *new_head = to_coalesce->list_start;
-        new_head->header = size_and_bits;
+    if (tree_node->parent) {
+        tree_node_t *new_head = (tree_node_t *)tree_node->list_start;
+        new_head->header = tree_node->header;
         // Make sure we set up new start of list correctly for linked list.
-        new_head->list_start = new_head->links[NEXT];
+        new_head->list_start = tree_node->list_start->links[N];
 
         // Now transition to thinking about this new_head as a node in a tree, not a list.
-        new_head->links[LEFT] = tree_left;
-        new_head->links[RIGHT] = tree_right;
-        tree_right->parent = new_head;
-        tree_left->parent = new_head;
-        new_head->parent = tree_parent;
-        if (tree_parent == black_sentinel) {
-            tree_root = new_head;
+        new_head->links[L] = tree_node->links[L];
+        new_head->links[R] = tree_node->links[R];
+        tree_node->links[L]->parent = new_head;
+        tree_node->links[R]->parent = new_head;
+        new_head->parent = tree_node->parent;
+        if (tree_node->parent == free_nodes.black_nil) {
+            free_nodes.tree_root = new_head;
         } else {
-            direction_t parent_link = tree_parent->links[RIGHT] == to_coalesce;
-            tree_parent->links[parent_link] = new_head;
+            tree_node->parent->links[ tree_node->parent->links[R] == to_coalesce ] = new_head;
         }
     // to_coalesce is next after the head and needs special attention due to list_start field.
-    } else if (to_coalesce->links[PREV]->list_start == to_coalesce){
-        to_coalesce->links[PREV]->list_start = to_coalesce->links[NEXT];
-        to_coalesce->links[NEXT]->links[PREV] = to_coalesce->links[PREV];
+    } else if (list_node->links[P]->list_start == to_coalesce){
+        tree_node = (tree_node_t *)list_node->links[P];
+        tree_node->list_start = list_node->links[N];
+        list_node->links[N]->links[P] = list_node->links[P];
     // Finally the simple invariant case of the node being in middle or end of list.
     } else {
-        to_coalesce->links[PREV]->links[NEXT] = to_coalesce->links[NEXT];
-        to_coalesce->links[NEXT]->links[PREV] = to_coalesce->links[PREV];
+        list_node->links[P]->links[N] = list_node->links[N];
+        list_node->links[N]->links[P] = list_node->links[P];
     }
     return to_coalesce;
 }

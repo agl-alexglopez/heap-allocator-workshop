@@ -9,7 +9,8 @@
 |3. Unified Symmetry|**[`rbtree_unified.md`](/docs/rbtree_unified.md)**|**[`rbtree_unified.c`](/src/rbtree_unified.c)**|
 |4. Doubly Linked Duplicates|**[`rbtree_linked.md`](/docs/rbtree_linked.md)**|**[`rbtree_linked.c`](/src/rbtree_linked.c)**|
 |5. Stack Based|**[`rbtree_stack.md`](/docs/rbtree_stack.md)**|**[`rbtree_stack.c`](/src/rbtree_stack.c)**|
-|6. Runtime Analysis|**[`rbtree_analysis.md`](/docs/rbtree_analysis.md)**||
+|6. Topdown Fixups|**[`rbtree_topdown.md`](/docs/rbtree_topdown.md)**|**[`rbtree_topdown.c`](/src/rbtree_topdown.c)**|
+|7. Runtime Analysis|**[`rbtree_analysis.md`](/docs/rbtree_analysis.md)**||
 
 ## Overview
 
@@ -17,7 +18,7 @@ Just when I thought that a stack was a space efficient implementation, but sacri
 
 This implementation will use the same array based struct to represent the `LEFT/RIGHT` and `NEXT/PREV`. We will also use a pointer to point to a doubly linked list of duplicate nodes, but more on that later. While in our previous stack based implementation we used an array to remember the path down to a node that we were inserting or deleting, a topdown approach only requires at most four pointers: `ancestor`, `grandparent`, `parent`, and `child`. These represent the greatest lineage that will be in need of repair as we go down the tree fixing rule violations that may arise. So, immediately we save space complexity by reducing our path representation to a constant factor.
 
-The challenge to this approach is that it is not designed to handle duplicates. In fact, Walker explicitly states that insertion and deletion cannot accomodate duplicates. Another challenge arises in how Walker handles deletions. Instead of rewiring pointers to replace a node that needs to be transplanted in, Walker simply swaps the data in the node to be removed with its inorder predecessor. All of these factors present a challenge to this implementation. I need to be able to add and remove duplicates from the tree and I must repair all pointers for any insertion or removal request because users expect my functions to handle exactly the memory that they need or refer to. My heap also is made up of unique addresses that are finite and must be managed in memory exactly.
+The challenge to this approach is that it is not designed to handle duplicates. In fact, Walker explicitly designed the implementation around unique nodes in the tree. Another challenge arises in how Walker handles deletions. Instead of rewiring pointers to replace a node that needs to be transplanted in, Walker simply swaps the data in the key field of the node to be removed with its inorder predecessor. All of these factors present a challenge to this implementation. I need to be able to add and remove duplicates from the tree and I must repair all pointers for any insertion or removal request because users expect my functions to handle exactly the memory that they need or refer to. My heap also is made up of unique addresses that are finite and must be managed in memory exactly.
 
 We can overcome the insertion problem rather easily. When we encounter a duplicate, we simply perform one final fixup but instead of ending the function, we use the doubly linked list we have been employing over the last few iterations of our allocator and add the duplicate to that list. This prevents problems that would otherwise arise with the logic and sequence of fixups on the way down the tree. Here is the new scheme. It is an identical setup to the stack duplicate model from the last allocator.
 

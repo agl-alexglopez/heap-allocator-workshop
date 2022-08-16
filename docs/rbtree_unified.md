@@ -6,10 +6,11 @@
 |---           |---    |--- |
 |1. Home|**[`README.md`](/README.md)**||
 |2. The CLRS Standard|**[`rbtree_clrs.md`](/docs/rbtree_clrs.md)**|**[`rbtree_clrs.c`](/src/rbtree_clrs.c)**|
-|3. Doubly Linked Duplicates|**[`rbtree_linked.md`](/docs/rbtree_linked.md)**|**[`rbtree_linked.c`](/src/rbtree_linked.c)**|
-|4. Stack Based|**[`rbtree_stack.md`](/docs/rbtree_stack.md)**|**[`rbtree_stack.c`](/src/rbtree_stack.c)**|
-|5. Topdown Fixups|**[`rbtree_topdown.md`](/docs/rbtree_topdown.md)**|**[`rbtree_topdown.c`](/src/rbtree_topdown.c)**|
-|6. Runtime Analysis|**[`rbtree_analysis.md`](/docs/rbtree_analysis.md)**||
+|3. Unified Symmetry|**[`rbtree_unified.md`](/docs/rbtree_unified.md)**|**[`rbtree_unified.c`](/src/rbtree_unified.c)**|
+|4. Doubly Linked Duplicates|**[`rbtree_linked.md`](/docs/rbtree_linked.md)**|**[`rbtree_linked.c`](/src/rbtree_linked.c)**|
+|5. Stack Based|**[`rbtree_stack.md`](/docs/rbtree_stack.md)**|**[`rbtree_stack.c`](/src/rbtree_stack.c)**|
+|6. Topdown Fixups|**[`rbtree_topdown.md`](/docs/rbtree_topdown.md)**|**[`rbtree_topdown.c`](/src/rbtree_topdown.c)**|
+|7. Runtime Analysis|**[`rbtree_analysis.md`](/docs/rbtree_analysis.md)**||
 
 ## Overview
 
@@ -18,31 +19,32 @@ The downside to the CLRS implementation of a Red Black Tree is that there are ma
 The traditional red-black node in the context of a heap allocator could look something like this.
 
 ```c
-typedef struct heap_node_t {
+typedef struct tree_node_t {
     // The header will store block size, allocation status, left neighbor status, and node color.
     header_t header;
-    struct heap_node_t *parent;
-    struct heap_node_t *left;
-    struct heap_node_t *right;
-}heap_node_t;
+    struct tree_node_t *parent;
+    struct tree_node_t *left;
+    struct tree_node_t *right;
+}tree_node_t;
 ```
 
 If we use an array for the left and right fields in the struct and pair that with smart use of an enum, we can do some clever tricks to unify left and right cases to simple logic points in the code. Here is the new setup.
 
 ```c
-typedef struct heap_node_t {
+typedef struct tree_node_t {
     // The header will store block size, allocation status, left neighbor status, and node color.
     header_t header;
-    struct heap_node_t *parent;
-    struct heap_node_t *links[2];
-}heap_node_t;
+    struct tree_node_t *parent;
+    // Unify left and right cases with an array.
+    struct tree_node_t *links[TWO_NODE_ARRAY];
+}tree_node_t;
 
-// NOT(!) operator will flip this enum to the opposite field. !LEFT == RIGHT and !RIGHT == LEFT;
-typedef enum direction_t {
-    // These represent indices in the lr_array array of a heap_node_t node in the tree.
-    LEFT = 0,
-    RIGHT = 1
-} direction_t;
+// NOT(!) operator will flip this enum to the opposite field. !L == R and !R == L;
+typedef enum tree_link_t {
+    // (L == LEFT), (R == RIGHT)
+    L = 0,
+    R = 1
+} tree_link_t;
 ```
 
 With this new approach, your traditional search function in a binary tree can look slightly more elegant, in my opinion.
@@ -61,8 +63,7 @@ heap_node_t *find_node_size(size_t key) {
             return current;
         }
         // Idiom for choosing direction. LEFT(0), RIGHT(1);
-        direction_t search_direction = cur_size < key;
-        current = current->links[search_direction];
+        current = current->links[cur_size < key];
     }
     return NULL;
 }
@@ -106,21 +107,18 @@ Now, use some clever naming and the `direction_t` type and you can unify both ro
  * @param *current   the node around which we will rotate.
  * @param rotation   either left or right. Determines the rotation and its opposite direction.
  */
-void rotate(heap_node_t *current, direction_t rotation) {
-    direction_t opposite = !rotation;
-    heap_node_t *child = current->links[opposite];
-    current->links[opposite] = child->links[rotation];
-    if (child->links[rotation] != black_sentinel) {
+void rotate(tree_node_t *current, tree_link_t rotation) {
+    tree_node_t *child = current->links[!rotation];
+    current->links[!rotation] = child->links[rotation];
+    if (child->links[rotation] != tree.black_nil) {
         child->links[rotation]->parent = current;
     }
     child->parent = current->parent;
-    heap_node_t *parent = current->parent;
-    if (parent == black_sentinel) {
-        tree_root = child;
+    if (current->parent == tree.black_nil) {
+        tree.root = child;
     } else {
-        // Another idiom for direction. Think of how we can use True/False.
-        direction_t parent_link = parent->links[RIGHT] == current;
-        parent->links[parent_link] = child;
+        // True == 1 == R, otherwise False == 0 == L
+        current->parent->links[ current->parent->links[R] == current ] = child;
     }
     child->links[rotation] = current;
     current->parent = child;
@@ -181,31 +179,30 @@ Here is the unified version.
 ```c
 /* @brief fix_rb_insert  implements a modified Cormen et.al. red black fixup after the insertion of
  *                       a new node. Unifies the symmetric left and right cases with the use of
- *                       an array and an enum direction_t.
+ *                       an array and an enum tree_link_t.
  * @param *current       the current node that has just been added to the red black tree.
  */
-void fix_rb_insert(heap_node_t *current) {
+void fix_rb_insert(tree_node_t *current) {
     while(extract_color(current->parent->header) == RED) {
-        heap_node_t *parent = current->parent;
-        direction_t grandparent_link = parent->parent->links[RIGHT] == parent;
-        direction_t opposite_link = !grandparent_link;
-        heap_node_t *aunt = parent->parent->links[opposite_link];
+        // Store the link from ancestor to parent. True == 1 == R, otherwise False == 0 == L
+        tree_link_t symmetric_case = current->parent->parent->links[R] == current->parent;
+        tree_node_t *aunt = current->parent->parent->links[!symmetric_case];
         if (extract_color(aunt->header) == RED) {
             paint_node(aunt, BLACK);
-            paint_node(parent, BLACK);
-            paint_node(parent->parent, RED);
-            current = parent->parent;
+            paint_node(current->parent, BLACK);
+            paint_node(current->parent->parent, RED);
+            current = current->parent->parent;
         } else {
-            if (current == parent->links[opposite_link]) {
+            if (current == current->parent->links[!symmetric_case]) {
                 current = current->parent;
-                rotate(current, grandparent_link);
+                rotate(current, symmetric_case);
             }
             paint_node(current->parent, BLACK);
             paint_node(current->parent->parent, RED);
-            rotate(current->parent->parent, opposite_link);
+            rotate(current->parent->parent, !symmetric_case);
         }
     }
-    paint_node(tree_root, BLACK);
+    paint_node(tree.root, BLACK);
 }
 ```
 
