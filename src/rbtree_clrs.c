@@ -105,10 +105,10 @@ typedef enum header_status_t {
     LEFT_FREE = ~0x2UL
 } header_status_t;
 
-typedef enum node_color_t {
+typedef enum rb_color_t {
     BLACK = 0,
     RED = 1
-}node_color_t;
+}rb_color_t;
 
 static struct heap {
     void *client_start;
@@ -130,7 +130,7 @@ static struct heap {
  * @param *node       the node we need to paint.
  * @param color       the color the user wants to paint the node.
  */
-void paint_node(tree_node_t *node, node_color_t color) {
+void paint_node(tree_node_t *node, rb_color_t color) {
     color == RED ? (node->header |= RED_PAINT) : (node->header &= BLK_PAINT);
 }
 
@@ -138,7 +138,7 @@ void paint_node(tree_node_t *node, node_color_t color) {
  * @param header_val     the value of the node in question passed by value.
  * @return               RED or BLACK
  */
-node_color_t extract_color(header_t header_val) {
+rb_color_t extract_color(header_t header_val) {
     return (header_val & COLOR_MASK) == RED_PAINT;
 }
 
@@ -381,7 +381,7 @@ void fix_rb_delete(tree_node_t *extra_black) {
  * @param *to_remove      the node to remove from the tree from a call to malloc or coalesce.
  */
 tree_node_t *delete_rb_node(tree_node_t *to_remove) {
-    node_color_t fixup_color_check = extract_color(to_remove->header);
+    rb_color_t fixup_color_check = extract_color(to_remove->header);
 
     // We will give the replacement of the replacement an "extra" black color.
     tree_node_t *extra_black = NULL;
