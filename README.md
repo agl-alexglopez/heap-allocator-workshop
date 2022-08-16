@@ -99,3 +99,7 @@ Here is Case 1. Case 1 falls through meaning we will go on to check two scenario
 
 ![rb-delete-case-1](/images/rb-delete-case-1.png)
 
+We will now determine if it necessary to enter Case 2. This should look familiar to the case I demonstrated with the real tree deletion earlier.
+
+![rb-delete-case-2-abstract](/images/rb-delete-case-2-abstract.png)
+
