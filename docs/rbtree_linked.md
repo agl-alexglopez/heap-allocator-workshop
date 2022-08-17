@@ -31,7 +31,7 @@ typedef enum list_link_t {
 } list_link_t;
 ```
 
-Then when we access the indices of our links array, we do so with PREV and NEXT rather than LEFT and RIGHT. We now just need to know when we have duplicates at a given node in the tree, and where we can find the start of the doubly linked list. My approach is to use an extra field in my struct to find the first node in the doubly linked list.
+Then when we access the indices of our links array, we do so with `P` and `N` rather than `L` and `R`. We now just need to know when we have duplicates at a given node in the tree, and where we can find the start of the doubly linked list. My approach is to use an extra field in my struct to find the first node in the doubly linked list.
 
 ```c
 typedef struct tree_node_t {
