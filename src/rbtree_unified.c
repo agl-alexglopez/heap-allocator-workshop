@@ -1081,7 +1081,7 @@ void print_error_block(const tree_node_t *node, size_t block_size) {
  * @param *current        the current node that is likely garbage values that don't make sense.
  * @param *prev           the previous node that we jumped from.
  */
-void print_bad_jump(const tree_node_t *current, tree_node_t *prev) {
+void print_bad_jump(const tree_node_t *current, const tree_node_t *prev) {
     size_t prev_size = extract_block_size(prev->header);
     size_t cur_size = extract_block_size(current->header);
     printf("A bad jump from the value of a header has occured. Bad distance to next header.\n");
