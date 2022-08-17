@@ -85,16 +85,17 @@ The `*` marks the `current` node under consideration. We define the `parent` and
 
 *Pictured Above: Case 2 for a Red Black Tree delete. While this illustration has a node with two children that are `Null`, in reality, we just point both fields to the black sentinel that we have waiting at the bottom of the tree.*
 
-Now that you have seen how one of the delte fixup cases works on a real tree, we will step back to illustrate how all cases work overall. I am using the same demonstration method that is implemented in CLRS. We will operate somewhere down an arbitrary tree and introduce some new abstractions.
+Now that you have seen how one of the delete fixup cases works on a real tree, we will step back to illustrate how all cases work overall. I am using the same demonstration method that is implemented in CLRS. We will operate somewhere down an arbitrary tree and introduce some new abstractions.
 
-- Colored shapes represent arbitrary subtrees further down the tree.
-- Brown nodes represent nodes that can be either red or black.
+- `A`, `B`, `C`, `D`, `E`, and `F` represent arbitrary subtrees further down the tree.
+- Brown nodes represent nodes that can be either red or black. This means we either do not care what the color is, or we use the color it has without needing to know the color beforehand.
 - `*` represents the current node under consideration. Parent and sibling are defined in relation to this node.
 - The second black circle represents the *extra black* given to a node under consideration.
 
 Here is Case 1. Case 1 falls through meaning we will go on to check two scenarios afterwards.
 
-- Execute Case 2 `OR...`
+- Execute Case 2
+- `OR...`
 - Check Case 3 and fall through to execute case 4
 
 ![rb-delete-case-1](/images/rb-delete-case-1.png)
