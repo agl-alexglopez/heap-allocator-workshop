@@ -108,13 +108,13 @@ Here are the key details from the above graph.
 - The topdown approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
 - The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is faster in this application.
 
-These results make the most wasteful implementation in terms of space, `rbtree_linked`, more of a proof of concept. If the same results can be acheived with more space efficiency, the implementation loses value.
+These results make the most wasteful implementation in terms of space, `rbtree_linked`, more of a proof of concept. If the similar results can be acheived with more space efficiency, the implementation loses value.
 
-I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deltions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a blessing in disguise in terms of speed. To get an idea of just how many duplicates the allocators may encounter in these artificial workloads, here is a picture of the tree configuration for 50,000 insert delete requests at the peak of the tree size.
+I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deltions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a fruitful challenge in terms of speed. To get an idea of just how many duplicates the allocators may encounter in these artificial workloads, here is a picture of the tree configuration for 50,000 insert delete requests at the peak of the tree size.
 
 ![50k-insert-delete](/images/rb-tree-50k-insertdelete.png)
 
-*Pictured Above: A Red Black tree after 50,000 insertions of nodes into the tree. Notice how many duplicates we have and imagine thest duplicates spread across an entire tree if we did not manage them in a list.*
+*Pictured Above: A Red Black tree after 50,000 insertions of nodes into the tree. Notice how many duplicates we have and imagine these duplicates spread across an entire tree if we did not manage them in a list.*
 
 ## Tracing Programs
 
