@@ -185,7 +185,7 @@ void rotate(tree_node_t *current, tree_link_t rotation) {
         tree.root = child;
     } else {
         // True == 1 == R, otherwise False == 0 == L
-        current->parent->links[ current->parent->links[R] == current ] = child;
+        current->parent->links[current->parent->links[R] == current] = child;
     }
     child->links[rotation] = current;
     current->parent = child;
@@ -241,7 +241,7 @@ void insert_rb_node(tree_node_t *current) {
     if (parent == tree.black_nil) {
         tree.root = current;
     } else {
-        parent->links[ extract_block_size(parent->header) < current_key ] = current;
+        parent->links[extract_block_size(parent->header) < current_key] = current;
     }
     current->links[L] = tree.black_nil;
     current->links[R] = tree.black_nil;
@@ -262,7 +262,7 @@ void rb_transplant(tree_node_t *to_remove, tree_node_t *replacement) {
         tree.root = replacement;
     } else {
         // Store the link from parent to child. True == 1 == R, otherwise False == 0 == L
-        to_remove->parent->links[ to_remove->parent->links[R] == to_remove ] = replacement;
+        to_remove->parent->links[to_remove->parent->links[R] == to_remove] = replacement;
     }
     replacement->parent = to_remove->parent;
 }

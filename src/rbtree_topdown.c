@@ -295,11 +295,11 @@ void insert_rb_topdown(tree_node_t *current) {
 
         // Fix red-red violations. Could have one last violation between parent and new child.
         if (extract_color(child->header) == RED && extract_color(parent->header) == RED) {
-            tree_link_t other_direction = ancestor->links[R] == gparent;
+            tree_link_t ancestor_link = ancestor->links[R] == gparent;
             if (child == parent->links[last_link]) {
-                ancestor->links[other_direction] = single_rotation(gparent, ancestor, !last_link);
+                ancestor->links[ancestor_link] = single_rotation(gparent, ancestor, !last_link);
             } else {
-                ancestor->links[other_direction] = double_rotation(gparent, ancestor, !last_link);
+                ancestor->links[ancestor_link] = double_rotation(gparent, ancestor, !last_link);
             }
         }
 
@@ -341,7 +341,7 @@ void rb_transplant(tree_node_t *parent, tree_node_t *remove, tree_node_t *replac
     if (parent == free_nodes.black_nil) {
         free_nodes.tree_root = replacement;
     } else {
-        parent->links[ parent->links[R] == remove ] = replacement;
+        parent->links[parent->links[R] == remove] = replacement;
     }
     if (replacement != free_nodes.black_nil) {
         replacement->list_start->parent = parent;
@@ -549,7 +549,7 @@ void *free_coalesced_node(void *to_coalesce) {
         if (tree_parent == free_nodes.black_nil) {
             free_nodes.tree_root = new_tree_node;
         } else {
-            tree_parent->links[ tree_parent->links[R] == to_coalesce ] = new_tree_node;
+            tree_parent->links[tree_parent->links[R] == to_coalesce] = new_tree_node;
         }
     }
     return to_coalesce;

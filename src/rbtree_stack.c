@@ -220,7 +220,7 @@ void rotate(tree_link_t rotation, tree_node_t *current, tree_node_t *path[], int
     if (parent == free_nodes.black_nil) {
         free_nodes.tree_root = child;
     } else {
-        parent->links[ parent->links[R] == current ] = child;
+        parent->links[parent->links[R] == current] = child;
     }
     child->links[rotation] = current;
     current->list_start->parent = child;
@@ -324,7 +324,7 @@ void insert_rb_node(tree_node_t *current) {
     if (parent == free_nodes.black_nil) {
         free_nodes.tree_root = current;
     } else {
-        parent->links[ extract_block_size(parent->header) < current_key ] = current;
+        parent->links[extract_block_size(parent->header) < current_key] = current;
     }
     current->links[L] = free_nodes.black_nil;
     current->links[R] = free_nodes.black_nil;
@@ -561,7 +561,7 @@ void *free_coalesced_node(void *to_coalesce) {
         if (tree_parent == free_nodes.black_nil) {
             free_nodes.tree_root = new_tree_node;
         } else {
-            tree_parent->links[ tree_parent->links[R] == to_coalesce ] = new_tree_node;
+            tree_parent->links[tree_parent->links[R] == to_coalesce] = new_tree_node;
         }
     }
     return to_coalesce;
