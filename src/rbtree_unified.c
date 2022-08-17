@@ -234,17 +234,14 @@ void insert_rb_node(tree_node_t *current) {
     size_t current_key = extract_block_size(current->header);
     while (seeker != tree.black_nil) {
         parent = seeker;
-        size_t seeker_size = extract_block_size(seeker->header);
         // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
-        tree_link_t search_direction = seeker_size < current_key;
-        seeker = seeker->links[search_direction];
+        seeker = seeker->links[extract_block_size(seeker->header) < current_key];
     }
     current->parent = parent;
     if (parent == tree.black_nil) {
         tree.root = current;
     } else {
-        tree_link_t direction = extract_block_size(parent->header) < current_key;
-        parent->links[direction] = current;
+        parent->links[ extract_block_size(parent->header) < current_key ] = current;
     }
     current->links[L] = tree.black_nil;
     current->links[R] = tree.black_nil;
@@ -261,14 +258,13 @@ void insert_rb_node(tree_node_t *current) {
  * @param *replacement   the node that will fill the to_remove position. It can be tree.black_nil.
  */
 void rb_transplant(tree_node_t *to_remove, tree_node_t *replacement) {
-    tree_node_t *parent = to_remove->parent;
-    if (parent == tree.black_nil) {
+    if (to_remove->parent == tree.black_nil) {
         tree.root = replacement;
     } else {
         // Store the link from parent to child. True == 1 == R, otherwise False == 0 == L
-        parent->links[ parent->links[R] == to_remove ] = replacement;
+        to_remove->parent->links[ to_remove->parent->links[R] == to_remove ] = replacement;
     }
-    replacement->parent = parent;
+    replacement->parent = to_remove->parent;
 }
 
 
