@@ -84,7 +84,7 @@ tree_node_t *free_coalesced_node(void *to_coalesce) {
         if (tree_node->parent == free_nodes.black_nil) {
             free_nodes.tree_root = new_head;
         } else {
-            tree_node->parent->links[ tree_node->parent->links[R] == to_coalesce ] = new_head;
+            tree_node->parent->links[tree_node->parent->links[R] == to_coalesce] = new_head;
         }
     // to_coalesce is next after the head and needs special attention due to list_start field.
     } else if (list_node->links[P]->list_start == to_coalesce){
