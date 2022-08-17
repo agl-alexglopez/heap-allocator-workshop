@@ -187,7 +187,7 @@ void left_rotate(tree_node_t *current) {
 /* @brief right_rotate  completes a right rotation to help repair a red-black tree. Assumes current
  *                      is not the tree.black_nil and the right child is not tree.black_nil.
  * @param *current      the current node moves down the tree and the left child moves up.
- * @warning            this function assumes current and current->right are not tree.black_nil.
+ * @warning             this function assumes current and current->right are not tree.black_nil.
  */
 void right_rotate(tree_node_t *current) {
     tree_node_t *left_child = current->left;
@@ -291,18 +291,18 @@ void insert_rb_node(tree_node_t *current) {
 
 
 /* @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
- * @param *to_remove     the node we are removing from the tree.
- * @param *replacement   the node that will fill the to_remove position. It can be tree.black_nil.
+ * @param *remove        the node we are removing from the tree.
+ * @param *replacement   the node that will fill the remove position. It can be tree.black_nil.
  */
-void rb_transplant(tree_node_t *to_remove, tree_node_t *replacement) {
-    if (to_remove->parent == tree.black_nil) {
+void rb_transplant(tree_node_t *remove, tree_node_t *replacement) {
+    if (remove->parent == tree.black_nil) {
         tree.root = replacement;
-    } else if (to_remove == to_remove->parent->left) {
-        to_remove->parent->left = replacement;
+    } else if (remove == remove->parent->left) {
+        remove->parent->left = replacement;
     } else {
-        to_remove->parent->right = replacement;
+        remove->parent->right = replacement;
     }
-    replacement->parent = to_remove->parent;
+    replacement->parent = remove->parent;
 }
 
 
@@ -378,41 +378,41 @@ void fix_rb_delete(tree_node_t *extra_black) {
 
 /* @brief delete_rb_node  performs the necessary steps to have a functional, balanced tree after
  *                        deletion of any node in the tree.
- * @param *to_remove      the node to remove from the tree from a call to malloc or coalesce.
+ * @param *remove         the node to remove from the tree from a call to malloc or coalesce.
  */
-tree_node_t *delete_rb_node(tree_node_t *to_remove) {
-    rb_color_t fixup_color_check = extract_color(to_remove->header);
+tree_node_t *delete_rb_node(tree_node_t *remove) {
+    rb_color_t fixup_color_check = extract_color(remove->header);
 
     // We will give the replacement of the replacement an "extra" black color.
     tree_node_t *extra_black = NULL;
-    if (to_remove->left == tree.black_nil) {
-        rb_transplant(to_remove, (extra_black = to_remove->right));
-    } else if (to_remove->right == tree.black_nil) {
-        rb_transplant(to_remove, (extra_black = to_remove->left));
+    if (remove->left == tree.black_nil) {
+        rb_transplant(remove, (extra_black = remove->right));
+    } else if (remove->right == tree.black_nil) {
+        rb_transplant(remove, (extra_black = remove->left));
     } else {
         // The node to remove is internal with two children of unkown size subtrees.
-        tree_node_t *right_min = tree_minimum(to_remove->right);
+        tree_node_t *right_min = tree_minimum(remove->right);
         fixup_color_check = extract_color(right_min->header);
 
         // Possible this is black_nil and that's ok.
         extra_black = right_min->right;
-        if (right_min != to_remove->right) {
+        if (right_min != remove->right) {
             rb_transplant(right_min, right_min->right);
-            right_min->right = to_remove->right;
+            right_min->right = remove->right;
             right_min->right->parent = right_min;
         } else {
             extra_black->parent = right_min;
         }
-        rb_transplant(to_remove, right_min);
-        right_min->left = to_remove->left;
+        rb_transplant(remove, right_min);
+        right_min->left = remove->left;
         right_min->left->parent = right_min;
-        paint_node(right_min, extract_color(to_remove->header));
+        paint_node(right_min, extract_color(remove->header));
     }
     // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
     if (fixup_color_check == BLACK) {
         fix_rb_delete(extra_black);
     }
-    return to_remove;
+    return remove;
 }
 
 /* @brief find_best_fit  a red black tree is well suited to best fit search in O(logN) time. We
@@ -423,15 +423,15 @@ tree_node_t *delete_rb_node(tree_node_t *to_remove) {
 tree_node_t *find_best_fit(size_t key) {
     tree_node_t *seeker = tree.root;
     size_t best_fit_size = ULLONG_MAX;
-    tree_node_t *to_remove = seeker;
+    tree_node_t *remove = seeker;
     while (seeker != tree.black_nil) {
         size_t seeker_size = extract_block_size(seeker->header);
         if (key == seeker_size) {
-            to_remove = seeker;
+            remove = seeker;
             break;
         } else if (key < seeker_size) {
             if(seeker_size < best_fit_size) {
-                to_remove = seeker;
+                remove = seeker;
                 best_fit_size = seeker_size;
             }
             seeker = seeker->left;
@@ -440,7 +440,7 @@ tree_node_t *find_best_fit(size_t key) {
         }
     }
     // We can decompose the Cormen et.al. deletion logic because coalesce and malloc use it.
-    return delete_rb_node(to_remove);
+    return delete_rb_node(remove);
 }
 
 

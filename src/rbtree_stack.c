@@ -52,13 +52,13 @@
  *                             |                                    |
  *                        64-bit header                             |
  * |-----------------------------------------------------------------
- * |    +------------+--------------+----------+------+---------+
- * |    |            |              |          |      |         |
- * |--> |            |              |          |      |         |
- *      | *links     | *links       | *list    | space|  footer |
- *      |[L/P] | [R/N] |  start   | ...  |         |
- *      |            |              |          |      |         |
- *      +------------+--------------+----------+------+---------+
+ * |    +----------+----------+-----------+----------+------+
+ * |    |          |          |           |          |      |
+ * |--> |          |          |           |          |      |
+ *      |links[L/P]|links[R/N]|*list_start|user space|footer|
+ *      |          |          |           |          |      |
+ *      |          |          |           |          |      |
+ *      +----------+----------+-----------+----------+------+
  *
  *
  * The rest of the tree_node_t remains accessible for the user, even the footer. We only need the
@@ -114,12 +114,14 @@ typedef enum rb_color_t {
 
 // Symmetry can be unified to one case because (!L == R) and (!R == L).
 typedef enum tree_link_t {
+    // (L == LEFT), (R == RIGHT)
     L = 0,
     R = 1
 } tree_link_t;
 
 // We use these fields to refer to our doubly linked duplicate nodes.
 typedef enum list_link_t {
+    // (P == PREVIOUS), (N == NEXT)
     P = 0,
     N = 1
 } list_link_t;
@@ -151,7 +153,7 @@ static struct heap {
 #define HEAP_NODE_WIDTH (unsigned short)32
 #define MIN_BLOCK_SIZE (unsigned short)40
 #define HEADERSIZE sizeof(size_t)
-// Red black trees are always balanced so this should be plenty of height.
+// Red black trees are always balanced so this should be plenty of height (2^50 nodes)
 #define MAX_TREE_HEIGHT (unsigned short)50
 
 
@@ -194,15 +196,12 @@ tree_node_t *tree_minimum(tree_node_t *root, tree_node_t *path[], int *path_len)
     return root;
 }
 
-/* @brief rotate     a unified version of the traditional left and right rotation functions. The
- *                   rotation is either left or right and opposite is its opposite direction. We
- *                   take the current nodes child, and swap them and their arbitrary subtrees are
- *                   re-linked correctly depending on the direction of the rotation.
- * @param *current   the node around which we will rotate.
- * @param rotation   either left or right. Determines the rotation and its opposite direction.
- * @warning          in a stack implementation, it is the users responsibility to update the path
- *                   appropriately. Rotations can occur for siblings that might not be of interest
- *                   to the path we are working up the tree.
+/* @brief rotate    a unified version of the traditional left and right rotation functions. The
+ *                  rotation is either left or right and opposite is its opposite direction. We
+ *                  take the current nodes child, and swap them and their arbitrary subtrees are
+ *                  re-linked correctly depending on the direction of the rotation.
+ * @param *current  the node around which we will rotate.
+ * @param rotation  either left or right. Determines the rotation and its opposite direction.
  */
 void rotate(tree_link_t rotation, tree_node_t *current, tree_node_t *path[], int path_len) {
     tree_node_t *child = current->links[!rotation];
@@ -339,8 +338,8 @@ void insert_rb_node(tree_node_t *current) {
 /* * * * * * * * * *    Red-Black Tree Deletion Helper Functions   * * * * * * * * * * */
 
 
-/* @brief rb_transplant      replaces node with the appropriate node to start balancing the tree.
- * @param *replacement       the node that will fill the deleted position. It can be black_nil.
+/* @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
+ * @param *replacement   the node that will fill the deleted position. It can be black_nil.
  */
 void rb_transplant(tree_node_t *replacement, tree_node_t *path[], int path_len) {
     tree_node_t *parent = path[path_len - 2];
@@ -480,12 +479,12 @@ tree_node_t *find_best_fit(size_t key) {
     tree_node_t *seeker = free_nodes.tree_root;
     // We will use this sentinel to start our competition while we search for best fit.
     size_t best_fit_size = ULLONG_MAX;
-    tree_node_t *to_remove = seeker;
+    tree_node_t *remove = seeker;
     while (seeker != free_nodes.black_nil) {
         size_t seeker_size = extract_block_size(seeker->header);
         path[path_len++] = seeker;
         if (key == seeker_size) {
-            to_remove = seeker;
+            remove = seeker;
             len_to_best_fit = path_len;
             break;
         }
@@ -494,18 +493,18 @@ tree_node_t *find_best_fit(size_t key) {
          * as a candidate for the best fit. The closest fit will have won when we reach the bottom.
          */
         if (search_direction == L && seeker_size < best_fit_size) {
-            to_remove = seeker;
+            remove = seeker;
             best_fit_size = seeker_size;
             len_to_best_fit = path_len;
         }
         seeker = seeker->links[search_direction];
     }
 
-    if (to_remove->list_start != free_nodes.list_tail) {
-        // We will keep to_remove in the tree and just get the first node in doubly linked list.
-        return delete_duplicate(to_remove);
+    if (remove->list_start != free_nodes.list_tail) {
+        // We will keep remove in the tree and just get the first node in doubly linked list.
+        return delete_duplicate(remove);
     }
-    return delete_rb_node(to_remove, path, len_to_best_fit);
+    return delete_rb_node(remove, path, len_to_best_fit);
 }
 
 /* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we

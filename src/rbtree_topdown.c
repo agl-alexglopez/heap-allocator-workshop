@@ -61,13 +61,13 @@
  *                             |                                    |
  *                        64-bit header                             |
  * |-----------------------------------------------------------------
- * |    +------------+--------------+----------+----------+---------+
- * |    |            |              |          |          |         |
- * |--> |            |              |          | possible |         |
- *      | *links     | *links       | *list    | data     |  footer |
- *      |[L/P] | [R/N] |  start   | ...      |         |
- *      |            |              |          |          |         |
- *      +------------+--------------+----------+----------+---------+
+ * |    +----------+----------+-----------+---------+------+
+ * |    |          |          |           |         |      |
+ * |--> |          |          |           |         |      |
+ *      |links[L/P]|links[R/N]|*list_start|user data|footer|
+ *      |          |          |           |         |      |
+ *      |          |          |           |         |      |
+ *      +----------+----------+-----------+---------+------+
  *     |_____________________________________________________________|
  *                             |
  *          User may overwrite all fields when allocated.
@@ -126,13 +126,14 @@ typedef enum rb_color_t {
 
 // Symmetry can be unified to one case because !L == R and !R == L.
 typedef enum tree_link_t {
+    // (L == LEFT), (R == RIGHT)
     L = 0,
     R = 1
 } tree_link_t;
 
 // When you see these indices, know we are referring to a doubly linked list.
 typedef enum list_link_t {
-
+    // (P == PREVIOUS), (N == NEXT)
     P = 0,
     N = 1
 } list_link_t;

@@ -47,13 +47,13 @@
  *                             |                                    |
  *                        64-bit header                             |
  * |-----------------------------------------------------------------
- * |    +---------+------------+--------------+----------+------+---------+
- * |    |         |            |              |          |      |         |
- * |--> |         |            |              |          |      |         |
- *      | *parent | *links     | *links       | *list    | user |  footer |
- *      |         |[L/P] | [R/N] |  start   | data |         |
- *      |         |            |              |          | ...  |         |
- *      +---------+------------+--------------+----------+------+---------+
+ * |    +--------+-----------+-----------+-----------+---------+------+
+ * |    |        |           |           |           |         |      |
+ * |--> |        |           |           |           |         |      |
+ *      |*parent |*links[L/P]|*links[R/N]|*list_start|user data|footer|
+ *      |        |           |           |           |         |      |
+ *      |        |           |           |           |         |      |
+ *      +--------+-----------+-----------+-----------+---------+------+
  *
  * The rest of the tree_node_t remains accessible for the user, even the footer. We only need the
  * information in the rest of the struct when it is free and either in our tree or doubly linked
@@ -335,8 +335,8 @@ tree_node_t *delete_duplicate(tree_node_t *head) {
 
 /* @brief fix_rb_delete  completes a unified Cormen et.al. fixup function. Uses a direction enum
  *                       and an array to help unify code paths based on direction and opposites.
- * @param *extra_black       the extra_black node that was moved into place from the previous delete. It
- *                       may have broken rules of the tree or thrown off balance.
+ * @param *extra_black   the extra_black node that was moved into place from the previous delete.
+ *                       May have broken rules of the tree or thrown off balance.
  */
 void fix_rb_delete(tree_node_t *extra_black) {
     // The extra_black is "doubly black" if we enter the loop, requiring repairs.
@@ -416,12 +416,12 @@ tree_node_t *find_best_fit(size_t key) {
     tree_node_t *seeker = free_nodes.tree_root;
     // We will use this sentinel to start our competition while we search for best fit.
     size_t best_fit_size = ULLONG_MAX;
-    tree_node_t *to_remove = seeker;
+    tree_node_t *remove = seeker;
     while (seeker != free_nodes.black_nil) {
         size_t seeker_size = extract_block_size(seeker->header);
 
         if (key == seeker_size) {
-            to_remove = seeker;
+            remove = seeker;
             break;
         }
         tree_link_t search_direction = seeker_size < key;
@@ -429,17 +429,17 @@ tree_node_t *find_best_fit(size_t key) {
          * as a candidate for the best fit. The closest fit will have won when we reach the bottom.
          */
         if (search_direction == L && seeker_size < best_fit_size) {
-            to_remove = seeker;
+            remove = seeker;
             best_fit_size = seeker_size;
         }
         seeker = seeker->links[search_direction];
     }
 
-    if (to_remove->list_start != free_nodes.list_tail) {
-        // We will keep to_remove in the tree and just get the first node in doubly linked list.
-        return delete_duplicate(to_remove);
+    if (remove->list_start != free_nodes.list_tail) {
+        // We will keep remove in the tree and just get the first node in doubly linked list.
+        return delete_duplicate(remove);
     }
-    return delete_rb_node(to_remove);
+    return delete_rb_node(remove);
 }
 
 /* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we

@@ -47,8 +47,8 @@
  * |    +---------+------------+--------------+------+-------+
  * |    |         |            |              |      |       |
  * |--> |         |            |              |      |       |
- *      | *parent | *links     | *links       | user |footer |
- *      |         |[L/PREV] | [R/NEXT] | data |       |
+ *      | *parent | *links[L]  | *links[R]    | user |footer |
+ *      |         |            |              | data |       |
  *      |         |            |              | ...  |       |
  *      +---------+------------+--------------+------+-------+
  *
@@ -254,17 +254,17 @@ void insert_rb_node(tree_node_t *current) {
 
 
 /* @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
- * @param *to_remove     the node we are removing from the tree.
- * @param *replacement   the node that will fill the to_remove position. It can be tree.black_nil.
+ * @param *remove        the node we are removing from the tree.
+ * @param *replacement   the node that will fill the remove position. It can be tree.black_nil.
  */
-void rb_transplant(tree_node_t *to_remove, tree_node_t *replacement) {
-    if (to_remove->parent == tree.black_nil) {
+void rb_transplant(tree_node_t *remove, tree_node_t *replacement) {
+    if (remove->parent == tree.black_nil) {
         tree.root = replacement;
     } else {
         // Store the link from parent to child. True == 1 == R, otherwise False == 0 == L
-        to_remove->parent->links[to_remove->parent->links[R] == to_remove] = replacement;
+        remove->parent->links[remove->parent->links[R] == remove] = replacement;
     }
-    replacement->parent = to_remove->parent;
+    replacement->parent = remove->parent;
 }
 
 
@@ -312,36 +312,36 @@ void fix_rb_delete(tree_node_t *extra_black) {
 
 /* @brief delete_rb_node  performs the necessary steps to have a functional, balanced tree after
  *                        deletion of any node in the tree.
- * @param *to_remove      the node to remove from the tree from a call to malloc or coalesce.
+ * @param *remove         the node to remove from the tree from a call to malloc or coalesce.
  */
-tree_node_t *delete_rb_node(tree_node_t *to_remove) {
-    rb_color_t fixup_color_check = extract_color(to_remove->header);
+tree_node_t *delete_rb_node(tree_node_t *remove) {
+    rb_color_t fixup_color_check = extract_color(remove->header);
 
     tree_node_t *extra_black = NULL;
-    if (to_remove->links[L] == tree.black_nil || to_remove->links[R] == tree.black_nil) {
-        tree_link_t link_to_nil = to_remove->links[L] != tree.black_nil;
-        rb_transplant(to_remove, (extra_black = to_remove->links[!link_to_nil]));
+    if (remove->links[L] == tree.black_nil || remove->links[R] == tree.black_nil) {
+        tree_link_t link_to_nil = remove->links[L] != tree.black_nil;
+        rb_transplant(remove, (extra_black = remove->links[!link_to_nil]));
     } else {
-        tree_node_t *right_min = tree_minimum(to_remove->links[R]);
+        tree_node_t *right_min = tree_minimum(remove->links[R]);
         fixup_color_check = extract_color(right_min->header);
         extra_black = right_min->links[R];
-        if (right_min != to_remove->links[R]) {
+        if (right_min != remove->links[R]) {
             rb_transplant(right_min, right_min->links[R]);
-            right_min->links[R] = to_remove->links[R];
+            right_min->links[R] = remove->links[R];
             right_min->links[R]->parent = right_min;
         } else {
             extra_black->parent = right_min;
         }
-        rb_transplant(to_remove, right_min);
-        right_min->links[L] = to_remove->links[L];
+        rb_transplant(remove, right_min);
+        right_min->links[L] = remove->links[L];
         right_min->links[L]->parent = right_min;
-        paint_node(right_min, extract_color(to_remove->header));
+        paint_node(right_min, extract_color(remove->header));
     }
     // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
     if (fixup_color_check == BLACK) {
         fix_rb_delete(extra_black);
     }
-    return to_remove;
+    return remove;
 }
 
 /* @brief find_best_fit  a red black tree is well suited to best fit search in O(logN) time. We
@@ -353,11 +353,11 @@ tree_node_t *find_best_fit(size_t key) {
     tree_node_t *seeker = tree.root;
     // We will use this sentinel to start our competition while we search for best fit.
     size_t best_fit_size = ULLONG_MAX;
-    tree_node_t *to_remove = seeker;
+    tree_node_t *remove = seeker;
     while (seeker != tree.black_nil) {
         size_t seeker_size = extract_block_size(seeker->header);
         if (key == seeker_size) {
-            to_remove = seeker;
+            remove = seeker;
             break;
         }
         tree_link_t search_direction = seeker_size < key;
@@ -365,12 +365,12 @@ tree_node_t *find_best_fit(size_t key) {
          * as a candidate for the best fit. The closest fit will have won when we reach the bottom.
          */
         if (search_direction == L && seeker_size < best_fit_size) {
-            to_remove = seeker;
+            remove = seeker;
             best_fit_size = seeker_size;
         }
         seeker = seeker->links[search_direction];
     }
-    return delete_rb_node(to_remove);
+    return delete_rb_node(remove);
 }
 
 /* @brief find_node_size  performs a standard binary search for a node based on the value of key.
