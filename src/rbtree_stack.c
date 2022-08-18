@@ -308,10 +308,10 @@ void insert_rb_node(tree_node_t *current) {
     int path_len = 1;
     tree_node_t *seeker = free_nodes.tree_root;
     while (seeker != free_nodes.black_nil) {
-        size_t seeker_size = extract_block_size(seeker->header);
         path[path_len++] = seeker;
-
-        // Duplicates with a linked list. No duplicates in tree while staying O(1) coalescing.
+        
+        size_t seeker_size = extract_block_size(seeker->header);
+        // Ability to add duplicates to linked list means no fixups necessary if duplicate.
         if (current_key == seeker_size) {
             add_duplicate(seeker, (duplicate_t *)current, path[path_len - 2]);
             return;
