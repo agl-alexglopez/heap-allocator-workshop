@@ -309,7 +309,6 @@ void insert_rb_node(tree_node_t *current) {
     tree_node_t *seeker = free_nodes.tree_root;
     while (seeker != free_nodes.black_nil) {
         size_t seeker_size = extract_block_size(seeker->header);
-        // Track the stack
         path[path_len++] = seeker;
 
         // Duplicates with a linked list. No duplicates in tree while staying O(1) coalescing.
