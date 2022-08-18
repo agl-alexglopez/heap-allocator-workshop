@@ -97,7 +97,7 @@ void left_rotate(heap_node_t *current) {
 }
 ```
 
-Now, use some clever naming and the `direction_t` type and you can unify both rotation functions into one.
+Now, use some clever naming and the `tree_link_t` type and you can unify both rotation functions into one.
 
 ```c
 /* @brief rotate     a unified version of the traditional left and right rotation functions. The
