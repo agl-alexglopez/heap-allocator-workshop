@@ -116,7 +116,7 @@ That completes our overview of Red Black Trees. There are many interesting optim
 
 ## Next Steps
 
-This allocator is contained within a *segment* that helps create artificial boundaries for the heap with addresses that will remain the same upon successive runs. This makes testing and verifying correctness easier, especially when we run the **[`test_harness.c`](/src/test_harness.c)** program. To expand this projce further, I could explore implementing this as if it were a heap allocator library, providing the full suite of heap operations. This would require more thought towards memory safety and verification of input from the user, but could be an interesting exercise in bringing these ideas into a "real" context. It would then be easier to compare this custom allocator to standard allocator offerings.
+This allocator is contained within a *segment* that helps create artificial boundaries for the heap with addresses that will remain the same upon successive runs. This makes testing and verifying correctness easier, especially when we run the **[`test_harness.c`](/src/test_harness.c)** program and run the debugging functions. To expand this project further, I could explore implementing this as if it were a heap allocator library, providing the full suite of heap operations. This would require more thought towards memory safety and verification of input from the user, but could be an interesting exercise in bringing these ideas into a "real" context. It would then be easier to compare this custom allocator to standard allocator offerings.
 
 **([`Navigation`](#navigation))**
 
