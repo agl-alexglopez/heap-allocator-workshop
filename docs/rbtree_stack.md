@@ -69,6 +69,8 @@ static struct free_nodes {
 
 Here is a function that utilizes all of these types to help make these ideas a reality. This function relies on the time saving measures we put in place by tracking the parent so carefully in the first duplicate node. Notice how we transition explicitly between referring to our list and our tree. It is possible to save some complexity by not making a new type or worrying about casting and still acheive the same results. However, for the sake of clarity and other developers reading the code, I think it is important to use these types to make it as clear as possible what is happening.
 
+This function executes whenever we begin our coalescing operation on `free()` and `realloc()`. You can observe that when we encounter a duplicate our logic is slightly more complex than a simple doubly linked list with a head and tail, but we do not exceed $\Theta(1)$ in our time complexity of freeing a duplicate from the list. This also allows us to avoid fixups when coalescing duplicates, as discussed earlier.
+
 ```c
 /* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
  *                             must coalesce. It may be a node in the tree or a duplicate in our
