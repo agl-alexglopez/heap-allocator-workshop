@@ -69,62 +69,38 @@ static struct free_nodes {
 
 Here is a function that utilizes all of these types to help make these ideas a reality. This function relies on the time saving measures we put in place by tracking the parent so carefully in the first duplicate node. Notice how we transition explicitly between referring to our list and our tree. It is possible to save some complexity by not making a new type or worrying about casting and still acheive the same results. However, for the sake of clarity and other developers reading the code, I think it is important to use these types to make it as clear as possible what is happening.
 
-This function executes whenever we begin our coalescing operation on `free()` and `realloc()`. You can observe that when we encounter a duplicate our logic is slightly more complex than a simple doubly linked list with a head and tail, but we do not exceed $\Theta(1)$ in our time complexity of freeing a duplicate from the list. This also allows us to avoid fixups when coalescing duplicates, as discussed earlier.
+This function executes whenever we begin our coalescing operation on `free()` and `realloc()`. You can observe that when we encounter a duplicate our logic is slightly more complex than a simple doubly linked list with a head and tail, but we do not exceed $\Theta(1)$ in our time complexity of freeing a duplicate from the list. This also allows us to avoid fixups when coalescing duplicates, as discussed earlier. If you want to see how we handle the more complex case of coalescing the tree node that serves as the head of our linked list of duplicates, please see the code.
 
 ```c
 /* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
- *                             must coalesce. It may be a node in the tree or a duplicate in our
- *                             linked lists.
- * @param *to_coalesce         the address of a block. We must find if it is in the tree or list.
- * @return                     the address of the node that was either in our tree or list.
+ *                             need to free from the tree before absorbing into our coalescing. If
+ *                             this node is a duplicate we can splice it from a linked list.
+ * @param *to_coalesce         the address for a node we must treat as a list or tree node.
+ * @return                     the node we have now correctly freed given all cases to find it.
  */
 void *free_coalesced_node(void *to_coalesce) {
     tree_node_t *tree_node = to_coalesce;
     // Go find and fix the node the normal way if it is unique.
     if (tree_node->list_start == free_nodes.list_tail) {
-       return find_best_fit(extract_block_size(tree_node->header));
+       return delete_rb_topdown(extract_block_size(tree_node->header));
     }
-
     duplicate_t *list_node = to_coalesce;
     tree_node_t *lft_tree_node = tree_node->links[L];
 
+    // Coalescing the first node in linked list. Dummy head, aka lft_tree_node, is to the left.
+    if (lft_tree_node != free_nodes.black_nil && lft_tree_node->list_start == to_coalesce) {
+        list_node->links[N]->parent = list_node->parent;
+        lft_tree_node->list_start = list_node->links[N];
+        list_node->links[N]->links[P] = list_node->links[P];
+
     // All nodes besides the tree node head and the first duplicate node have parent set to NULL.
-    if (NULL == list_node->parent) {
+    }else if (NULL == list_node->parent) {
         list_node->links[P]->links[N] = list_node->links[N];
         list_node->links[N]->links[P] = list_node->links[P];
 
-    // Coalescing the first node in linked list. Dummy head, aka lft_tree_node, is to the left.
-    } else if (lft_tree_node != free_nodes.black_nil
-                 && lft_tree_node->list_start == to_coalesce) {
-        // Parent tracking is key to succesful coalescing.
-        list_node->links[N]->parent = list_node->parent;
-        tree_node->links[L]->list_start = list_node->links[N];
-        list_node->links[N]->links[P] = list_node->links[P];
-
-    // to_coalesce is the head of a doubly linked list in the tree. Remove and make a new head.
+    // Coalesce the head of a doubly linked list in the tree. Remove and make a new head.
     } else {
-        // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
-        tree_node_t *tree_parent = tree_node->list_start->parent;
-        tree_node->list_start->header = tree_node->header;
-
-        // Always carefully track the parent when we remove from head or first list node.
-        tree_node->list_start->links[N]->parent = tree_node->list_start->parent;
-        tree_node_t *new_tree_node = (tree_node_t *)tree_node->list_start;
-        new_tree_node->list_start = tree_node->list_start->links[N];
-
-        new_tree_node->links[L] = tree_node->links[L];
-        new_tree_node->links[R] = tree_node->links[R];
-        if (tree_node->links[L] != free_nodes.black_nil) {
-            tree_node->links[L]->list_start->parent = new_tree_node;
-        }
-        if (tree_node->links[R] != free_nodes.black_nil) {
-            tree_node->links[R]->list_start->parent = new_tree_node;
-        }
-        if (tree_parent == free_nodes.black_nil) {
-            free_nodes.tree_root = new_tree_node;
-        } else {
-            tree_parent->links[tree_parent->links[R] == to_coalesce] = new_tree_node;
-        }
+        remove_head(tree_node, lft_tree_node, tree_node->links[R]);
     }
     return to_coalesce;
 }

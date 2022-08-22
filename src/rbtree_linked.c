@@ -442,6 +442,30 @@ tree_node_t *find_best_fit(size_t key) {
     return delete_rb_node(remove);
 }
 
+/* @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
+ *                     red black tree. The next duplicate must become the new tree node and the
+ *                     parent and children must be adjusted to track this new node.
+ * @param head         the node in the tree that must now be coalesced.
+ */
+void remove_head(tree_node_t *head) {
+    tree_node_t *new_head = (tree_node_t *)head->list_start;
+    new_head->header = head->header;
+    // Make sure we set up new start of list correctly for linked list.
+    new_head->list_start = head->list_start->links[N];
+
+    // Now transition to thinking about this new_head as a node in a tree, not a list.
+    new_head->links[L] = head->links[L];
+    new_head->links[R] = head->links[R];
+    head->links[L]->parent = new_head;
+    head->links[R]->parent = new_head;
+    new_head->parent = head->parent;
+    if (head->parent == free_nodes.black_nil) {
+        free_nodes.tree_root = new_head;
+    } else {
+        head->parent->links[head->parent->links[R] == head] = new_head;
+    }
+}
+
 /* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
  *                             need to free from the tree before absorbing into our coalescing. If
  *                             this node is a duplicate we can splice it from a linked list.
@@ -454,30 +478,18 @@ tree_node_t *free_coalesced_node(void *to_coalesce) {
     if (tree_node->list_start == free_nodes.list_tail) {
        return delete_rb_node(tree_node);
     }
+
     duplicate_t *list_node = to_coalesce;
     // to_coalesce is the head of a doubly linked list. Remove and make a new head.
     if (tree_node->parent) {
-        tree_node_t *new_head = (tree_node_t *)tree_node->list_start;
-        new_head->header = tree_node->header;
-        // Make sure we set up new start of list correctly for linked list.
-        new_head->list_start = tree_node->list_start->links[N];
+        remove_head(tree_node);
 
-        // Now transition to thinking about this new_head as a node in a tree, not a list.
-        new_head->links[L] = tree_node->links[L];
-        new_head->links[R] = tree_node->links[R];
-        tree_node->links[L]->parent = new_head;
-        tree_node->links[R]->parent = new_head;
-        new_head->parent = tree_node->parent;
-        if (tree_node->parent == free_nodes.black_nil) {
-            free_nodes.tree_root = new_head;
-        } else {
-            tree_node->parent->links[ tree_node->parent->links[R] == to_coalesce ] = new_head;
-        }
     // to_coalesce is next after the head and needs special attention due to list_start field.
     } else if (list_node->links[P]->list_start == to_coalesce){
         tree_node = (tree_node_t *)list_node->links[P];
         tree_node->list_start = list_node->links[N];
         list_node->links[N]->links[P] = list_node->links[P];
+
     // Finally the simple invariant case of the node being in middle or end of list.
     } else {
         list_node->links[P]->links[N] = list_node->links[N];
