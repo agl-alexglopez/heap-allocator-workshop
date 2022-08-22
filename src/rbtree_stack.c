@@ -266,19 +266,20 @@ void add_duplicate(tree_node_t *head, duplicate_t *add, tree_node_t *parent) {
  * @param path_len       the length of the path.
  */
 void fix_rb_insert(tree_node_t *path[], int path_len) {
-    while(path_len >= 3 && extract_color(path[path_len - 2]->header) == RED) {
+    // We always place the black_nil at 0th index in the stack as root's parent so this is safe.
+    while(extract_color(path[path_len - 2]->header) == RED) {
         tree_node_t *current = path[path_len - 1];
         tree_node_t *parent = path[path_len - 2];
-        tree_node_t *ancestor = path[path_len - 3];
+        tree_node_t *grandparent = path[path_len - 3];
 
         // We can store the case we need to complete and its opposite rather than repeat code.
-        tree_link_t symmetric_case = ancestor->links[R] == parent;
-        tree_node_t *aunt = ancestor->links[!symmetric_case];
+        tree_link_t symmetric_case = grandparent->links[R] == parent;
+        tree_node_t *aunt = grandparent->links[!symmetric_case];
         if (extract_color(aunt->header) == RED) {
             paint_node(aunt, BLACK);
             paint_node(parent, BLACK);
-            paint_node(ancestor, RED);
-            current = ancestor;
+            paint_node(grandparent, RED);
+            current = grandparent;
             path_len -= 2;
         } else {
             if (current == parent->links[!symmetric_case]) {
@@ -288,8 +289,8 @@ void fix_rb_insert(tree_node_t *path[], int path_len) {
                 parent = other_child;
             }
             paint_node(parent, BLACK);
-            paint_node(ancestor, RED);
-            rotate(!symmetric_case, ancestor, path, path_len - 2);
+            paint_node(grandparent, RED);
+            rotate(!symmetric_case, grandparent, path, path_len - 2);
             path_len--;
         }
     }
@@ -304,26 +305,28 @@ void insert_rb_node(tree_node_t *current) {
     size_t current_key = extract_block_size(current->header);
 
     tree_node_t *path[MAX_TREE_HEIGHT];
+    // This simplifies our insertion fixup logic later. See loop in the fixup function.
     path[0] = free_nodes.black_nil;
     int path_len = 1;
     tree_node_t *seeker = free_nodes.tree_root;
+    size_t parent_size = 0;
     while (seeker != free_nodes.black_nil) {
         path[path_len++] = seeker;
-        
-        size_t seeker_size = extract_block_size(seeker->header);
+
+        parent_size = extract_block_size(seeker->header);
         // Ability to add duplicates to linked list means no fixups necessary if duplicate.
-        if (current_key == seeker_size) {
+        if (current_key == parent_size) {
             add_duplicate(seeker, (duplicate_t *)current, path[path_len - 2]);
             return;
         }
         // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
-        seeker = seeker->links[seeker_size < current_key];
+        seeker = seeker->links[parent_size < current_key];
     }
     tree_node_t *parent = path[path_len - 1];
     if (parent == free_nodes.black_nil) {
         free_nodes.tree_root = current;
     } else {
-        parent->links[extract_block_size(parent->header) < current_key] = current;
+        parent->links[parent_size < current_key] = current;
     }
     current->links[L] = free_nodes.black_nil;
     current->links[R] = free_nodes.black_nil;
@@ -353,7 +356,7 @@ void rb_transplant(tree_node_t *replacement, tree_node_t *path[], int path_len) 
     if (replacement != free_nodes.black_nil) {
         replacement->list_start->parent = parent;
     }
-    // Delete the removed node from the path to hand correct path to fixup function.
+    // Delete the removed node from the path to give back correct path to fixup function.
     path[path_len - 1] = replacement;
 }
 
