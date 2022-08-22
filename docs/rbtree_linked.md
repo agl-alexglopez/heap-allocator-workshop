@@ -24,32 +24,30 @@ We can create another enum to help. This will make it clear when we are referrin
 
 ```c
 // When you see these, know that we are working with a doubly linked list, not a tree.
-typedef enum list_link_t {
+typedef enum list_link {
     // (P == PREVIOUS), (N == NEXT)
     P = 0,
     N = 1
-} list_link_t;
+} list_link;
 ```
 
 Then when we access the indices of our links array, we do so with `P` and `N` rather than `L` and `R`. We now just need to know when we have duplicates at a given node in the tree, and where we can find the start of the doubly linked list. My approach is to use an extra field in my struct to find the first node in the doubly linked list.
 
 ```c
-typedef struct tree_node_t {
-    // block size, allocation status, left neighbor status, and node color.
-    header_t header;
-    struct tree_node_t *parent;
-    // This will combine with an enum to help unify symmetric cases for insert and delete fixes.
-    struct tree_node_t *links[TWO_NODE_ARRAY];
+typedef struct rb_node {
+    header header;
+    struct rb_node *parent;
+    struct rb_node *links[TWO_NODE_ARRAY];
     // Points to a list which we will use P and N to manage to distinguish from the tree.
-    struct duplicate_t *list_start;
-}tree_node_t;
+    struct duplicate_node *list_start;
+}rb_node;
 
-typedef struct duplicate_t {
-    header_t header;
-    struct tree_node_t *parent;
-    struct duplicate_t *links[TWO_NODE_ARRAY];
-    struct tree_node_t *list_start;
-}duplicate_t;
+typedef struct duplicate_node {
+    header header;
+    struct rb_node *parent;
+    struct duplicate_node *links[TWO_NODE_ARRAY];
+    struct rb_node *list_start;
+}duplicate_node;
 ```
 
 Over the course of an allocator there are many free blocks of the same size that arise and cannot be coalesced because they are not directly next to one another. When coalescing left and right, we may still have a uniquely sized node to delete, resulting in the normal $\Theta(lgN)$ deletion operations. However, if the block that we coalesce is a duplicate, we are garunteed $\Theta(1)$ time to absorb and free the node from the doubly linked list. Here is one of the core functions for coalescing that shows just how easy it is with the help of our enum to switch between referring to nodes as nodes in a tree and links in a list.
@@ -61,36 +59,24 @@ Over the course of an allocator there are many free blocks of the same size that
  * @param *to_coalesce         the node we now must find by address in the tree.
  * @return                     the node we have now correctly freed given all cases to find it.
  */
-tree_node_t *free_coalesced_node(void *to_coalesce) {
-    tree_node_t *tree_node = to_coalesce;
+rb_node *free_coalesced_node(void *to_coalesce) {
+    rb_node *tree_node = to_coalesce;
     // Quick return if we just have a standard deletion.
     if (tree_node->list_start == free_nodes.list_tail) {
        return delete_rb_node(tree_node);
     }
-    duplicate_t *list_node = to_coalesce;
+
+    duplicate_node *list_node = to_coalesce;
     // to_coalesce is the head of a doubly linked list. Remove and make a new head.
     if (tree_node->parent) {
-        tree_node_t *new_head = (tree_node_t *)tree_node->list_start;
-        new_head->header = tree_node->header;
-        // Make sure we set up new start of list correctly for linked list.
-        new_head->list_start = tree_node->list_start->links[N];
+        remove_head(tree_node);
 
-        // Now transition to thinking about this new_head as a node in a tree, not a list.
-        new_head->links[L] = tree_node->links[L];
-        new_head->links[R] = tree_node->links[R];
-        tree_node->links[L]->parent = new_head;
-        tree_node->links[R]->parent = new_head;
-        new_head->parent = tree_node->parent;
-        if (tree_node->parent == free_nodes.black_nil) {
-            free_nodes.tree_root = new_head;
-        } else {
-            tree_node->parent->links[tree_node->parent->links[R] == to_coalesce] = new_head;
-        }
     // to_coalesce is next after the head and needs special attention due to list_start field.
     } else if (list_node->links[P]->list_start == to_coalesce){
-        tree_node = (tree_node_t *)list_node->links[P];
+        tree_node = (rb_node *)list_node->links[P];
         tree_node->list_start = list_node->links[N];
         list_node->links[N]->links[P] = list_node->links[P];
+
     // Finally the simple invariant case of the node being in middle or end of list.
     } else {
         list_node->links[P]->links[N] = list_node->links[N];

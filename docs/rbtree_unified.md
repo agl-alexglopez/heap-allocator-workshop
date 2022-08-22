@@ -19,32 +19,29 @@ The downside to the CLRS implementation of a Red Black Tree is that there are ma
 The traditional red-black node in the context of a heap allocator could look something like this.
 
 ```c
-typedef struct tree_node_t {
-    // The header will store block size, allocation status, left neighbor status, and node color.
-    header_t header;
-    struct tree_node_t *parent;
-    struct tree_node_t *left;
-    struct tree_node_t *right;
-}tree_node_t;
+typedef struct rb_node {
+    header header;
+    struct rb_node *parent;
+    struct rb_node *left;
+    struct rb_node *right;
+}rb_node;
 ```
 
 If we use an array for the left and right fields in the struct and pair that with smart use of an enum, we can do some clever tricks to unify left and right cases to simple logic points in the code. Here is the new setup.
 
 ```c
-typedef struct tree_node_t {
-    // The header will store block size, allocation status, left neighbor status, and node color.
-    header_t header;
-    struct tree_node_t *parent;
-    // Unify left and right cases with an array.
-    struct tree_node_t *links[TWO_NODE_ARRAY];
-}tree_node_t;
+typedef struct rb_node {
+    header header;
+    struct rb_node *parent;
+    struct rb_node *links[TWO_NODE_ARRAY];
+}rb_node;
 
 // NOT(!) operator will flip this enum to the opposite field. !L == R and !R == L;
-typedef enum tree_link_t {
+typedef enum tree_link {
     // (L == LEFT), (R == RIGHT)
     L = 0,
     R = 1
-} tree_link_t;
+} tree_link;
 ```
 
 With this new approach, your traditional search function in a binary tree can look slightly more elegant, in my opinion.
@@ -54,8 +51,8 @@ With this new approach, your traditional search function in a binary tree can lo
  * @param key             the size_t representing the number of bytes a node must have in the tree.
  * @return                a pointer to the node with the desired size or NULL if size is not found.
  */
-heap_node_t *find_node_size(size_t key) {
-    heap_node_t *current = tree_root;
+rb_node *find_node_size(size_t key) {
+    rb_node *current = tree_root;
 
     while(current != black_sentinel) {
         size_t cur_size = extract_block_size(current->header);
@@ -73,20 +70,20 @@ This might not look like much but the saving grow substantially with more comple
 
 ```c
 /* @brief left_rotate  complete a left rotation to help repair a red-black tree. Assumes current is
- *                     not the black_sentinel and that the right child is not black sentinel.
+ *                     not the tree.black_nil and that the right child is not black sentinel.
  * @param *current     current will move down the tree, it's right child will move up to replace.
- * @warning            this function assumes current and current->right are not black_sentinel.
+ * @warning            this function assumes current and current->right are not tree.black_nil.
  */
-void left_rotate(heap_node_t *current) {
-    heap_node_t *right_child = current->right;
+void left_rotate(rb_node *current) {
+    rb_node *right_child = current->right;
     current->right = right_child->left;
-    if (right_child->left != black_sentinel) {
+    if (right_child->left != tree.black_nil) {
         right_child->left->parent = current;
     }
     right_child->parent = current->parent;
     // Take care of the root edgecase and find where the parent is in relation to current.
-    if (current->parent == black_sentinel) {
-        tree_root = right_child;
+    if (current->parent == tree.black_nil) {
+        tree.root = right_child;
     } else if (current == current->parent->left) {
         current->parent->left = right_child;
     } else {
@@ -107,8 +104,8 @@ Now, use some clever naming and the `tree_link_t` type and you can unify both ro
  * @param *current   the node around which we will rotate.
  * @param rotation   either left or right. Determines the rotation and its opposite direction.
  */
-void rotate(tree_node_t *current, tree_link_t rotation) {
-    tree_node_t *child = current->links[!rotation];
+void rotate(rb_node *current, tree_link rotation) {
+    rb_node *child = current->links[!rotation];
     current->links[!rotation] = child->links[rotation];
     if (child->links[rotation] != tree.black_nil) {
         child->links[rotation]->parent = current;
@@ -118,7 +115,7 @@ void rotate(tree_node_t *current, tree_link_t rotation) {
         tree.root = child;
     } else {
         // True == 1 == R, otherwise False == 0 == L
-        current->parent->links[ current->parent->links[R] == current ] = child;
+        current->parent->links[current->parent->links[R] == current] = child;
     }
     child->links[rotation] = current;
     current->parent = child;
@@ -134,16 +131,16 @@ Here is the CLRS version.
  *                       Ensures that the rules of a red-black tree are upheld after insertion.
  * @param *current       the current node that has just been added to the red black tree.
  */
-void fix_rb_insert(heap_node_t *current) {
+void fix_rb_insert(rb_node *current) {
     while(extract_color(current->parent->header) == RED) {
         if (current->parent == current->parent->parent->left) {
-            heap_node_t *uncle = current->parent->parent->right;
+            rb_node *uncle = current->parent->parent->right;
             if (extract_color(uncle->header) == RED) {
                 paint_node(current->parent, BLACK);
                 paint_node(uncle, BLACK);
                 paint_node(current->parent->parent, RED);
                 current = current->parent->parent;
-            } else {
+            } else {  // uncle is BLACK
                 if (current == current->parent->right) {
                     current = current->parent;
                     left_rotate(current);
@@ -153,13 +150,13 @@ void fix_rb_insert(heap_node_t *current) {
                 right_rotate(current->parent->parent);
             }
         } else {
-            heap_node_t *uncle = current->parent->parent->left;
+            rb_node *uncle = current->parent->parent->left;
             if (extract_color(uncle->header) == RED) {
                 paint_node(current->parent, BLACK);
                 paint_node(uncle, BLACK);
                 paint_node(current->parent->parent, RED);
                 current = current->parent->parent;
-            } else {
+            } else {  // uncle is BLACK
                 if (current == current->parent->left) {
                     current = current->parent;
                     right_rotate(current);
@@ -170,7 +167,7 @@ void fix_rb_insert(heap_node_t *current) {
             }
         }
     }
-    paint_node(tree_root, BLACK);
+    paint_node(tree.root, BLACK);
 }
 ```
 
@@ -179,14 +176,14 @@ Here is the unified version.
 ```c
 /* @brief fix_rb_insert  implements a modified Cormen et.al. red black fixup after the insertion of
  *                       a new node. Unifies the symmetric left and right cases with the use of
- *                       an array and an enum tree_link_t.
+ *                       an array and an enum tree_link.
  * @param *current       the current node that has just been added to the red black tree.
  */
-void fix_rb_insert(tree_node_t *current) {
+void fix_rb_insert(rb_node *current) {
     while(extract_color(current->parent->header) == RED) {
         // Store the link from ancestor to parent. True == 1 == R, otherwise False == 0 == L
-        tree_link_t symmetric_case = current->parent->parent->links[R] == current->parent;
-        tree_node_t *aunt = current->parent->parent->links[!symmetric_case];
+        tree_link symmetric_case = current->parent->parent->links[R] == current->parent;
+        rb_node *aunt = current->parent->parent->links[!symmetric_case];
         if (extract_color(aunt->header) == RED) {
             paint_node(aunt, BLACK);
             paint_node(current->parent, BLACK);

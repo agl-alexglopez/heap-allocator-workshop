@@ -17,10 +17,10 @@
 If we now bring all of the strengths of the past improvements I have discussed, we can make a more space efficient, fast allocator that solves some of the challenges a heap allocator implementation poses for red black trees. One technique that is common when we want to save space in a red black tree is to eliminate the parent field. Instead, we use an array and treat it as a stack to represent the path down to the nodes we need to work with. This eliminates an eight byte pointer from the struct and in a normal red black tree might look something like this. Please note, I am using my array method for this implementation as well to eliminate symmetric cases.
 
 ```c
-typedef struct tree_node_t {
-    header_t header;
-    struct tree_node_t *links[TWO_NODE_ARRAY];
-}tree_node_t;
+typedef struct rb_node {
+    header header;
+    struct rb_node *links[TWO_NODE_ARRAY];
+}rb_node;
 ```
 
 There is one problem with this approach for a heap allocator however. I could not think of a good way to coalesce nodes with the above struct. The problem arises with duplicates. When we insert duplicates into a red black tree, we know that they will always follow the rules of a binary search tree in relation to their parent, but we do not know where rotation may put them over the lifetime of the heap. This is a problem for a coalescing operation that needs to find the exact address of the node it needs.
@@ -34,36 +34,42 @@ We can acheive almost the same speed as the `rbtree_linked` allocator with this 
 Here are the new types we can add for readability to reduce confusion when referring to list and tree.
 
 ```c
-typedef struct tree_node_t {
-    header_t header;
-    struct tree_node_t *links[TWO_NODE_ARRAY];
-    struct duplicate_t *list_start;
-}tree_node_t;
+typedef struct rb_node {
+    header header;
+    struct rb_node *links[TWO_NODE_ARRAY];
+    // Use list_start to maintain doubly linked list, using the links[P]-links[N] fields
+    struct duplicate_node *list_start;
+}rb_node;
 
-typedef struct duplicate_t {
-    header_t header;
-    struct duplicate_t *links[TWO_NODE_ARRAY];
-    // We will always store the tree parent in first duplicate.
-    struct tree_node_t *parent;
-} duplicate_t;
+typedef struct duplicate_node {
+    header header;
+    struct duplicate_node *links[TWO_NODE_ARRAY];
+    // We will always store the tree parent in first duplicate node in the list. O(1) coalescing.
+    struct rb_node *parent;
+} duplicate_node;
 
-typedef enum tree_link_t {
+typedef enum rb_color {
+    BLACK = 0,
+    RED = 1
+}rb_color;
+
+typedef enum tree_link {
     // (L == LEFT), (R == RIGHT)
     L = 0,
     R = 1
-} tree_link_t;
+} tree_link;
 
-typedef enum list_link_t {
+typedef enum list_link {
     // (P == PREVIOUS), (N == NEXT)
     P = 0,
     N = 1
-} list_link_t;
+} list_link;
 
 static struct free_nodes {
-    tree_node_t *tree_root;
-    tree_node_t *black_nil;
-    // Add our new type to point to same address as black_nil.
-    duplicate_t *list_tail;
+    rb_node *tree_root;
+    // These two pointers will point to the same address. Used for clarity between tree and list.
+    rb_node *black_nil;
+    duplicate_node *list_tail;
 }free_nodes;
 ```
 
@@ -79,13 +85,13 @@ This function executes whenever we begin our coalescing operation on `free()` an
  * @return                     the node we have now correctly freed given all cases to find it.
  */
 void *free_coalesced_node(void *to_coalesce) {
-    tree_node_t *tree_node = to_coalesce;
+    rb_node *tree_node = to_coalesce;
     // Go find and fix the node the normal way if it is unique.
     if (tree_node->list_start == free_nodes.list_tail) {
-       return delete_rb_topdown(extract_block_size(tree_node->header));
+       return find_best_fit(extract_block_size(tree_node->header));
     }
-    duplicate_t *list_node = to_coalesce;
-    tree_node_t *lft_tree_node = tree_node->links[L];
+    duplicate_node *list_node = to_coalesce;
+    rb_node *lft_tree_node = tree_node->links[L];
 
     // Coalescing the first node in linked list. Dummy head, aka lft_tree_node, is to the left.
     if (lft_tree_node != free_nodes.black_nil && lft_tree_node->list_start == to_coalesce) {
@@ -98,7 +104,7 @@ void *free_coalesced_node(void *to_coalesce) {
         list_node->links[P]->links[N] = list_node->links[N];
         list_node->links[N]->links[P] = list_node->links[P];
 
-    // Coalesce the head of a doubly linked list in the tree. Remove and make a new head.
+    // Coalesce head of a doubly linked list in the tree. Remove and make a new head.
     } else {
         remove_head(tree_node, lft_tree_node, tree_node->links[R]);
     }
