@@ -36,7 +36,7 @@
  *   +--------------------+----------+---------------+----------+
  *   |                    |          |               |          |
  *   |                    |  red     |      left     |allocation|
- *   |            size  |  or      |    neighbor   |  status  |----
+ *   |            size    |  or      |    neighbor   |  status  |----
  *   |            bytes   |  black   |   allocation  |          |   |
  *   |                    |          |     status    |          |   |
  *   +--------------------+----------+---------------+----------+   |
