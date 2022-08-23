@@ -184,11 +184,11 @@ size_t get_size(header header_val) {
     return SIZE_MASK & header_val;
 }
 
-/* @brief tree_minimum  returns the smallest node in a valid binary search tree.
- * @param *root         the root of any valid binary search tree.
- * @return              a pointer to the minimum node in a valid binary search tree.
+/* @brief get_min  returns the smallest node in a valid binary search tree.
+ * @param *root    the root of any valid binary search tree.
+ * @return         a pointer to the minimum node in a valid binary search tree.
  */
-rb_node *tree_minimum(rb_node *root, rb_node *path[], int *path_len) {
+rb_node *get_min(rb_node *root, rb_node *path[], int *path_len) {
     for (; root->links[L] != free_nodes.black_nil; root = root->links[L]) {
         path[(*path_len)++] = root;
     }
@@ -445,7 +445,7 @@ rb_node *delete_rb_node(rb_node *remove, rb_node *path[], int path_len) {
     } else {
         int len_removed_node = path_len;
         // Warning, path_len may have changed.
-        rb_node *right_min = tree_minimum(remove->links[R], path, &path_len);
+        rb_node *right_min = get_min(remove->links[R], path, &path_len);
         fixup_color_check = get_color(right_min->header);
 
         extra_black = right_min->links[R];
