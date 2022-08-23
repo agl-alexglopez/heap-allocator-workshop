@@ -35,7 +35,7 @@ Then when we access the indices of our links array, we do so with `P` and `N` ra
 
 ```c
 typedef struct rb_node {
-    header info;
+    header header;
     struct rb_node *parent;
     struct rb_node *links[TWO_NODE_ARRAY];
     // Points to a list which we will use P and N to manage to distinguish from the tree.
@@ -43,7 +43,7 @@ typedef struct rb_node {
 }rb_node;
 
 typedef struct duplicate_node {
-    header info;
+    header header;
     struct rb_node *parent;
     struct duplicate_node *links[TWO_NODE_ARRAY];
     struct rb_node *list_start;

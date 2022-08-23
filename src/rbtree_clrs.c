@@ -81,8 +81,8 @@ typedef unsigned char byte;
  *  - The 1st LSB holds the allocated status and 2nd LSB holds left neighbor status.
  */
 typedef struct rb_node {
-    // The header will store block size, allocation status, left neighbor status, and node color.
-    header info;
+    // The header will store block size, allocation status, left neighbor status, and color status.
+    header header;
     // Consider a stack implementation if you want to get rid of the parent field.
     struct rb_node *parent;
     struct rb_node *left;
@@ -131,22 +131,22 @@ static struct heap {
  * @param color       the color the user wants to paint the node.
  */
 void paint_node(rb_node *node, rb_color color) {
-    color == RED ? (node->info |= RED_PAINT) : (node->info &= BLK_PAINT);
+    color == RED ? (node->header |= RED_PAINT) : (node->header &= BLK_PAINT);
 }
 
-/* @brief extract_color  returns the color of a node from the value of its header.
- * @param header_val     the value of the node in question passed by value.
- * @return               RED or BLACK
+/* @brief get_color   returns the color of a node from the value of its header.
+ * @param header_val  the value of the node in question passed by value.
+ * @return            RED or BLACK
  */
-rb_color extract_color(header header_val) {
+rb_color get_color(header header_val) {
     return (header_val & COLOR_MASK) == RED_PAINT;
 }
 
-/* @brief extract_block_size  returns size in bytes as a size_t from the value of node's header.
- * @param header_val          the value of the node in question passed by value.
- * @return                    the size in bytes as a size_t of the node.
+/* @brief get_size    returns size in bytes as a size_t from the value of node's header.
+ * @param header_val  the value of the node in question passed by value.
+ * @return            the size in bytes as a size_t of the node.
  */
-size_t extract_block_size(header header_val) {
+size_t get_size(header header_val) {
     return SIZE_MASK & header_val;
 }
 
@@ -217,10 +217,10 @@ void right_rotate(rb_node *current) {
  * @param *current       the current node that has just been added to the red black tree.
  */
 void fix_rb_insert(rb_node *current) {
-    while(extract_color(current->parent->info) == RED) {
+    while(get_color(current->parent->header) == RED) {
         if (current->parent == current->parent->parent->left) {
             rb_node *uncle = current->parent->parent->right;
-            if (extract_color(uncle->info) == RED) {
+            if (get_color(uncle->header) == RED) {
                 paint_node(current->parent, BLACK);
                 paint_node(uncle, BLACK);
                 paint_node(current->parent->parent, RED);
@@ -236,7 +236,7 @@ void fix_rb_insert(rb_node *current) {
             }
         } else {
             rb_node *uncle = current->parent->parent->left;
-            if (extract_color(uncle->info) == RED) {
+            if (get_color(uncle->header) == RED) {
                 paint_node(current->parent, BLACK);
                 paint_node(uncle, BLACK);
                 paint_node(current->parent->parent, RED);
@@ -262,10 +262,10 @@ void fix_rb_insert(rb_node *current) {
 void insert_rb_node(rb_node *current) {
     rb_node *child = tree.root;
     rb_node *parent = tree.black_nil;
-    size_t current_key = extract_block_size(current->info);
+    size_t current_key = get_size(current->header);
     while (child != tree.black_nil) {
         parent = child;
-        size_t child_size = extract_block_size(child->info);
+        size_t child_size = get_size(child->header);
         if (current_key < child_size) {
             child = child->left;
         } else {
@@ -275,7 +275,7 @@ void insert_rb_node(rb_node *current) {
     current->parent = parent;
     if (parent == tree.black_nil) {
         tree.root = current;
-    } else if (current_key < extract_block_size(parent->info)) {
+    } else if (current_key < get_size(parent->header)) {
         parent->left = current;
     } else {
         parent->right = current;
@@ -316,28 +316,28 @@ void rb_transplant(const rb_node *remove, rb_node *replacement) {
  */
 void fix_rb_delete(rb_node *extra_black) {
     // If we enter the loop extra_black points to a black node making it "doubly black".
-    while (extra_black != tree.root && extract_color(extra_black->info) == BLACK) {
+    while (extra_black != tree.root && get_color(extra_black->header) == BLACK) {
         if (extra_black == extra_black->parent->left) {
             rb_node *right_sibling = extra_black->parent->right;
-            if (extract_color(right_sibling->info) == RED) {
+            if (get_color(right_sibling->header) == RED) {
                 paint_node(right_sibling, BLACK);
                 paint_node(extra_black->parent, RED);
                 left_rotate(extra_black->parent);
                 right_sibling = extra_black->parent->right;
             }
             // The previous left rotation may have made the right sibling black null.
-            if (extract_color(right_sibling->left->info) == BLACK
-                    && extract_color(right_sibling->right->info) == BLACK) {
+            if (get_color(right_sibling->left->header) == BLACK
+                    && get_color(right_sibling->right->header) == BLACK) {
                 paint_node(right_sibling, RED);
                 extra_black = extra_black->parent;
             } else {
-                if (extract_color(right_sibling->right->info) == BLACK) {
+                if (get_color(right_sibling->right->header) == BLACK) {
                     paint_node(right_sibling->left, BLACK);
                     paint_node(right_sibling, RED);
                     right_rotate(right_sibling);
                     right_sibling = extra_black->parent->right;
                 }
-                paint_node(right_sibling, extract_color(extra_black->parent->info));
+                paint_node(right_sibling, get_color(extra_black->parent->header));
                 paint_node(extra_black->parent, BLACK);
                 paint_node(right_sibling->right, BLACK);
                 left_rotate(extra_black->parent);
@@ -346,25 +346,25 @@ void fix_rb_delete(rb_node *extra_black) {
         } else {
             // This is a symmetric case, so it is identical with left and right switched.
             rb_node *left_sibling = extra_black->parent->left;
-            if (extract_color(left_sibling->info) == RED) {
+            if (get_color(left_sibling->header) == RED) {
                 paint_node(left_sibling, BLACK);
                 paint_node(extra_black->parent, RED);
                 right_rotate(extra_black->parent);
                 left_sibling = extra_black->parent->left;
             }
             // The previous left rotation may have made the right sibling black null.
-            if (extract_color(left_sibling->right->info) == BLACK
-                    && extract_color(left_sibling->left->info) == BLACK) {
+            if (get_color(left_sibling->right->header) == BLACK
+                    && get_color(left_sibling->left->header) == BLACK) {
                 paint_node(left_sibling, RED);
                 extra_black = extra_black->parent;
             } else {
-                if (extract_color(left_sibling->left->info) == BLACK) {
+                if (get_color(left_sibling->left->header) == BLACK) {
                     paint_node(left_sibling->right, BLACK);
                     paint_node(left_sibling, RED);
                     left_rotate(left_sibling);
                     left_sibling = extra_black->parent->left;
                 }
-                paint_node(left_sibling, extract_color(extra_black->parent->info));
+                paint_node(left_sibling, get_color(extra_black->parent->header));
                 paint_node(extra_black->parent, BLACK);
                 paint_node(left_sibling->left, BLACK);
                 right_rotate(extra_black->parent);
@@ -381,7 +381,7 @@ void fix_rb_delete(rb_node *extra_black) {
  * @param *remove         the node to remove from the tree from a call to malloc or coalesce.
  */
 rb_node *delete_rb_node(rb_node *remove) {
-    rb_color fixup_color_check = extract_color(remove->info);
+    rb_color fixup_color_check = get_color(remove->header);
 
     // We will give the replacement of the replacement an "extra" black color.
     rb_node *extra_black = NULL;
@@ -392,7 +392,7 @@ rb_node *delete_rb_node(rb_node *remove) {
     } else {
         // The node to remove is internal with two children of unkown size subtrees.
         rb_node *right_min = tree_minimum(remove->right);
-        fixup_color_check = extract_color(right_min->info);
+        fixup_color_check = get_color(right_min->header);
 
         // Possible this is black_nil and that's ok.
         extra_black = right_min->right;
@@ -406,7 +406,7 @@ rb_node *delete_rb_node(rb_node *remove) {
         rb_transplant(remove, right_min);
         right_min->left = remove->left;
         right_min->left->parent = right_min;
-        paint_node(right_min, extract_color(remove->info));
+        paint_node(right_min, get_color(remove->header));
     }
     // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
     if (fixup_color_check == BLACK) {
@@ -425,7 +425,7 @@ rb_node *find_best_fit(size_t key) {
     size_t best_fit_size = ULLONG_MAX;
     rb_node *remove = seeker;
     while (seeker != tree.black_nil) {
-        size_t seeker_size = extract_block_size(seeker->info);
+        size_t seeker_size = get_size(seeker->header);
         if (key == seeker_size) {
             remove = seeker;
             break;
@@ -469,7 +469,7 @@ bool is_block_allocated(const header block_header) {
  * @return               true if left is free false if left is allocated.
  */
 bool is_left_space(const rb_node *node) {
-    return !(node->info & LEFT_ALLOCATED);
+    return !(node->header & LEFT_ALLOCATED);
 }
 
 /* @brief get_right_neighbor  gets the address of the next rb_node in the heap to the right.
@@ -497,7 +497,7 @@ rb_node *get_left_neighbor(const rb_node *node) {
  * @param payload           the payload in bytes as a size_t of the current block we initialize
  */
 void init_header_size(rb_node *node, size_t payload) {
-    node->info = LEFT_ALLOCATED | payload;
+    node->header = LEFT_ALLOCATED | payload;
 }
 
 /* @brief get_client_space  steps into the client space just after the header of a rb_node.
@@ -521,7 +521,7 @@ rb_node *get_heap_node(const void *client_space) {
  */
 void init_footer(rb_node *node, size_t payload) {
     header *footer = (header *)((byte *)node + payload);
-    *footer = node->info;
+    *footer = node->header;
 }
 
 /* * * * * * * * * * * *    Heap Helper Function    * * * * * * * * * */
@@ -532,11 +532,11 @@ void init_footer(rb_node *node, size_t payload) {
  * @param block_size      the size we use to initialize the node and find the right place in tree.
  */
 void init_free_node(rb_node *to_free, size_t block_size) {
-    to_free->info = LEFT_ALLOCATED | block_size;
-    to_free->info |= RED_PAINT;
+    to_free->header = LEFT_ALLOCATED | block_size;
+    to_free->header |= RED_PAINT;
     init_footer(to_free, block_size);
     rb_node *neighbor = get_right_neighbor(to_free, block_size);
-    neighbor->info &= LEFT_FREE;
+    neighbor->header &= LEFT_FREE;
     insert_rb_node(to_free);
 }
 
@@ -560,7 +560,7 @@ bool myinit(void *heap_start, size_t heap_size) {
     heap.client_end = (byte *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
     // Set up the dummy base of the tree to which all leaves will point.
     tree.black_nil = heap.client_end;
-    tree.black_nil->info = 1UL;
+    tree.black_nil->header = 1UL;
     tree.black_nil->parent = NULL;
     tree.black_nil->left = NULL;
     tree.black_nil->right = NULL;
@@ -593,10 +593,10 @@ void *split_alloc(rb_node *free_block, size_t request, size_t block_space) {
     } else {
         request = block_space;
         neighbor = get_right_neighbor(free_block, block_space);
-        neighbor->info |= LEFT_ALLOCATED;
+        neighbor->header |= LEFT_ALLOCATED;
     }
     init_header_size(free_block, request);
-    free_block->info |= ALLOCATED;
+    free_block->header |= ALLOCATED;
     return get_client_space(free_block);
 }
 
@@ -610,7 +610,7 @@ void *mymalloc(size_t requested_size) {
         size_t client_request = roundup(requested_size + HEAP_NODE_WIDTH, ALIGNMENT);
         // Search the tree for the best possible fitting node.
         rb_node *found_node = find_best_fit(client_request);
-        return split_alloc(found_node, client_request, extract_block_size(found_node->info));
+        return split_alloc(found_node, client_request, get_size(found_node->header));
     }
     return NULL;
 }
@@ -627,15 +627,15 @@ void *mymalloc(size_t requested_size) {
 rb_node *coalesce(rb_node *leftmost_node) {
     // What if your left or right free node to coalesce is a repeat?
     // It may not be the first node in the repeat list.
-    size_t coalesced_space = extract_block_size(leftmost_node->info);
+    size_t coalesced_space = get_size(leftmost_node->header);
     rb_node *rightmost_node = get_right_neighbor(leftmost_node, coalesced_space);
-    if (!is_block_allocated(rightmost_node->info)) {
-        coalesced_space += extract_block_size(rightmost_node->info) + HEADERSIZE;
+    if (!is_block_allocated(rightmost_node->header)) {
+        coalesced_space += get_size(rightmost_node->header) + HEADERSIZE;
         rightmost_node = delete_rb_node(rightmost_node);
     }
     if (leftmost_node != heap.client_start && is_left_space(leftmost_node)) {
         leftmost_node = get_left_neighbor(leftmost_node);
-        coalesced_space += extract_block_size(leftmost_node->info) + HEADERSIZE;
+        coalesced_space += get_size(leftmost_node->header) + HEADERSIZE;
         leftmost_node = delete_rb_node(leftmost_node);
     }
     // Do not initialize footer here because we may coalesce during realloc. Preserve user data.
@@ -664,10 +664,10 @@ void *myrealloc(void *old_ptr, size_t new_size) {
     }
     size_t request = roundup(new_size + HEAP_NODE_WIDTH, ALIGNMENT);
     rb_node *old_node = get_heap_node(old_ptr);
-    size_t old_size = extract_block_size(old_node->info);
+    size_t old_size = get_size(old_node->header);
 
     rb_node *leftmost_node = coalesce(old_node);
-    size_t coalesced_space = extract_block_size(leftmost_node->info);
+    size_t coalesced_space = get_size(leftmost_node->header);
     void *client_space = get_client_space(leftmost_node);
 
     if (coalesced_space >= request) {
@@ -689,7 +689,7 @@ void myfree(void *ptr) {
     if (ptr != NULL) {
         rb_node *to_insert = get_heap_node(ptr);
         to_insert = coalesce(to_insert);
-        init_free_node(to_insert, extract_block_size(to_insert->info));
+        init_free_node(to_insert, get_size(to_insert->header));
     }
 }
 
@@ -724,7 +724,7 @@ bool is_memory_balanced(size_t *total_free_mem) {
     rb_node *cur_node = heap.client_start;
     size_t size_used = HEAP_NODE_WIDTH;
     while (cur_node != heap.client_end) {
-        size_t block_size_check = extract_block_size(cur_node->info);
+        size_t block_size_check = get_size(cur_node->header);
         if (block_size_check == 0) {
             // Bad jump check the previous node address compared to this one.
             breakpoint();
@@ -732,7 +732,7 @@ bool is_memory_balanced(size_t *total_free_mem) {
         }
 
         // Now tally valid size into total.
-        if (is_block_allocated(cur_node->info)) {
+        if (is_block_allocated(cur_node->header)) {
             size_used += block_size_check + HEADERSIZE;
         } else {
             *total_free_mem += block_size_check + HEADERSIZE;
@@ -750,7 +750,7 @@ int get_black_height(const rb_node *root) {
     if (root == tree.black_nil) {
         return 0;
     }
-    if (extract_color(root->left->info) == BLACK) {
+    if (get_color(root->left->header) == BLACK) {
         return 1 + get_black_height(root->left);
     }
     return get_black_height(root->left);
@@ -777,9 +777,9 @@ bool is_red_red(const rb_node *root) {
             (root->right == tree.black_nil && root->left == tree.black_nil)) {
         return false;
     }
-    if (extract_color(root->info) == RED) {
-        if (extract_color(root->left->info) == RED
-                || extract_color(root->right->info) == RED) {
+    if (get_color(root->header) == RED) {
+        if (get_color(root->left->header) == RED
+                || get_color(root->right->header) == RED) {
             return true;
         }
     }
@@ -798,7 +798,7 @@ int calculate_bheight(const rb_node *root) {
     }
     int lf_bheight = calculate_bheight(root->left);
     int rt_bheight = calculate_bheight(root->right);
-    int add = extract_color(root->info) == BLACK ? 1 : 0;
+    int add = get_color(root->header) == BLACK ? 1 : 0;
     if (lf_bheight == -1 || rt_bheight == -1 || lf_bheight != rt_bheight) {
         return -1;
     } else {
@@ -825,7 +825,7 @@ size_t extract_tree_mem(const rb_node *root) {
     }
     size_t total_mem = extract_tree_mem(root->right) + extract_tree_mem(root->left);
     // We may have repeats so make sure to add the linked list values.
-    total_mem += extract_block_size(root->info) + HEADERSIZE;
+    total_mem += get_size(root->header) + HEADERSIZE;
     return total_mem;
 }
 
@@ -870,7 +870,7 @@ int calculate_bheight_V2(const rb_node *root) {
         return 0;
     }
     if (left_height != 0 && right_height != 0) {
-        return extract_color(root->info) == RED ? left_height : left_height + 1;
+        return get_color(root->header) == RED ? left_height : left_height + 1;
     } else {
         return 0;
     }
@@ -894,11 +894,11 @@ bool is_binary_tree(const rb_node *root) {
     if (root == tree.black_nil) {
         return true;
     }
-    size_t root_value = extract_block_size(root->info);
-    if (root->left != tree.black_nil && root_value < extract_block_size(root->left->info)) {
+    size_t root_value = get_size(root->header);
+    if (root->left != tree.black_nil && root_value < get_size(root->left->header)) {
         return false;
     }
-    if (root->right != tree.black_nil && root_value > extract_block_size(root->right->info)) {
+    if (root->right != tree.black_nil && root_value > get_size(root->right->header)) {
         return false;
     }
     return is_binary_tree(root->left) && is_binary_tree(root->right);
@@ -977,13 +977,13 @@ typedef enum print_link {
  * @param *root       the root we will print with the appropriate info.
  */
 void print_node(const rb_node *root) {
-    size_t block_size = extract_block_size(root->info);
+    size_t block_size = get_size(root->header);
     printf(COLOR_CYN);
     if (root->parent != tree.black_nil) {
         root->parent->left == root ? printf("L:") : printf("R:");
     }
     printf(COLOR_NIL);
-    extract_color(root->info) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
+    get_color(root->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
     printf("%p:", root);
     printf("(%zubytes)", block_size);
     printf(COLOR_NIL);
@@ -1055,33 +1055,33 @@ void print_rb_tree(const rb_node *root) {
  * @param *node              a valid rb_node to a block of allocated memory.
  */
 void print_alloc_block(const rb_node *node) {
-    size_t block_size = extract_block_size(node->info);
+    size_t block_size = get_size(node->header);
     // We will see from what direction our header is messed up by printing 16 digits.
     printf(COLOR_GRN "%p: HDR->0x%016zX(%zubytes)\n"
-            COLOR_NIL, node, node->info, block_size);
+            COLOR_NIL, node, node->header, block_size);
 }
 
 /* @brief print_free_block  prints the contents of a free block of heap memory.
  * @param *header           a valid header to a block of allocated memory.
  */
 void print_free_block(const rb_node *node) {
-    size_t block_size = extract_block_size(node->info);
+    size_t block_size = get_size(node->header);
     header *footer = (header *)((byte *)node + block_size);
     // We should be able to see the header is the same as the footer. However, due to fixup
     // functions, the color may change for nodes and color is irrelevant to footers.
     header to_print = *footer;
-    if (extract_block_size(*footer) != extract_block_size(node->info)) {
+    if (get_size(*footer) != get_size(node->header)) {
         to_print = ULLONG_MAX;
     }
     // How far indented the Header field normally is for all blocks.
     short indent_struct_fields = PRINTER_INDENT;
-    extract_color(node->info) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
-    printf("%p: HDR->0x%016zX(%zubytes)\n", node, node->info, block_size);
+    get_color(node->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
+    printf("%p: HDR->0x%016zX(%zubytes)\n", node, node->header, block_size);
     printf("%*c", indent_struct_fields, ' ');
 
     // Printing color logic will help us spot red black violations. Tree printing later helps too.
     if (node->parent) {
-        printf(extract_color(node->parent->info) == BLACK ? COLOR_BLK : COLOR_RED);
+        printf(get_color(node->parent->header) == BLACK ? COLOR_BLK : COLOR_RED);
         printf("PRN->%p\n", node->parent);
     } else {
         printf("PRN->%p\n", NULL);
@@ -1089,7 +1089,7 @@ void print_free_block(const rb_node *node) {
     printf(COLOR_NIL);
     printf("%*c", indent_struct_fields, ' ');
     if (node->left) {
-        printf(extract_color(node->left->info) == BLACK ? COLOR_BLK : COLOR_RED);
+        printf(get_color(node->left->header) == BLACK ? COLOR_BLK : COLOR_RED);
         printf("LFT->%p\n", node->left);
     } else {
         printf("LFT->%p\n", NULL);
@@ -1097,7 +1097,7 @@ void print_free_block(const rb_node *node) {
     printf(COLOR_NIL);
     printf("%*c", indent_struct_fields, ' ');
     if (node->right) {
-        printf(extract_color(node->right->info) == BLACK ? COLOR_BLK : COLOR_RED);
+        printf(get_color(node->right->header) == BLACK ? COLOR_BLK : COLOR_RED);
         printf("RGT->%p\n", node->right);
     } else {
         printf("RGT->%p\n", NULL);
@@ -1117,7 +1117,7 @@ void print_free_block(const rb_node *node) {
  */
 void print_error_block(const rb_node *node, size_t block_size) {
     printf("\n%p: HDR->0x%016zX->%zubyts\n",
-            node, node->info, block_size);
+            node, node->header, block_size);
     printf("Block size is too large and header is corrupted.\n");
 }
 
@@ -1127,15 +1127,15 @@ void print_error_block(const rb_node *node, size_t block_size) {
  * @param *prev           the previous node that we jumped from.
  */
 void print_bad_jump(const rb_node *current, const rb_node *prev) {
-    size_t prev_size = extract_block_size(prev->info);
-    size_t cur_size = extract_block_size(current->info);
+    size_t prev_size = get_size(prev->header);
+    size_t cur_size = get_size(current->header);
     printf("A bad jump from the value of a header has occured. Bad distance to next header.\n");
     printf("The previous address: %p:\n", prev);
-    printf("\tHeader Hex Value: %016zX:\n", prev->info);
+    printf("\tHeader Hex Value: %016zX:\n", prev->header);
     printf("\tBlock Byte Value: %zubytes:\n", prev_size);
     printf("\nJump by %zubytes...\n", prev_size);
     printf("The current address: %p:\n", current);
-    printf("\tHeader Hex Value: 0x%016zX:\n", current->info);
+    printf("\tHeader Hex Value: 0x%016zX:\n", current->header);
     printf("\tBlock Byte Value: %zubytes:\n", cur_size);
     printf("\nJump by %zubytes...\n", cur_size);
     printf("Current state of the free tree:\n");
@@ -1173,7 +1173,7 @@ void dump_heap() {
     printf("%p: START OF HEAP. HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", heap.client_start);
     const rb_node *prev = node;
     while (node != heap.client_end) {
-        size_t full_size = extract_block_size(node->info);
+        size_t full_size = get_size(node->header);
 
         if (full_size == 0) {
             print_bad_jump(node, prev);
@@ -1184,7 +1184,7 @@ void dump_heap() {
             print_error_block(node, full_size);
             return;
         }
-        if (is_block_allocated(node->info)) {
+        if (is_block_allocated(node->header)) {
             print_alloc_block(node);
         } else {
             print_free_block(node);
@@ -1192,9 +1192,9 @@ void dump_heap() {
         prev = node;
         node = get_right_neighbor(node, full_size);
     }
-    extract_color(tree.black_nil->info) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
+    get_color(tree.black_nil->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
     printf("%p: BLACK NULL HDR->0x%016zX\n" COLOR_NIL,
-            tree.black_nil, tree.black_nil->info);
+            tree.black_nil, tree.black_nil->header);
     printf("%p: FINAL ADDRESS", (byte *)heap.client_end + HEAP_NODE_WIDTH);
     printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
     printf("COLOR KEY: "

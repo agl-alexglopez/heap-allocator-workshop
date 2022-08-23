@@ -20,7 +20,7 @@ The traditional red-black node in the context of a heap allocator could look som
 
 ```c
 typedef struct rb_node {
-    header info;
+    header header;
     struct rb_node *parent;
     struct rb_node *left;
     struct rb_node *right;
@@ -55,7 +55,7 @@ rb_node *find_node_size(size_t key) {
     rb_node *current = tree_root;
 
     while(current != black_sentinel) {
-        size_t cur_size = extract_block_size(current->info);
+        size_t cur_size = get_size(current->header);
         if (key == cur_size) {
             return current;
         }
@@ -135,7 +135,7 @@ void fix_rb_insert(rb_node *current) {
     while(extract_color(current->parent->header) == RED) {
         if (current->parent == current->parent->parent->left) {
             rb_node *uncle = current->parent->parent->right;
-            if (extract_color(uncle->header) == RED) {
+            if (get_color(uncle->header) == RED) {
                 paint_node(current->parent, BLACK);
                 paint_node(uncle, BLACK);
                 paint_node(current->parent->parent, RED);
@@ -151,7 +151,7 @@ void fix_rb_insert(rb_node *current) {
             }
         } else {
             rb_node *uncle = current->parent->parent->left;
-            if (extract_color(uncle->header) == RED) {
+            if (get_color(uncle->header) == RED) {
                 paint_node(current->parent, BLACK);
                 paint_node(uncle, BLACK);
                 paint_node(current->parent->parent, RED);
@@ -184,7 +184,7 @@ void fix_rb_insert(rb_node *current) {
         // Store the link from ancestor to parent. True == 1 == R, otherwise False == 0 == L
         tree_link symmetric_case = current->parent->parent->links[R] == current->parent;
         rb_node *aunt = current->parent->parent->links[!symmetric_case];
-        if (extract_color(aunt->header) == RED) {
+        if (get_color(aunt->header) == RED) {
             paint_node(aunt, BLACK);
             paint_node(current->parent, BLACK);
             paint_node(current->parent->parent, RED);
