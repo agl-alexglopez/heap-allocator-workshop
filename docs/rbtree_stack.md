@@ -18,7 +18,7 @@ If we now bring all of the strengths of the past improvements I have discussed, 
 
 ```c
 typedef struct rb_node {
-    header header;
+    header info;
     struct rb_node *links[TWO_NODE_ARRAY];
 }rb_node;
 ```
@@ -35,14 +35,14 @@ Here are the new types we can add for readability to reduce confusion when refer
 
 ```c
 typedef struct rb_node {
-    header header;
+    header info;
     struct rb_node *links[TWO_NODE_ARRAY];
     // Use list_start to maintain doubly linked list, using the links[P]-links[N] fields
     struct duplicate_node *list_start;
 }rb_node;
 
 typedef struct duplicate_node {
-    header header;
+    header info;
     struct duplicate_node *links[TWO_NODE_ARRAY];
     // We will always store the tree parent in first duplicate node in the list. O(1) coalescing.
     struct rb_node *parent;
@@ -88,7 +88,7 @@ void *free_coalesced_node(void *to_coalesce) {
     rb_node *tree_node = to_coalesce;
     // Go find and fix the node the normal way if it is unique.
     if (tree_node->list_start == free_nodes.list_tail) {
-       return find_best_fit(extract_block_size(tree_node->header));
+       return find_best_fit(extract_block_size(tree_node->info));
     }
     duplicate_node *list_node = to_coalesce;
     rb_node *lft_tree_node = tree_node->links[L];

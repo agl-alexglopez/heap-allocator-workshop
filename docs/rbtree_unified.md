@@ -20,7 +20,7 @@ The traditional red-black node in the context of a heap allocator could look som
 
 ```c
 typedef struct rb_node {
-    header header;
+    header info;
     struct rb_node *parent;
     struct rb_node *left;
     struct rb_node *right;
@@ -31,7 +31,7 @@ If we use an array for the left and right fields in the struct and pair that wit
 
 ```c
 typedef struct rb_node {
-    header header;
+    header info;
     struct rb_node *parent;
     struct rb_node *links[TWO_NODE_ARRAY];
 }rb_node;
@@ -55,7 +55,7 @@ rb_node *find_node_size(size_t key) {
     rb_node *current = tree_root;
 
     while(current != black_sentinel) {
-        size_t cur_size = extract_block_size(current->header);
+        size_t cur_size = extract_block_size(current->info);
         if (key == cur_size) {
             return current;
         }
