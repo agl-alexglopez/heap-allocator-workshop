@@ -232,16 +232,18 @@ void insert_rb_node(rb_node *current) {
     rb_node *seeker = tree.root;
     rb_node *parent = tree.black_nil;
     size_t current_key = get_size(current->header);
+    size_t parent_size = 0;
     while (seeker != tree.black_nil) {
         parent = seeker;
+        parent_size = get_size(seeker->header);
         // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
-        seeker = seeker->links[get_size(seeker->header) < current_key];
+        seeker = seeker->links[parent_size < current_key];
     }
     current->parent = parent;
     if (parent == tree.black_nil) {
         tree.root = current;
     } else {
-        parent->links[get_size(parent->header) < current_key] = current;
+        parent->links[parent_size < current_key] = current;
     }
     current->links[L] = tree.black_nil;
     current->links[R] = tree.black_nil;
