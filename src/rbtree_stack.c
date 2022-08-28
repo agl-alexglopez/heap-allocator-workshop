@@ -659,14 +659,10 @@ void init_footer(const rb_node *node, size_t payload) {
  * @param block_size      the size we use to initialize the node and find the right place in tree.
  */
 void init_free_node(rb_node *to_free, size_t block_size) {
-    to_free->header = LEFT_ALLOCATED | block_size;
-    to_free->header |= RED_PAINT;
+    to_free->header = block_size |  LEFT_ALLOCATED | RED_PAINT;
     to_free->list_start = free_nodes.list_tail;
-    // Block sizes don't include header size so this is safe addition.
-    header *footer = (header *)((byte *)to_free + block_size);
-    *footer = to_free->header;
-    rb_node *neighbor = (rb_node *)((byte *) footer + HEADERSIZE);
-    neighbor->header &= LEFT_FREE;
+    init_footer(to_free, block_size);
+    get_right_neighbor(to_free, block_size)->header &= LEFT_FREE;
     insert_rb_node(to_free);
 }
 
