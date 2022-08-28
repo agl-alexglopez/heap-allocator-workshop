@@ -31,26 +31,20 @@
  * The header stays as the first field of the rb_node and must remain accessible at all times.
  * The size of the block is a multiple of eight to leave the bottom three bits accessible for info.
  *
- *   v--Most Significnat bit                               v--Least Significnat Bit
- *   0        ...00000000      0             0            0
- *   +--------------------+----------+---------------+----------+
- *   |                    |          |               |          |
- *   |                    |  red     |      left     |allocation|
- *   |            size    |  or      |    neighbor   |  status  |----
- *   |            bytes   |  black   |   allocation  |          |   |
- *   |                    |          |     status    |          |   |
- *   +--------------------+----------+---------------+----------+   |
- *  |_____________________________________________________________| |
- *                             |                                    |
- *                        64-bit header                             |
- * |-----------------------------------------------------------------
- * |    +---------+------------+--------------+------+-------+
- * |    |         |            |              |      |       |
- * |--> |         |            |              |      |       |
- *      | *parent | *links[L]  | *links[R]    | user |footer |
- *      |         |            |              | data |       |
- *      |         |            |              | ...  |       |
- *      +---------+------------+--------------+------+-------+
+ *
+ *   v--Most Significnat Bit        v--Least Significnat Bit
+ *   0...00000    0         0       0
+ *   +--------+--------+--------+--------+--------+--------+--------+--------+--------+
+ *   |        |        |        |        |        |        |        |        |        |
+ *   |        |red     |left    |free    |        |        |        |        |        |
+ *   |size_t  |or      |neighbor|or      |*parent |links[L]|links[R]|...     |footer  |
+ *   |bytes   |black   |status  |alloc   |        |        |        |        |        |
+ *   |        |        |        |        |        |        |        |        |        |
+ *   +--------+--------+--------+--------+--------+--------+--------+--------+--------+
+ *   |___________________________________|____________________________________________|
+ *                     |                                     |
+ *               64-bit header              space available for user if allocated
+ *
  *
  * The rest of the rb_node remains accessible for the user, even the footer. We only need the
  * information in the rest of the struct when it is free and either in our tree or doubly linked

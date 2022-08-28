@@ -48,29 +48,19 @@
  * The header stays as the first field of the rb_node and must remain accessible at all times.
  * The size of the block is a multiple of eight to leave the bottom three bits accessible for info.
  *
- *   v--Most Significnat bit                               v--Least Significnat Bit
- *   000000000...               0             0            0
- *   +--------------------+----------+---------------+----------+
- *   |                    |          |               |          |
- *   |                    |  red     |      left     |allocation|
- *   |            size_t  |  or      |    neighbor   |  status  |-continued
- *   |            bytes   |  black   |   allocation  |          |   |
- *   |                    |          |     status    |          |   |
- *   +--------------------+----------+---------------+----------+   |
- *  |_____________________________________________________________| |
- *                             |                                    |
- *                        64-bit header                             |
- * |-----------------------------------------------------------------
- * |    +----------+----------+-----------+---------+------+
- * |    |          |          |           |         |      |
- * |--> |          |          |           |         |      |
- *      |links[L/P]|links[R/N]|*list_start|user data|footer|
- *      |          |          |           |         |      |
- *      |          |          |           |         |      |
- *      +----------+----------+-----------+---------+------+
- *     |_____________________________________________________________|
- *                             |
- *          User may overwrite all fields when allocated.
+ *
+ *   v--Most Significnat Bit        v--Least Significnat Bit
+ *   0...00000    0         0       0
+ *   +--------+--------+--------+--------+--------+--------+--------+--------+--------+
+ *   |        |        |        |        |        |        |        |        |        |
+ *   |        |red     |left    |free    |        |        |        |        |        |
+ *   |size_t  |or      |neighbor|or      |links[L]|links[R]|*list   |...     |footer  |
+ *   |bytes   |black   |status  |alloc   |        |        |start   |        |        |
+ *   |        |        |        |        |        |        |        |        |        |
+ *   +--------+--------+--------+--------+--------+--------+--------+--------+--------+
+ *   |___________________________________|____________________________________________|
+ *                     |                                     |
+ *               64-bit header              space available for user if allocated
  *
  *
  * The rest of the rb_node remains accessible for the user, even the footer. We only need the
