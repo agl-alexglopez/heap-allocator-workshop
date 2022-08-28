@@ -47,8 +47,7 @@
  *
  *
  * The rest of the rb_node remains accessible for the user, even the footer. We only need the
- * information in the rest of the struct when it is free and either in our tree or doubly linked
- * list.
+ * information in the rest of the struct when it is free and either in our tree.
  */
 #include <limits.h>
 #include <stddef.h>
