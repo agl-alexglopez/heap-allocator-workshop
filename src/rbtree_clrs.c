@@ -17,8 +17,7 @@
  *  2. The text Introduction to Algorithms, by Cormen, Leiserson, Rivest, and Stein was central to
  *     my implementation of the red black tree portion of my allocator. Specifically, I took the
  *     the implementation from chapter 13. The placeholder black null node that always sits at the
- *     bottom of the tree proved useful for the tree and the linked list of duplicate memory block
- *     sizes.
+ *     bottom of the tree proved useful for simplicity.
  *
  *  3. I took much of the ideas for the pretty printing of the tree and the checks for a valid tree
  *     from Seth Furman's red black tree implementation. Specifically, the tree print structure and
