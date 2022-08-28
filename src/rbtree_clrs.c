@@ -508,11 +508,11 @@ void *get_client_space(const rb_node *node_header) {
     return (byte *) node_header + HEADERSIZE;
 }
 
-/* @brief get_heap_node  steps to the rb_node header from the space the client was using.
+/* @brief get_rb_node  steps to the rb_node header from the space the client was using.
  * @param *client_space  the void* the client was using for their type. We step to the left.
  * @return               a pointer to the rb_node of our heap block.
  */
-rb_node *get_heap_node(const void *client_space) {
+rb_node *get_rb_node(const void *client_space) {
     return (rb_node *)((byte *) client_space - HEADERSIZE);
 }
 
@@ -663,7 +663,7 @@ void *myrealloc(void *old_ptr, size_t new_size) {
         return NULL;
     }
     size_t request = roundup(new_size + HEAP_NODE_WIDTH, ALIGNMENT);
-    rb_node *old_node = get_heap_node(old_ptr);
+    rb_node *old_node = get_rb_node(old_ptr);
     size_t old_size = get_size(old_node->header);
 
     rb_node *leftmost_node = coalesce(old_node);
@@ -687,7 +687,7 @@ void *myrealloc(void *old_ptr, size_t new_size) {
  */
 void myfree(void *ptr) {
     if (ptr != NULL) {
-        rb_node *to_insert = get_heap_node(ptr);
+        rb_node *to_insert = get_rb_node(ptr);
         to_insert = coalesce(to_insert);
         init_free_node(to_insert, get_size(to_insert->header));
     }
