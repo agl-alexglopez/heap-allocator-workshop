@@ -32,7 +32,7 @@ While there are many excellent explanations of a Red Black tree that I drew upon
 
 ### The Properties
 
-In order to maintain $\Theta(lgN)$ single operations on a binary tree, Red-Black Trees operate under 5 rules.
+In order to maintain $\Theta (lgN)$ single operations on a binary tree, Red-Black Trees operate under 5 rules.
 
 1. Every node is either red or black.
 2. The root is black.
