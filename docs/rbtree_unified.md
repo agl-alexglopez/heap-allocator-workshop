@@ -94,7 +94,7 @@ void left_rotate(rb_node *current) {
 }
 ```
 
-Now, use some clever naming and the `tree_link_t` type and you can unify both rotation functions into one.
+Now, use some clever naming and the `tree_link` type and you can unify both rotation functions into one.
 
 ```c
 /* @brief rotate     a unified version of the traditional left and right rotation functions. The
