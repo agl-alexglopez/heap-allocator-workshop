@@ -924,7 +924,7 @@ int calculate_bheight(const rb_node *root) {
     }
     int lf_bheight = calculate_bheight(root->links[L]);
     int rt_bheight = calculate_bheight(root->links[R]);
-    int add = get_color(root->header) == BLACK ? 1 : 0;
+    int add = get_color(root->header) == BLACK;
     if (lf_bheight == -1 || rt_bheight == -1 || lf_bheight != rt_bheight) {
         return -1;
     } else {
@@ -981,10 +981,8 @@ int calculate_bheight_V2(const rb_node *root) {
     if (root == free_nodes.black_nil) {
         return 1;
     }
-    rb_node *left = root->links[L];
-    rb_node *right = root->links[R];
-    int left_height = calculate_bheight_V2(left);
-    int right_height = calculate_bheight_V2(right);
+    int left_height = calculate_bheight_V2(root->links[L]);
+    int right_height = calculate_bheight_V2(root->links[R]);
     if (left_height != 0 && right_height != 0 && left_height != right_height) {
         return 0;
     }

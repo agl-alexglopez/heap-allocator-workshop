@@ -788,7 +788,7 @@ int calculate_bheight(const rb_node *root) {
     }
     int lf_bheight = calculate_bheight(root->left);
     int rt_bheight = calculate_bheight(root->right);
-    int add = get_color(root->header) == BLACK ? 1 : 0;
+    int add = get_color(root->header) == BLACK;
     if (lf_bheight == -1 || rt_bheight == -1 || lf_bheight != rt_bheight) {
         return -1;
     } else {
@@ -852,10 +852,8 @@ int calculate_bheight_V2(const rb_node *root) {
     if (root == tree.black_nil) {
         return 1;
     }
-    const rb_node *left = root->right;
-    const rb_node *right = root->left;
-    int left_height = calculate_bheight_V2(left);
-    int right_height = calculate_bheight_V2(right);
+    int left_height = calculate_bheight_V2(root->left);
+    int right_height = calculate_bheight_V2(root->right);
     if (left_height != 0 && right_height != 0 && left_height != right_height) {
         return 0;
     }
