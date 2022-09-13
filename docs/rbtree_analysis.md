@@ -104,7 +104,7 @@ Here are the key details from the above graph.
 
 - The runtime of $N$ reallocations is $\Theta(NlgN)$.
 - The `rbtree_linked` implementation with nodes that have a `*parent`, `links[LEFT-RIGHT]`, and `*list_start` field is the clear winner. The number of $\Theta(1)$ encounters with duplicates reduces the overall runtime of the allocator significantly.
-- The stack approach is again a solid balance of space-efficiency and speed. However, it seems that accessing an array to ge the nodes you need is a factor slowing this implementation down compared to `rbtree_linked`. The search to build the stack when we coalesce a unique node also shows up as a time cost without the `parent` field. There is also added complexity in how `rbtree_stack` and `rbtree_topdown` store the parent field, increasing instruction counts.
+- The stack approach is again a solid balance of space-efficiency and speed. However, it seems that accessing an array to get the nodes you need is a factor slowing this implementation down compared to `rbtree_linked`. The search to build the stack when we coalesce a unique node also shows up as a time cost without the `parent` field. There is also added complexity in how `rbtree_stack` and `rbtree_topdown` store the parent field, increasing instruction counts.
 - The topdown approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
 - The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is faster in this application.
 
