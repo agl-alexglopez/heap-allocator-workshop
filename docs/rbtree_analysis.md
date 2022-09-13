@@ -46,7 +46,7 @@ While it would have been nice to time our code with a simple `time` command and 
 
 Instead, we will allocate $2N$ blocks of memory and then call `free()` on every other block of allocated memory to measure the performance of $N$ insertions into a tree. Coalescing will not occur on the two adjacent blocks because they remain allocated.
 
-The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only a specific line numbers representing requests.
+The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
 
 ```bash
 $ ./obj/time_rbtree_clrs -s 10001 -e 20000 scripts/time-05kinsertdelete.script
@@ -104,7 +104,7 @@ Here are the key details from the above graph.
 
 - The runtime of $N$ reallocations is $\Theta(NlgN)$.
 - The `rbtree_linked` implementation with nodes that have a `*parent`, `links[LEFT-RIGHT]`, and `*list_start` field is the clear winner. The number of $\Theta(1)$ encounters with duplicates reduces the overall runtime of the allocator significantly.
-- The stack approach is again a solid balance of space-efficiency and speed. However, it seems that accessing an array to ge the nodes you need is a factor slowing this implementation down compared to `rbtree_linked`. The search to build the stack when we coalesce a unique node also shows up as a time cost without the `parent` field. There is also added complexity in how `rbtree_stack` and `rbtree_topdown` store the parent field, increasing instruction counts.
+- The stack approach is again a solid balance of space-efficiency and speed. However, it seems that accessing an array to get the nodes you need is a factor slowing this implementation down compared to `rbtree_linked`. The search to build the stack when we coalesce a unique node also shows up as a time cost without the `parent` field. There is also added complexity in how `rbtree_stack` and `rbtree_topdown` store the parent field, increasing instruction counts.
 - The topdown approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
 - The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is faster in this application.
 
