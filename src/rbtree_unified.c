@@ -1,5 +1,4 @@
-/* Last Updated: Alex G. Lopez, 2022.07.25
- * Assignment: Bonus, Tree Heap Allocator
+/* Author: Alexander Griffin Lopez
  *
  * File: rbtree_unified.c
  * ---------------------
@@ -755,17 +754,17 @@ bool is_bheight_valid(const rb_node *root) {
     return calculate_bheight(root) != -1;
 }
 
-/* @brief extractree_mem  sums the total memory in the red black tree to see if it matches the
+/* @brief extract_tree_mem  sums the total memory in the red black tree to see if it matches the
  *                          total memory we got from traversing blocks of the heap.
  * @param *root             the root to start at for the summing recursive search.
  * @return                  the total memory in bytes as a size in the red black tree.
  */
-size_t extractree_mem(const rb_node *root) {
+size_t extract_tree_mem(const rb_node *root) {
     if (root == tree.black_nil) {
         return 0UL;
     }
-    size_t total_mem = extractree_mem(root->links[R])
-                       + extractree_mem(root->links[L]);
+    size_t total_mem = extract_tree_mem(root->links[R])
+                       + extract_tree_mem(root->links[L]);
     // We may have repeats so make sure to add the linked list values.
     total_mem += get_size(root->header) + HEADERSIZE;
     return total_mem;
@@ -776,7 +775,7 @@ size_t extractree_mem(const rb_node *root) {
  * @return                     true if the totals match false if they do not.
  */
 bool is_rbtree_mem_valid(const rb_node *root, size_t total_free_mem) {
-    return extractree_mem(root) == total_free_mem;
+    return extract_tree_mem(root) == total_free_mem;
 }
 
 /* @brief is_parent_valid  for duplicate node operations it is important to check the parents and

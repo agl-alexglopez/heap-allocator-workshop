@@ -1,5 +1,4 @@
-/* Last Updated: Alex G. Lopez, 2022.07.25
- * Assignment: Bonus, Tree Heap Allocator
+/* Author: Alexander Griffin Lopez
  *
  * File: rbtree_clrs.c
  * ---------------------
