@@ -54,9 +54,11 @@ dkms.conf
 # Compiled C code
 obj/
 
-# Script files that were too large and generated for timing purposes.
+# Script/ltrace files that were too large and generated for timing purposes.
 scripts/time*.script
 scripts/trace*.script
+pysrc/ltrace-output/
+pysrc/parsed-scripts/
 
 # idea python stuff
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider
