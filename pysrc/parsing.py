@@ -1,10 +1,10 @@
 """
-Alex G. Lopez 2022.07.28
+Author: Alex G. Lopez
 
 parsing.py
 
 This file contains the python program for generating scripts for heap allocators. This program
-can generate artificial scripts or process the heap traces of real programs run in the terminal.
+can generate artificial scripts or process the heap traces of real programs.
 The driving program to generate real-world scripts is the 'ltrace' command. We process that
 output here if necessary.
 
@@ -25,6 +25,10 @@ Their outputs should be to a .script file with the following format:
 Malloc and calloc are the same in the view of this program and we will always produce a valid
 allocation before a reallocation, even if we must quickly make one artificially. Freeing an
 address that has not yet been allocated will be ignored.
+
+We may also generate our own custom scripts with the script generation functions. This is helpful for runtime analysis
+of heap allocators on artificial workloads. We can manage the size of our free data structure of heap memory. This
+usage is more robust and allows for many patterns. Please see the readme for detailed instructions.
 """
 
 import enum
@@ -57,7 +61,6 @@ def get_heap_address(line):
     """
     Given a line of text, determines the hexadecimal address of the heap request. However, we will
     just take the number as a unique integer to put into our map, base 10.
-
     >>> get_heap_address('gcc->malloc(48)=0x18102a0')
     25232032
     >>> get_heap_address('gcc->free(0x1836e50)=<void>')
@@ -87,6 +90,9 @@ def get_heap_address(line):
 
 def get_heap_call(line):
     """
+    Given a line of text from an ltrace output, determines the type of call to heap we will place in our script file:
+    alloc, realloc, or free. Returns the appropriate call.
+
     >>> get_heap_call('make->calloc(8192,1)=0x56167a22c440')
     <Heap_Call.alloc: 1>
     >>> get_heap_call('make->malloc(8192)=0x56167a22c440')
@@ -116,6 +122,9 @@ def get_heap_call(line):
 
 def get_heap_bytes(line):
     """
+    Given a line of text from an ltrace output file returns the number of bytes requested for the heap call if relevant.
+    Calloc, malloc, and realloc will all require byte size information. Free requires no byte size. We return the bytes
+    or None if no bytes are found.
     >>> get_heap_bytes('make->calloc(8192,1)=0x56167a22c440')
     '8192'
     >>> get_heap_bytes('make->calloc(8192,4)=0x56167a22c440')
@@ -155,6 +164,7 @@ def get_heap_bytes(line):
 
 def add_line(call_type, memory_id, total_bytes):
     """
+    Given a heap call type, free, alloc, or realloc, returns a string formatted for .script files as appropriate.
     >>> add_line(Heap_Call.free, 4, '0')
     'f 4'
     >>> add_line(Heap_Call.alloc, 3, '900')
@@ -170,6 +180,67 @@ def add_line(call_type, memory_id, total_bytes):
         return f'{Print_Call.realloc} {memory_id} {total_bytes}'
 
 
+def print_heap_call(line, memory_dict, memory_ids):
+    """
+    Given a line of ltrace output to process, a dictionary of currently active memory ids, and our most recent memory
+    id, print a text line for a script file of either allocate "a", reallocate "r", or free "f". Return the memory id
+    which will remain the same on free, or possibly be updated upon realloc or alloc.
+
+    >>> print_heap_call('gcc->malloc(48)=0x18102a0', {}, 0)
+    a 0 48
+    1
+    >>> print_heap_call('gcc->free(0x1836e50)=<void>', {25390672:[0]}, 1)
+    f 0
+    1
+    >>> print_heap_call('gcc->free(0x1836e50)=<void>', {25390672:[0,1,2,3]}, 4)
+    f 3
+    4
+    >>> print_heap_call('gcc-g3-O0-std=gnu99-Wall$warnflagstriangle.c-otriangle', {25390672:[0]}, 1)
+    1
+    >>> print_heap_call('+++exited(status0)+++', {25390672:[0]}, 1)
+    1
+    >>> print_heap_call('---SIGCHLD(Childexited)---', {25390672:[0]}, 1)
+    1
+    >>> print_heap_call('nvim->free(0x22e8f10<noreturn...>', {25390672:[0]}, 1)
+    1
+    """
+    line = line.strip()
+    line = line.replace(" ", "")
+    # Get the call and memory address
+    heap_address = get_heap_address(line)
+
+    # We will early return if the line is not related to heap calls and returns an empty string.
+    if not heap_address:
+        return memory_ids
+
+    call = get_heap_call(line)
+    # Ignore any frees that are not in our dictionary.
+    if call == Heap_Call.free and heap_address in memory_dict:
+        id_list = memory_dict[heap_address]
+        to_del = id_list[len(id_list) - 1]
+        print(add_line(Heap_Call.free, to_del, 0))
+        id_list.pop()
+        if (len(id_list) == 0):
+            memory_dict.pop(heap_address)
+
+    elif call == Heap_Call.realloc:
+        if (heap_address not in memory_dict):
+            memory_dict[heap_address] = [memory_ids]
+            print(add_line(Heap_Call.alloc, memory_ids, 8))
+            memory_ids += 1
+        # We have multiple malloc callocs under same id so just choose one at random to realloc.
+        to_realloc = random.choice(memory_dict[heap_address])
+        print(add_line(Heap_Call.realloc, to_realloc, get_heap_bytes(line)))
+
+    elif call == Heap_Call.alloc:
+        if (heap_address not in memory_dict):
+            memory_dict[heap_address] = []
+        memory_dict[heap_address].append(memory_ids)
+        print(add_line(Heap_Call.alloc, memory_ids, get_heap_bytes(line)))
+        memory_ids += 1
+    return memory_ids
+
+
 def parse_file_heap_use(input_trace):
     """
     Given a file with the output from the ltrace command on unix like systems, add lines to a
@@ -181,47 +252,7 @@ def parse_file_heap_use(input_trace):
     with open(input_trace, encoding='utf-8') as f:
         # For each line in the file
         for line in f:
-            line = line.strip()
-            line = line.replace(" ", "")
-            # Get the call and memory address
-            heap_address = get_heap_address(line)
-
-
-            # If the memory address already exists,
-            if heap_address and heap_address in memory_dict:
-
-                call = get_heap_call(line)
-                # check if the call is free or realloc
-                if call == Heap_Call.free:
-                    id_list = memory_dict[heap_address]
-                    to_del = id_list[len(id_list) - 1]
-                    print(add_line(Heap_Call.free, to_del, 0))
-                    memory_dict.pop(heap_address)
-                elif call == Heap_Call.realloc:
-                    # We have multiple malloc callocs under same id so just choose one at random to realloc.
-                    memory_list = memory_dict[heap_address]
-                    to_realloc = random.choice(memory_list)
-                    print(add_line(Heap_Call.realloc, to_realloc, get_heap_bytes(line)))
-                elif call == Heap_Call.alloc:
-                    id_list = memory_dict[heap_address]
-                    id_list.append(memory_ids)
-                    print(add_line(Heap_Call.alloc, memory_ids, get_heap_bytes(line)))
-                    memory_ids += 1
-            # If the call is new
-            elif heap_address:
-                # If the call is free and address not in dict, discard
-                call = get_heap_call(line)
-                # If the call is realloc
-                if call == Heap_Call.realloc:
-                    memory_dict[heap_address] = [memory_ids]
-                    print(add_line(Heap_Call.alloc, memory_ids, 8))
-                    print(add_line(Heap_Call.realloc, memory_ids, get_heap_bytes(line)))
-                    memory_ids += 1
-                    # If the address is not in the dict, make a malloc then realloc call.
-                elif call == Heap_Call.alloc:
-                    memory_dict[heap_address] = [memory_ids]
-                    print(add_line(Heap_Call.alloc, memory_ids, get_heap_bytes(line)))
-                    memory_ids += 1
+            memory_ids = print_heap_call(line, memory_dict, memory_ids)
         for idx, val in enumerate(memory_dict.values()):
             for i, v in enumerate(val):
                 if idx == len(memory_dict) - 1 and i == len(val) - 1:
@@ -273,7 +304,7 @@ def identify_byte_range(call_str):
         i += 1
     # The user has not made any specification on range so we choose random
     if i == len(call_str) or call_str[i] == ' ':
-        return random.randint(8, 50), random.randint(200, 1200)
+        return random.randint(1, 50), random.randint(200, 1200)
     j = i + 1
     while j < len(call_str) and call_str[j] != ',' and call_str[j] != ')':
         j += 1
@@ -305,7 +336,7 @@ def identify_num_requests(call_str):
     -2
     >>> identify_num_requests('-free 600')
     600
-    >>> identify_num_requests('-free')
+    >>> identify_num_requests('free')
     -2
     """
     space = call_str.find(' ')
@@ -319,6 +350,96 @@ def identify_num_requests(call_str):
     return int(call_str[space + 1: next_space])
 
 
+def generate_frees(arg_string, id_byte_map, free_ids):
+    """
+    Given an argument string from the command line, a dict of ids to manage, and our last free id, print the appropriate
+    free calls, manage the dict, and return the new free_id. Free id's default to freeing every other block of allocated
+    memory for the purposes of artificial workloads. This prevents coalescing from absorbing all memory into one large
+    block if we want to create a large data structure of free memory.
+    >>> generate_frees('free', {0:2,1:10,2:400}, 0)
+    f 0
+    f 2
+    4
+    >>> generate_frees('free 2', {0:2,1:10,2:400,3:500,4:600}, 0)
+    f 0
+    f 2
+    4
+    >>> generate_frees('free 3', {0:2,1:10,2:400,3:500,4:600}, 0)
+    f 0
+    f 2
+    f 4
+    6
+    """
+    num_requests = identify_num_requests(arg_string[1:])
+    if num_requests == ALL_IDS:
+        num_requests = len(id_byte_map)
+    for i in range(free_ids, num_requests):
+        # Prevent a key error here if the user enters more frees than they have allocated memory.
+        if free_ids in id_byte_map:
+            id_byte_map.pop(free_ids)
+            print(f'{Print_Call.free} {free_ids}')
+            free_ids += 2
+        # No point in continuing useless loop. We have mismatched allocation and free quantities.
+        else:
+            break
+    return free_ids
+
+
+def generate_allocs(arg_string, id_byte_map, alloc_ids):
+    """
+    Given an argument string from the command line, a dict of ids to manage, the last alloc id, print the appropriate
+    alloc calls, manage the dict, and return the new alloc_id. We allow the user to define one sized set of allocations,
+    a size range, or no sizes, in which case we will choose random sizes for them.
+    >>> generate_allocs('alloc(20) 3', {}, 0)
+    a 0 20
+    a 1 20
+    a 2 20
+    3
+    """
+    byte_tuple = identify_byte_range(arg_string[1:])
+    num_requests = identify_num_requests(arg_string[1:])
+    for i in range(num_requests):
+        if byte_tuple[0] and byte_tuple[1]:
+            id_byte_map[alloc_ids] = random.randint(byte_tuple[0], byte_tuple[1])
+            print(f'{Print_Call.alloc} {alloc_ids} {id_byte_map[alloc_ids]}')
+        else:
+            id_byte_map[alloc_ids] = byte_tuple[0]
+            print(f'{Print_Call.alloc} {alloc_ids} {id_byte_map[alloc_ids]}')
+        alloc_ids += 1
+    return alloc_ids
+
+
+def generate_reallocs(arg_string, id_byte_map, realloc_ids):
+    """
+    Given an argument string from the command line, a dict of ids to manage, the last realloc id, print the appropriate
+    realloc calls, manage the dict, and return the new realloc_id. We allow the user to define one sized set of
+    reallocations, a size range, or no sizes, in which case we will choose random sizes for them.
+    >>> generate_reallocs('realloc(20) 3', {0:1,1:5,2:10}, 0)
+    r 0 20
+    r 1 20
+    r 2 20
+    0
+    """
+    byte_tuple = identify_byte_range(arg_string[1:])
+    num_requests = identify_num_requests(arg_string[1:])
+    if num_requests == ALL_IDS:
+        num_requests = len(id_byte_map)
+    for i in range(num_requests):
+
+        # We also need to skip over gaps that may have formed in the map from frees.
+        while realloc_ids not in id_byte_map:
+            realloc_ids = (realloc_ids + 1) % len(id_byte_map)
+
+        if byte_tuple[0] and byte_tuple[1]:
+            print(f'{Print_Call.realloc} {realloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
+        else:
+            print(f'{Print_Call.realloc} {realloc_ids} {byte_tuple[0]}')
+
+        # If we just want to have a certain number of reallocs as a test they will just wrap.
+        realloc_ids = (realloc_ids + 1) % len(id_byte_map)
+    return realloc_ids
+
+
 def generate_file_heap_use(arg_array):
     """
     Given an array of heap requests to process of the pattern '-request number_of_requests'
@@ -326,7 +447,6 @@ def generate_file_heap_use(arg_array):
     memory will free every other memory address, otherwise coalescing would create one large
     free block.
     """
-
     id_byte_map = {}
     alloc_ids = 0
     free_ids = 0
@@ -336,45 +456,17 @@ def generate_file_heap_use(arg_array):
         if arg_string[0] == '-':
             # Identify the argument
             arg_call = identify_call(arg_string[1:])
-
             if arg_call == Print_Call.free:
-                num_requests = identify_num_requests(arg_string[1:])
-                if num_requests == ALL_IDS:
-                    num_requests = len(id_byte_map)
-                for i in range(free_ids, num_requests):
-                    id_byte_map.pop(free_ids)
-                    print(f'{Print_Call.free} {free_ids}')
-                    free_ids += 2
+                free_ids = generate_frees(arg_string, id_byte_map, free_ids)
             elif arg_call == Print_Call.alloc:
-                byte_tuple = identify_byte_range(arg_string[1:])
-                num_requests = identify_num_requests(arg_string[1:])
-                for i in range(num_requests):
-                    if byte_tuple[0] and byte_tuple[1]:
-                        id_byte_map[alloc_ids] = random.randint(byte_tuple[0], byte_tuple[1])
-                        print(f'{Print_Call.alloc} {alloc_ids} {id_byte_map[alloc_ids]}')
-                    else:
-                        id_byte_map[alloc_ids] = byte_tuple[0]
-                        print(f'{Print_Call.alloc} {alloc_ids} {id_byte_map[alloc_ids]}')
-                    alloc_ids += 1
+                alloc_ids = generate_allocs(arg_string, id_byte_map, alloc_ids)
             elif arg_call == Print_Call.realloc:
-                byte_tuple = identify_byte_range(arg_string[1:])
-                num_requests = identify_num_requests(arg_string[1:])
-                if num_requests == ALL_IDS:
-                    num_requests = len(id_byte_map)
-                for i in range(num_requests):
-                    # You cannot reallocate a block that is not allocated.
-                    if realloc_ids in id_byte_map:
-                        if byte_tuple[0] and byte_tuple[1]:
-                            print(f'{Print_Call.realloc} {realloc_ids} {random.randint(byte_tuple[0], byte_tuple[1])}')
-                        else:
-                            print(f'{Print_Call.realloc} {realloc_ids} {byte_tuple[0]}')
-                    # If we just want to have a certain number of reallocs as a test they will just wrap.
-                    realloc_ids = (realloc_ids + 1) % len(id_byte_map)
-                    while realloc_ids not in id_byte_map:
-                        realloc_ids = (realloc_ids + 1) % len(id_byte_map)
+                realloc_ids = generate_reallocs(arg_string, id_byte_map, realloc_ids)
             # Heap calls will be left as is and we will not automatically free all allocated memory.
             elif arg_call == Print_Call.leak:
                 return
+
+    # We will have a thorough cleanup in order to avoid possible leaks in user's heap allocator.
     for idx, item in enumerate(id_byte_map):
         if idx == len(id_byte_map) - 1:
             print(f'{Print_Call.free} {item}', end='')
@@ -382,7 +474,11 @@ def generate_file_heap_use(arg_array):
             print(f'{Print_Call.free} {item}')
 
 
-def validate_script(file, leak=False):
+def validate_script(file):
+    """
+    Given a generated script file, verifies that the calls to the heap are logical. We are mainly concerned with frees
+    and reallocations because we need to have existing allocations in place to complete those two operations.
+    """
     # Track the most recent request for each memory id number. Make sure they are logical.
     memory_request_dict = {}
     with open(file, 'r', encoding='utf-8') as f:
