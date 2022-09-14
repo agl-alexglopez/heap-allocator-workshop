@@ -1,5 +1,4 @@
-/* Last Updated: Alex G. Lopez, 2022.08.07
- *
+/*
  * Files: time_harness.c
  * ---------------------
  * Reads and interprets text-based script files containing a sequence of
@@ -7,7 +6,7 @@
  * sequence of requests from that script. Outputs the time taken to complete
  * requests for the requested line numbers and total utilization percentage.
  *
- * When you compile using `make`, it will create 3 different
+ * When you compile using `make`, it will create different
  * compiled versions of this program, one using each type of
  * heap allocator.
  *
