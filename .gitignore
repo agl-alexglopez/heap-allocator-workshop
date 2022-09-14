@@ -56,7 +56,6 @@ obj/
 
 # Script/ltrace files that were too large and generated for timing purposes.
 scripts/time*.script
-scripts/trace*.script
 pysrc/ltrace-output/
 pysrc/parsed-scripts/
 
