@@ -614,19 +614,21 @@ void *mymalloc(size_t requested_size) {
  *                        expand left and write. The user may wish to move elsewhere if reallocing.
  */
 rb_node *coalesce(rb_node *leftmost_node) {
-    // What if your left or right free node to coalesce is a repeat?
-    // It may not be the first node in the repeat list.
     size_t coalesced_space = get_size(leftmost_node->header);
     rb_node *rightmost_node = get_right_neighbor(leftmost_node, coalesced_space);
+
+    // The black_nil is the right boundary. We set it to always be allocated with size 0.
     if (!is_block_allocated(rightmost_node->header)) {
         coalesced_space += get_size(rightmost_node->header) + HEADERSIZE;
         rightmost_node = delete_rb_node(rightmost_node);
     }
+    // We use our static struct for convenience here to tell where our segment start is.
     if (leftmost_node != heap.client_start && is_left_space(leftmost_node)) {
         leftmost_node = get_left_neighbor(leftmost_node);
         coalesced_space += get_size(leftmost_node->header) + HEADERSIZE;
         leftmost_node = delete_rb_node(leftmost_node);
     }
+
     // Do not initialize footer here because we may coalesce during realloc. Preserve user data.
     init_header_size(leftmost_node, coalesced_space);
     return leftmost_node;
