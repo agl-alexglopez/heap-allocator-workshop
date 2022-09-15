@@ -509,6 +509,7 @@ rb_node *get_rb_node(const void *client_space) {
 
 /* @brief init_footer  initializes footer at end of the heap block to matcht the current header.
  * @param *node        the current node with a header field we will use to set the footer.
+ * @param payload      the size of the current nodes free memory.
  */
 void init_footer(rb_node *node, size_t payload) {
     header *footer = (header *)((byte *)node + payload);
