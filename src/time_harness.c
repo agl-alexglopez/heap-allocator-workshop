@@ -88,6 +88,7 @@ static script_t parse_script(const char *filename);
 static request_t parse_script_line(char *buffer, int lineno, char *script_name);
 static size_t time_allocator(script_t *script, bool *success,
                         interval_t lines_to_time[], int num_lines_to_time);
+static int eval_request(script_t *script, int req, size_t *cur_size, void **heap_end);
 static void *eval_malloc(int req, size_t requested_size, script_t *script, bool *failptr);
 static void *eval_realloc(int req, size_t requested_size, script_t *script, bool *failptr);
 static void allocator_error(script_t *script, int lineno, char* format, ...);
@@ -214,57 +215,6 @@ static int time_script(char *script_name, interval_t lines_to_time[], int num_li
     return nfailures;
 }
 
-/* @brief eval_request  a helper function to complete a single call to the heap allocator. It may
- *                      may call malloc(), realloc(), or free().
- * @param *script       the script_t with the information regarding the script file we execute.
- * @param req           the zero-based index of the request to the heap allocator.
- * @param *cur_size     the current size of the heap overall.
- * @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
- * @return              0 if there are no errors, -1 if there is an error.
- */
-int eval_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
-
-    int id = script->ops[req].id;
-    size_t requested_size = script->ops[req].size;
-
-    if (script->ops[req].op == ALLOC) {
-        bool fail = false;
-        void *p = eval_malloc(req, requested_size, script, &fail);
-        if (fail) {
-            return -1;
-        }
-
-        *cur_size += requested_size;
-        if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
-            *heap_end = (byte_t *)p + requested_size;
-        }
-    } else if (script->ops[req].op == REALLOC) {
-        size_t old_size = script->blocks[id].size;
-        bool fail = false;
-        void *p = eval_realloc(req, requested_size, script, &fail);
-        if (fail) {
-            return -1;
-        }
-
-        *cur_size += (requested_size - old_size);
-        if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
-            *heap_end = (byte_t *)p + requested_size;
-        }
-    } else if (script->ops[req].op == FREE) {
-        size_t old_size = script->blocks[id].size;
-        void *p = script->blocks[id].ptr;
-        script->blocks[id] = (block_t){.ptr = NULL, .size = 0};
-        myfree(p);
-        *cur_size -= old_size;
-    }
-
-
-    if (*cur_size > script->peak_size) {
-        script->peak_size = *cur_size;
-    }
-    return 0;
-}
-
 /* @brief time_allocator     times all requested interval line numbers from the script file.
  * @param *script            the script_t with all info for the script file to execute.
  * @param *success           true if all calls to the allocator completed without error.
@@ -315,6 +265,57 @@ static size_t time_allocator(script_t *script, bool *success,
     }
     *success = true;
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
+}
+
+/* @brief eval_request  a helper function to complete a single call to the heap allocator. It may
+ *                      may call malloc(), realloc(), or free().
+ * @param *script       the script_t with the information regarding the script file we execute.
+ * @param req           the zero-based index of the request to the heap allocator.
+ * @param *cur_size     the current size of the heap overall.
+ * @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
+ * @return              0 if there are no errors, -1 if there is an error.
+ */
+static int eval_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
+
+    int id = script->ops[req].id;
+    size_t requested_size = script->ops[req].size;
+
+    if (script->ops[req].op == ALLOC) {
+        bool fail = false;
+        void *p = eval_malloc(req, requested_size, script, &fail);
+        if (fail) {
+            return -1;
+        }
+
+        *cur_size += requested_size;
+        if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
+            *heap_end = (byte_t *)p + requested_size;
+        }
+    } else if (script->ops[req].op == REALLOC) {
+        size_t old_size = script->blocks[id].size;
+        bool fail = false;
+        void *p = eval_realloc(req, requested_size, script, &fail);
+        if (fail) {
+            return -1;
+        }
+
+        *cur_size += (requested_size - old_size);
+        if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
+            *heap_end = (byte_t *)p + requested_size;
+        }
+    } else if (script->ops[req].op == FREE) {
+        size_t old_size = script->blocks[id].size;
+        void *p = script->blocks[id].ptr;
+        script->blocks[id] = (block_t){.ptr = NULL, .size = 0};
+        myfree(p);
+        *cur_size -= old_size;
+    }
+
+
+    if (*cur_size > script->peak_size) {
+        script->peak_size = *cur_size;
+    }
+    return 0;
 }
 
 /* @breif eval_malloc     performs a test of a call to mymalloc of the given size.

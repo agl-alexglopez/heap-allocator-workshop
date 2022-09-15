@@ -52,7 +52,8 @@ Mkfile.old
 dkms.conf
 
 # Compiled C code
-obj/
+obj/*
+!obj/readme.md
 
 # Script/ltrace files that were too large and generated for timing purposes.
 scripts/time*.script
