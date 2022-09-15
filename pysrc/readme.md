@@ -97,7 +97,7 @@ py .\parsing.py -generate generated-scripts/5k-reallocations.script '-alloc(20)'
 Choose a byte size range and every call will be a random size within that range for the reallocations. Do not use spaces within the parenthesis for the reallocation request.
 
 ```zsh
-py .\parsing.py -generate generated-scripts/5k-reallocations.script '-alloc(20,500)' 10000 '-realloc(800)' 5000
+py .\parsing.py -generate generated-scripts/5k-reallocations.script '-alloc(20,500)' 10000 '-realloc(800,1200)' 5000
 ```
 
 ### Free
