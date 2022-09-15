@@ -1,4 +1,4 @@
-# Parsing Directions
+# Parsing and Generating Files
 
 ## Ltrace Output
 
