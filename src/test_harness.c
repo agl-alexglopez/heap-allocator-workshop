@@ -217,8 +217,7 @@ static size_t eval_correctness(script_t *script, bool quiet, bool *success) {
  * true this function returns NULL; otherwise, it returns what was returned
  * by mymalloc.
  */
-static void *eval_malloc(int req, size_t requested_size, script_t *script,
-    bool *failptr) {
+static void *eval_malloc(int req, size_t requested_size, script_t *script, bool *failptr) {
 
     int id = script->ops[req].id;
 
@@ -257,8 +256,7 @@ static void *eval_malloc(int req, size_t requested_size, script_t *script,
  * this function returns NULL; otherwise, it returns what was returned by
  * myrealloc.
  */
-static void *eval_realloc(int req, size_t requested_size, script_t *script,
-    bool *failptr) {
+static void *eval_realloc(int req, size_t requested_size, script_t *script, bool *failptr) {
 
     int id = script->ops[req].id;
     size_t old_size = script->blocks[id].size;

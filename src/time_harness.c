@@ -49,12 +49,13 @@ const long HEAP_SIZE = 1L << 32;
 /* FUNCTION PROTOTYPES */
 
 
-static int time_script(char *script_name, interval_t lines_to_time[], int num_lines_to_time);
+static int time_script(char *script_name, interval_t intervals[], int num_intervals);
 static size_t time_allocator(script_t *script, bool *success,
-                             interval_t lines_to_time[], int num_lines_to_time);
+                             interval_t intervals[], int num_intervals);
 static int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end);
 static void *exec_malloc(int req, size_t requested_size, script_t *script, bool *failptr);
 static void *exec_realloc(int req, size_t requested_size, script_t *script, bool *failptr);
+void validate_intervals(script_t *script, interval_t intervals[], int num_intervals);
 
 
 /* TIME EVALUATION IMPLEMENTATION */
@@ -72,8 +73,8 @@ static void *exec_realloc(int req, size_t requested_size, script_t *script, bool
  *              will be timed.
  */
 int main(int argc, char *argv[]) {
-    interval_t lines_to_time[MAX_TIMER_REQUESTS];
-    int num_lines_to_time = 0;
+    interval_t intervals[MAX_TIMER_REQUESTS];
+    int num_intervals = 0;
     // -s flag to start timer on line number, -e flag to end flag on line number.
     int opt = getopt(argc, argv, "s:");
     while (opt != -1) {
@@ -82,8 +83,8 @@ int main(int argc, char *argv[]) {
 
         // It's easier for the user to enter line numbers. We will convert to zero indexed request.
         interval.start_req = strtol(optarg, &ptr, 10) - 1;
-        if (num_lines_to_time
-                && lines_to_time[num_lines_to_time - 1].end_req >= interval.start_req) {
+        if (num_intervals
+                && intervals[num_intervals - 1].end_req >= interval.start_req) {
             printf("Timing intervals can't overlap. Revisit script line ranges.\n");
             printf("Example of Bad Input Flags: -s 1 -e 5 -s 2\n");
             abort();
@@ -94,12 +95,12 @@ int main(int argc, char *argv[]) {
         if (opt != -1) {
             interval.end_req = strtol(optarg, &ptr, 10) - 1;
         }
-        lines_to_time[num_lines_to_time++] = interval;
+        intervals[num_intervals++] = interval;
         opt = getopt(argc, argv, "s:");
     }
     // We will default to timing the entire script if the user does not enter arguments.
-    if (num_lines_to_time == 0) {
-        lines_to_time[num_lines_to_time++] = (interval_t){0};
+    if (num_intervals == 0) {
+        intervals[num_intervals++] = (interval_t){0};
     }
 
     if (optind >= argc) {
@@ -110,39 +111,16 @@ int main(int argc, char *argv[]) {
     // disable stdout buffering, all printfs display to terminal immediately
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    return time_script(argv[optind], lines_to_time, num_lines_to_time);
-}
-
-/* @brief validate_intervals  checks the array of line intervals the user wants timed for validity.
- *                            Valid intervals do not overlap and start within the file line range.
- * @param *script             the script_t passed in with information about the file we parsed.
- * @param lines_to_time[]     the array of lines to time for the user. Check all O(N).
- * @param num_lines_to_time   lenghth of the lines to time array.
- */
-void validate_intervals(script_t *script, interval_t lines_to_time[], int num_lines_to_time) {
-    // We can tidy up lazy user input by making sure the end of the time interval makes sense.
-    for (int req = 0; req < num_lines_to_time; req++) {
-        // If the start is too large, the user may have mistaken the file they wish to time.
-        if (script->num_ops - 1 < lines_to_time[req].start_req) {
-            printf("Interval start is outside of script range:\n");
-            printf("Interval start: %d\n", lines_to_time[req].start_req);
-            printf("Script range: %d-%d\n", 1, script->num_ops);
-            abort();
-        }
-        // Users might be familiar with python-like slices that take too large end ranges as valid.
-        if (script->num_ops - 1 < lines_to_time[req].end_req || !lines_to_time[req].end_req) {
-            lines_to_time[req].end_req = script->num_ops - 1;
-        }
-    }
+    return time_script(argv[optind], intervals, num_intervals);
 }
 
 /* @brief time_script        completes a series of 1 or more time requests for a script file and
  *                           outputs the times for the lines and overall utilization.
  * @param *script_name       the script we are tasked with timing.
- * @param lines_to_time[]    the array of line ranges to time.
- * @param num_lines_to_time  the size of the array of lines to time.
+ * @param intervals[]    the array of line ranges to time.
+ * @param num_intervals  the size of the array of lines to time.
  */
-static int time_script(char *script_name, interval_t lines_to_time[], int num_lines_to_time) {
+static int time_script(char *script_name, interval_t intervals[], int num_intervals) {
     int nsuccesses = 0;
     int nfailures = 0;
 
@@ -150,14 +128,14 @@ static int time_script(char *script_name, interval_t lines_to_time[], int num_li
     int total_util = 0;
 
     script_t script = parse_script(script_name);
-    validate_intervals(&script, lines_to_time, num_lines_to_time);
+    validate_intervals(&script, intervals, num_intervals);
 
 
     // Evaluate this script and record the results
     printf("\nEvaluating allocator on %s...\n", script.name);
     bool success;
     // We will bring back useful utilization info while we time.
-    size_t used_segment = time_allocator(&script, &success, lines_to_time, num_lines_to_time);
+    size_t used_segment = time_allocator(&script, &success, intervals, num_intervals);
     if (success) {
         printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)",
             script.num_ops, script.peak_size, used_segment);
@@ -178,15 +156,15 @@ static int time_script(char *script_name, interval_t lines_to_time[], int num_li
     return nfailures;
 }
 
-/* @brief time_allocator     times all requested interval line numbers from the script file.
- * @param *script            the script_t with all info for the script file to execute.
- * @param *success           true if all calls to the allocator completed without error.
- * @param lines_to_time[]    the array of all lines to time.
- * @param num_lines_to_time  the size of the array of lines to time.
- * @return                   the size of the heap overall.
+/* @brief time_allocator  times all requested interval line numbers from the script file.
+ * @param *script         the script_t with all info for the script file to execute.
+ * @param *success        true if all calls to the allocator completed without error.
+ * @param intervals[]     the array of all lines to time.
+ * @param num_intervals   the size of the array of lines to time.
+ * @return                the size of the heap overall.
  */
 static size_t time_allocator(script_t *script, bool *success,
-                             interval_t lines_to_time[], int num_lines_to_time) {
+                             interval_t intervals[], int num_intervals) {
     *success = false;
 
     init_heap_segment(HEAP_SIZE);
@@ -204,8 +182,8 @@ static size_t time_allocator(script_t *script, bool *success,
     // Send each request to the heap allocator and check the resulting behavior
     int req = 0;
     while (req < script->num_ops) {
-        if (num_lines_to_time && lines_to_time[0].start_req == req) {
-            interval_t sect = lines_to_time[0];
+        if (num_intervals && intervals[0].start_req == req) {
+            interval_t sect = intervals[0];
             clock_t start = 0;
             clock_t end = 0;
             double cpu_time = 0;
@@ -219,8 +197,9 @@ static size_t time_allocator(script_t *script, bool *success,
             printf("Execution time for script lines %d-%d (seconds): %f\n",
                     sect.start_req + 1, sect.end_req + 1, cpu_time);
 
-            lines_to_time++;
-            num_lines_to_time--;
+            // Advance array and decrement remaining intervals. No need for extra variables.
+            intervals++;
+            num_intervals--;
         } else {
             exec_request(script, req, &cur_size, &heap_end);
             req++;
@@ -328,5 +307,28 @@ static void *exec_realloc(int req, size_t requested_size, script_t *script, bool
     script->blocks[id] = (block_t){.ptr = newp, .size = requested_size};
     *failptr = false;
     return newp;
+}
+
+/* @brief validate_intervals  checks the array of line intervals the user wants timed for validity.
+ *                            Valid intervals do not overlap and start within the file line range.
+ * @param *script             the script_t passed in with information about the file we parsed.
+ * @param intervals[]         the array of lines to time for the user. Check all O(N).
+ * @param num_intervals       lenghth of the lines to time array.
+ */
+void validate_intervals(script_t *script, interval_t intervals[], int num_intervals) {
+    // We can tidy up lazy user input by making sure the end of the time interval makes sense.
+    for (int req = 0; req < num_intervals; req++) {
+        // If the start is too large, the user may have mistaken the file they wish to time.
+        if (script->num_ops - 1 < intervals[req].start_req) {
+            printf("Interval start is outside of script range:\n");
+            printf("Interval start: %d\n", intervals[req].start_req);
+            printf("Script range: %d-%d\n", 1, script->num_ops);
+            abort();
+        }
+        // Users might be familiar with python-like slices that take too large end ranges as valid.
+        if (script->num_ops - 1 < intervals[req].end_req || !intervals[req].end_req) {
+            intervals[req].end_req = script->num_ops - 1;
+        }
+    }
 }
 

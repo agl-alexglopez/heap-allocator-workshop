@@ -57,8 +57,4 @@ void myfree(void *ptr);
  */
 bool validate_heap();
 
-// size_t get_free_total();
-
-// void print_free_nodes();
-
 #endif

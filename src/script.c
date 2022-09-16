@@ -1,3 +1,10 @@
+/* Author: Alex G. Lopez
+ *
+ * File script.c
+ * -------------------
+ * This file contains the utility functions for processing script files and executing them on
+ * custom allocators.
+ */
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>

@@ -1,3 +1,10 @@
+/* Author: Alex G. Lopez
+ *
+ * File script.h
+ * -------------------
+ * This file contains the utility functions for processing script files and executing them on
+ * custom allocators.
+ */
 #ifndef _SCRIPT_H_
 #define _SCRIPT_H_
 #include <stdio.h>
@@ -9,6 +16,7 @@ enum request_type {
     FREE,
     REALLOC
 };
+
 typedef struct {
     enum request_type op;   // type of request
     int id;                 // id for free() to use later
