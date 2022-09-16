@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "allocator.h"
+#include "script.h"
 #include "segment.h"
 /* initial allocation will be for min size, if not big enough, doubles
  * to 64, then 128, then 256, etc. as needed to accommodate the entire line

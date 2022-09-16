@@ -51,10 +51,14 @@ void myfree(void *ptr);
 /* Function: validate_heap
  * -----------------------
  * This is the hook for your heap consistency checker. Returns true
- * if all is well, or false on any problem.  This function is 
- * called periodically by the test harness to check the state of 
+ * if all is well, or false on any problem.  This function is
+ * called periodically by the test harness to check the state of
  * the heap allocator.
  */
 bool validate_heap();
+
+// size_t get_free_total();
+
+// void print_free_nodes();
 
 #endif

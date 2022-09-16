@@ -85,6 +85,7 @@ typedef struct rb_node {
 static struct tree {
     rb_node *root;
     rb_node *black_nil;
+    size_t total;
 }tree;
 
 typedef enum header_status {
@@ -275,6 +276,7 @@ void insert_rb_node(rb_node *current) {
     current->right = tree.black_nil;
     paint_node(current, RED);
     fix_rb_insert(current);
+    tree.total++;
 }
 
 
@@ -403,6 +405,7 @@ rb_node *delete_rb_node(rb_node *remove) {
     if (fixup_color_check == BLACK) {
         fix_rb_delete(extra_black);
     }
+    tree.total--;
     return remove;
 }
 
@@ -463,6 +466,24 @@ bool is_left_space(const rb_node *node) {
     return !(node->header & LEFT_ALLOCATED);
 }
 
+/* @brief init_header_size  initializes any node as the size and indicating left is allocated. Left
+ *                          is allocated because we always coalesce left and right.
+ * @param *node             the region of possibly uninitialized heap we must initialize.
+ * @param payload           the payload in bytes as a size_t of the current block we initialize
+ */
+void init_header_size(rb_node *node, size_t payload) {
+    node->header = LEFT_ALLOCATED | payload;
+}
+
+/* @brief init_footer  initializes footer at end of the heap block to matcht the current header.
+ * @param *node        the current node with a header field we will use to set the footer.
+ * @param payload      the size of the current nodes free memory.
+ */
+void init_footer(rb_node *node, size_t payload) {
+    header *footer = (header *)((byte *)node + payload);
+    *footer = node->header;
+}
+
 /* @brief get_right_neighbor  gets the address of the next rb_node in the heap to the right.
  * @param *current            the rb_node we start at to then jump to the right.
  * @param payload             the size in bytes as a size_t of the current rb_node block.
@@ -482,14 +503,6 @@ rb_node *get_left_neighbor(const rb_node *node) {
     return (rb_node *)((byte *)node - (*left_footer & SIZE_MASK) - HEADERSIZE);
 }
 
-/* @brief init_header_size  initializes any node as the size and indicating left is allocated. Left
- *                          is allocated because we always coalesce left and right.
- * @param *node             the region of possibly uninitialized heap we must initialize.
- * @param payload           the payload in bytes as a size_t of the current block we initialize
- */
-void init_header_size(rb_node *node, size_t payload) {
-    node->header = LEFT_ALLOCATED | payload;
-}
 
 /* @brief get_client_space  steps into the client space just after the header of a rb_node.
  * @param *node_header      the rb_node we start at before retreiving the client space.
@@ -507,14 +520,10 @@ rb_node *get_rb_node(const void *client_space) {
     return (rb_node *)((byte *) client_space - HEADERSIZE);
 }
 
-/* @brief init_footer  initializes footer at end of the heap block to matcht the current header.
- * @param *node        the current node with a header field we will use to set the footer.
- * @param payload      the size of the current nodes free memory.
- */
-void init_footer(rb_node *node, size_t payload) {
-    header *footer = (header *)((byte *)node + payload);
-    *footer = node->header;
+size_t get_free_total() {
+    return tree.total;
 }
+
 
 /* * * * * * * * * * * *    Heap Helper Function    * * * * * * * * * */
 
@@ -563,6 +572,7 @@ bool myinit(void *heap_start, size_t heap_size) {
     tree.root->parent = tree.black_nil;
     tree.root->left = tree.black_nil;
     tree.root->right = tree.black_nil;
+    tree.total = 1;
     return true;
 }
 
@@ -715,6 +725,7 @@ bool is_memory_balanced(size_t *total_free_mem) {
     // Check that after checking all headers we end on size 0 tail and then end of address space.
     rb_node *cur_node = heap.client_start;
     size_t size_used = HEAP_NODE_WIDTH;
+    size_t total_free_nodes = 0;
     while (cur_node != heap.client_end) {
         size_t block_size_check = get_size(cur_node->header);
         if (block_size_check == 0) {
@@ -727,11 +738,12 @@ bool is_memory_balanced(size_t *total_free_mem) {
         if (is_block_allocated(cur_node->header)) {
             size_used += block_size_check + HEADERSIZE;
         } else {
+            total_free_nodes++;
             *total_free_mem += block_size_check + HEADERSIZE;
         }
         cur_node = get_right_neighbor(cur_node, block_size_check);
     }
-    return size_used + *total_free_mem == heap.heap_size;
+    return (size_used + *total_free_mem == heap.heap_size) && (total_free_nodes == tree.total);
 }
 
 /* @brief get_black_height  gets the black node height of the tree excluding the current node.
@@ -1137,8 +1149,12 @@ void print_bad_jump(const rb_node *current, const rb_node *prev) {
  *                   a node in their next field.
  */
 void dump_tree() {
-    printf(COLOR_CYN "(+X)" COLOR_NIL);
-    printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A NEXT NODE.\n");
+    printf("\n");
+    print_rb_tree(tree.root);
+}
+
+void print_free_nodes() {
+    printf("\n");
     print_rb_tree(tree.root);
 }
 

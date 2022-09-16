@@ -13,11 +13,11 @@ $(OBJDIR)/rbtree_stack.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_topdown.o: CFLAGS += -O3
 
 ALLOCATORS = list_bestfit list_addressorder rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
-PROGRAMS = $(addprefix $(OBJDIR)/test_,$(ALLOCATORS))
-TIMERS = $(addprefix $(OBJDIR)/time_,$(ALLOCATORS))
+TEST_PROGRAMS = $(addprefix $(OBJDIR)/test_,$(ALLOCATORS))
+TIMER_PROGRAMS = $(addprefix $(OBJDIR)/time_,$(ALLOCATORS))
 MY_PROGRAMS = $(addprefix $(OBJDIR)/my_optional_program_,$(ALLOCATORS))
 
-all:: $(PROGRAMS) $(TIMERS) $(MY_PROGRAMS)
+all:: $(TEST_PROGRAMS) $(TIMER_PROGRAMS) $(MY_PROGRAMS)
 
 # I had to use gcc-11 on mac to be able to build this project.
 UNAME := $(shell uname)
@@ -35,14 +35,14 @@ LDLIBS =
 $(OBJ): $(OBJDIR)/%.o: $(SRCDIR)/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-$(PROGRAMS): $(OBJDIR)/test_%: $(OBJDIR)/%.o segment.c test_harness.c
+$(TEST_PROGRAMS): $(OBJDIR)/test_%: $(OBJDIR)/%.o segment.c script.c test_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(TIMERS): $(OBJDIR)/time_%: $(OBJDIR)/%.o segment.c time_harness.c
+$(TIMER_PROGRAMS): $(OBJDIR)/time_%: $(OBJDIR)/%.o segment.c script.c time_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(MY_PROGRAMS): $(OBJDIR)/my_optional_program_%: my_optional_program.c $(OBJDIR)/%.o segment.c
+$(MY_PROGRAMS): $(OBJDIR)/my_optional_program_%: my_optional_program.c $(OBJDIR)/%.o segment.c script.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean::
-	rm -f $(PROGRAMS) $(TIMERS) $(MY_PROGRAMS) $(OBJ) callgrind.out.*
+	rm -f $(TEST_PROGRAMS) $(TIMER_PROGRAMS) $(MY_PROGRAMS) $(OBJ) callgrind.out.*
