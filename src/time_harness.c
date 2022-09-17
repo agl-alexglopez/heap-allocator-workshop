@@ -55,7 +55,7 @@ static size_t time_allocator(script_t *script, bool *success,
 static int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end);
 static void *exec_malloc(int req, size_t requested_size, script_t *script, bool *failptr);
 static void *exec_realloc(int req, size_t requested_size, script_t *script, bool *failptr);
-void validate_intervals(script_t *script, interval_t intervals[], int num_intervals);
+static void validate_intervals(script_t *script, interval_t intervals[], int num_intervals);
 
 
 /* TIME EVALUATION IMPLEMENTATION */
@@ -190,7 +190,9 @@ static size_t time_allocator(script_t *script, bool *success,
             start = clock();
             // Increment the outer loops request variable--------v
             for (int s = sect.start_req; s < sect.end_req; s++, req++) {
-                exec_request(script, s, &cur_size, &heap_end);
+                if (exec_request(script, s, &cur_size, &heap_end) == -1) {
+                    return -1;
+                }
             }
             end = clock();
             cpu_time = ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -201,7 +203,9 @@ static size_t time_allocator(script_t *script, bool *success,
             intervals++;
             num_intervals--;
         } else {
-            exec_request(script, req, &cur_size, &heap_end);
+            if (exec_request(script, req, &cur_size, &heap_end) == -1) {
+                return -1;
+            }
             req++;
         }
     }
@@ -315,7 +319,7 @@ static void *exec_realloc(int req, size_t requested_size, script_t *script, bool
  * @param intervals[]         the array of lines to time for the user. Check all O(N).
  * @param num_intervals       lenghth of the lines to time array.
  */
-void validate_intervals(script_t *script, interval_t intervals[], int num_intervals) {
+static void validate_intervals(script_t *script, interval_t intervals[], int num_intervals) {
     // We can tidy up lazy user input by making sure the end of the time interval makes sense.
     for (int req = 0; req < num_intervals; req++) {
         // If the start is too large, the user may have mistaken the file they wish to time.

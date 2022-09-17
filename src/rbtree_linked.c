@@ -129,6 +129,7 @@ static struct free_nodes {
     rb_node *tree_root;
     rb_node *black_nil;
     duplicate_node *list_tail;
+    size_t total;
 }free_nodes;
 
 // Mainly for debugging and verifying our heap.
@@ -227,6 +228,7 @@ void add_duplicate(rb_node *head, duplicate_node *to_add) {
     to_add->links[N] = head->list_start;
     to_add->links[P] = (duplicate_node *)head;
     head->list_start = to_add;
+    free_nodes.total++;
 }
 
 
@@ -291,6 +293,7 @@ void insert_rb_node(rb_node *current) {
     current->list_start = free_nodes.list_tail;
     paint_node(current, RED);
     fix_rb_insert(current);
+    free_nodes.total++;
 }
 
 
@@ -319,6 +322,7 @@ rb_node *delete_duplicate(rb_node *head) {
     duplicate_node *next_node = head->list_start;
     next_node->links[N]->links[P] = (duplicate_node *)head;
     head->list_start = next_node->links[N];
+    free_nodes.total--;
     return (rb_node *)next_node;
 }
 
@@ -397,6 +401,7 @@ rb_node *delete_rb_node(rb_node *remove) {
     if (fixup_color_check == BLACK) {
         fix_rb_delete(extra_black);
     }
+    free_nodes.total--;
     return remove;
 }
 
@@ -488,6 +493,7 @@ rb_node *free_coalesced_node(void *to_coalesce) {
         list_node->links[P]->links[N] = list_node->links[N];
         list_node->links[N]->links[P] = list_node->links[P];
     }
+    free_nodes.total--;
     return to_coalesce;
 }
 
@@ -520,6 +526,24 @@ bool is_left_space(const rb_node *node) {
     return !(node->header & LEFT_ALLOCATED);
 }
 
+/* @brief init_header_size  initializes any node as the size and indicating left is allocated. Left
+ *                          is allocated because we always coalesce left and right.
+ * @param *node             the region of possibly uninitialized heap we must initialize.
+ * @param payload           the payload in bytes as a size_t of the current block we initialize
+ */
+void init_header_size(rb_node *node, size_t payload) {
+    node->header = LEFT_ALLOCATED | payload;
+}
+
+/* @brief init_footer  initializes footer at end of the heap block to matcht the current header.
+ * @param *node        the current node with a header field we will use to set the footer.
+ * @param payload      the size of the current nodes free memory.
+ */
+void init_footer(rb_node *node, size_t payload) {
+    header *footer = (header *)((byte *)node + payload);
+    *footer = node->header;
+}
+
 /* @brief get_right_neighbor  gets the address of the next rb_node in the heap to the right.
  * @param *current            the rb_node we start at to then jump to the right.
  * @param payload             the size in bytes as a size_t of the current rb_node block.
@@ -539,15 +563,6 @@ rb_node *get_left_neighbor(const rb_node *node) {
     return (rb_node *)((byte *)node - (*left_footer & SIZE_MASK) - HEADERSIZE);
 }
 
-/* @brief init_header_size  initializes any node as the size and indicating left is allocated. Left
- *                          is allocated because we always coalesce left and right.
- * @param *node             the region of possibly uninitialized heap we must initialize.
- * @param payload           the payload in bytes as a size_t of the current block we initialize
- */
-void init_header_size(rb_node *node, size_t payload) {
-    node->header = LEFT_ALLOCATED | payload;
-}
-
 /* @brief get_client_space  steps into the client space just after the header of a rb_node.
  * @param *node_header      the rb_node we start at before retreiving the client space.
  * @return                  the void* address of the client space they are now free to use.
@@ -564,15 +579,9 @@ rb_node *get_rb_node(const void *client_space) {
     return (rb_node *)((byte *) client_space - HEADERSIZE);
 }
 
-/* @brief init_footer  initializes footer at end of the heap block to matcht the current header.
- * @param *node        the current node with a header field we will use to set the footer.
- * @param payload      the size of the current nodes free memory.
- */
-void init_footer(rb_node *node, size_t payload) {
-    header *footer = (header *)((byte *)node + payload);
-    *footer = node->header;
+size_t get_free_total() {
+    return free_nodes.total;
 }
-
 
 /* * * * * * * * * * * *    Heap Helper Function    * * * * * * * * * */
 
@@ -622,6 +631,7 @@ bool myinit(void *heap_start, size_t heap_size) {
     free_nodes.tree_root->links[L] = free_nodes.black_nil;
     free_nodes.tree_root->links[R] = free_nodes.black_nil;
     free_nodes.tree_root->list_start = free_nodes.list_tail;
+    free_nodes.total = 1;
     return true;
 }
 
@@ -774,6 +784,7 @@ bool is_memory_balanced(size_t *total_free_mem) {
     // Check that after checking all headers we end on size 0 tail and then end of address space.
     rb_node *cur_node = heap.client_start;
     size_t size_used = HEAP_NODE_WIDTH;
+    size_t total_free_nodes = 0;
     while (cur_node != heap.client_end) {
         size_t block_size_check = get_size(cur_node->header);
         if (block_size_check == 0) {
@@ -786,11 +797,13 @@ bool is_memory_balanced(size_t *total_free_mem) {
         if (is_block_allocated(cur_node->header)) {
             size_used += block_size_check + HEADERSIZE;
         } else {
+            total_free_nodes++;
             *total_free_mem += block_size_check + HEADERSIZE;
         }
         cur_node = get_right_neighbor(cur_node, block_size_check);
     }
-    return size_used + *total_free_mem == heap.heap_size;
+    return (size_used + *total_free_mem == heap.heap_size)
+             && (total_free_nodes == free_nodes.total);
 }
 
 /* @brief get_black_height  gets the black node height of the tree excluding the current node.
@@ -1038,7 +1051,7 @@ typedef enum print_link {
 /* @brief print_node  prints an individual node in its color and status as left or right child.
  * @param *root       the root we will print with the appropriate info.
  */
-void print_node(const rb_node *root) {
+void print_node(const rb_node *root, print_style style) {
     size_t block_size = get_size(root->header);
     printf(COLOR_CYN);
     if (root->parent != free_nodes.black_nil) {
@@ -1046,11 +1059,19 @@ void print_node(const rb_node *root) {
     }
     printf(COLOR_NIL);
     get_color(root->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
-    printf("%p:", root);
+
+    if (style == VERBOSE) {
+        printf("%p:", root);
+    }
+
     printf("(%zubytes)", block_size);
     printf(COLOR_NIL);
-    // print the black-height
-    printf("(bh: %d)", get_black_height(root));
+
+    if (style == VERBOSE) {
+        // print the black-height
+        printf("(bh: %d)", get_black_height(root));
+    }
+
     printf(COLOR_CYN);
     // If a node is a duplicate, we will give it a special mark among nodes.
     if (root->list_start != free_nodes.list_tail) {
@@ -1070,14 +1091,15 @@ void print_node(const rb_node *root) {
  * @param *prefix           the string we print spacing and characters across recursive calls.
  * @param node_type         the node to print can either be a leaf or internal branch.
  */
-void print_inner_tree(const rb_node *root, const char *prefix, const print_link node_type) {
+void print_inner_tree(const rb_node *root, const char *prefix,
+                      const print_link node_type, print_style style) {
     if (root == free_nodes.black_nil) {
         return;
     }
     // Print the root node
     printf("%s", prefix);
     printf("%s", node_type == LEAF ? " └──" : " ├──");
-    print_node(root);
+    print_node(root, style);
 
     // Print any subtrees
     char *str = NULL;
@@ -1088,12 +1110,12 @@ void print_inner_tree(const rb_node *root, const char *prefix, const print_link 
     }
     if (str != NULL) {
         if (root->links[R] == free_nodes.black_nil) {
-            print_inner_tree(root->links[L], str, LEAF);
+            print_inner_tree(root->links[L], str, LEAF, style);
         } else if (root->links[L] == free_nodes.black_nil) {
-            print_inner_tree(root->links[R], str, LEAF);
+            print_inner_tree(root->links[R], str, LEAF, style);
         } else {
-            print_inner_tree(root->links[R], str, BRANCH);
-            print_inner_tree(root->links[L], str, LEAF);
+            print_inner_tree(root->links[R], str, BRANCH, style);
+            print_inner_tree(root->links[L], str, LEAF, style);
         }
     } else {
         printf(COLOR_ERR "memory exceeded. Cannot display free_nodes." COLOR_NIL);
@@ -1104,22 +1126,22 @@ void print_inner_tree(const rb_node *root, const char *prefix, const print_link 
 /* @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
  * @param *root          the root node to begin at for printing recursively.
  */
-void print_rb_tree(const rb_node *root) {
+void print_rb_tree(const rb_node *root, print_style style) {
     if (root == free_nodes.black_nil) {
         return;
     }
     // Print the root node
     printf(" ");
-    print_node(root);
+    print_node(root, style);
 
     // Print any subtrees
     if (root->links[R] == free_nodes.black_nil) {
-        print_inner_tree(root->links[L], "", LEAF);
+        print_inner_tree(root->links[L], "", LEAF, style);
     } else if (root->links[L] == free_nodes.black_nil) {
-        print_inner_tree(root->links[R], "", LEAF);
+        print_inner_tree(root->links[R], "", LEAF, style);
     } else {
-        print_inner_tree(root->links[R], "", BRANCH);
-        print_inner_tree(root->links[L], "", LEAF);
+        print_inner_tree(root->links[R], "", BRANCH, style);
+        print_inner_tree(root->links[L], "", LEAF, style);
     }
 }
 
@@ -1213,7 +1235,7 @@ void print_bad_jump(const rb_node *current, const rb_node *prev) {
     printf("\tBlock Byte Value: %zubytes:\n", cur_size);
     printf("\nJump by %zubytes...\n", cur_size);
     printf("Current state of the free tree:\n");
-    print_rb_tree(free_nodes.tree_root);
+    print_rb_tree(free_nodes.tree_root, VERBOSE);
 }
 
 /* @brief dump_tree  prints just the tree with addresses, colors, black heights, and whether a
@@ -1223,7 +1245,11 @@ void print_bad_jump(const rb_node *current, const rb_node *prev) {
 void dump_tree() {
     printf(COLOR_CYN "(+X)" COLOR_NIL);
     printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A N NODE.\n");
-    print_rb_tree(free_nodes.tree_root);
+    print_rb_tree(free_nodes.tree_root, VERBOSE);
+}
+
+void print_free_nodes(print_style style) {
+    print_rb_tree(free_nodes.tree_root, style);
 }
 
 
@@ -1280,6 +1306,6 @@ void dump_heap() {
     printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
     printf(COLOR_CYN "(+X)" COLOR_NIL);
     printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A N NODE.\n");
-    print_rb_tree(free_nodes.tree_root);
+    print_rb_tree(free_nodes.tree_root, VERBOSE);
 }
 

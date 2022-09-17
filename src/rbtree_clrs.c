@@ -975,10 +975,11 @@ typedef enum print_link {
     LEAF = 1    // └──
 }print_link;
 
+
 /* @brief print_node  prints an individual node in its color and status as left or right child.
  * @param *root       the root we will print with the appropriate info.
  */
-void print_node(const rb_node *root) {
+void print_node(const rb_node *root, print_style style) {
     size_t block_size = get_size(root->header);
     printf(COLOR_CYN);
     if (root->parent != tree.black_nil) {
@@ -986,11 +987,15 @@ void print_node(const rb_node *root) {
     }
     printf(COLOR_NIL);
     get_color(root->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
-    printf("%p:", root);
+    if (style == VERBOSE) {
+        printf("%p:", root);
+    }
     printf("(%zubytes)", block_size);
     printf(COLOR_NIL);
-    // print the black-height
-    printf("(bh: %d)", get_black_height(root));
+    if (style == VERBOSE) {
+        // print the black-height
+        printf("(bh: %d)", get_black_height(root));
+    }
     printf("\n");
 }
 
@@ -1000,14 +1005,15 @@ void print_node(const rb_node *root) {
  * @param *prefix           the string we print spacing and characters across recursive calls.
  * @param node_type         the node to print can either be a leaf or internal branch.
  */
-void print_inner_tree(const rb_node *root, const char *prefix, const print_link node_type) {
+void print_inner_tree(const rb_node *root, const char *prefix,
+                      const print_link node_type, print_style style) {
     if (root == tree.black_nil) {
         return;
     }
     // Print the root node
     printf("%s", prefix);
     printf("%s", node_type == LEAF ? " └──" : " ├──");
-    print_node(root);
+    print_node(root, style);
 
     // Print any subtrees
     char *str = NULL;
@@ -1018,12 +1024,12 @@ void print_inner_tree(const rb_node *root, const char *prefix, const print_link 
     }
     if (str != NULL) {
         if (root->right == tree.black_nil) {
-            print_inner_tree(root->left, str, LEAF);
+            print_inner_tree(root->left, str, LEAF, style);
         } else if (root->left == tree.black_nil) {
-            print_inner_tree(root->right, str, LEAF);
+            print_inner_tree(root->right, str, LEAF, style);
         } else {
-            print_inner_tree(root->right, str, BRANCH);
-            print_inner_tree(root->left, str, LEAF);
+            print_inner_tree(root->right, str, BRANCH, style);
+            print_inner_tree(root->left, str, LEAF, style);
         }
     } else {
         printf(COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL);
@@ -1034,22 +1040,22 @@ void print_inner_tree(const rb_node *root, const char *prefix, const print_link 
 /* @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
  * @param *root          the root node to begin at for printing recursively.
  */
-void print_rb_tree(const rb_node *root) {
+void print_rb_tree(const rb_node *root, print_style style) {
     if (root == tree.black_nil) {
         return;
     }
     // Print the root node
     printf(" ");
-    print_node(root);
+    print_node(root, style);
 
     // Print any subtrees
     if (root->right == tree.black_nil) {
-        print_inner_tree(root->left, "", LEAF);
+        print_inner_tree(root->left, "", LEAF, style);
     } else if (root->left == tree.black_nil) {
-        print_inner_tree(root->right, "", LEAF);
+        print_inner_tree(root->right, "", LEAF, style);
     } else {
-        print_inner_tree(root->right, "", BRANCH);
-        print_inner_tree(root->left, "", LEAF);
+        print_inner_tree(root->right, "", BRANCH, style);
+        print_inner_tree(root->left, "", LEAF, style);
     }
 }
 
@@ -1141,7 +1147,7 @@ void print_bad_jump(const rb_node *current, const rb_node *prev) {
     printf("\tBlock Byte Value: %zubytes:\n", cur_size);
     printf("\nJump by %zubytes...\n", cur_size);
     printf("Current state of the free tree:\n");
-    print_rb_tree(tree.root);
+    print_rb_tree(tree.root, VERBOSE);
 }
 
 /* @brief dump_tree  prints just the tree with addresses, colors, black heights, and whether a
@@ -1150,12 +1156,12 @@ void print_bad_jump(const rb_node *current, const rb_node *prev) {
  */
 void dump_tree() {
     printf("\n");
-    print_rb_tree(tree.root);
+    print_rb_tree(tree.root, VERBOSE);
 }
 
-void print_free_nodes() {
+void print_free_nodes(print_style style) {
     printf("\n");
-    print_rb_tree(tree.root);
+    print_rb_tree(tree.root, style);
 }
 
 
@@ -1212,6 +1218,6 @@ void dump_heap() {
     printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
     printf(COLOR_CYN "(+X)" COLOR_NIL);
     printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A NEXT NODE.\n");
-    print_rb_tree(tree.root);
+    print_rb_tree(tree.root, VERBOSE);
 }
 

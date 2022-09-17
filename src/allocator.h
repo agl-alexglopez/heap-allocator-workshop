@@ -8,6 +8,12 @@
 #include <stdbool.h> // for bool
 #include <stddef.h>  // for size_t
 
+// PLAIN prints free block sizes, VERBOSE shows address in the heap and black height of tree.
+typedef enum print_style {
+    PLAIN = 0,
+    VERBOSE = 1
+}print_style;
+
 // Alignment requirement for all blocks
 #define ALIGNMENT 8
 
@@ -56,5 +62,21 @@ void myfree(void *ptr);
  * the heap allocator.
  */
 bool validate_heap();
+
+/* Function: get_free_total
+ * ------------------------
+ * Simple function to get the size of whatever data structure the allocator is using to manage free
+ * nodes in the heap. Garunteed to be an O(1) operation.
+ */
+size_t get_free_total();
+
+/* Function: print_free_nodes
+ * --------------------------
+ * Prints a visual representation of the free nodes in the heap in the form of the data structure
+ * being used to manage them. You can print the nodes in the PLAIN or VERBOSE style. Plain will
+ * only show the sizes in bytes that the blocks store, while VERBOSE will show their addresses in
+ * the heap and for the tree allocators, the black height of the tree as well.
+ */
+void print_free_nodes(print_style style);
 
 #endif
