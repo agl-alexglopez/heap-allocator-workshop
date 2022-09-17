@@ -657,6 +657,9 @@ rb_node *get_rb_node(const void *client_space) {
     return (rb_node *)((byte *) client_space - HEADERSIZE);
 }
 
+/* @brief get_free_total  returns the total number of free nodes in the heap.
+ * @return                a size_t representing the total quantity of free nodes.
+ */
 size_t get_free_total() {
     return free_nodes.total;
 }
@@ -1317,6 +1320,11 @@ void dump_tree() {
     print_rb_tree(free_nodes.tree_root, VERBOSE);
 }
 
+/* @brief print_free_nodes  a shared function across allocators requesting a printout of internal
+ *                          data structure used for free nodes of the heap.
+ * @param style             VERBOSE or PLAIN. Plain only includes byte size, while VERBOSE includes
+ *                          memory addresses and black heights of the tree.
+ */
 void print_free_nodes(print_style style) {
     print_rb_tree(free_nodes.tree_root, style);
 }

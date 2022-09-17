@@ -63,8 +63,12 @@ static int cmp_breakpoints(const void *a, const void *b);
  *                  - print the peak number of free nodes managed by an allocator, verbose.
  *                  .././obj/print_peaks_rbtree_clrs -v ../scripts/pattern-mixed.script
  *
- *                  - include breakpoints on script line numbers and continue through them.
+ *                  - include breakpoints on script line numbers and examine each.
  *                  .././obj/print_peaks_rbtree_clrs -v -b 10 -b 200../scripts/pattern-mixed.script
+ *
+ * @arg -v    verbose print. Includes memory addresses and black height of the tree.
+ * @arg -b    break on line number of a script and print the state of the free nodes. Breakpoints
+ *            can be entered in any order.
  */
 int main(int argc, char *argv[]) {
     breakpoint breakpoints[MAX_BREAKPOINTS];
@@ -94,6 +98,14 @@ int main(int argc, char *argv[]) {
     return print_peaks(argv[optind], breakpoints, num_breakpoints, style);
 }
 
+/* @brief print_peaks      prints the peak number of free nodes present in a heap allocator during
+ *                         execution of a script. Prints the state of free nodes breakpoints
+ *                         requested by the user as well.
+ * @param script_name      the pointer to the script name we will execute.
+ * @param breakpoints      the array of breakpoint lines we will pause at to print the free nodes.
+ * @param num_breakpoints  the number of breakpoint line numbers in the array.
+ * @return                 0 upon successful execution -1 upon error.
+ */
 int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints,
                 print_style style) {
     int nsuccesses = 0;
@@ -131,17 +143,18 @@ int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints
     return nfailures;
 }
 
-/* @brief print_allocator  times all requested interval line numbers from the script file.
+/* @brief print_allocator  runs an allocator twice, gathering the peak number of free nodes and
+ *                         printint any breakpoints the user requests from the script. The second
+ *                         execution will print the peak size of the free nodes.
  * @param *script          the script_t with all info for the script file to execute.
  * @param *success         true if all calls to the allocator completed without error.
- * @param intervals[]      the array of all lines to time.
- * @param num_intervals    the size of the array of lines to time.
- * @return                 the size of the heap overall.
+ * @param breakpoints[]    the array of any line number breakpoints the user wants.
+ * @param num_breakpoints  the size of the breakpoint array
+ * @return                 the size of the heap overall as helpful utilization info.
  */
 static size_t print_allocator(script_t *script, bool *success,
-                            breakpoint breakpoints[], int num_breakpoints, print_style style) {
+                              breakpoint breakpoints[], int num_breakpoints, print_style style) {
     *success = false;
-
     init_heap_segment(HEAP_SIZE);
     if (!myinit(heap_segment_start(), heap_segment_size())) {
         allocator_error(script, 0, "myinit() returned false");
@@ -154,7 +167,7 @@ static size_t print_allocator(script_t *script, bool *success,
     // Track the current amount of memory allocated on the heap
     size_t cur_size = 0;
 
-    // Send each request to the heap allocator and check the resulting behavior
+    // Send each request to the heap allocator and track largest free node structure.
     int peak_free_nodes_request = 0;
     size_t peak_free_node_count = 0;
     for (int req = 0; req < script->num_ops; req++) {
@@ -174,6 +187,7 @@ static size_t print_allocator(script_t *script, bool *success,
             breakpoints++;
         }
 
+        // I added this as an allocator.h function so all allocators can report free nodes.
         size_t total_free_nodes = get_free_total();
         if (total_free_nodes > peak_free_node_count) {
             peak_free_node_count = total_free_nodes;
@@ -311,7 +325,12 @@ static void *exec_realloc(int req, size_t requested_size, script_t *script, bool
     return newp;
 }
 
-
+/* @brief handle_user_input  interacts with the user regarding the breakpoints they have requested.
+ *                           and will step with the user through their requests and print nodes.
+ *                           The user may continue to next breakpoint or skip remaining.
+ * @param num_breakpoints    the number of breakpoints we have remaining from the user.
+ * @return                   the current number of breakpoints after advancing user request.
+ */
 static int handle_user_input(int num_breakpoints) {
     // We have just hit a requested breakpoint so we decrement, invariant.
     num_breakpoints--;
@@ -347,6 +366,11 @@ static int handle_user_input(int num_breakpoints) {
     return num_breakpoints;
 }
 
+/* @brief validate_breakpoints  checks any requested breakpoints to make sure they are in range.
+ * @param script                the parsed script with information we need to verify ranges.
+ * @param breakpoints[]         the array of breakpoint line numbers from the user.
+ * @param num_breakpoints       the size of the breakpoints array.
+ */
 static void validate_breakpoints(script_t *script, breakpoint breakpoints[], int num_breakpoints) {
     // It's easier if the breakpoints are in order and can run along with our script execution.
     qsort(breakpoints, num_breakpoints, sizeof(breakpoint), cmp_breakpoints);
@@ -361,6 +385,11 @@ static void validate_breakpoints(script_t *script, breakpoint breakpoints[], int
     }
 }
 
+/* @brief cmp_breakpoints  the compare function for our breakpoint line numbers for qsort.
+ * @param a,b              breakpoints to compare.
+ * @return                 >0 if a is larger than b, <0 if b is larger than a, =0 if same.
+ */
 static int cmp_breakpoints(const void *a, const void *b) {
     return (*(breakpoint *)a) - (*(breakpoint *) b);
 }
+

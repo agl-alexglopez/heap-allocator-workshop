@@ -512,7 +512,7 @@ void *get_client_space(const rb_node *node_header) {
     return (byte *) node_header + HEADERSIZE;
 }
 
-/* @brief get_rb_node  steps to the rb_node header from the space the client was using.
+/* @brief get_rb_node    steps to the rb_node header from the space the client was using.
  * @param *client_space  the void* the client was using for their type. We step to the left.
  * @return               a pointer to the rb_node of our heap block.
  */
@@ -520,6 +520,9 @@ rb_node *get_rb_node(const void *client_space) {
     return (rb_node *)((byte *) client_space - HEADERSIZE);
 }
 
+/* @brief get_free_total  returns the total number of free nodes in the heap.
+ * @return                a size_t representing the total quantity of free nodes.
+ */
 size_t get_free_total() {
     return tree.total;
 }
@@ -1159,6 +1162,11 @@ void dump_tree() {
     print_rb_tree(tree.root, VERBOSE);
 }
 
+/* @brief print_free_nodes  a shared function across allocators requesting a printout of internal
+ *                          data structure used for free nodes of the heap.
+ * @param style             VERBOSE or PLAIN. Plain only includes byte size, while VERBOSE includes
+ *                          memory addresses and black heights of the tree.
+ */
 void print_free_nodes(print_style style) {
     printf("\n");
     print_rb_tree(tree.root, style);
