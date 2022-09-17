@@ -40,6 +40,16 @@ typedef struct {
     size_t peak_size;       // total payload bytes at peak in-use
 } script_t;
 
+/* @brief exec_request  a helper function to execute a single call to the heap allocator. It may
+ *                      may call malloc(), realloc(), or free().
+ * @param *script       the script_t with the information regarding the script file we execute.
+ * @param req           the zero-based index of the request to the heap allocator.
+ * @param *cur_size     the current size of the heap overall.
+ * @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
+ * @return              0 if there are no errors, -1 if there is an error.
+ */
+int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end);
+
 /* @breif parse_script  parses the script file at the specified path, and returns an object with
  *                      info about it.  It expects one request per line, and adds each request's
  *                      information to the ops array within the script.  This function throws an
@@ -49,30 +59,6 @@ typedef struct {
  * @return              a pointer to the script_t with information regarding the .script requests.
  */
 script_t parse_script(const char *filename);
-
-/* @brief read_script_line  reads one line from the specified file and stores at most buffer_size
- *                          characters from it in buffer, removing any trailing newline. It skips lines
- *                          that are all-whitespace or that contain comments (begin with # as first
- *                          non-whitespace character).  When reading a line, it increments the
- *                          counter pointed to by `pnread` once for each line read/skipped.
- * @param buffer[]          the buffer in which we store the line from the .script line.
- * @param buffer_size       the allowable size for the buffer.
- * @param *fp               the file for which we are parsing requests.
- * @param *pnread           the pointer we use to progress past a line whether it is read or skipped.
- * @return                  true if did read a valid line eventually, or false otherwise.
- */
-bool read_script_line(char buffer[], size_t buffer_size, FILE *fp, int *pnread);
-
-/* @brief parse_script_line  parses the provided line from the script and returns info about it
- *                           as a request_t object filled in with the type of the request, the
- *                           size, the ID, and the line number.
- * @param *buffer            the individual line we are parsing for a heap request.
- * @param lineno             the line in the file we are parsing.
- * @param *script_name       the name of the current script we can output if an error occurs.
- * @return                   the request_t for the individual line parsed.
- * @warning                  if the line is malformed, this function throws an error.
- */
-request_t parse_script_line(char *buffer, int lineno, char *script_name);
 
 /* @brief allocator_error  reports an error while running an allocator script.
  * @param *script          the script_t with information we track form the script file requests.

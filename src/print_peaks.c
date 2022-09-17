@@ -42,9 +42,6 @@ int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints
                 print_style style);
 static size_t print_allocator(script_t *script, bool *success,
                               breakpoint breakpoints[], int num_breakpoints, print_style style);
-static int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end);
-static void *exec_malloc(int req, size_t requested_size, script_t *script, bool *failptr);
-static void *exec_realloc(int req, size_t requested_size, script_t *script, bool *failptr);
 static int handle_user_input(int num_breakpoints);
 static void validate_breakpoints(script_t *script, breakpoint breakpoints[], int num_breakpoints);
 static int cmp_breakpoints(const void *a, const void *b);
@@ -223,106 +220,6 @@ static size_t print_allocator(script_t *script, bool *success,
     }
     *success = true;
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
-}
-
-/* @brief exec_request  a helper function to execute a single call to the heap allocator. It may
- *                      may call malloc(), realloc(), or free().
- * @param *script       the script_t with the information regarding the script file we execute.
- * @param req           the zero-based index of the request to the heap allocator.
- * @param *cur_size     the current size of the heap overall.
- * @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
- * @return              0 if there are no errors, -1 if there is an error.
- */
-static int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
-
-    int id = script->ops[req].id;
-    size_t requested_size = script->ops[req].size;
-
-    if (script->ops[req].op == ALLOC) {
-        bool fail = false;
-        void *p = exec_malloc(req, requested_size, script, &fail);
-        if (fail) {
-            return -1;
-        }
-
-        *cur_size += requested_size;
-        if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
-            *heap_end = (byte_t *)p + requested_size;
-        }
-    } else if (script->ops[req].op == REALLOC) {
-        size_t old_size = script->blocks[id].size;
-        bool fail = false;
-        void *p = exec_realloc(req, requested_size, script, &fail);
-        if (fail) {
-            return -1;
-        }
-
-        *cur_size += (requested_size - old_size);
-        if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
-            *heap_end = (byte_t *)p + requested_size;
-        }
-    } else if (script->ops[req].op == FREE) {
-        size_t old_size = script->blocks[id].size;
-        void *p = script->blocks[id].ptr;
-        script->blocks[id] = (block_t){.ptr = NULL, .size = 0};
-        myfree(p);
-        *cur_size -= old_size;
-    }
-
-
-    if (*cur_size > script->peak_size) {
-        script->peak_size = *cur_size;
-    }
-    return 0;
-}
-
-/* @breif exec_malloc     executes a call to mymalloc of the given size.
- * @param req             the request zero indexed within the script.
- * @param requested_size  the block size requested from the client.
- * @param *script         the script_t with information we track from the script file requests.
- * @param *failptr        a pointer to indicate if the request to malloc failed.
- * @return                the generic memory provided by malloc for the client. NULL on failure.
- */
-static void *exec_malloc(int req, size_t requested_size, script_t *script, bool *failptr) {
-
-    int id = script->ops[req].id;
-
-    void *p;
-    if ((p = mymalloc(requested_size)) == NULL && requested_size != 0) {
-        allocator_error(script, script->ops[req].lineno,
-            "heap exhausted, malloc returned NULL");
-        *failptr = true;
-        return NULL;
-    }
-
-    script->blocks[id] = (block_t){.ptr = p, .size = requested_size};
-    *failptr = false;
-    return p;
-}
-
-/* @brief exec_realloc    executes a call to myrealloc of the given size.
- * @param req             the request zero indexed within the script.
- * @param requested_size  the block size requested from the client.
- * @param *script         the script_t with information we track from the script file requests.
- * @param *failptr        a pointer to indicate if the request to malloc failed.
- * @return                the generic memory provided by realloc for the client. NULL on failure.
- */
-static void *exec_realloc(int req, size_t requested_size, script_t *script, bool *failptr) {
-
-    int id = script->ops[req].id;
-    void *oldp = script->blocks[id].ptr;
-    void *newp;
-    if ((newp = myrealloc(oldp, requested_size)) == NULL && requested_size != 0) {
-        allocator_error(script, script->ops[req].lineno,
-            "heap exhausted, realloc returned NULL");
-        *failptr = true;
-        return NULL;
-    }
-
-    script->blocks[id].size = 0;
-    script->blocks[id] = (block_t){.ptr = newp, .size = requested_size};
-    *failptr = false;
-    return newp;
 }
 
 /* @brief handle_user_input  interacts with the user regarding the breakpoints they have requested.
