@@ -14,7 +14,7 @@
  * time. This is done in order to show how I was working with my printing functions to help me
  * debug while in gdb.
  */
-
+#include <assert.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -42,6 +42,8 @@ int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints
                 print_style style);
 static size_t print_allocator(script_t *script, bool *success,
                               breakpoint breakpoints[], int num_breakpoints, print_style style);
+static void plot_free_totals(size_t free_totals[], int num_free_totals);
+static void plot_utilization(double *utilization_percents, int num_utilizations);
 static int handle_user_input(int num_breakpoints);
 static void validate_breakpoints(script_t *script, breakpoint breakpoints[], int num_breakpoints);
 static int cmp_breakpoints(const void *a, const void *b);
@@ -160,9 +162,15 @@ static size_t print_allocator(script_t *script, bool *success,
 
     // Track the topmost address used by the heap for utilization purposes
     void *heap_end = heap_segment_start();
-
     // Track the current amount of memory allocated on the heap
     size_t cur_size = 0;
+
+    // We will track the total free nodes over the course of the heap, and plot the data.
+    size_t *free_totals = malloc(sizeof(size_t) * script->num_ops);
+    assert(free_totals);
+    // We will also show a graph of utilization over the course of the heap.
+    double *utilation_percents = malloc(sizeof(double) * script->num_ops);
+    assert(utilation_percents);
 
     // Send each request to the heap allocator and track largest free node structure.
     int peak_free_nodes_request = 0;
@@ -173,9 +181,20 @@ static size_t print_allocator(script_t *script, bool *success,
             return -1;
         }
 
+        // I added this as an allocator.h function so all allocators can report free nodes.
+        size_t total_free_nodes = get_free_total();
+
+        // We will plot this at the end of program execution.
+        free_totals[req] = total_free_nodes;
+
+        // Avoid a loss of precision while tracking the utilization over heap lifetime.
+        double peak_size = 100 * script->peak_size;
+        utilation_percents[req] = peak_size /
+                                  ((byte_t *) heap_end - (byte_t *) heap_segment_start());
+
         if (num_breakpoints && breakpoints[0] == req) {
             printf("There are %zu free nodes after executing command on line %d :\n",
-                    get_free_total(), req + 1);
+                    total_free_nodes, req + 1);
             print_free_nodes(style);
             printf("\n");
             printf("There are %zu free nodes after executing command on line %d :\n",
@@ -184,8 +203,6 @@ static size_t print_allocator(script_t *script, bool *success,
             breakpoints++;
         }
 
-        // I added this as an allocator.h function so all allocators can report free nodes.
-        size_t total_free_nodes = get_free_total();
         if (total_free_nodes > peak_free_node_count) {
             peak_free_node_count = total_free_nodes;
             peak_free_nodes_request = req;
@@ -204,6 +221,8 @@ static size_t print_allocator(script_t *script, bool *success,
     }
     heap_end = heap_segment_start();
     cur_size = 0;
+
+
     for (int req = 0; req < script->num_ops; req++) {
         // execute the request
         if (exec_request(script, req, &cur_size, &heap_end) == -1) {
@@ -212,6 +231,7 @@ static size_t print_allocator(script_t *script, bool *success,
         if (req == peak_free_nodes_request) {
             printf("Line %d of script created peak number free blocks.\n", req + 1);
             printf("There were %zu free blocks of memory.\n", peak_free_node_count);
+            printf("\n");
             print_free_nodes(style);
             printf("\n");
             printf("Line %d of script created peak free blocks.\n", req + 1);
@@ -219,7 +239,71 @@ static size_t print_allocator(script_t *script, bool *success,
         }
     }
     *success = true;
+
+    plot_free_totals(free_totals, script->num_ops);
+    plot_utilization(utilation_percents, script->num_ops);
+    free(free_totals);
+    free(utilation_percents);
+
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
+}
+
+/* @brief plot_free_totals  plots the number of free nodes over the course of the heaps lifetime.
+ *                          By default it will print an ascii graph to the terminal. Can be edited
+ *                          or adapted to output to popup window. Requires gnuplot.
+ * @param *free_totals     the number of total free nodes after each line of script executes.
+ * @param num_free_totals   size of the array of totals equal to number of lines in script.
+ */
+static void plot_free_totals(size_t *free_totals, int num_free_totals) {
+
+    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+
+                         // Comment this line out if you want output to window that looks better.
+    fprintf(gnuplotPipe, "set terminal dumb;"
+                         // I don't want to manage window dimensions, let gnuplot do it.
+                         "set autoscale;"
+                         // Sits above the graph.
+                         "set title 'Number of Free Nodes over Heap Lifetime';"
+                         // Makes it clear x label number corresponds to script lines=lifetime.
+                         "set xlabel 'Script Line Number';"
+                         // '-' and notitle prevents title inside graph. 'with lines' makes the
+                         // points astericks. 'linespoints <INTEGER>' can set different pointstyles
+                         "plot '-' with lines notitle\n");
+
+    for (int req = 0; req < num_free_totals; req++) {
+        fprintf(gnuplotPipe, "%d %zu \n", req + 1, free_totals[req]);
+    }
+
+    fprintf(gnuplotPipe, "e\n");
+    pclose(gnuplotPipe);
+}
+
+/* @brief plot_utilization     plots the utilization of the heap over its lifetime as a percentage.
+ * @param *utilation_percents  the mallocd array of percentages.
+ * @param num_utilizations     the size of the array.
+ */
+static void plot_utilization(double *utilization_percents, int num_utilizations) {
+
+    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+
+                         // Comment this line out if you want output to window that looks better.
+    fprintf(gnuplotPipe, "set terminal dumb;"
+                         // I don't want to manage window dimensions, let gnuplot do it.
+                         "set autoscale;"
+                         // Sits above the graph.
+                         "set title 'Utilization %% over Heap Lifetime';"
+                         // Makes it clear x label number corresponds to script lines=lifetime.
+                         "set xlabel 'Script Line Number';"
+                         // '-' and notitle prevents title inside graph. 'with lines' makes the
+                         // points astericks. 'linespoints <INTEGER>' can set different pointstyles
+                         "plot '-' with lines notitle\n");
+
+    for (int req = 0; req < num_utilizations; req++) {
+        fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_percents[req]);
+    }
+
+    fprintf(gnuplotPipe, "e\n");
+    pclose(gnuplotPipe);
 }
 
 /* @brief handle_user_input  interacts with the user regarding the breakpoints they have requested.
