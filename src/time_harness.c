@@ -17,6 +17,7 @@
  * test_harness.c for the original implementation by course staff.
  */
 
+#include <assert.h>
 #include <getopt.h>
 #include <stdarg.h>
 #include <stdbool.h>
@@ -52,6 +53,7 @@ const long HEAP_SIZE = 1L << 32;
 static int time_script(char *script_name, interval_t intervals[], int num_intervals);
 static size_t time_allocator(script_t *script, bool *success,
                              interval_t intervals[], int num_intervals);
+static double time_request(script_t *script, int req, size_t *cur_size, void **heap_end);
 static void validate_intervals(script_t *script, interval_t intervals[], int num_intervals);
 
 
@@ -172,12 +174,22 @@ static size_t time_allocator(script_t *script, bool *success,
 
     // Track the topmost address used by the heap for utilization purposes
     void *heap_end = heap_segment_start();
-
     // Track the current amount of memory allocated on the heap
     size_t cur_size = 0;
 
-    // Send each request to the heap allocator and check the resulting behavior
+    // We will track the total free nodes over the course of the heap, and plot the data.
+    size_t *free_totals = malloc(sizeof(size_t) * script->num_ops);
+    assert(free_totals);
+    // We will also show a graph of utilization over the course of the heap.
+    double *utilation_percents = malloc(sizeof(double) * script->num_ops);
+    assert(utilation_percents);
+    // We will start a second clock within each request to see responsiveness of heap per request.
+    double *times_per_request = malloc(sizeof(double) * script->num_ops);
+    assert(times_per_request);
+
     int req = 0;
+    // We will report an average per request at the end of execution.
+    double total_time = 0;
     while (req < script->num_ops) {
         if (num_intervals && intervals[0].start_req == req) {
             interval_t sect = intervals[0];
@@ -187,27 +199,64 @@ static size_t time_allocator(script_t *script, bool *success,
             start = clock();
             // Increment the outer loops request variable--------v
             for (int s = sect.start_req; s < sect.end_req; s++, req++) {
-                if (exec_request(script, s, &cur_size, &heap_end) == -1) {
-                    return -1;
-                }
+
+                double request_time = time_request(script, req, &cur_size, &heap_end);
+                times_per_request[req] = request_time;
+                total_time += request_time;
+
+                free_totals[req] = get_free_total();
+                double peak_size = 100 * script->peak_size;
+                utilation_percents[req] = peak_size /
+                                          ((byte_t *) heap_end - (byte_t *) heap_segment_start());
             }
             end = clock();
-            cpu_time = ((double) (end - start)) / CLOCKS_PER_SEC;
-            printf("Execution time for script lines %d-%d (seconds): %f\n",
+            cpu_time = (((double) (end - start)) / CLOCKS_PER_SEC) * 1000;
+            printf("Execution time for script lines %d-%d (milliseconds): %f\n",
                     sect.start_req + 1, sect.end_req + 1, cpu_time);
 
             // Advance array and decrement remaining intervals. No need for extra variables.
             intervals++;
             num_intervals--;
         } else {
-            if (exec_request(script, req, &cur_size, &heap_end) == -1) {
-                return -1;
-            }
+            double request_time = time_request(script, req, &cur_size, &heap_end);
+            times_per_request[req] = request_time;
+            total_time += request_time;
+
+            free_totals[req] = get_free_total();
+            double peak_size = 100 * script->peak_size;
+            utilation_percents[req] = peak_size /
+                                      ((byte_t *) heap_end - (byte_t *) heap_segment_start());
             req++;
         }
     }
     *success = true;
+    plot_utilization(utilation_percents, script->num_ops);
+    plot_free_totals(free_totals, script->num_ops);
+    plot_request_speed(times_per_request, script->num_ops);
+    printf("Average time (milliseconds) per request was %lfms.\n", total_time / script->num_ops);
+    free(utilation_percents);
+    free(free_totals);
+    free(times_per_request);
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
+}
+
+/* @brief time_request  a wrapper function for exec_request that allows us to time one request to
+ *                      the heap. Returns the time of the request in milliseconds.
+ * @param *script       the script object that holds data about our script we need to execute.
+ * @param req           the current request to the heap we execute.
+ * @param *cur_size     the current size of the heap.
+ * @param **heap_end    the address of the end of our range of heap memory.
+ * @return              the double representing the time to complete one request.
+ */
+static double time_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
+    clock_t request_start = 0;
+    clock_t request_end = 0;
+    request_start = clock();
+    if (exec_request(script, req, cur_size, heap_end) == -1) {
+        return -1.0;
+    }
+    request_end = clock();
+    return (((double) (request_end - request_start)) / CLOCKS_PER_SEC) * 1000;
 }
 
 /* @brief validate_intervals  checks the array of line intervals the user wants timed for validity.

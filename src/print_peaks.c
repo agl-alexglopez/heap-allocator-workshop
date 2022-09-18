@@ -41,8 +41,6 @@ int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints
                 print_style style);
 static size_t print_allocator(script_t *script, bool *success,
                               breakpoint breakpoints[], int num_breakpoints, print_style style);
-static void plot_free_totals(size_t free_totals[], int num_free_totals);
-static void plot_utilization(double *utilization_percents, int num_utilizations);
 static int handle_user_input(int num_breakpoints);
 static void validate_breakpoints(script_t *script, breakpoint breakpoints[], int num_breakpoints);
 static int cmp_breakpoints(const void *a, const void *b);
@@ -246,67 +244,6 @@ static size_t print_allocator(script_t *script, bool *success,
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }
 
-/* @brief plot_free_totals  plots the number of free nodes over the course of the heaps lifetime.
- *                          By default it will print an ascii graph to the terminal. Can be edited
- *                          or adapted to output to popup window. Requires gnuplot.
- * @param *free_totals     the number of total free nodes after each line of script executes.
- * @param num_free_totals   size of the array of totals equal to number of lines in script.
- */
-static void plot_free_totals(size_t *free_totals, int num_free_totals) {
-
-    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
-
-                         // Comment this line out if you want output to window that looks better.
-    fprintf(gnuplotPipe, "set terminal dumb ansirgb;"
-                         // This helps with compatibility on dumb terminals.
-                         "set colorsequence classic;"
-                         // I don't want to manage window dimensions, let gnuplot do it.
-                         "set autoscale;"
-                         // Sits above the graph.
-                         "set title 'Number of Free Nodes over Heap Lifetime';"
-                         // Makes it clear x label number corresponds to script lines=lifetime.
-                         "set xlabel 'Script Line Number';"
-                         // '-' and notitle prevents title inside graph. 'with lines' makes the
-                         // points astericks. 'linespoints <INTEGER>' can set different pointstyles
-                         "plot '-' pt '#' lc rgb 'red' notitle\n");
-
-    for (int req = 0; req < num_free_totals; req++) {
-        fprintf(gnuplotPipe, "%d %zu \n", req + 1, free_totals[req]);
-    }
-
-    fprintf(gnuplotPipe, "e\n");
-    pclose(gnuplotPipe);
-}
-
-/* @brief plot_utilization     plots the utilization of the heap over its lifetime as a percentage.
- * @param *utilation_percents  the mallocd array of percentages.
- * @param num_utilizations     the size of the array.
- */
-static void plot_utilization(double *utilization_percents, int num_utilizations) {
-
-    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
-
-                         // Comment this line out if you want output to window that looks better.
-    fprintf(gnuplotPipe, "set terminal dumb ansirgb;"
-                         // This helps with compatibility on dumb terminals.
-                         "set colorsequence classic;"
-                         // I don't want to manage window dimensions, let gnuplot do it.
-                         "set autoscale;"
-                         // Sits above the graph.
-                         "set title 'Utilization %% over Heap Lifetime';"
-                         // Makes it clear x label number corresponds to script lines=lifetime.
-                         "set xlabel 'Script Line Number';"
-                         // '-' and notitle prevents title inside graph. 'with lines' makes the
-                         // points astericks. 'linespoints <INTEGER>' can set different pointstyles
-                         "plot '-' pt '#' lc rgb 'green' notitle\n");
-
-    for (int req = 0; req < num_utilizations; req++) {
-        fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_percents[req]);
-    }
-
-    fprintf(gnuplotPipe, "e\n");
-    pclose(gnuplotPipe);
-}
 
 /* @brief handle_user_input  interacts with the user regarding the breakpoints they have requested.
  *                           and will step with the user through their requests and print nodes.

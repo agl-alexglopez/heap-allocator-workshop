@@ -279,3 +279,96 @@ void allocator_error(script_t *script, int lineno, char* format, ...) {
     fprintf(stdout,"\n");
 }
 
+
+/* * * * * * * * * * * * * *  Plot Desired Information about Allocator  * * * * * * * * */
+
+
+/* @brief plot_free_totals     plots number of free nodes over the course of the heaps lifetime.
+ *                             By default prints an ascii graph to the terminal. Can be edited
+ *                             or adapted to output to popup window. Requires gnuplot.
+ * @param *totals_per_request  the number of total free nodes after each line of script executes.
+ * @param num_requests         size of the array of totals equal to number of lines in script.
+ */
+void plot_free_totals(size_t *totals_per_request, int num_requests) {
+    printf("Gnuplot is working. This may take a moment for large data sets...\n");
+    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+
+                         // Comment this line out if you want output to window that looks better.
+    fprintf(gnuplotPipe, "set terminal dumb ansirgb;"
+                         // This helps with compatibility on dumb terminals.
+                         "set colorsequence classic;"
+                         // I don't want to manage window dimensions, let gnuplot do it.
+                         "set autoscale;"
+                         // Sits above the graph.
+                         "set title 'Number of Free Nodes over Heap Lifetime';"
+                         // Makes it clear x label number corresponds to script lines=lifetime.
+                         "set xlabel 'Script Line Number';"
+                         // '-'/notitle prevents title inside graph. Set the point to desired char.
+                         "plot '-' pt '#' lc rgb 'red' notitle\n");
+
+    for (int req = 0; req < num_requests; req++) {
+        fprintf(gnuplotPipe, "%d %zu \n", req + 1, totals_per_request[req]);
+    }
+
+    fprintf(gnuplotPipe, "e\n");
+    pclose(gnuplotPipe);
+}
+
+/* @brief plot_utilization          plots the utilization of the heap over its lifetime as a percentage.
+ * @param *utilization_per_request  the mallocd array of percentages.
+ * @param num_requests              the size of the array.
+ */
+void plot_utilization(double *utilization_per_request, int num_requests) {
+    printf("Gnuplot is working. This may take a moment for large data sets...\n");
+    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+
+                         // Comment this line out if you want output to window that looks better.
+    fprintf(gnuplotPipe, "set terminal dumb ansirgb;"
+                         // This helps with compatibility on dumb terminals.
+                         "set colorsequence classic;"
+                         // I don't want to manage window dimensions, let gnuplot do it.
+                         "set autoscale;"
+                         // Sits above the graph.
+                         "set title 'Utilization %% over Heap Lifetime';"
+                         // Makes it clear x label number corresponds to script lines=lifetime.
+                         "set xlabel 'Script Line Number';"
+                         // '-'/notitle prevents title inside graph. Set the point to desired char.
+                         "plot '-' pt '#' lc rgb 'green' notitle\n");
+
+    for (int req = 0; req < num_requests; req++) {
+        fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_per_request[req]);
+    }
+
+    fprintf(gnuplotPipe, "e\n");
+    pclose(gnuplotPipe);
+}
+
+/* @brief plot_request_speed  plots the time to service heap requests over heap lifetime.
+ * @param *time_per_request   the mallocd array of time measurements.
+ * @param num_requests        the number of requests in the script corresponding to measurements.
+ */
+void plot_request_speed(double *time_per_request, int num_requests) {
+    printf("Gnuplot is working. This may take a moment for large data sets...\n");
+    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+
+                         // Comment this line out if you want output to window that looks better.
+    fprintf(gnuplotPipe, "set terminal dumb ansirgb;"
+                         // This helps with compatibility on dumb terminals.
+                         "set colorsequence classic;"
+                         // I don't want to manage window dimensions, let gnuplot do it.
+                         "set autoscale;"
+                         // Sits above the graph.
+                         "set title 'Time (milliseconds) to Service Heap Request';"
+                         // Makes it clear x label number corresponds to script lines=lifetime.
+                         "set xlabel 'Script Line Number';"
+                         // '-'/notitle prevents title inside graph. Set the point to desired char.
+                         "plot '-' pt '#' lc rgb 'cyan' notitle\n");
+
+    for (int req = 0; req < num_requests; req++) {
+        fprintf(gnuplotPipe, "%d %lf \n", req + 1, time_per_request[req]);
+    }
+
+    fprintf(gnuplotPipe, "e\n");
+    pclose(gnuplotPipe);
+
+}
