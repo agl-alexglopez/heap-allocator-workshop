@@ -34,7 +34,6 @@ typedef unsigned char byte_t;
 #define MAX_BREAKPOINTS (unsigned short) 100
 const long HEAP_SIZE = 1L << 32;
 
-
 /* FUNCTION PROTOTYPES */
 
 
@@ -186,7 +185,6 @@ static size_t print_allocator(script_t *script, bool *success,
 
         // We will plot this at the end of program execution.
         free_totals[req] = total_free_nodes;
-
         // Avoid a loss of precision while tracking the utilization over heap lifetime.
         double peak_size = 100 * script->peak_size;
         utilation_percents[req] = peak_size /
@@ -259,7 +257,9 @@ static void plot_free_totals(size_t *free_totals, int num_free_totals) {
     FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
 
                          // Comment this line out if you want output to window that looks better.
-    fprintf(gnuplotPipe, "set terminal dumb;"
+    fprintf(gnuplotPipe, "set terminal dumb ansirgb;"
+                         // This helps with compatibility on dumb terminals.
+                         "set colorsequence classic;"
                          // I don't want to manage window dimensions, let gnuplot do it.
                          "set autoscale;"
                          // Sits above the graph.
@@ -268,7 +268,7 @@ static void plot_free_totals(size_t *free_totals, int num_free_totals) {
                          "set xlabel 'Script Line Number';"
                          // '-' and notitle prevents title inside graph. 'with lines' makes the
                          // points astericks. 'linespoints <INTEGER>' can set different pointstyles
-                         "plot '-' with lines notitle\n");
+                         "plot '-' pt '#' lc rgb 'red' notitle\n");
 
     for (int req = 0; req < num_free_totals; req++) {
         fprintf(gnuplotPipe, "%d %zu \n", req + 1, free_totals[req]);
@@ -287,7 +287,9 @@ static void plot_utilization(double *utilization_percents, int num_utilizations)
     FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
 
                          // Comment this line out if you want output to window that looks better.
-    fprintf(gnuplotPipe, "set terminal dumb;"
+    fprintf(gnuplotPipe, "set terminal dumb ansirgb;"
+                         // This helps with compatibility on dumb terminals.
+                         "set colorsequence classic;"
                          // I don't want to manage window dimensions, let gnuplot do it.
                          "set autoscale;"
                          // Sits above the graph.
@@ -296,7 +298,7 @@ static void plot_utilization(double *utilization_percents, int num_utilizations)
                          "set xlabel 'Script Line Number';"
                          // '-' and notitle prevents title inside graph. 'with lines' makes the
                          // points astericks. 'linespoints <INTEGER>' can set different pointstyles
-                         "plot '-' with lines notitle\n");
+                         "plot '-' pt '#' lc rgb 'green' notitle\n");
 
     for (int req = 0; req < num_utilizations; req++) {
         fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_percents[req]);

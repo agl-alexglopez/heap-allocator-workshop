@@ -6,7 +6,7 @@ OBJ := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o,$(SRC))
 # They had us try different optimization levels here (-O0, -O2, etc).
 $(OBJDIR)/list_bestfit.o: CFLAGS += -O3
 $(OBJDIR)/list_addressorder.o: CFLAGS += -O3
-$(OBJDIR)/rbtree_clrs.o: CFLAGS += -Og
+$(OBJDIR)/rbtree_clrs.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_unified.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_linked.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_stack.o: CFLAGS += -O3

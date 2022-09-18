@@ -1087,20 +1087,6 @@ bool validate_heap() {
 /* * * * * * * * * * *   Static Printing Helpers   * * * * * * * * * * * * * */
 
 
-// Text coloring macros (ANSI character escapes)
-#define COLOR_BLK "\033[34;1m"
-#define COLOR_RED "\033[31;1m"
-#define COLOR_CYN "\033[36;1m"
-#define COLOR_GRN "\033[32;1m"
-#define COLOR_NIL "\033[0m"
-#define COLOR_ERR COLOR_RED "Error: " COLOR_NIL
-#define PRINTER_INDENT (short)13
-
-typedef enum print_link {
-    BRANCH = 0, // ├──
-    LEAF = 1    // └──
-}print_link;
-
 /* @brief print_node  prints an individual node in its color and status as left or right child.
  * @param *root       the root we will print with the appropriate info.
  */
