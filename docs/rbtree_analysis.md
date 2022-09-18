@@ -37,7 +37,29 @@ Here are the key details from the above graph.
 - As the number of free blocks grows in size the list becomes increasingly impractical taking over a minute to cycle through all requests at the peak of requests.
 - The tree implementation is hardly measureable in comparison to the list. Not only do we never exceed one second to service any number of requests on this chart, but also the time scale of seconds is not informative.
 
-So, for further analysis of our tree implementations, we need to reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree allocators.
+For a further explanation of why we see such a drastic performance difference we can look at the time another way. I added monitoring to the `time_harness.c` program that will use Gnuplot to output information about heap allocator performance. We can observe the number of free nodes the allocator had to manage and also the time it takes to complete a single request. Observe the relationship between request speed and free nodes in the list based allocator.
+
+![list-time-per-request](/images/list-time-per-request.png)
+
+*Pictured Above: Two graphs. The top represents the number of free nodes over a script's lifetime and the bottom represents the time to complete a single request over the script's lifetime.*
+
+Here are the key details from the above graphs.
+
+- We can clearly observe that as the number of free nodes grows our time to complete a request grows linearly with it.
+- This is the most direct representation I can show of the O(N) time it takes for a list based allocator to operate on a single request.
+- Keep note of the y axis when we compare this to our tree allocator and how the timescale changes.
+
+Now let's see how the same script operates with a tree based allocator. We will compare it to our naive implementation of the standard CLRS implementation without any additional optimizations that later allocators include.
+
+![rb-time-per-request](/images/rb-time-per-request.png)
+
+Here are the key details of the above graphs.
+
+- The time to complete a request is relatively unphased by the growth of the red black tree of free nodes. In such a crude graph to small changes in time are hard to observe.
+- This is what an O(lgN) runtime gets us in terms of how consistently fast it can operate on the tree.
+- We have dropped to a maximum observable request time of just under 0.3 milliseconds compared to 20 milliseconds in a list allocator.
+
+So, for further analysis of our tree implementations, we need to reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree allocators. We will no longer include the list allocator in further comparisons as that is not productive.
 
 ## Testing Methodology
 
