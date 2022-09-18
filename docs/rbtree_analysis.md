@@ -53,6 +53,8 @@ Now let's see how the same script operates with a tree based allocator. We will 
 
 ![rb-time-per-request](/images/rb-time-per-request.png)
 
+*Pictured Above: Two graphs. The top represents the number of free nodes over a script's lifetime and the bottom represents the time to complete a single request over the script's lifetime.*
+
 Here are the key details of the above graphs.
 
 - The time to complete a request is relatively unphased by the growth of the red black tree of free nodes. In such a crude graph to small changes in time are hard to observe.
