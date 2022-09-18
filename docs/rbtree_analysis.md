@@ -57,7 +57,7 @@ Now let's see how the same script operates with a tree based allocator. We will 
 
 Here are the key details of the above graphs.
 
-- The time to complete a request is relatively unphased by the growth of the red black tree of free nodes. In such a crude graph to small changes in time are hard to observe.
+- The time to complete a request is relatively unphased by the growth of the red black tree of free nodes. In such a crude graph, small changes in time are hard to observe.
 - This is what an O(lgN) runtime gets us in terms of how consistently fast it can operate on the tree.
 - We have dropped to a maximum observable request time of just under 0.3 milliseconds compared to 20 milliseconds in a list allocator.
 
@@ -83,22 +83,18 @@ Instead, we will allocate 2N blocks of memory and then call `free()` on every ot
 The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
 
 ```bash
- ./obj/time_rbtree_clrs -s 10001 -e 20000 scripts/time-05kinsertdelete.script
+ ./obj/time_rbtree_clrs -s 300000 -e 400000 scripts/time-insertdelete-100k.script
 ```
 
 - The above command is for timing five thousand insertions, `free()`, and five thousand removals, `malloc()`, from our tree.
 - Notice that we use the `-s` flag to start timing on a line number and the `-e` flag to end our timer.
 - We also must start our timer after ten thousand `malloc()` requests to set up a scenario where we can insert five thousand nodes into the tree.
 - This program can time multiple sections of a script as long as they do not overlap and will output the timing result of all requested sections.
+- We will get a helpful graphs that highlight key statistics about the heap as well.
 
 We would then get output such as the following.
 
-```output
-Evaluating allocator on time-05kinsertdelete.script...
-Execution time for script lines 10001-20000 (seconds): 0.000760
-...successfully serviced 30000 requests. (payload/segment = 2514877/2969215)
-Utilization averaged 84%
-```
+![time-harness-output](/images/time-harness-output.png)
 
 For more details about how the timing functions work or how the program parses arguments please see the code.
 
