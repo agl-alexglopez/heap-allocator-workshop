@@ -15,6 +15,7 @@
  * debug while in gdb.
  */
 #include <assert.h>
+#include <errno.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -41,8 +42,12 @@ int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints
                 print_style style);
 static size_t print_allocator(script_t *script, bool *success,
                               breakpoint breakpoints[], int num_breakpoints, print_style style);
-static int handle_user_input(int num_breakpoints);
+static void handle_user_breakpoints(breakpoint *breakpoints[], int *num_breakpoints,
+                                    int script_end);
+static int get_user_int(int min, int max);
 static void validate_breakpoints(script_t *script, breakpoint breakpoints[], int num_breakpoints);
+static void binsert(const void *key, void *base, int *p_nelem, size_t width,
+                    int (*compar)(const void *, const void *));
 static int cmp_breakpoints(const void *a, const void *b);
 
 
@@ -173,7 +178,6 @@ static size_t print_allocator(script_t *script, bool *success,
     int peak_free_nodes_request = 0;
     size_t peak_free_node_count = 0;
     for (int req = 0; req < script->num_ops; req++) {
-
         if (exec_request(script, req, &cur_size, &heap_end) == -1) {
             return -1;
         }
@@ -195,8 +199,9 @@ static size_t print_allocator(script_t *script, bool *success,
             printf("\n");
             printf("There are %zu free nodes after executing command on line %d :\n",
                     get_free_total(), req + 1);
-            num_breakpoints = handle_user_input(num_breakpoints);
-            breakpoints++;
+
+            // The user may enter more breakpoints so we give address of array and num to change.
+            handle_user_breakpoints(&breakpoints, &num_breakpoints, script->num_ops);
         }
 
         if (total_free_nodes > peak_free_node_count) {
@@ -218,7 +223,6 @@ static size_t print_allocator(script_t *script, bool *success,
     heap_end = heap_segment_start();
     cur_size = 0;
 
-
     for (int req = 0; req < script->num_ops; req++) {
         // execute the request
         if (exec_request(script, req, &cur_size, &heap_end) == -1) {
@@ -235,46 +239,58 @@ static size_t print_allocator(script_t *script, bool *success,
         }
     }
     *success = true;
-
     plot_free_totals(free_totals, script->num_ops);
     plot_utilization(utilation_percents, script->num_ops);
     free(free_totals);
     free(utilation_percents);
-
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }
 
 
-/* @brief handle_user_input  interacts with the user regarding the breakpoints they have requested.
- *                           and will step with the user through their requests and print nodes.
- *                           The user may continue to next breakpoint or skip remaining.
- * @param num_breakpoints    the number of breakpoints we have remaining from the user.
- * @return                   the current number of breakpoints after advancing user request.
+/* @brief handle_user_breakpoints  interacts with user regarding breakpoints they have requested.
+ *                                 and will step with the user through requests and print nodes.
+ *                                 The user may continue to next breakpoint, add another
+ *                                 breakpoint, or skip remaining.
+ * @param num_breakpoints          the number of breakpoints we have remaining from the user.
+ * @return                         the current number of breakpoints after advancing user request.
  */
-static int handle_user_input(int num_breakpoints) {
+static void handle_user_breakpoints(breakpoint *breakpoints[], int *num_breakpoints, int max) {
     // We have just hit a requested breakpoint so we decrement, invariant.
-    num_breakpoints--;
+    int min = *breakpoints[0] + 1;
+    ++*breakpoints;
+    --*num_breakpoints;
     while (true) {
         int c;
         if (num_breakpoints) {
-            fputs("Enter the character <C> to continue to next breakpoint or <ENTER> to exit: ",
-                    stdout);
+            fputs("Enter the character <C> to continue to next breakpoint.\n"
+                  "Enter the character <B> to add a new breakpoints.\n"
+                  "Enter <ENTER> to exit: ", stdout);
         } else {
-            fputs("No breakpoints remain. Press <ENTER> to continue: ", stdout);
+            fputs("No breakpoints remain."
+                  "Enter the character <B> to add a new breakpoints.\n"
+                  "Enter <ENTER> to exit: ", stdout);
         }
         c = getchar();
 
         // User generated end of file or hit ENTER. We won't look at anymore breakpoints.
         if (c == EOF || c == '\n') {
-            num_breakpoints = 0;
+            *num_breakpoints = 0;
             break;
         }
 
-        if (c > 'C' || c < 'C') {
+        if (c < 'B' || c > 'C') {
             fprintf(stderr, "  ERROR: You entered: '%c'\n", c);
             // Clear out the input so they can try again.
             while ((c = getchar()) != '\n' && c != EOF) {
             }
+        } else if (c == 'B') {
+            while ((c = getchar()) != '\n' && c != EOF) {
+            }
+            int new_breakpoint = get_user_int(min, max);
+
+            // We will insert the new breakpoint but also do nothing if it is already there.
+            binsert(&new_breakpoint, *breakpoints, num_breakpoints,
+                    sizeof(breakpoint), cmp_breakpoints);
         } else {
             // We have the right input but we will double check for extra chars to be safe.
             while ((c = getchar()) != '\n' && c != EOF) {
@@ -283,7 +299,49 @@ static int handle_user_input(int num_breakpoints) {
         }
 
     }
-    return num_breakpoints;
+}
+
+/* @breif get_user_int  retreives an int from the user if they wish to add another breakpoint.
+ * @param min           the lower range allowable for the int.
+ * @param max           the upper range for the int.
+ * @return              the valid integer entered by the user.
+ */
+static int get_user_int(int min, int max) {
+    char *buff = malloc(sizeof(char) * 9);
+    memset(buff, 0, 9);
+    char *input = NULL;
+    int input_int = 0;
+    while(input == NULL) {
+        fputs("Enter the new script line breakpoint: ", stdout);
+        input = fgets(buff, 9, stdin);
+
+        if (buff[strlen(input) - 1] != '\n') {
+            fprintf(stderr, " ERROR: Breakpoint out of script range %d-%d.\n", min, max);
+            for (char c = 0; (c = getchar()) != '\n' && c != EOF;) {
+            }
+            input = NULL;
+            continue;
+        }
+
+        errno = 0;
+        char *endptr = NULL;
+        input_int = strtol(input, &endptr, 10) - 1;
+
+        if (input == endptr) {
+            input[strcspn(input, "\n")] = 0;
+            printf(" ERROR: Invalid integer input: %s\n", input);
+            input = NULL;
+        } else if (errno != 0) {
+            fprintf(stderr, " ERROR: Not and integer.\n");
+            input = NULL;
+        } else if (input_int < min || input_int > max) {
+            fprintf(stderr, " ERROR: Breakpoint out of script range %d-%d.\n", min, max);
+            input = NULL;
+        }
+    }
+    free(buff);
+    return input_int;
+
 }
 
 /* @brief validate_breakpoints  checks any requested breakpoints to make sure they are in range.
@@ -303,6 +361,41 @@ static void validate_breakpoints(script_t *script, breakpoint breakpoints[], int
             abort();
         }
     }
+}
+
+/* @brief *binsert  performs binary insertion sort on an array, finding an element if it already
+ *                  present or inserting it in sorted place if it not yet present. It will update
+ *                  the size of the array if it inserts an element.
+ * -----------------------------------------------------------------------------
+ * @param *key      the element we are searching for in the array.
+ * @param *p_nelem  the number of elements present in the array.
+ * @param width     the size in bytes of each entry in the array.
+ * @param *compar   the comparison function used to determine if an element matches our key.
+ * @warning         this function will update the array size as an output parameter and assumes the
+ *                  user has provided enough space for one additional element in the array.
+ */
+static void binsert(const void *key, void *base, int *p_nelem, size_t width,
+                    int (*compar)(const void *, const void *)) {
+    // We will use the address at the end of the array to help move bytes if we don't find elem.
+    void *end = (byte_t *)base + (*p_nelem * width);
+    for (size_t nremain = *p_nelem; nremain != 0; nremain >>= 1) {
+        void *elem = (byte_t *)base + (nremain >> 1) * width;
+        int sign = compar(key, elem);
+        if (sign == 0) {
+            return;
+        }
+        if (sign > 0) {  // key > elem
+            // base settles where key belongs if we cannot find it. Steps right in this case.
+            base = (byte_t *)elem + width;
+            nremain--;
+        }
+        // key < elem and the base does not move in this case.
+    }
+    // First move does nothing, 0bytes, if we are adding first elem or new greatest value.
+    memmove((byte_t *)base + width, base, (byte_t *)end - (byte_t *)base);
+    // Now, wherever the base settled is where our key belongs.
+    memcpy(base, key, width);
+    ++*p_nelem;
 }
 
 /* @brief cmp_breakpoints  the compare function for our breakpoint line numbers for qsort.

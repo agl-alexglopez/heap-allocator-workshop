@@ -83,7 +83,7 @@ Instead, we will allocate 2N blocks of memory and then call `free()` on every ot
 The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
 
 ```bash
- ./obj/time_rbtree_clrs -s 300000 -e 400000 scripts/time-insertdelete-100k.script
+ .././obj/time_rbtree_clrs -s 300000 -e 400000 ../scripts/time-insertdelete-100k.script
 ```
 
 - The above command is for timing five thousand insertions, `free()`, and five thousand removals, `malloc()`, from our tree.
