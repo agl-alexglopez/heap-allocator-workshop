@@ -65,6 +65,8 @@ What's even more impressive is what happens when we step up the number of free n
 
 ![rb-time-per-request-1m](/images/rb-time-per-request-1m.png)
 
+*Pictured Above: Two graphs. The top represents the number of free nodes over a script's lifetime and the bottom represents the time to complete a single request over the script's lifetime.*
+
 So, for further analysis of our tree implementations, we need to reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree allocators. We will no longer include the list allocator in further comparisons as that is not productive.
 
 ## Testing Methodology
@@ -123,6 +125,12 @@ Here are the key details from the above graph.
 Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_topdown` and `rbtree_stack`. The topdown approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implmentation seem the most pointless at this point if the same speed can be acheived with more space efficiency.
 
 Finally, the performance gap scales as a percentage, meaning we will remain over 50% faster when we manage duplicates to trim the tree even when we are dealing with millions of elements and our times have increased greatly. Managing duplicates in a linked list with only the use of one pointer is a worthwile optimization. Revisit any summary of the last three allocators if you want more details on how this optimization works.
+
+On a per request basis, we can observe the speedup in an allocator like `rbtree_linked`. Recall the earlier graph I showed of the CLRS implementation completing 1 million insertions and deletions from the tree. Here is the graph illustrating the speedup we gain with these optimizations. The times often fall too low to be consistently measurable and there is far less jumping up in time to complete a request.
+
+![rb-time-per-request-1m-linked](/images/rb-time-per-request-1m-linked.png)
+
+*Pictured Above: Two graphs. The top represents the number of free nodes over a script's lifetime and the bottom represents the time to complete a single request over the script's lifetime.*
 
 ## Coalescing
 
