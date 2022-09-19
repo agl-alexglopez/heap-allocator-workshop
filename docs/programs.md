@@ -60,9 +60,9 @@ The time it takes to make all of these allocations is also not of interest to us
  .././obj/time_rbtree_clrs -s 200000 -e 300000 -s 300001 ../scripts/time-insertdelete-100k.script
 ```
 
-- The above command is for timing 100 thousand insertions, `free()`, and 100000 thousand removals, `malloc()`, from our tree.
+- The above command is for timing one-hundred thousand insertions, `free()`, and one-hundred thousand removals, `malloc()`, from our tree.
 - Notice that we use the `-s` flag to start timing on a line number and the `-e` flag to end our timer.
-- We also must start our timer after ten thousand `malloc()` requests to set up a scenario where we can insert 100 thousand nodes into the tree.
+- We also must start our timer after two-hundred thousand `malloc()` requests to set up a scenario where we can insert one-hundred thousand nodes into the tree.
 - This program can time multiple sections of a script as long as they do not overlap and will output the timing result of all requested sections.
 - We will get a helpful graphs that highlight key statistics about the heap as well.
 
@@ -101,4 +101,14 @@ Here is the same command for a list based allocator. The list output is far less
   - `.././obj/print_peaks_list_bestfit -v ../scripts/pattern-mixed.script`
 - Add breakpoints corresponding to line numbers in the script. This will show you how many free nodes existed after that line executes. You will also enter an interactive terminal session. You can decide if you want to continue to the next breakpoint, add a new future breakpoint, or continue to the end of the program execution. Be sure to follow the prompt directions.
   - `.././obj/print_peaks_list_bestfit -v -b 100 -b 200 -b 450 ../scripts/pattern-mixed.script`
+
+## My Optional Program
+
+This was a program we created to test our heap allocators in a more "real" context. Ideally we would take a previous program that utilized the heap and exchange all standard library heap calls and replace them with our own, along with a few other steps such as initializing our heap segment. I left the program I tested with, a simple text parsing program, but you could replace this with anything you would like. Just use my heap allocator as the backing for it.
+
+### How to Use My Optional Program
+
+This is up to you. Design whatever program you would like.
+
+## Python Script Generation
 
