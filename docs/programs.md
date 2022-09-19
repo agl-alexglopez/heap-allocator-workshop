@@ -93,6 +93,8 @@ Here is the same command for a list based allocator. The list output is far less
 
 ### How to Use Print Peaks
 
+- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `obj/` folder.
+  - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, `print_peaks_rbtree_stack`, `print_peaks_rbtree_topdown`, `print_peaks_list_bestfit`, `print_peaks_list_addressorder`
 - Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
   - `.././obj/print_peaks_list_bestfit ../scripts/pattern-mixed.script`
 - Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and black heights for the tree allocators. This is the printer I used because I needed to see memory addresses to better understand where errors were occuring. Verbose should always be the first argument if it will be included.
