@@ -17,4 +17,5 @@ Reallocation and coelescing pattern:
 python3 parsing.py -generate parsed-scripts\time-100kinsertdelete.script '-alloc(1,500)' 200000 -free 100000 '-alloc(1,500)' 100000
 py parsing.py -generate parsed-scripts/time-reallocfree-100k.script '-alloc(1,500)' 200000 -free 100000 '-realloc(200,1000)' 100000)
 
+python3 parsing.py -generate parsed-scripts/time-insertdelete-1m.script '-alloc(1,200)' 2000000 -free 1000000 '-alloc(1,200)' 1000000
 

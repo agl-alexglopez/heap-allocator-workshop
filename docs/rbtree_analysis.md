@@ -61,6 +61,10 @@ Here are the key details of the above graphs.
 - This is what an O(lgN) runtime gets us in terms of how consistently fast it can operate on the tree.
 - We have dropped to a maximum observable request time of just under 0.3 milliseconds compared to 20 milliseconds in a list allocator.
 
+What's even more impressive is what happens when we step up the number of free nodes in the tree to 1 million nodes. The measurements remain consistently low. Remember this is also the naive implementation of a Red Black Tree from CLRS. Later optimizations in allocator implementations produce even tighter bounds on the worst case performance showcasing an impressively low time per request, consistently.
+
+![rb-time-per-request-1m](/images/rb-time-per-request-1m.png)
+
 So, for further analysis of our tree implementations, we need to reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree allocators. We will no longer include the list allocator in further comparisons as that is not productive.
 
 ## Testing Methodology
