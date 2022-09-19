@@ -188,8 +188,6 @@ static size_t time_allocator(script_t *script, bool *success,
     assert(times_per_request);
 
     int req = 0;
-    // We will report an average per request at the end of execution.
-    double total_time = 0;
     while (req < script->num_ops) {
         if (num_intervals && intervals[0].start_req == req) {
             interval_t sect = intervals[0];
@@ -202,7 +200,6 @@ static size_t time_allocator(script_t *script, bool *success,
 
                 double request_time = time_request(script, req, &cur_size, &heap_end);
                 times_per_request[req] = request_time;
-                total_time += request_time;
 
                 free_totals[req] = get_free_total();
                 double peak_size = 100 * script->peak_size;
@@ -220,7 +217,6 @@ static size_t time_allocator(script_t *script, bool *success,
         } else {
             double request_time = time_request(script, req, &cur_size, &heap_end);
             times_per_request[req] = request_time;
-            total_time += request_time;
 
             free_totals[req] = get_free_total();
             double peak_size = 100 * script->peak_size;
@@ -233,7 +229,6 @@ static size_t time_allocator(script_t *script, bool *success,
     plot_utilization(utilation_percents, script->num_ops);
     plot_free_totals(free_totals, script->num_ops);
     plot_request_speed(times_per_request, script->num_ops);
-    printf("Average time (milliseconds) per request was %lfms.\n", total_time / script->num_ops);
     free(utilation_percents);
     free(free_totals);
     free(times_per_request);

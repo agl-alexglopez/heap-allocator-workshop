@@ -305,13 +305,15 @@ void plot_free_totals(size_t *totals_per_request, int num_requests) {
                          "set xlabel 'Script Line Number';"
                          // '-'/notitle prevents title inside graph. Set the point to desired char.
                          "plot '-' pt '#' lc rgb 'red' notitle\n");
-
+    int total_frees = 0;
     for (int req = 0; req < num_requests; req++) {
+        total_frees += totals_per_request[req];
         fprintf(gnuplotPipe, "%d %zu \n", req + 1, totals_per_request[req]);
     }
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
+    printf("Average free nodes was %d.\n", total_frees / num_requests);
 }
 
 /* @brief plot_utilization          plots the utilization of the heap over its lifetime as a percentage.
@@ -335,12 +337,15 @@ void plot_utilization(double *utilization_per_request, int num_requests) {
                          // '-'/notitle prevents title inside graph. Set the point to desired char.
                          "plot '-' pt '#' lc rgb 'green' notitle\n");
 
+    double total = 0;
     for (int req = 0; req < num_requests; req++) {
+        total += utilization_per_request[req];
         fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_per_request[req]);
     }
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
+    printf("Average utilization was %.2f%%\n", total / num_requests);
 }
 
 /* @brief plot_request_speed  plots the time to service heap requests over heap lifetime.
@@ -364,11 +369,13 @@ void plot_request_speed(double *time_per_request, int num_requests) {
                          // '-'/notitle prevents title inside graph. Set the point to desired char.
                          "plot '-' pt '#' lc rgb 'cyan' notitle\n");
 
+    double total_time = 0;
     for (int req = 0; req < num_requests; req++) {
+        total_time += time_per_request[req];
         fprintf(gnuplotPipe, "%d %lf \n", req + 1, time_per_request[req]);
     }
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-
+    printf("Average time (milliseconds) per request was %lfms.\n", total_time / num_requests);
 }
