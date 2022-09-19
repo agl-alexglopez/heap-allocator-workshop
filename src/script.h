@@ -50,6 +50,16 @@ typedef struct {
  */
 int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end);
 
+/* @brief time_request  a wrapper function for exec_request that allows us to time one request to
+ *                      the heap. Returns the time of the request in milliseconds.
+ * @param *script       the script object that holds data about our script we need to execute.
+ * @param req           the current request to the heap we execute.
+ * @param *cur_size     the current size of the heap.
+ * @param **heap_end    the address of the end of our range of heap memory.
+ * @return              the double representing the time to complete one request.
+ */
+double time_request(script_t *script, int req, size_t *cur_size, void **heap_end);
+
 /* @breif parse_script  parses the script file at the specified path, and returns an object with
  *                      info about it.  It expects one request per line, and adds each request's
  *                      information to the ops array within the script.  This function throws an

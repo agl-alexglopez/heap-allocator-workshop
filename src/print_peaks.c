@@ -109,11 +109,8 @@ int main(int argc, char *argv[]) {
  */
 int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints,
                 print_style style) {
-    int nsuccesses = 0;
     int nfailures = 0;
 
-    // Utilization summed across all successful script runs (each is % out of 100)
-    int total_util = 0;
 
     script_t script = parse_script(script_name);
     validate_breakpoints(&script, breakpoints, num_breakpoints);
@@ -125,12 +122,8 @@ int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints
     // We will bring back useful utilization info while we time.
     size_t used_segment = print_allocator(&script, &success, breakpoints, num_breakpoints, style);
     if (success) {
-        printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)",
+        printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
             script.num_ops, script.peak_size, used_segment);
-        if (used_segment > 0) {
-            total_util += (100 * script.peak_size) / used_segment;
-        }
-        nsuccesses++;
     } else {
         nfailures++;
     }
@@ -138,9 +131,7 @@ int print_peaks(char *script_name, breakpoint breakpoints[], int num_breakpoints
     free(script.ops);
     free(script.blocks);
 
-    if (nsuccesses) {
-        printf("\nUtilization averaged %d%%\n", total_util / nsuccesses);
-    }
+    printf("^^^Scroll up to see the free nodes organized in their data structure at peak size.^^^\n");
     return nfailures;
 }
 
@@ -174,13 +165,15 @@ static size_t print_allocator(script_t *script, bool *success,
     double *utilation_percents = malloc(sizeof(double) * script->num_ops);
     assert(utilation_percents);
 
+    double *time_per_request = malloc(sizeof(double) * script->num_ops);
+    assert(time_per_request);
+
     // Send each request to the heap allocator and track largest free node structure.
     int peak_free_nodes_request = 0;
     size_t peak_free_node_count = 0;
     for (int req = 0; req < script->num_ops; req++) {
-        if (exec_request(script, req, &cur_size, &heap_end) == -1) {
-            return -1;
-        }
+
+        time_per_request[req] = time_request(script, req, &cur_size, &heap_end);
 
         // I added this as an allocator.h function so all allocators can report free nodes.
         size_t total_free_nodes = get_free_total();
@@ -240,8 +233,10 @@ static size_t print_allocator(script_t *script, bool *success,
     }
     *success = true;
     plot_free_totals(free_totals, script->num_ops);
+    plot_request_speed(time_per_request, script->num_ops);
     plot_utilization(utilation_percents, script->num_ops);
     free(free_totals);
+    free(time_per_request);
     free(utilation_percents);
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }

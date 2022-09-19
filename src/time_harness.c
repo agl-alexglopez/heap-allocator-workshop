@@ -53,7 +53,6 @@ const long HEAP_SIZE = 1L << 32;
 static int time_script(char *script_name, interval_t intervals[], int num_intervals);
 static size_t time_allocator(script_t *script, bool *success,
                              interval_t intervals[], int num_intervals);
-static double time_request(script_t *script, int req, size_t *cur_size, void **heap_end);
 static void validate_intervals(script_t *script, interval_t intervals[], int num_intervals);
 
 
@@ -198,8 +197,7 @@ static size_t time_allocator(script_t *script, bool *success,
             // Increment the outer loops request variable--------v
             for (int s = sect.start_req; s < sect.end_req; s++, req++) {
 
-                double request_time = time_request(script, req, &cur_size, &heap_end);
-                times_per_request[req] = request_time;
+                times_per_request[req] = time_request(script, req, &cur_size, &heap_end);
 
                 free_totals[req] = get_free_total();
                 double peak_size = 100 * script->peak_size;
@@ -233,25 +231,6 @@ static size_t time_allocator(script_t *script, bool *success,
     free(free_totals);
     free(times_per_request);
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
-}
-
-/* @brief time_request  a wrapper function for exec_request that allows us to time one request to
- *                      the heap. Returns the time of the request in milliseconds.
- * @param *script       the script object that holds data about our script we need to execute.
- * @param req           the current request to the heap we execute.
- * @param *cur_size     the current size of the heap.
- * @param **heap_end    the address of the end of our range of heap memory.
- * @return              the double representing the time to complete one request.
- */
-static double time_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
-    clock_t request_start = 0;
-    clock_t request_end = 0;
-    request_start = clock();
-    if (exec_request(script, req, cur_size, heap_end) == -1) {
-        return -1.0;
-    }
-    request_end = clock();
-    return (((double) (request_end - request_start)) / CLOCKS_PER_SEC) * 1000;
 }
 
 /* @brief validate_intervals  checks the array of line intervals the user wants timed for validity.

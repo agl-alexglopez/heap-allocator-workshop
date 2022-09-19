@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include "allocator.h"
 #include "script.h"
 
@@ -264,6 +265,25 @@ int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
     return 0;
 }
 
+/* @brief time_request  a wrapper function for exec_request that allows us to time one request to
+ *                      the heap. Returns the time of the request in milliseconds.
+ * @param *script       the script object that holds data about our script we need to execute.
+ * @param req           the current request to the heap we execute.
+ * @param *cur_size     the current size of the heap.
+ * @param **heap_end    the address of the end of our range of heap memory.
+ * @return              the double representing the time to complete one request.
+ */
+double time_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
+    clock_t request_start = 0;
+    clock_t request_end = 0;
+    request_start = clock();
+    if (exec_request(script, req, cur_size, heap_end) == -1) {
+        abort();
+    }
+    request_end = clock();
+    return (((double) (request_end - request_start)) / CLOCKS_PER_SEC) * 1000;
+}
+
 /* @brief allocator_error  reports an error while running an allocator script.
  * @param *script          the script_t with information we track form the script file requests.
  * @param lineno           the line number where the error occured.
@@ -304,8 +324,8 @@ void plot_free_totals(size_t *totals_per_request, int num_requests) {
                          // Makes it clear x label number corresponds to script lines=lifetime.
                          "set xlabel 'Script Line Number';"
                          // '-'/notitle prevents title inside graph. Set the point to desired char.
-                         "plot '-' pt '#' lc rgb 'red' notitle\n");
-    int total_frees = 0;
+                         "plot '-' with points pt '#' lc rgb 'red' notitle\n");
+    double total_frees = 0;
     for (int req = 0; req < num_requests; req++) {
         total_frees += totals_per_request[req];
         fprintf(gnuplotPipe, "%d %zu \n", req + 1, totals_per_request[req]);
@@ -313,7 +333,7 @@ void plot_free_totals(size_t *totals_per_request, int num_requests) {
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-    printf("Average free nodes was %d.\n", total_frees / num_requests);
+    printf("Average free nodes: %.1lf.\n", total_frees / num_requests);
 }
 
 /* @brief plot_utilization          plots the utilization of the heap over its lifetime as a percentage.
@@ -345,7 +365,7 @@ void plot_utilization(double *utilization_per_request, int num_requests) {
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-    printf("Average utilization was %.2f%%\n", total / num_requests);
+    printf("Average utilization: %.2f%%\n", total / num_requests);
 }
 
 /* @brief plot_request_speed  plots the time to service heap requests over heap lifetime.
@@ -377,5 +397,6 @@ void plot_request_speed(double *time_per_request, int num_requests) {
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-    printf("Average time (milliseconds) per request was %lfms.\n", total_time / num_requests);
+    printf("Average time (milliseconds) per request: %lfms.\n", total_time / num_requests);
 }
+
