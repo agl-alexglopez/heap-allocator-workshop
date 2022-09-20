@@ -40,6 +40,16 @@ typedef struct {
     size_t peak_size;       // total payload bytes at peak in-use
 } script_t;
 
+// A struct for plotting helpful data about a heap run on a script.
+typedef struct {
+    // Arrays that should be malloc'd due to possible large scripts. Think 1million+ requests.
+    double *utilizations;   // Running utilization average.
+    size_t *free_totals;    // Running count of free nodes.
+    double *request_times;  // Running count of time per request.
+    // All arrays will have the same size as the number of script operations.
+    int num_ops;
+} gnuplots;
+
 /* @brief exec_request  a helper function to execute a single call to the heap allocator. It may
  *                      may call malloc(), realloc(), or free().
  * @param *script       the script_t with the information regarding the script file we execute.

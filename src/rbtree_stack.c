@@ -1303,6 +1303,8 @@ static void dump_tree() {
  *                          memory addresses and black heights of the tree.
  */
 void print_free_nodes(print_style style) {
+    printf(COLOR_CYN "(+X)" COLOR_NIL);
+    printf(" Indicates duplicate nodes in the tree linked by a doubly-linked list.\n");
     print_rb_tree(free_nodes.tree_root, style);
 }
 

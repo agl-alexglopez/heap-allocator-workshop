@@ -34,6 +34,8 @@
 /* TYPE DECLARATIONS */
 
 typedef unsigned char byte_t;
+// Create targeted scripts with intervals you want to time, no point in too many requests.
+#define MAX_TIMER_REQUESTS 100
 
 // Requests to the heap are zero indexed, but we can allow users to enter line no. then subtract 1.
 typedef struct {
@@ -41,8 +43,12 @@ typedef struct {
     int end_req;
 } interval_t;
 
-// Create targeted scripts with intervals you want to time, no point in too many requests.
-const short MAX_TIMER_REQUESTS = 100;
+typedef struct {
+    interval_t intervals[MAX_TIMER_REQUESTS];
+    double interval_averages[MAX_TIMER_REQUESTS];
+    int num_intervals;
+} interval_reqs;
+
 
 const long HEAP_SIZE = 1L << 32;
 
@@ -50,10 +56,11 @@ const long HEAP_SIZE = 1L << 32;
 /* FUNCTION PROTOTYPES */
 
 
-static int time_script(char *script_name, interval_t intervals[], int num_intervals);
+static int time_script(char *script_name, interval_reqs *user_requests);
 static size_t time_allocator(script_t *script, bool *success,
-                             interval_t intervals[], int num_intervals);
-static void validate_intervals(script_t *script, interval_t intervals[], int num_intervals);
+                             interval_reqs *user_requests, gnuplots *graphs);
+static void report_interval_averages(interval_reqs *user_requests);
+static void validate_intervals(script_t *script, interval_reqs *user_requests);
 
 
 /* TIME EVALUATION IMPLEMENTATION */
@@ -71,8 +78,7 @@ static void validate_intervals(script_t *script, interval_t intervals[], int num
  *              will be timed.
  */
 int main(int argc, char *argv[]) {
-    interval_t intervals[MAX_TIMER_REQUESTS];
-    int num_intervals = 0;
+    interval_reqs user_req = {0};
     // -s flag to start timer on line number, -e flag to end flag on line number.
     int opt = getopt(argc, argv, "s:");
     while (opt != -1) {
@@ -81,8 +87,8 @@ int main(int argc, char *argv[]) {
 
         // It's easier for the user to enter line numbers. We will convert to zero indexed request.
         interval.start_req = strtol(optarg, &ptr, 10) - 1;
-        if (num_intervals
-                && intervals[num_intervals - 1].end_req >= interval.start_req) {
+        if (user_req.num_intervals
+                && user_req.intervals[user_req.num_intervals - 1].end_req >= interval.start_req) {
             printf("Timing intervals can't overlap. Revisit script line ranges.\n");
             printf("Example of Bad Input Flags: -s 1 -e 5 -s 2\n");
             abort();
@@ -93,12 +99,12 @@ int main(int argc, char *argv[]) {
         if (opt != -1) {
             interval.end_req = strtol(optarg, &ptr, 10) - 1;
         }
-        intervals[num_intervals++] = interval;
+        user_req.intervals[user_req.num_intervals++] = interval;
         opt = getopt(argc, argv, "s:");
     }
     // We will default to timing the entire script if the user does not enter arguments.
-    if (num_intervals == 0) {
-        intervals[num_intervals++] = (interval_t){0};
+    if (user_req.num_intervals == 0) {
+        user_req.intervals[user_req.num_intervals++] = (interval_t){0};
     }
 
     if (optind >= argc) {
@@ -109,7 +115,7 @@ int main(int argc, char *argv[]) {
     // disable stdout buffering, all printfs display to terminal immediately
     setvbuf(stdout, NULL, _IONBF, 0);
 
-    return time_script(argv[optind], intervals, num_intervals);
+    return time_script(argv[optind], &user_req);
 }
 
 /* @brief time_script        completes a series of 1 or more time requests for a script file and
@@ -118,39 +124,43 @@ int main(int argc, char *argv[]) {
  * @param intervals[]    the array of line ranges to time.
  * @param num_intervals  the size of the array of lines to time.
  */
-static int time_script(char *script_name, interval_t intervals[], int num_intervals) {
-    int nsuccesses = 0;
+static int time_script(char *script_name, interval_reqs *user_requests) {
     int nfailures = 0;
 
-    // Utilization summed across all successful script runs (each is % out of 100)
-    int total_util = 0;
-
     script_t script = parse_script(script_name);
-    validate_intervals(&script, intervals, num_intervals);
+    validate_intervals(&script, user_requests);
 
+    // We will do some graphing with helpful info at the end of program execution.
+    gnuplots graphs = {.utilizations = NULL, .free_totals = NULL,
+                       .request_times = NULL, .num_ops = script.num_ops};
+    graphs.free_totals = malloc(sizeof(size_t) * script.num_ops);
+    assert(graphs.free_totals);
+    graphs.utilizations = malloc(sizeof(double) * script.num_ops);
+    assert(graphs.utilizations);
+    graphs.request_times = malloc(sizeof(double) * script.num_ops);
+    assert(graphs.request_times);
 
     // Evaluate this script and record the results
     printf("\nEvaluating allocator on %s...\n", script.name);
     bool success;
     // We will bring back useful utilization info while we time.
-    size_t used_segment = time_allocator(&script, &success, intervals, num_intervals);
+    size_t used_segment = time_allocator(&script, &success, user_requests, &graphs);
     if (success) {
-        printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)",
+        printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
             script.num_ops, script.peak_size, used_segment);
-        if (used_segment > 0) {
-            total_util += (100 * script.peak_size) / used_segment;
-        }
-        nsuccesses++;
     } else {
         nfailures++;
     }
 
+    plot_utilization(graphs.utilizations, graphs.num_ops);
+    plot_free_totals(graphs.free_totals, graphs.num_ops);
+    plot_request_speed(graphs.request_times, graphs.num_ops);
+    report_interval_averages(user_requests);
+    free(graphs.utilizations);
+    free(graphs.free_totals);
+    free(graphs.request_times);
     free(script.ops);
     free(script.blocks);
-
-    if (nsuccesses) {
-        printf("\nUtilization averaged %d%%\n", total_util / nsuccesses);
-    }
     return nfailures;
 }
 
@@ -162,7 +172,7 @@ static int time_script(char *script_name, interval_t intervals[], int num_interv
  * @return                the size of the heap overall.
  */
 static size_t time_allocator(script_t *script, bool *success,
-                             interval_t intervals[], int num_intervals) {
+                             interval_reqs *user_requests, gnuplots *graphs) {
     *success = false;
 
     init_heap_segment(HEAP_SIZE);
@@ -175,62 +185,58 @@ static size_t time_allocator(script_t *script, bool *success,
     void *heap_end = heap_segment_start();
     // Track the current amount of memory allocated on the heap
     size_t cur_size = 0;
-
-    // We will track the total free nodes over the course of the heap, and plot the data.
-    size_t *free_totals = malloc(sizeof(size_t) * script->num_ops);
-    assert(free_totals);
-    // We will also show a graph of utilization over the course of the heap.
-    double *utilation_percents = malloc(sizeof(double) * script->num_ops);
-    assert(utilation_percents);
-    // We will start a second clock within each request to see responsiveness of heap per request.
-    double *times_per_request = malloc(sizeof(double) * script->num_ops);
-    assert(times_per_request);
-
     int req = 0;
+    int current_interval = 0;
     while (req < script->num_ops) {
-        if (num_intervals && intervals[0].start_req == req) {
-            interval_t sect = intervals[0];
-            clock_t start = 0;
-            clock_t end = 0;
-            double cpu_time = 0;
-            start = clock();
+        if (current_interval < user_requests->num_intervals
+                && user_requests->intervals[current_interval].start_req == req) {
+
+            interval_t sect = user_requests->intervals[current_interval];
+            double total_request_time = 0;
             // Increment the outer loops request variable--------v
             for (int s = sect.start_req; s < sect.end_req; s++, req++) {
+                // A helpful utility function fromt the script.h lib helps time one request.
+                double request_time = time_request(script, req, &cur_size, &heap_end);
+                total_request_time += request_time;
+                graphs->request_times[req] = request_time;
 
-                times_per_request[req] = time_request(script, req, &cur_size, &heap_end);
-
-                free_totals[req] = get_free_total();
-                double peak_size = 100 * script->peak_size;
-                utilation_percents[req] = peak_size /
-                                          ((byte_t *) heap_end - (byte_t *) heap_segment_start());
+                graphs->free_totals[req] = get_free_total();
+                graphs->utilizations[req] = (100.0 * script->peak_size) /
+                                            ((byte_t *) heap_end - (byte_t *) heap_segment_start());
             }
-            end = clock();
-            cpu_time = (((double) (end - start)) / CLOCKS_PER_SEC) * 1000;
-            printf("Execution time for script lines %d-%d (milliseconds): %f\n",
-                    sect.start_req + 1, sect.end_req + 1, cpu_time);
 
+            printf("Execution time for script lines %d-%d (milliseconds): %f\n",
+                    sect.start_req + 1, sect.end_req + 1, total_request_time);
+
+            user_requests->interval_averages[current_interval] = total_request_time /
+                                                                 (sect.end_req - sect.start_req);
             // Advance array and decrement remaining intervals. No need for extra variables.
-            intervals++;
-            num_intervals--;
+            current_interval++;
         } else {
             double request_time = time_request(script, req, &cur_size, &heap_end);
-            times_per_request[req] = request_time;
+            graphs->request_times[req] = request_time;
 
-            free_totals[req] = get_free_total();
+            graphs->free_totals[req] = get_free_total();
             double peak_size = 100 * script->peak_size;
-            utilation_percents[req] = peak_size /
-                                      ((byte_t *) heap_end - (byte_t *) heap_segment_start());
+            graphs->utilizations[req] = peak_size /
+                                        ((byte_t *) heap_end - (byte_t *) heap_segment_start());
             req++;
         }
     }
     *success = true;
-    plot_utilization(utilation_percents, script->num_ops);
-    plot_free_totals(free_totals, script->num_ops);
-    plot_request_speed(times_per_request, script->num_ops);
-    free(utilation_percents);
-    free(free_totals);
-    free(times_per_request);
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
+}
+
+/* @brief report_interval_averages  prints the average time per request for a user requested
+ *                                  interval of line numbers.
+ * @param *user_requests            a pointer to the struct containing user interval information.
+ */
+static void report_interval_averages(interval_reqs *user_requests) {
+    for (int i = 0; i < user_requests->num_intervals; i++) {
+        printf("Average time (milliseconds) per request lines %d-%d: %lf\n",
+                user_requests->intervals[i].start_req + 1, user_requests->intervals[i].end_req + 1,
+                user_requests->interval_averages[i]);
+    }
 }
 
 /* @brief validate_intervals  checks the array of line intervals the user wants timed for validity.
@@ -239,19 +245,20 @@ static size_t time_allocator(script_t *script, bool *success,
  * @param intervals[]         the array of lines to time for the user. Check all O(N).
  * @param num_intervals       lenghth of the lines to time array.
  */
-static void validate_intervals(script_t *script, interval_t intervals[], int num_intervals) {
+static void validate_intervals(script_t *script, interval_reqs *user_requests) {
     // We can tidy up lazy user input by making sure the end of the time interval makes sense.
-    for (int req = 0; req < num_intervals; req++) {
+    for (int req = 0; req < user_requests->num_intervals; req++) {
         // If the start is too large, the user may have mistaken the file they wish to time.
-        if (script->num_ops - 1 < intervals[req].start_req) {
+        if (script->num_ops - 1 < user_requests->intervals[req].start_req) {
             printf("Interval start is outside of script range:\n");
-            printf("Interval start: %d\n", intervals[req].start_req);
+            printf("Interval start: %d\n", user_requests->intervals[req].start_req);
             printf("Script range: %d-%d\n", 1, script->num_ops);
             abort();
         }
         // Users might be familiar with python-like slices that take too large end ranges as valid.
-        if (script->num_ops - 1 < intervals[req].end_req || !intervals[req].end_req) {
-            intervals[req].end_req = script->num_ops - 1;
+        if (script->num_ops - 1 < user_requests->intervals[req].end_req
+                || !user_requests->intervals[req].end_req) {
+            user_requests->intervals[req].end_req = script->num_ops - 1;
         }
     }
 }

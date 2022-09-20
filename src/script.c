@@ -278,7 +278,8 @@ double time_request(script_t *script, int req, size_t *cur_size, void **heap_end
     clock_t request_end = 0;
     request_start = clock();
     if (exec_request(script, req, cur_size, heap_end) == -1) {
-        abort();
+        printf("Timer failed. Heap error, possible exhaustion.");
+        exit(1);
     }
     request_end = clock();
     return (((double) (request_end - request_start)) / CLOCKS_PER_SEC) * 1000;
@@ -333,7 +334,7 @@ void plot_free_totals(size_t *totals_per_request, int num_requests) {
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-    printf("Average free nodes: %.1lf.\n", total_frees / num_requests);
+    printf("Average free nodes: %.1lf\n", total_frees / num_requests);
 }
 
 /* @brief plot_utilization          plots the utilization of the heap over its lifetime as a percentage.
@@ -397,6 +398,6 @@ void plot_request_speed(double *time_per_request, int num_requests) {
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-    printf("Average time (milliseconds) per request: %lfms.\n", total_time / num_requests);
+    printf("Average time (milliseconds) per request overall: %lfms\n", total_time / num_requests);
 }
 
