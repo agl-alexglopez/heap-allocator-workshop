@@ -136,9 +136,7 @@ int print_peaks(char *script_name, user_breaks *user_reqs) {
         nfailures++;
     }
 
-    plot_free_totals(graphs.free_totals, script.num_ops);
-    plot_request_speed(graphs.request_times, script.num_ops);
-    plot_utilization(graphs.utilizations, script.num_ops);
+    print_gnuplots(&graphs);
     free(graphs.free_totals);
     free(graphs.request_times);
     free(graphs.utilizations);

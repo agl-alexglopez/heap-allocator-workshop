@@ -152,9 +152,7 @@ static int time_script(char *script_name, interval_reqs *user_requests) {
         nfailures++;
     }
 
-    plot_utilization(graphs.utilizations, graphs.num_ops);
-    plot_free_totals(graphs.free_totals, graphs.num_ops);
-    plot_request_speed(graphs.request_times, graphs.num_ops);
+    print_gnuplots(&graphs);
     report_interval_averages(user_requests);
     free(graphs.utilizations);
     free(graphs.free_totals);

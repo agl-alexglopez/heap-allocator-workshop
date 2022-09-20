@@ -80,6 +80,12 @@ double time_request(script_t *script, int req, size_t *cur_size, void **heap_end
  */
 script_t parse_script(const char *filename);
 
+/* @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information in
+ *                        case someone is waiting for large data. It can take time.
+ * @brief *graphs         the gnuplots struct containing all the graphs to print.
+ */
+void print_gnuplots(gnuplots *graphs);
+
 /* @brief plot_free_totals     plots number of free nodes over the course of the heaps lifetime.
  *                             By default prints an ascii graph to the terminal. Can be edited
  *                             or adapted to output to popup window. Requires gnuplot.
