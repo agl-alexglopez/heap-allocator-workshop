@@ -3,18 +3,17 @@
  * ---------------------
  * Reads and interprets text-based script files containing a sequence of
  * allocator requests. Runs the allocator on a script and times the requested
- * sequence of requests from that script. Outputs the time taken to complete
- * requests for the requested line numbers and total utilization percentage.
+ * sequence of requests from that script. Times user requested sequences of lines in the
+ * script if requested.
  *
  * When you compile using `make`, it will create different
  * compiled versions of this program, one using each type of
  * heap allocator.
  *
- * Written by jzelenski, updated by Nick Troccoli Winter 18-19 as a test harness to validate
- * code but adapted by Alex Lopez for timing and performance measurements, with all checks and
- * safety measures deleted for speed. This also helps view the runtime efficiency in the correct
- * time complexity without O(N) measures clouding accurate timing between calls. Please see
- * test_harness.c for the original implementation by course staff.
+ * Most safety measures deleted for speed. Helps view the runtime efficiency in the correct
+ * time complexity without O(N) measures clouding accurate timing between calls. Do not use this
+ * unless you know your allocator is correct. Please see test_harness.c if you want to see an
+ * allocator handler more focussed on correctness.
  */
 
 #include <assert.h>
