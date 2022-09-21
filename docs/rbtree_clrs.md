@@ -21,6 +21,8 @@
    - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
 7. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
+8. The Programs
+   - Documentation **([`programs.md`](/docs/programs.md))**
 
 ## Overview
 
