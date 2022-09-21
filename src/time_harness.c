@@ -141,6 +141,7 @@ static int time_script(char *script_name, interval_reqs *user_requests) {
     size_t used_segment = time_allocator(&script, user_requests, &graphs);
     printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
     script.num_ops, script.peak_size, used_segment);
+    printf("Utilization averaged %.2lf%%\n", (100.0 * script.peak_size) / used_segment);
 
     print_gnuplots(&graphs);
     report_interval_averages(user_requests);

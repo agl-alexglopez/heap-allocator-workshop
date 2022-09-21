@@ -126,6 +126,7 @@ int print_peaks(char *script_name, user_breaks *user_reqs) {
     size_t used_segment = print_allocator(&script, user_reqs, &graphs);
     printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
             script.num_ops, script.peak_size, used_segment);
+    printf("Utilization averaged %.2lf%%\n", (100.0 * script.peak_size) / used_segment);
 
     print_gnuplots(&graphs);
     free(graphs.free_nodes);
