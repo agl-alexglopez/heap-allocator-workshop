@@ -264,7 +264,6 @@ int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
         *cur_size -= old_size;
     }
 
-
     if (*cur_size > script->peak_size) {
         script->peak_size = *cur_size;
     }
@@ -370,7 +369,6 @@ double time_request(script_t *script, int req, size_t *cur_size, void **heap_end
         *cur_size -= old_size;
     }
 
-
     if (*cur_size > script->peak_size) {
         script->peak_size = *cur_size;
     }
@@ -401,10 +399,11 @@ void allocator_error(script_t *script, int lineno, char* format, ...) {
  * @param num_ops             the size of the array.
  */
 void plot_util_percents(double *utilization_per_request, int num_ops) {
-    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
-    if (errno == EINVAL) {
-        printf("Gnuplot not installed. For graph output install gnuplot...\n");
+    // We rely alot on Unix like system help. Redirect which output and disgard. Not portable.
+    if (system("which gnuplot > /dev/null 2>&1")) {
+        printf("Gnuplot not installed. For graph output, install gnuplot...\n");
     } else {
+        FILE *gnuplotPipe = popen("gnuplot -persist", "w");
                              // Many terms have ansi 256bit colors. Comment out for a pop-out window.
         fprintf(gnuplotPipe, "set terminal dumb ansi256;"
                              // This helps with compatibility on dumb terminals.
@@ -419,13 +418,11 @@ void plot_util_percents(double *utilization_per_request, int num_ops) {
                              "set xlabel 'Script Line Number';"
                              // '-'/notitle prevents title inside graph. Set the point to desired char.
                              "plot '-' pt '#' lc rgb 'green' notitle\n");
-
         double total = 0;
         for (int req = 0; req < num_ops; req++) {
             total += utilization_per_request[req];
             fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_per_request[req]);
         }
-
         fprintf(gnuplotPipe, "e\n");
         pclose(gnuplotPipe);
         printf("Average utilization: %.2f%%\n", total / num_ops);
@@ -439,10 +436,11 @@ void plot_util_percents(double *utilization_per_request, int num_ops) {
  * @param num_ops          size of the array of totals equal to number of lines in script.
  */
 void plot_free_nodes(size_t *free_nodes, int num_ops) {
-    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
-    if (errno == EINVAL) {
-        printf("Gnuplot not installed. For graph output install gnuplot...\n");
+    // We rely alot on Unix like system help. Redirect which output and disgard. Not portable.
+    if (system("which gnuplot > /dev/null 2>&1")) {
+        printf("Gnuplot not installed. For graph output, install gnuplot...\n");
     } else {
+        FILE *gnuplotPipe = popen("gnuplot -persist", "w");
                              // Many terms have ansi 256bit colors. Comment out for a pop-out window.
         fprintf(gnuplotPipe, "set terminal dumb ansi256;"
                              // This helps with compatibility on dumb terminals.
@@ -462,7 +460,6 @@ void plot_free_nodes(size_t *free_nodes, int num_ops) {
             total_frees += free_nodes[req];
             fprintf(gnuplotPipe, "%d %zu \n", req + 1, free_nodes[req]);
         }
-
         fprintf(gnuplotPipe, "e\n");
         pclose(gnuplotPipe);
         printf("Average free nodes: %.1lf\n", total_frees / num_ops);
@@ -474,10 +471,11 @@ void plot_free_nodes(size_t *free_nodes, int num_ops) {
  * @param num_ops             the number of requests in the script corresponding to measurements.
  */
 void plot_request_times(double *request_times, int num_ops) {
-    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
-    if (errno == EINVAL) {
-        printf("Gnuplot not installed. For graph output install gnuplot...\n");
+    // We rely alot on Unix like system help. Redirect which output and disgard. Not portable.
+    if (system("which gnuplot > /dev/null 2>&1")) {
+        printf("Gnuplot not installed. For graph output, install gnuplot...\n");
     } else {
+        FILE *gnuplotPipe = popen("gnuplot -persist", "w");
                              // Many terms have ansi 256bit colors. Comment out for a pop-out window.
         fprintf(gnuplotPipe, "set terminal dumb ansi256;"
                              // This helps with compatibility on dumb terminals.
@@ -496,19 +494,15 @@ void plot_request_times(double *request_times, int num_ops) {
                              "set xlabel 'Script Line Number';"
                              // '-'/notitle prevents title inside graph. Set the point to desired char.
                              "plot '-' pt '#' lc rgb 'cyan' notitle\n");
-
         double total_time = 0;
         for (int req = 0; req < num_ops; req++) {
             total_time += request_times[req];
             fprintf(gnuplotPipe, "%d %lf \n", req + 1, request_times[req]);
         }
-
         fprintf(gnuplotPipe, "e\n");
         pclose(gnuplotPipe);
         printf("Average time (milliseconds) per request overall: %lfms\n", total_time / num_ops);
-
     }
-
 }
 
 /* @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information in
