@@ -45,8 +45,7 @@ typedef struct {
 
 
 int print_peaks(char *script_name, user_breaks *user_reqs);
-static size_t print_allocator(script_t *script, bool *success,
-                              user_breaks *user_reqs, gnuplots *graphs);
+static size_t print_allocator(script_t *script, user_breaks *user_reqs, gnuplots *graphs);
 static void handle_user_breakpoints(user_breaks *user_reqs, int curr_break, int script_end);
 static int get_user_int(int min, int max);
 static void validate_breakpoints(script_t *script, user_breaks *user_reqs);
@@ -108,55 +107,44 @@ int main(int argc, char *argv[]) {
  * @return                 0 upon successful execution 1 upon error.
  */
 int print_peaks(char *script_name, user_breaks *user_reqs) {
-    int nfailures = 0;
-
-
     script_t script = parse_script(script_name);
     validate_breakpoints(&script, user_reqs);
 
-    gnuplots graphs = {.utilizations = NULL, .free_totals = NULL,
+    gnuplots graphs = {.util_percents = NULL, .free_nodes = NULL,
                        .request_times = NULL, .num_ops = script.num_ops};
-    graphs.free_totals = malloc(sizeof(size_t) * script.num_ops);
-    assert(graphs.free_totals);
-    graphs.utilizations = malloc(sizeof(double) * script.num_ops);
-    assert(graphs.utilizations);
+    graphs.free_nodes = malloc(sizeof(size_t) * script.num_ops);
+    assert(graphs.free_nodes);
+    graphs.util_percents = malloc(sizeof(double) * script.num_ops);
+    assert(graphs.util_percents);
     graphs.request_times = malloc(sizeof(double) * script.num_ops);
     assert(graphs.request_times);
 
 
     // Evaluate this script and record the results
     printf("\nEvaluating allocator on %s...\n", script.name);
-    bool success;
     // We will bring back useful utilization info while we time.
-    size_t used_segment = print_allocator(&script, &success, user_reqs, &graphs);
-    if (success) {
-        printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
+    size_t used_segment = print_allocator(&script, user_reqs, &graphs);
+    printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
             script.num_ops, script.peak_size, used_segment);
-    } else {
-        nfailures++;
-    }
 
     print_gnuplots(&graphs);
-    free(graphs.free_totals);
+    free(graphs.free_nodes);
     free(graphs.request_times);
-    free(graphs.utilizations);
+    free(graphs.util_percents);
     free(script.ops);
     free(script.blocks);
     printf("^^^Scroll up to see the free nodes organized in their data structure at peak size.^^^\n");
-    return nfailures;
+    return 0;
 }
 
 /* @brief print_allocator  runs an allocator twice, gathering the peak number of free nodes and
  *                         printint any breakpoints the user requests from the script. The second
  *                         execution will print the peak size of the free nodes.
  * @param *script          the script_t with all info for the script file to execute.
- * @param *success         true if all calls to the allocator completed without error.
  * @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
  * @return                 the size of the heap overall as helpful utilization info.
  */
-static size_t print_allocator(script_t *script, bool *success,
-                              user_breaks *user_reqs, gnuplots *graphs) {
-    *success = false;
+static size_t print_allocator(script_t *script, user_breaks *user_reqs, gnuplots *graphs) {
     init_heap_segment(HEAP_SIZE);
     if (!myinit(heap_segment_start(), heap_segment_size())) {
         allocator_error(script, 0, "myinit() returned false");
@@ -180,10 +168,10 @@ static size_t print_allocator(script_t *script, bool *success,
         size_t total_free_nodes = get_free_total();
 
         // We will plot this at the end of program execution.
-        graphs->free_totals[req] = total_free_nodes;
+        graphs->free_nodes[req] = total_free_nodes;
         // Avoid a loss of precision while tracking the utilization over heap lifetime.
         double peak_size = 100 * script->peak_size;
-        graphs->utilizations[req] = peak_size /
+        graphs->util_percents[req] = peak_size /
                                     ((byte_t *) heap_end - (byte_t *) heap_segment_start());
 
         if (curr_break < user_reqs->num_breakpoints && user_reqs->breakpoints[curr_break] == req) {
@@ -210,7 +198,6 @@ static size_t print_allocator(script_t *script, bool *success,
      * and I don't want to expose heap internals to this program or make copies of the nodes. Just
      * run it twice and use the allocator's provided printer function to find max nodes.
      */
-    *success = false;
     init_heap_segment(HEAP_SIZE);
     if (!myinit(heap_segment_start(), heap_segment_size())) {
         allocator_error(script, 0, "myinit() returned false");
@@ -234,7 +221,6 @@ static size_t print_allocator(script_t *script, bool *success,
             printf("There were %zu free blocks of memory.\n", peak_free_node_count);
         }
     }
-    *success = true;
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }
 

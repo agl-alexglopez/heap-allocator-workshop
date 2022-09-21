@@ -3,11 +3,23 @@
  * File script.h
  * -------------------
  * This file contains the utility functions for processing script files and executing them on
- * custom allocators.
+ * custom allocators. It also has utilities for timing individual requests to the heap and
+ * plotting key data about a script.
+ *
+ * The script object that is created from a parsed script will contain all key data needed to run
+ * the script with minimal checks to ensure success. These functions and related programs should
+ * not be used until you are certain any heap allocators they are calling are correct in their
+ * implementations. Use the test_harness.c program to verify correctness.
+ *
+ * In order to get the most out of the programs in this repository please install gnuplot on your
+ * machine. This will allow the plotting functions to output in-terminal graphs in the form of
+ * ascii art. They are not the most detailed, but on larger scripts they can be very informative.
+ * If you would like to change the output of plotted graphs to an output window, explore the
+ * implementations of the plot_ functions. However, I will not provide an interface for that
+ * change because the pop up windows are slow and the in-terminal graphs serve their purpose well.
  */
 #ifndef _SCRIPT_H_
 #define _SCRIPT_H_
-#include <stdio.h>
 #include "allocator.h"
 
 // enum and struct for a single allocator request
@@ -43,14 +55,14 @@ typedef struct {
 // A struct for plotting helpful data about a heap run on a script.
 typedef struct {
     // Arrays that should be malloc'd due to possible large scripts. Think 1million+ requests.
-    double *utilizations;   // Running utilization average.
-    size_t *free_totals;    // Running count of free nodes.
-    double *request_times;  // Running count of time per request.
+    double *util_percents;   // Running utilization average.
+    size_t *free_nodes;      // Running count of free nodes.
+    double *request_times;   // Running count of time per request.
     // All arrays will have the same size as the number of script operations.
     int num_ops;
 } gnuplots;
 
-/* @brief exec_request  a helper function to execute a single call to the heap allocator. It may
+/* @brief exec_request  a wrapper function to execute a single call to the heap allocator. It may
  *                      may call malloc(), realloc(), or free().
  * @param *script       the script_t with the information regarding the script file we execute.
  * @param req           the zero-based index of the request to the heap allocator.
@@ -60,8 +72,8 @@ typedef struct {
  */
 int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end);
 
-/* @brief time_request  a wrapper function for exec_request that allows us to time one request to
- *                      the heap. Returns the time of the request in milliseconds.
+/* @brief time_request  a wrapper function for timer functions that allows us to time a request to
+ *                      the heap. Returns the cpu time of the request in milliseconds.
  * @param *script       the script object that holds data about our script we need to execute.
  * @param req           the current request to the heap we execute.
  * @param *cur_size     the current size of the heap.
@@ -86,25 +98,25 @@ script_t parse_script(const char *filename);
  */
 void print_gnuplots(gnuplots *graphs);
 
-/* @brief plot_free_totals     plots number of free nodes over the course of the heaps lifetime.
+/* @brief plot_free_nodes      plots number of free nodes over the course of the heaps lifetime.
  *                             By default prints an ascii graph to the terminal. Can be edited
  *                             or adapted to output to popup window. Requires gnuplot.
  * @param *totals_per_request  the number of total free nodes after each line of script executes.
- * @param num_requests         size of the array of totals equal to number of lines in script.
+ * @param num_ops              size of the array of totals equal to number of lines in script.
  */
-void plot_free_totals(size_t *totals_per_request, int num_requests);
+void plot_free_nodes(size_t *free_nodes, int num_ops);
 
-/* @brief plot_utilization          plots the heap utilization over its lifetime as a percentage.
- * @param *utilization_per_request  the mallocd array of percentages.
- * @param num_requests              the size of the array.
+/* @brief plot_util_percents  plots the heap utilization over its lifetime as a percentage.
+ * @param *util_percents      the mallocd array of percentages.
+ * @param num_ops             the size of the array.
  */
-void plot_utilization(double *utilization_per_request, int num_requests);
+void plot_util_percents(double *util_percents, int num_ops);
 
-/* @brief plot_request_speed  plots the time to service heap requests over heap lifetime.
- * @param *time_per_request   the mallocd array of time measurements.
- * @param num_requests        the number of requests in the script corresponding to measurements.
+/* @brief plot_request_times  plots the time to service heap requests over heap lifetime.
+ * @param *request_times      the mallocd array of time measurements.
+ * @param num_ops             the number of requests in the script corresponding to measurements.
  */
-void plot_request_speed(double *time_per_request, int num_requests);
+void plot_request_times(double *request_times, int num_ops);
 
 /* @brief allocator_error  reports an error while running an allocator script.
  * @param *script          the script_t with information we track form the script file requests.

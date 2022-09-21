@@ -93,7 +93,7 @@ This program acts as a mini GDB debugger, allowing you to see the state of the f
 
 ![rb-print-peaks](/images/rb-print-peaks.png)
 
-Here is the same command for a list based allocator. The list output is far less interesting, but perhaps makes it clear, from its simplicity, why the tree is the faster data structure.
+Here is the same command for a list based allocator. The list output is far less interesting, but perhaps makes it clear, from its simplicity, why the tree is the faster data structure. Please note that for smaller workloads the time measurements for any allocator will be very low and gnuplot may have trouble displaying them on a graph. For more stable graphs use larger data sets.
 
 ![list-print-peaks](/images/list-print-peaks.png)
 

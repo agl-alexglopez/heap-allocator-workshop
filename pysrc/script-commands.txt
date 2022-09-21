@@ -28,3 +28,5 @@ py parsing.py -generate parsed-scripts/time-reallocfree-100k.script '-alloc(1,50
 
 python3 parsing.py -generate parsed-scripts/time-insertdelete-1m.script '-alloc(1,200)' 2000000 -free 1000000 '-alloc(1,200)' 1000000
 
+python3 parsing.py -generate ../scripts/time-insert-1m.script '-alloc(1,500)' 4000000 -free 2000000 '-alloc(1,500)' 2000000
+

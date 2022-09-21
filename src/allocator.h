@@ -5,7 +5,7 @@
 #ifndef _ALLOCATOR_H
 #define _ALLOCATOR_H
 
-#include <stdbool.h> // for bool
+#include <stdbool.h>
 #include <stddef.h>  // for size_t
 
 // PLAIN prints free block sizes, VERBOSE shows address in the heap and black height of tree.

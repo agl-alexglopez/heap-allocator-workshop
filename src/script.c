@@ -3,11 +3,12 @@
  * File script.c
  * -------------------
  * This file contains the utility functions for processing script files and executing them on
- * custom allocators.
+ * custom allocators. We also implement our timing functions and plotting functions for the
+ * programs that use this interface. Examine the plot_ functions for more details about how the
+ * graphs are formed.
  */
 #include <float.h>
 #include <stdarg.h>
-#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -217,7 +218,6 @@ static void *exec_realloc(int req, size_t requested_size, script_t *script, bool
     return newp;
 }
 
-
 /* @brief exec_request  a helper function to execute a single call to the heap allocator. It may
  *                      may call malloc(), realloc(), or free().
  * @param *script       the script_t with the information regarding the script file we execute.
@@ -269,9 +269,16 @@ int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
     return 0;
 }
 
+/* @brief time_malloc     a function that times the speed of one request to malloc on my heap.
+ * @param req             the current request we are operating on in the script.
+ * @param requested_size  the size in bytes from the script line.
+ * @param *script         the script object we are working through for our requests.
+ * @param **p             the generic pointer we will use to determine a successfull malloc.
+ */
 static double time_malloc(int req, size_t requested_size, script_t *script, void **p) {
     int id = script->ops[req].id;
 
+    // The measurement times are very low and have trouble showing up in terminal graphs.
     clock_t request_start = 0;
     clock_t request_end = 0;
     request_start = clock();
@@ -288,10 +295,17 @@ static double time_malloc(int req, size_t requested_size, script_t *script, void
     return (((double) (request_end - request_start)) / CLOCKS_PER_SEC) * 1000;
 }
 
+/* @brief time_realloc    a function that times the speed of one request to realloc on my heap.
+ * @param req             the current request we are operating on in the script.
+ * @param requested_size  the size in bytes from the script line.
+ * @param *script         the script object we are working through for our requests.
+ * @param **newp          the generic pointer we will use to determine a successfull realloc
+ */
 static double time_realloc(int req, size_t requested_size, script_t *script, void **newp) {
     int id = script->ops[req].id;
     void *oldp = script->blocks[id].ptr;
 
+    // The measurement times are very low and have trouble showing up in terminal graphs.
     clock_t request_start = 0;
     clock_t request_end = 0;
     request_start = clock();
@@ -309,8 +323,8 @@ static double time_realloc(int req, size_t requested_size, script_t *script, voi
     return (((double) (request_end - request_start)) / CLOCKS_PER_SEC) * 1000;
 }
 
-/* @brief time_request  a wrapper function for exec_request that allows us to time one request to
- *                      the heap. Returns the time of the request in milliseconds.
+/* @brief time_request  a wrapper function for timer functions that allows us to time a request to
+ *                      the heap. Returns the cpu time of the request in milliseconds.
  * @param *script       the script object that holds data about our script we need to execute.
  * @param req           the current request to the heap we execute.
  * @param *cur_size     the current size of the heap.
@@ -380,17 +394,18 @@ void allocator_error(script_t *script, int lineno, char* format, ...) {
 /* * * * * * * * * * * * * *  Plot Desired Information about Allocator  * * * * * * * * */
 
 
-/* @brief plot_utilization          plots the utilization of the heap over its lifetime as a percentage.
- * @param *utilization_per_request  the mallocd array of percentages.
- * @param num_requests              the size of the array.
+/* @brief plot_util_percents  plots the utilization of the heap over its lifetime as a percentage.
+ * @param *util_percents      the mallocd array of percentages.
+ * @param num_ops             the size of the array.
  */
-void plot_utilization(double *utilization_per_request, int num_requests) {
-    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+void plot_util_percents(double *utilization_per_request, int num_ops) {
+    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
 
-                         // Comment this line out if you want output to window that looks better.
+                         // Many terms have ansi 256bit colors. Comment out for a pop-out window.
     fprintf(gnuplotPipe, "set terminal dumb ansi256;"
                          // This helps with compatibility on dumb terminals.
                          "set colorsequence classic;"
+                         // Adds a nice backing grid of dots.
                          "set grid;"
                          // I don't want to manage window dimensions, let gnuplot do it.
                          "set autoscale;"
@@ -402,29 +417,30 @@ void plot_utilization(double *utilization_per_request, int num_requests) {
                          "plot '-' pt '#' lc rgb 'green' notitle\n");
 
     double total = 0;
-    for (int req = 0; req < num_requests; req++) {
+    for (int req = 0; req < num_ops; req++) {
         total += utilization_per_request[req];
         fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_per_request[req]);
     }
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-    printf("Average utilization: %.2f%%\n", total / num_requests);
+    printf("Average utilization: %.2f%%\n", total / num_ops);
 }
 
-/* @brief plot_free_totals     plots number of free nodes over the course of the heaps lifetime.
- *                             By default prints an ascii graph to the terminal. Can be edited
- *                             or adapted to output to popup window. Requires gnuplot.
- * @param *totals_per_request  the number of total free nodes after each line of script executes.
- * @param num_requests         size of the array of totals equal to number of lines in script.
+/* @brief plot_free_nodes  plots number of free nodes over the course of the heaps lifetime.
+ *                         By default prints an ascii graph to the terminal. Can be edited
+ *                         or adapted to output to popup window. Requires gnuplot.
+ * @param *free_nodes      the number of total free nodes after each line of script executes.
+ * @param num_ops          size of the array of totals equal to number of lines in script.
  */
-void plot_free_totals(size_t *totals_per_request, int num_requests) {
-    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+void plot_free_nodes(size_t *free_nodes, int num_ops) {
+    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
 
-                         // Comment this line out if you want output to window that looks better.
+                         // Many terms have ansi 256bit colors. Comment out for a pop-out window.
     fprintf(gnuplotPipe, "set terminal dumb ansi256;"
                          // This helps with compatibility on dumb terminals.
                          "set colorsequence classic;"
+                         // Adds a nice backing grid of dots.
                          "set grid;"
                          // I don't want to manage window dimensions, let gnuplot do it.
                          "set autoscale;"
@@ -435,47 +451,51 @@ void plot_free_totals(size_t *totals_per_request, int num_requests) {
                          // '-'/notitle prevents title inside graph. Set the point to desired char.
                          "plot '-' with points pt '#' lc rgb 'red' notitle\n");
     double total_frees = 0;
-    for (int req = 0; req < num_requests; req++) {
-        total_frees += totals_per_request[req];
-        fprintf(gnuplotPipe, "%d %zu \n", req + 1, totals_per_request[req]);
+    for (int req = 0; req < num_ops; req++) {
+        total_frees += free_nodes[req];
+        fprintf(gnuplotPipe, "%d %zu \n", req + 1, free_nodes[req]);
     }
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-    printf("Average free nodes: %.1lf\n", total_frees / num_requests);
+    printf("Average free nodes: %.1lf\n", total_frees / num_ops);
 }
 
-
-/* @brief plot_request_speed  plots the time to service heap requests over heap lifetime.
- * @param *time_per_request   the mallocd array of time measurements.
- * @param num_requests        the number of requests in the script corresponding to measurements.
+/* @brief plot_request_times  plots the time to service heap requests over heap lifetime.
+ * @param *request_times      the mallocd array of time measurements.
+ * @param num_ops             the number of requests in the script corresponding to measurements.
  */
-void plot_request_speed(double *time_per_request, int num_requests) {
-    FILE *gnuplotPipe = popen("gnuplot -persistent", "w");
+void plot_request_times(double *request_times, int num_ops) {
+    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
 
-                         // Comment this line out if you want output to window that looks better.
+                         // Many terms have ansi 256bit colors. Comment out for a pop-out window.
     fprintf(gnuplotPipe, "set terminal dumb ansi256;"
                          // This helps with compatibility on dumb terminals.
                          "set colorsequence classic;"
+                         // The tree implementation is so fast that gnuplot can have trouble
+                         // plotting individual requests. Lower the 0 magnitude from 1e-8 default.
+                         // However, this still does not work well to plot detailed graphs in term.
+                         "set zero 1e-20;"
+                         // Adds a nice backing grid of dots.
                          "set grid;"
-                         // I don't want to manage window dimensions, let gnuplot do it.
+                         // I don't want to manage dimensions and ticks, let gnuplot do it.
                          "set autoscale;"
                          // Sits above the graph.
-                         "set title 'Time (milliseconds) to Service Heap Request';"
+                         "set title 'Time (milliseconds) to Service a Heap Request';"
                          // Makes it clear x label number corresponds to script lines=lifetime.
                          "set xlabel 'Script Line Number';"
                          // '-'/notitle prevents title inside graph. Set the point to desired char.
                          "plot '-' pt '#' lc rgb 'cyan' notitle\n");
 
     double total_time = 0;
-    for (int req = 0; req < num_requests; req++) {
-        total_time += time_per_request[req];
-        fprintf(gnuplotPipe, "%d %lf \n", req + 1, time_per_request[req]);
+    for (int req = 0; req < num_ops; req++) {
+        total_time += request_times[req];
+        fprintf(gnuplotPipe, "%d %lf \n", req + 1, request_times[req]);
     }
 
     fprintf(gnuplotPipe, "e\n");
     pclose(gnuplotPipe);
-    printf("Average time (milliseconds) per request overall: %lfms\n", total_time / num_requests);
+    printf("Average time (milliseconds) per request overall: %lfms\n", total_time / num_ops);
 }
 
 /* @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information in
@@ -484,10 +504,10 @@ void plot_request_speed(double *time_per_request, int num_requests) {
  */
 void print_gnuplots(gnuplots *graphs) {
     printf("Gnuplot printing (1/3). This may take a moment for large data sets...\n");
-    plot_utilization(graphs->utilizations, graphs->num_ops);
+    plot_util_percents(graphs->util_percents, graphs->num_ops);
     printf("Gnuplot printing (2/3). This may take a moment for large data sets...\n");
-    plot_free_totals(graphs->free_totals, graphs->num_ops);
+    plot_free_nodes(graphs->free_nodes, graphs->num_ops);
     printf("Gnuplot printing (3/3). This may take a moment for large data sets...\n");
-    plot_request_speed(graphs->request_times, graphs->num_ops);
+    plot_request_times(graphs->request_times, graphs->num_ops);
 }
 

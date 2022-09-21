@@ -57,8 +57,7 @@ const long HEAP_SIZE = 1L << 32;
 
 
 static int time_script(char *script_name, interval_reqs *user_requests);
-static size_t time_allocator(script_t *script, bool *success,
-                             interval_reqs *user_requests, gnuplots *graphs);
+static size_t time_allocator(script_t *script, interval_reqs *user_requests, gnuplots *graphs);
 static void report_interval_averages(interval_reqs *user_requests);
 static void validate_intervals(script_t *script, interval_reqs *user_requests);
 
@@ -118,61 +117,49 @@ int main(int argc, char *argv[]) {
     return time_script(argv[optind], &user_req);
 }
 
-/* @brief time_script        completes a series of 1 or more time requests for a script file and
- *                           outputs the times for the lines and overall utilization.
- * @param *script_name       the script we are tasked with timing.
- * @param intervals[]    the array of line ranges to time.
- * @param num_intervals  the size of the array of lines to time.
+/* @brief time_script     completes a series of 1 or more time requests for a script file and
+ *                        outputs the times for the lines and overall utilization.
+ * @param *script_name    the script we are tasked with timing.
+ * @param *user_requests  the struct containing user requests for timings and how many.
  */
 static int time_script(char *script_name, interval_reqs *user_requests) {
-    int nfailures = 0;
-
     script_t script = parse_script(script_name);
     validate_intervals(&script, user_requests);
 
     // We will do some graphing with helpful info at the end of program execution.
-    gnuplots graphs = {.utilizations = NULL, .free_totals = NULL,
+    gnuplots graphs = {.util_percents = NULL, .free_nodes = NULL,
                        .request_times = NULL, .num_ops = script.num_ops};
-    graphs.free_totals = malloc(sizeof(size_t) * script.num_ops);
-    assert(graphs.free_totals);
-    graphs.utilizations = malloc(sizeof(double) * script.num_ops);
-    assert(graphs.utilizations);
+    graphs.free_nodes = malloc(sizeof(size_t) * script.num_ops);
+    assert(graphs.free_nodes);
+    graphs.util_percents = malloc(sizeof(double) * script.num_ops);
+    assert(graphs.util_percents);
     graphs.request_times = malloc(sizeof(double) * script.num_ops);
     assert(graphs.request_times);
 
     // Evaluate this script and record the results
     printf("\nEvaluating allocator on %s...\n", script.name);
-    bool success;
     // We will bring back useful utilization info while we time.
-    size_t used_segment = time_allocator(&script, &success, user_requests, &graphs);
-    if (success) {
-        printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
-            script.num_ops, script.peak_size, used_segment);
-    } else {
-        nfailures++;
-    }
+    size_t used_segment = time_allocator(&script, user_requests, &graphs);
+    printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
+    script.num_ops, script.peak_size, used_segment);
 
     print_gnuplots(&graphs);
     report_interval_averages(user_requests);
-    free(graphs.utilizations);
-    free(graphs.free_totals);
+    free(graphs.util_percents);
+    free(graphs.free_nodes);
     free(graphs.request_times);
     free(script.ops);
     free(script.blocks);
-    return nfailures;
+    return 0;
 }
 
 /* @brief time_allocator  times all requested interval line numbers from the script file.
  * @param *script         the script_t with all info for the script file to execute.
- * @param *success        true if all calls to the allocator completed without error.
- * @param intervals[]     the array of all lines to time.
- * @param num_intervals   the size of the array of lines to time.
+ * @param *user_requests  the struct containing user requested intervals and how many.
+ * @param *graphs         the struct containing arrays we will fill with execution info to plot.
  * @return                the size of the heap overall.
  */
-static size_t time_allocator(script_t *script, bool *success,
-                             interval_reqs *user_requests, gnuplots *graphs) {
-    *success = false;
-
+static size_t time_allocator(script_t *script, interval_reqs *user_requests, gnuplots *graphs) {
     init_heap_segment(HEAP_SIZE);
     if (!myinit(heap_segment_start(), heap_segment_size())) {
         allocator_error(script, 0, "myinit() returned false");
@@ -198,8 +185,8 @@ static size_t time_allocator(script_t *script, bool *success,
                 total_request_time += request_time;
                 graphs->request_times[req] = request_time;
 
-                graphs->free_totals[req] = get_free_total();
-                graphs->utilizations[req] = (100.0 * script->peak_size) /
+                graphs->free_nodes[req] = get_free_total();
+                graphs->util_percents[req] = (100.0 * script->peak_size) /
                                             ((byte_t *) heap_end - (byte_t *) heap_segment_start());
             }
 
@@ -214,14 +201,13 @@ static size_t time_allocator(script_t *script, bool *success,
             double request_time = time_request(script, req, &cur_size, &heap_end);
             graphs->request_times[req] = request_time;
 
-            graphs->free_totals[req] = get_free_total();
+            graphs->free_nodes[req] = get_free_total();
             double peak_size = 100 * script->peak_size;
-            graphs->utilizations[req] = peak_size /
+            graphs->util_percents[req] = peak_size /
                                         ((byte_t *) heap_end - (byte_t *) heap_segment_start());
             req++;
         }
     }
-    *success = true;
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }
 
