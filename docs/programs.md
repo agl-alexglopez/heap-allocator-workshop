@@ -228,7 +228,7 @@ Free a specific number of blocks of memory. This is good for building a tree of 
 python3 parsing.py -generate ../scripts/5k-insertdelete.script -alloc 10000 -free 5000 -alloc 5000
 ```
 
-### Conclusions
+### Build Your Own
 
 These commands can be combined to create scripts that allow us to time specific operations on our heap. For example, here is the command I used to test the coalescing speed of different implementations of my heap allocator. I wanted to see how quickly we could reallocate 100,000 blocks of allocated memory, which would involve coalescing many nodes in the tree.
 
