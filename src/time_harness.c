@@ -182,27 +182,24 @@ static size_t time_allocator(script_t *script, interval_reqs *user_requests, gnu
                 // A helpful utility function fromt the script.h lib helps time one request.
                 double request_time = time_request(script, req, &cur_size, &heap_end);
                 total_request_time += request_time;
-                graphs->request_times[req] = request_time;
 
+                graphs->request_times[req] = request_time;
                 graphs->free_nodes[req] = get_free_total();
                 graphs->util_percents[req] = (100.0 * script->peak_size) /
                                             ((byte_t *) heap_end - (byte_t *) heap_segment_start());
             }
-
             printf("Execution time for script lines %d-%d (milliseconds): %f\n",
                     sect.start_req + 1, sect.end_req + 1, total_request_time);
 
             user_requests->interval_averages[current_interval] = total_request_time /
                                                                  (sect.end_req - sect.start_req);
-            // Advance array and decrement remaining intervals. No need for extra variables.
             current_interval++;
         } else {
             double request_time = time_request(script, req, &cur_size, &heap_end);
             graphs->request_times[req] = request_time;
 
             graphs->free_nodes[req] = get_free_total();
-            double peak_size = 100 * script->peak_size;
-            graphs->util_percents[req] = peak_size /
+            graphs->util_percents[req] = (100.0 * script->peak_size) /
                                         ((byte_t *) heap_end - (byte_t *) heap_segment_start());
             req++;
         }
