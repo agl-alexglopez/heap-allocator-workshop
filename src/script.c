@@ -399,34 +399,29 @@ void allocator_error(script_t *script, int lineno, char* format, ...) {
  * @param num_ops             the size of the array.
  */
 void plot_util_percents(double *utilization_per_request, int num_ops) {
-    // We rely alot on Unix like system help. Redirect which output and disgard. Not portable.
-    if (system("which gnuplot > /dev/null 2>&1")) {
-        printf("Gnuplot not installed. For graph output, install gnuplot...\n");
-    } else {
-        FILE *gnuplotPipe = popen("gnuplot -persist", "w");
-                             // Many terms have ansi 256bit colors. Comment out for a pop-out window.
-        fprintf(gnuplotPipe, "set terminal dumb ansi256;"
-                             // This helps with compatibility on dumb terminals.
-                             "set colorsequence classic;"
-                             // Adds a nice backing grid of dots.
-                             "set grid;"
-                             // I don't want to manage window dimensions, let gnuplot do it.
-                             "set autoscale;"
-                             // Sits above the graph.
-                             "set title 'Utilization %% over Heap Lifetime';"
-                             // Makes it clear x label number corresponds to script lines=lifetime.
-                             "set xlabel 'Script Line Number';"
-                             // '-'/notitle prevents title inside graph. Set the point to desired char.
-                             "plot '-' pt '#' lc rgb 'green' notitle\n");
-        double total = 0;
-        for (int req = 0; req < num_ops; req++) {
-            total += utilization_per_request[req];
-            fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_per_request[req]);
-        }
-        fprintf(gnuplotPipe, "e\n");
-        pclose(gnuplotPipe);
-        printf("Average utilization: %.2f%%\n", total / num_ops);
+    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
+                         // Many terms have ansi 256bit colors. Comment out for a pop-out window.
+    fprintf(gnuplotPipe, "set terminal dumb ansi256;"
+                         // This helps with compatibility on dumb terminals.
+                         "set colorsequence classic;"
+                         // Adds a nice backing grid of dots.
+                         "set grid;"
+                         // I don't want to manage window dimensions, let gnuplot do it.
+                         "set autoscale;"
+                         // Sits above the graph.
+                         "set title 'Utilization %% over Heap Lifetime';"
+                         // Makes it clear x label number corresponds to script lines=lifetime.
+                         "set xlabel 'Script Line Number';"
+                         // '-'/notitle prevents title inside graph. Set the point to desired char.
+                         "plot '-' pt '#' lc rgb 'green' notitle\n");
+    double total = 0;
+    for (int req = 0; req < num_ops; req++) {
+        total += utilization_per_request[req];
+        fprintf(gnuplotPipe, "%d %lf \n", req + 1, utilization_per_request[req]);
     }
+    fprintf(gnuplotPipe, "e\n");
+    pclose(gnuplotPipe);
+    printf("Average utilization: %.2f%%\n", total / num_ops);
 }
 
 /* @brief plot_free_nodes  plots number of free nodes over the course of the heaps lifetime.
@@ -436,34 +431,29 @@ void plot_util_percents(double *utilization_per_request, int num_ops) {
  * @param num_ops          size of the array of totals equal to number of lines in script.
  */
 void plot_free_nodes(size_t *free_nodes, int num_ops) {
-    // We rely alot on Unix like system help. Redirect which output and disgard. Not portable.
-    if (system("which gnuplot > /dev/null 2>&1")) {
-        printf("Gnuplot not installed. For graph output, install gnuplot...\n");
-    } else {
-        FILE *gnuplotPipe = popen("gnuplot -persist", "w");
-                             // Many terms have ansi 256bit colors. Comment out for a pop-out window.
-        fprintf(gnuplotPipe, "set terminal dumb ansi256;"
-                             // This helps with compatibility on dumb terminals.
-                             "set colorsequence classic;"
-                             // Adds a nice backing grid of dots.
-                             "set grid;"
-                             // I don't want to manage window dimensions, let gnuplot do it.
-                             "set autoscale;"
-                             // Sits above the graph.
-                             "set title 'Number of Free Nodes over Heap Lifetime';"
-                             // Makes it clear x label number corresponds to script lines=lifetime.
-                             "set xlabel 'Script Line Number';"
-                             // '-'/notitle prevents title inside graph. Set the point to desired char.
-                             "plot '-' with points pt '#' lc rgb 'red' notitle\n");
-        double total_frees = 0;
-        for (int req = 0; req < num_ops; req++) {
-            total_frees += free_nodes[req];
-            fprintf(gnuplotPipe, "%d %zu \n", req + 1, free_nodes[req]);
-        }
-        fprintf(gnuplotPipe, "e\n");
-        pclose(gnuplotPipe);
-        printf("Average free nodes: %.1lf\n", total_frees / num_ops);
+    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
+                         // Many terms have ansi 256bit colors. Comment out for a pop-out window.
+    fprintf(gnuplotPipe, "set terminal dumb ansi256;"
+                         // This helps with compatibility on dumb terminals.
+                         "set colorsequence classic;"
+                         // Adds a nice backing grid of dots.
+                         "set grid;"
+                         // I don't want to manage window dimensions, let gnuplot do it.
+                         "set autoscale;"
+                         // Sits above the graph.
+                         "set title 'Number of Free Nodes over Heap Lifetime';"
+                         // Makes it clear x label number corresponds to script lines=lifetime.
+                         "set xlabel 'Script Line Number';"
+                         // '-'/notitle prevents title inside graph. Set the point to desired char.
+                         "plot '-' with points pt '#' lc rgb 'red' notitle\n");
+    double total_frees = 0;
+    for (int req = 0; req < num_ops; req++) {
+        total_frees += free_nodes[req];
+        fprintf(gnuplotPipe, "%d %zu \n", req + 1, free_nodes[req]);
     }
+    fprintf(gnuplotPipe, "e\n");
+    pclose(gnuplotPipe);
+    printf("Average free nodes: %.1lf\n", total_frees / num_ops);
 }
 
 /* @brief plot_request_times  plots the time to service heap requests over heap lifetime.
@@ -471,38 +461,33 @@ void plot_free_nodes(size_t *free_nodes, int num_ops) {
  * @param num_ops             the number of requests in the script corresponding to measurements.
  */
 void plot_request_times(double *request_times, int num_ops) {
-    // We rely alot on Unix like system help. Redirect which output and disgard. Not portable.
-    if (system("which gnuplot > /dev/null 2>&1")) {
-        printf("Gnuplot not installed. For graph output, install gnuplot...\n");
-    } else {
-        FILE *gnuplotPipe = popen("gnuplot -persist", "w");
-                             // Many terms have ansi 256bit colors. Comment out for a pop-out window.
-        fprintf(gnuplotPipe, "set terminal dumb ansi256;"
-                             // This helps with compatibility on dumb terminals.
-                             "set colorsequence classic;"
-                             // The tree implementation is so fast that gnuplot can have trouble
-                             // plotting individual requests. Lower the 0 magnitude from 1e-8 default.
-                             // However, this still does not work well to plot detailed graphs in term.
-                             "set zero 1e-20;"
-                             // Adds a nice backing grid of dots.
-                             "set grid;"
-                             // I don't want to manage dimensions and ticks, let gnuplot do it.
-                             "set autoscale;"
-                             // Sits above the graph.
-                             "set title 'Time (milliseconds) to Service a Heap Request';"
-                             // Makes it clear x label number corresponds to script lines=lifetime.
-                             "set xlabel 'Script Line Number';"
-                             // '-'/notitle prevents title inside graph. Set the point to desired char.
-                             "plot '-' pt '#' lc rgb 'cyan' notitle\n");
-        double total_time = 0;
-        for (int req = 0; req < num_ops; req++) {
-            total_time += request_times[req];
-            fprintf(gnuplotPipe, "%d %lf \n", req + 1, request_times[req]);
-        }
-        fprintf(gnuplotPipe, "e\n");
-        pclose(gnuplotPipe);
-        printf("Average time (milliseconds) per request overall: %lfms\n", total_time / num_ops);
+    FILE *gnuplotPipe = popen("gnuplot -persist", "w");
+                         // Many terms have ansi 256bit colors. Comment out for a pop-out window.
+    fprintf(gnuplotPipe, "set terminal dumb ansi256;"
+                         // This helps with compatibility on dumb terminals.
+                         "set colorsequence classic;"
+                         // The tree implementation is so fast that gnuplot can have trouble
+                         // plotting individual requests. Lower the 0 magnitude from 1e-8 default.
+                         // However, this still does not work well to plot detailed graphs in term.
+                         "set zero 1e-20;"
+                         // Adds a nice backing grid of dots.
+                         "set grid;"
+                         // I don't want to manage dimensions and ticks, let gnuplot do it.
+                         "set autoscale;"
+                         // Sits above the graph.
+                         "set title 'Time (milliseconds) to Service a Heap Request';"
+                         // Makes it clear x label number corresponds to script lines=lifetime.
+                         "set xlabel 'Script Line Number';"
+                         // '-'/notitle prevents title inside graph. Set the point to desired char.
+                         "plot '-' pt '#' lc rgb 'cyan' notitle\n");
+    double total_time = 0;
+    for (int req = 0; req < num_ops; req++) {
+        total_time += request_times[req];
+        fprintf(gnuplotPipe, "%d %lf \n", req + 1, request_times[req]);
     }
+    fprintf(gnuplotPipe, "e\n");
+    pclose(gnuplotPipe);
+    printf("Average time (milliseconds) per request overall: %lfms\n", total_time / num_ops);
 }
 
 /* @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information in
@@ -510,11 +495,16 @@ void plot_request_times(double *request_times, int num_ops) {
  * @brief *graphs         the gnuplots struct containing all the graphs to print.
  */
 void print_gnuplots(gnuplots *graphs) {
-    printf("Gnuplot printing (1/3). This may take a moment for large data sets...\n");
-    plot_util_percents(graphs->util_percents, graphs->num_ops);
-    printf("Gnuplot printing (2/3). This may take a moment for large data sets...\n");
-    plot_free_nodes(graphs->free_nodes, graphs->num_ops);
-    printf("Gnuplot printing (3/3). This may take a moment for large data sets...\n");
-    plot_request_times(graphs->request_times, graphs->num_ops);
+    // We rely alot on Unix like system help. Redirect which output and disgard. Not portable.
+    if (system("which gnuplot > /dev/null 2>&1")) {
+        printf("Gnuplot not installed. For graph output, install gnuplot...\n");
+    } else {
+        printf("Gnuplot printing (1/3). This may take a moment for large data sets...\n");
+        plot_util_percents(graphs->util_percents, graphs->num_ops);
+        printf("Gnuplot printing (2/3). This may take a moment for large data sets...\n");
+        plot_free_nodes(graphs->free_nodes, graphs->num_ops);
+        printf("Gnuplot printing (3/3). This may take a moment for large data sets...\n");
+        plot_request_times(graphs->request_times, graphs->num_ops);
+    }
 }
 
