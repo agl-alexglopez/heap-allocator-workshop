@@ -1,5 +1,16 @@
 # The Programs
 
+## Navigation
+
+- [The Test Harness](#test-harness)
+  - **[`test_harness.c`](/src/test_harness.c)**
+- [The Time Harness](#time-harness)
+  - **[`time_harness.c`](/src/time_harness.c)**
+- [Print Peaks](#print-peaks)
+  - **[`print_peaks.c`](/src/print_peaks.c)**
+- [Python Script Generation](#python-script-generation)
+  - **[`parsing.py`](/pysrc/parsing.py)**
+
 ## Compiling Programs
 
 In order to compile programs in this repository, follow these steps.
