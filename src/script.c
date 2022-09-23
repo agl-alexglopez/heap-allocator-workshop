@@ -6,6 +6,10 @@
  * custom allocators. We also implement our timing functions and plotting functions for the
  * programs that use this interface. Examine the plot_ functions for more details about how the
  * graphs are formed.
+ *
+ * Script parsing was written by stanford professors jzelensky and ntroccoli. For the execution
+ * and timing functions I took the test_harness.c implementation and stripped out all uneccessary
+ * safety and correctness checks so the functions run faster and do not introduce O(n) work.
  */
 #include <asm-generic/errno-base.h>
 #include <errno.h>
@@ -37,8 +41,8 @@ const int MAX_SCRIPT_LINE_LEN = 1024;
 
 
 /* @brief read_script_line  reads one line from the specified file and stores at most buffer_size
- *                          characters from it in buffer, removing any trailing newline. It skips lines
- *                          that are all-whitespace or that contain comments (begin with # as first
+ *                          characters from it in buffer, removing any trailing newline. It skips
+ *                          lines that are whitespace or comments (begin with # as first
  *                          non-whitespace character).  When reading a line, it increments the
  *                          counter pointed to by `pnread` once for each line read/skipped.
  * @param buffer[]          the buffer in which we store the line from the .script line.
