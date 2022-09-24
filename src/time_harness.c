@@ -197,8 +197,8 @@ static size_t time_allocator(script_t *script, interval_reqs *user_requests, gnu
             current_interval++;
         } else {
             double request_time = time_request(script, req, &cur_size, &heap_end);
-            graphs->request_times[req] = request_time;
 
+            graphs->request_times[req] = request_time;
             graphs->free_nodes[req] = get_free_total();
             graphs->util_percents[req] = (100.0 * script->peak_size) /
                                         ((byte_t *) heap_end - (byte_t *) heap_segment_start());

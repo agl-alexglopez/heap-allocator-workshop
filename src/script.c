@@ -439,6 +439,7 @@ void print_gnuplots(gnuplots *graphs) {
             fprintf(free_pipe, "%d %zu \n", req + 1, graphs->free_nodes[req]);
             fprintf(time_pipe, "%d %lf \n", req + 1, graphs->request_times[req]);
         }
+
         fprintf(util_pipe, "e\n");
         fprintf(free_pipe, "e\n");
         fprintf(time_pipe, "e\n");
