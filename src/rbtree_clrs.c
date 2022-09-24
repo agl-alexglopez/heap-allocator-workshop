@@ -72,14 +72,12 @@ typedef unsigned char byte;
  *  - The 1st LSB holds the allocated status and 2nd LSB holds left neighbor status.
  */
 typedef struct rb_node {
-    // The header will store block size, allocation status, left neighbor status, and color status.
+    // Header stores block size, allocation status, left neighbor status, and color status.
     header header;
-    // Consider a stack implementation if you want to get rid of the parent field.
     struct rb_node *parent;
     struct rb_node *left;
     struct rb_node *right;
-    // ...User data...
-    // header footer; which can also be overwritten.
+    // A footer goes at end of unused blocks. Need at least 8 bytes of user space to fit footer.
 }rb_node;
 
 static struct tree {

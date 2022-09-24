@@ -88,7 +88,7 @@ typedef struct rb_node {
     // The header will store block size, allocation status, left neighbor status, and node color.
     header header;
     struct rb_node *links[TWO_NODE_ARRAY];
-    // Use list_start to maintain doubly linked list, using the links[P]-links[N] fields
+    // Use list_start to maintain doubly linked duplicates, using the links[P]-links[N] fields
     struct duplicate_node *list_start;
 }rb_node;
 

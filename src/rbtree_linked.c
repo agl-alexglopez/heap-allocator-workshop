@@ -84,7 +84,6 @@ typedef struct rb_node {
     // block size, allocation status, left neighbor status, and node color.
     header header;
     struct rb_node *parent;
-    // This will combine with an enum to help unify symmetric cases for insert and delete fixes.
     struct rb_node *links[TWO_NODE_ARRAY];
     // Points to a list which we will use P and N to manage to distinguish from the tree.
     struct duplicate_node *list_start;

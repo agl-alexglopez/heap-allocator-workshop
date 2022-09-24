@@ -77,8 +77,8 @@ typedef struct rb_node {
     // The header will store block size, allocation status, left neighbor status, and node color.
     header header;
     struct rb_node *parent;
-    // Unify left and right cases with an array.
     struct rb_node *links[TWO_NODE_ARRAY];
+    // A footer goes at end of unused blocks. Need at least 8 bytes of user space to fit footer.
 }rb_node;
 
 typedef enum rb_color {
