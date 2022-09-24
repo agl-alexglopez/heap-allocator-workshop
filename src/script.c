@@ -7,7 +7,7 @@
  * programs that use this interface. Examine the plot_ functions for more details about how the
  * graphs are formed.
  *
- * Script parsing was written by stanford professors jzelensky and ntroccoli. For the execution
+ * Script parsing was written by stanford professors jzelenski and ntroccoli. For the execution
  * and timing functions I took the test_harness.c implementation and stripped out all uneccessary
  * safety and correctness checks so the functions run faster and do not introduce O(n) work.
  */
@@ -46,7 +46,6 @@ const int MAX_SCRIPT_LINE_LEN = 1024;
  * @return                  true if did read a valid line eventually, or false otherwise.
  */
 static bool read_script_line(char buffer[], size_t buffer_size, FILE *fp, int *pnread) {
-
     while (true) {
         if (fgets(buffer, buffer_size, fp) == NULL) {
             return false;
@@ -79,9 +78,7 @@ static bool read_script_line(char buffer[], size_t buffer_size, FILE *fp, int *p
  * @warning                  if the line is malformed, this function throws an error.
  */
 static request_t parse_script_line(char *buffer, int lineno, char *script_name) {
-
     request_t request = { .lineno = lineno, .op = 0, .size = 0};
-
     char request_char;
     int nscanned = sscanf(buffer, " %c %d %zu", &request_char,
         &request.id, &request.size);
@@ -175,9 +172,7 @@ script_t parse_script(const char *path) {
  * @return                the generic memory provided by malloc for the client. NULL on failure.
  */
 static void *exec_malloc(int req, size_t requested_size, script_t *script, bool *failptr) {
-
     int id = script->ops[req].id;
-
     void *p;
     if ((p = mymalloc(requested_size)) == NULL && requested_size != 0) {
         allocator_error(script, script->ops[req].lineno,
@@ -191,8 +186,6 @@ static void *exec_malloc(int req, size_t requested_size, script_t *script, bool 
     return p;
 }
 
-
-
 /* @brief exec_realloc    executes a call to myrealloc of the given size.
  * @param req             the request zero indexed within the script.
  * @param requested_size  the block size requested from the client.
@@ -201,7 +194,6 @@ static void *exec_malloc(int req, size_t requested_size, script_t *script, bool 
  * @return                the generic memory provided by realloc for the client. NULL on failure.
  */
 static void *exec_realloc(int req, size_t requested_size, script_t *script, bool *failptr) {
-
     int id = script->ops[req].id;
     void *oldp = script->blocks[id].ptr;
     void *newp;
@@ -361,6 +353,7 @@ double time_request(script_t *script, int req, size_t *cur_size, void **heap_end
         void *p = script->blocks[id].ptr;
         script->blocks[id] = (block_t){.ptr = NULL, .size = 0};
 
+        // When measurement times are very low gnuplot points have trouble marking terminal graphs.
         clock_t request_start = 0;
         clock_t request_end = 0;
         request_start = clock();
