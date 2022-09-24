@@ -98,26 +98,6 @@ script_t parse_script(const char *filename);
  */
 void print_gnuplots(gnuplots *graphs);
 
-/* @brief plot_free_nodes      plots number of free nodes over the course of the heaps lifetime.
- *                             By default prints an ascii graph to the terminal. Can be edited
- *                             or adapted to output to popup window. Requires gnuplot.
- * @param *totals_per_request  the number of total free nodes after each line of script executes.
- * @param num_ops              size of the array of totals equal to number of lines in script.
- */
-void plot_free_nodes(size_t *free_nodes, int num_ops);
-
-/* @brief plot_util_percents  plots the heap utilization over its lifetime as a percentage.
- * @param *util_percents      the mallocd array of percentages.
- * @param num_ops             the size of the array.
- */
-void plot_util_percents(double *util_percents, int num_ops);
-
-/* @brief plot_request_times  plots the time to service heap requests over heap lifetime.
- * @param *request_times      the mallocd array of time measurements.
- * @param num_ops             the number of requests in the script corresponding to measurements.
- */
-void plot_request_times(double *request_times, int num_ops);
-
 /* @brief allocator_error  reports an error while running an allocator script.
  * @param *script          the script_t with information we track form the script file requests.
  * @param lineno           the line number where the error occured.
