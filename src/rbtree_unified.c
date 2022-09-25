@@ -8,7 +8,8 @@
  *
  *  Citations:
  *  -------------------
- *  1. B&O Chapter 9. I used the explicit free list outline from the textbook, specifically
+ *  1. Bryant and O'Hallaron, Computer Systems: A Programmer's Perspective, Chapter 9.
+ *     I used the explicit free list outline from the textbook, specifically
  *     regarding how to implement left and right coalescing. I even used their suggested
  *     optimization of an extra control bit so that the footers to the left can be overwritten
  *     if the block is allocated so the user can have more space.
