@@ -133,4 +133,4 @@ fabric.properties
 .DS_Store
 
 # We will let obsidian backup, but ignore files that cause problems.
-.obsidian/
+.obsidian/workspace
