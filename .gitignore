@@ -133,4 +133,4 @@ fabric.properties
 .DS_Store
 
 # Just ignore .obsidion markdown editor for now.
-.obsidion/
+.obsidian/
