@@ -47,7 +47,7 @@ Deletion of nodes requiring pointer maintenance and duplicates is by far the mos
 
 Deleting while keeping track of all of these nodes and how the relationships between them may change was extremely challenging for me. Adding to that complexity, I had to add logic for a best fit search rather than a normal search by key removal. Remember that if we have space in our heap, a user requesting space means we must service the request if possible, finding the best fit that we have. We also must remove a duplicate rather than the node from a tree if we encounter duplicate sizes in the tree. Ultimately, this is all possible, but the code is very complex. I think that Walker is brilliant, and you will see the benefits of these strategies in the analysis section, but the readability of the code suffers greatly in my opinion. I will continue to ponder how to refactor this implementation.
 
-The best part of this implementation is seeing the variety in tree that is produced when compared to other implementations.
+The best part of this implementation is seeing the variety in tree that is produced when compared to other implementations. However, we will see in the runtime analysis section if fixing on the way down is faster.
 
 ![rb-compare](/images/rb-topdown-stack-compare.png)
 
