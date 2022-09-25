@@ -127,3 +127,10 @@ fabric.properties
 
 # Android studio 3.1+ serialized cache file
 .idea/caches/build_file_checksums.ser
+
+# Add below lines to exclude OS settings and caches
+.trash/
+.DS_Store
+
+# Just ignore .obsidion markdown editor for now.
+.obsidion/
