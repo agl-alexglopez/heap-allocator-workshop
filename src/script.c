@@ -168,21 +168,18 @@ script_t parse_script(const char *path) {
  * @param req             the request zero indexed within the script.
  * @param requested_size  the block size requested from the client.
  * @param *script         the script_t with information we track from the script file requests.
- * @param *failptr        a pointer to indicate if the request to malloc failed.
  * @return                the generic memory provided by malloc for the client. NULL on failure.
  */
-static void *exec_malloc(int req, size_t requested_size, script_t *script, bool *failptr) {
+static void *exec_malloc(int req, size_t requested_size, script_t *script) {
     int id = script->ops[req].id;
     void *p;
     if ((p = mymalloc(requested_size)) == NULL && requested_size != 0) {
         allocator_error(script, script->ops[req].lineno,
-            "heap exhausted, malloc returned NULL");
-        *failptr = true;
-        return NULL;
+            "heap exhausted, malloc returned NULL. Script too large or allocator error.\n");
+        abort();
     }
 
     script->blocks[id] = (block_t){.ptr = p, .size = requested_size};
-    *failptr = false;
     return p;
 }
 
@@ -190,23 +187,20 @@ static void *exec_malloc(int req, size_t requested_size, script_t *script, bool 
  * @param req             the request zero indexed within the script.
  * @param requested_size  the block size requested from the client.
  * @param *script         the script_t with information we track from the script file requests.
- * @param *failptr        a pointer to indicate if the request to malloc failed.
  * @return                the generic memory provided by realloc for the client. NULL on failure.
  */
-static void *exec_realloc(int req, size_t requested_size, script_t *script, bool *failptr) {
+static void *exec_realloc(int req, size_t requested_size, script_t *script) {
     int id = script->ops[req].id;
     void *oldp = script->blocks[id].ptr;
     void *newp;
     if ((newp = myrealloc(oldp, requested_size)) == NULL && requested_size != 0) {
         allocator_error(script, script->ops[req].lineno,
-            "heap exhausted, realloc returned NULL");
-        *failptr = true;
-        return NULL;
+            "heap exhausted, realloc returned NULL. Script too large or allocator error.\n");
+        abort();
     }
 
     script->blocks[id].size = 0;
     script->blocks[id] = (block_t){.ptr = newp, .size = requested_size};
-    *failptr = false;
     return newp;
 }
 
@@ -224,11 +218,7 @@ int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
     size_t requested_size = script->ops[req].size;
 
     if (script->ops[req].op == ALLOC) {
-        bool fail = false;
-        void *p = exec_malloc(req, requested_size, script, &fail);
-        if (fail) {
-            return -1;
-        }
+        void *p = exec_malloc(req, requested_size, script);
 
         *cur_size += requested_size;
         if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
@@ -236,11 +226,7 @@ int exec_request(script_t *script, int req, size_t *cur_size, void **heap_end) {
         }
     } else if (script->ops[req].op == REALLOC) {
         size_t old_size = script->blocks[id].size;
-        bool fail = false;
-        void *p = exec_realloc(req, requested_size, script, &fail);
-        if (fail) {
-            return -1;
-        }
+        void *p = exec_realloc(req, requested_size, script);
 
         *cur_size += (requested_size - old_size);
         if ((byte_t *)p + requested_size > (byte_t *)(*heap_end)) {
@@ -282,7 +268,7 @@ static double time_malloc(int req, size_t requested_size, script_t *script, void
 
     if (*p == NULL && requested_size != 0) {
         allocator_error(script, script->ops[req].lineno,
-            "heap exhausted, malloc returned NULL\n");
+            "heap exhausted, malloc returned NULL. Script too large or allocator error.\n");
         abort();
     }
 
@@ -309,7 +295,7 @@ static double time_realloc(int req, size_t requested_size, script_t *script, voi
 
     if (*newp == NULL && requested_size != 0) {
         allocator_error(script, script->ops[req].lineno,
-            "heap exhausted, realloc returned NULL\n");
+            "heap exhausted, realloc returned NULL. Script too large or allocator error.\n");
         abort();
     }
 
