@@ -396,7 +396,7 @@ void print_gnuplots(gnuplots *graphs) {
                            // I don't want to manage dimensions and ticks, let gnuplot do it.
                            "set autoscale;"
                            // Sits above the graph.
-                           "set title 'Time (milliseconds) to Service a Heap Request';"
+                           "set title 'Utilization %% over Heap Lifetime';"
                            // Makes it clear x label number corresponds to script lines=lifetime.
                            "set xlabel 'Script Line Number';"
                            // '-'/notitle prevents title inside graph. Set the point to desired char.

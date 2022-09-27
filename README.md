@@ -36,7 +36,7 @@ I worked through five seperate implementations of a Red-Black Tree heap allocato
 
 ![rb-tree-collage](/images/rb-tree-collage.png)
 
-*Pictured Above: From left to right: the CLRS allocator, the unified allocator, the unified doubly linked list allocator, the unified stack allocator, and finally the unified topdown allocator. To learn more about the different implementations of a Red-Black Tree heap allocator and how the implementations evolved and improved over five iterations read on.*
+* Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I visualized or interacted with them through the programs in this repository.*
 
 ## Background
 
