@@ -779,10 +779,10 @@ static bool check_init() {
     return true;
 }
 
-/* @brief get_size_used    loops through all blocks of memory to verify that the sizes
- *                         reported match the global bookeeping in our struct.
- * @param *total_free_mem  the output parameter of the total size used as another check.
- * @return                 true if our tallying is correct and our totals match.
+/* @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
+ *                            reported match the global bookeeping in our struct.
+ * @param *total_free_mem     the output parameter of the total size used as another check.
+ * @return                    true if our tallying is correct and our totals match.
  */
 static bool is_memory_balanced(size_t *total_free_mem) {
     // Check that after checking all headers we end on size 0 tail and then end of address space.
