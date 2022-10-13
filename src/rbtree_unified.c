@@ -217,8 +217,7 @@ static void fix_rb_insert(rb_node *current) {
 }
 
 
-/* @brief insert_rb_node  a modified insertion with additional logic to add duplicates if the
- *                        size in bytes of the block is already in the tree.
+/* @brief insert_rb_node  a standard binary insert with additional red black fixup logic.
  * @param *current        we must insert to tree or add to a list as duplicate.
  */
 static void insert_rb_node(rb_node *current) {
