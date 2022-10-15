@@ -15,6 +15,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
+#include <strings.h>
 #include "./allocator.h"
 #include "./debug_break.h"
 
@@ -30,9 +31,10 @@ typedef struct free_node {
  *     - Our size classes stand for the maximum size of a node in the list.
  *     - 20 Size Classes: 1,2,3,4,5,6,7,8,16,32,64,128,256,512,1024,2048,4096,8192,16384-infty...
  *     - A first fit search will yeild approximately the best fit.
+ *     - We will have one dummy node to serve as both the head and tail of all lists.
  */
 typedef struct class_node {
-    short class_size;
+    unsigned short class_size;
     free_node *list_start;
 }class_node;
 
@@ -43,12 +45,12 @@ typedef enum header_status_t {
     LEFT_FREE = ~0x2UL
 } header_status_t;
 
-/* Sacrifice two blocks on the heap for a head and tail to get our instruction count low and have
- * very simple free_list management logic. In total, we lose 32 initial bytes with this method.
+/* Sacrifice one block on the heap for simple coalescing and freeing. It is both head and tail.
  */
+#define CLASS_MAX (unsigned short)20
 static struct free_list {
-    free_node *head;
-    free_node *tail;
+    free_node *sentinel;
+    class_node *lookup_table;
     size_t total;
 }free_list;
 
@@ -57,9 +59,6 @@ static struct heap {
     void *client_end;
     size_t client_size;
 }heap;
-
-#define CLASS_MAX (unsigned short)20
-static class_node size_classes[CLASS_MAX];
 
 
 #define SIZE_MASK ~0x7UL
@@ -167,9 +166,21 @@ static bool is_left_space(header_t *header) {
  * @param *to_splice        the heap node that we are either allocating or splitting.
  */
 static void splice_free_list(free_node *to_splice) {
-    // Because we have head and tail we don't need to worry about where the first or last node is.
-    to_splice->next->prev = to_splice->prev;
-    to_splice->prev->next = to_splice->next;
+
+    // Catch if we are the first node pointed to by the lookup table.
+    if (to_splice->prev == free_list.sentinel) {
+        // Figure out which list we are in and update the list_start pointer.
+        // Maybe there are some bit tricks for this but I will search the 20 elem list for now.
+        int index = 0;
+        for ( ; free_list.lookup_table[index].list_start != to_splice; index++) {
+        }
+        free_list.lookup_table[index].list_start = to_splice->next;
+        to_splice->next->prev = free_list.sentinel;
+    } else {
+        // Because we have a sentinel we don't need to worry about the first or last node.
+        to_splice->next->prev = to_splice->prev;
+        to_splice->prev->next = to_splice->next;
+    }
     free_list.total--;
 }
 
@@ -186,15 +197,25 @@ static void init_free_node(header_t *to_add, size_t block_size) {
     *neighbor &= LEFT_FREE;
 
     free_node *free_add = get_free_node(to_add);
-    free_node *cur = free_list.head->next;
-    // We are maintaining ascending size order, so compare pointers.
-    for (; cur != free_list.tail
-            && extract_block_size(*get_block_header(cur)) < block_size; cur = cur->next) {
+
+    /* Important! We store size classes as unsigned shorts to save space. Don't cast them to
+     * size_t's or you will read list_start pointer as part of number. Create space in this stack
+     * frame for a local "copy" that can fit a whole size_t. Then proceed with comparisons.
+     */
+    size_t class_size_t = 0;
+
+    int index = 0;
+    // Search the lookup table for the appropriate size class.
+    for ( ; index < CLASS_MAX - 1 &&
+                block_size > (class_size_t = free_list.lookup_table[index].class_size); index++) {
     }
+    // Once we are in the right size class, insert the block at the front. Loosely sorted.
+    free_node *cur = free_list.lookup_table[index].list_start;
+    free_list.lookup_table[index].list_start = free_add;
+    free_add->prev = free_list.sentinel;
     free_add->next = cur;
-    free_add->prev = cur->prev;
-    cur->prev->next = free_add;
     cur->prev = free_add;
+
     free_list.total++;
 }
 
@@ -281,24 +302,39 @@ bool myinit(void *heap_start, size_t heap_size) {
     }
 
     // This costs some memory in exchange for ease of use and low instruction counts.
-    free_list.head = heap_start;
-    free_list.tail = (free_node*)((byte_t*)free_list.head + (heap.client_size - FREE_NODE_WIDTH));
-    free_list.head->prev = NULL;
-    free_list.tail->next = NULL;
+    free_list.sentinel = (free_node*)((byte_t*)heap_start + (heap.client_size - FREE_NODE_WIDTH));
+    free_list.sentinel->prev = NULL;
+    free_list.sentinel->next = NULL;
 
-    header_t *first_block = (header_t *)((byte_t *)free_list.head + FREE_NODE_WIDTH);
-    init_header(first_block, heap.client_size - (FREE_NODE_WIDTH * 2), FREE);
-    init_footer(first_block, heap.client_size - (FREE_NODE_WIDTH * 2));
+    // Initialize array of free list sizes.
+    heap_start = (class_node (*)[CLASS_MAX]) heap_start;
+    free_list.lookup_table = heap_start;
+    // Small sizes go from 1 to 8, and lists will only hold those sizes
+    unsigned short size = 1;
+    for (int index = 0; index < SMALL_CLASS_MAX; index++, size++) {
+        free_list.lookup_table[index].class_size = size;
+        free_list.lookup_table[index].list_start = free_list.sentinel;
+    }
+    // Large sizes double until end of array.
+    size = 16;
+    for (int index = SMALL_CLASS_MAX; index < CLASS_MAX; index++, size *= 2) {
+        free_list.lookup_table[index].class_size = size;
+        free_list.lookup_table[index].list_start = free_list.sentinel;
+    }
+    header_t *first_block = (header_t *)((byte_t *)heap_start + (20 * sizeof(class_node)));
+    init_header(first_block, heap.client_size - (20 * sizeof(class_node)) - FREE_NODE_WIDTH, FREE);
+    init_footer(first_block, heap.client_size - (20 * sizeof(class_node)) - FREE_NODE_WIDTH);
 
-    // Free nodes are seperate from header so that free_list.head and tail only take 32 heap bytes.
     free_node *first_free = (free_node *)((byte_t *)first_block + ALIGNMENT);
-    first_free->next = free_list.tail;
-    first_free->prev = free_list.head;
+    first_free->next = free_list.sentinel;
+    first_free->prev = free_list.sentinel;
 
-    free_list.head->next = first_free;
-    free_list.tail->prev = first_free;
+    // Insert this first free into the appropriately sized list.
+    init_free_node(first_block, heap.client_size - (20 * sizeof(class_node)) - FREE_NODE_WIDTH);
+
+
     heap.client_start = first_block;
-    heap.client_end = free_list.tail;
+    heap.client_end = free_list.sentinel;
     free_list.total = 1;
     return true;
 }
@@ -309,16 +345,30 @@ bool myinit(void *heap_start, size_t heap_size) {
  *                        could not be serviced because it was invalid or there is no space.
  */
 void *mymalloc(size_t requested_size) {
-    if (requested_size != 0 && requested_size <= MAX_REQUEST_SIZE) {
-        size_t rounded_request = roundup(requested_size + HEADER_AND_FREE_NODE, ALIGNMENT);
+    if (requested_size == 0 || requested_size > MAX_REQUEST_SIZE) {
+        return NULL;
+    }
+    size_t rounded_request = roundup(requested_size + HEADER_AND_FREE_NODE, ALIGNMENT);
 
-        for (free_node *node = free_list.head->next; node != free_list.tail; node = node->next) {
-            header_t *header = get_block_header(node);
-            size_t free_space = extract_block_size(*header);
-            if (free_space >= rounded_request) {
-                splice_free_list(node);
-                // Handoff decision to split or not to our helper, takes care of all details.
-                return split_alloc(header, rounded_request, free_space);
+    // Search for the correct class, but there must be an actual node in that class.
+    for (int i = 0; i < CLASS_MAX; i++) {
+        size_t class_size_t = free_list.lookup_table[i].class_size;
+
+        // Think about cleaning this logic up. Making special case for infinity requests.
+        if ((rounded_request < class_size_t || i == CLASS_MAX - 1) &&
+                free_list.lookup_table[i].list_start != free_list.sentinel) {
+
+            // We know there are nodes avaialable so now we take the first fit.
+            for (free_node *node = free_list.lookup_table[i].list_start;
+                    node != free_list.sentinel; node = node->next) {
+
+                header_t *header = get_block_header(node);
+                size_t free_space = extract_block_size(*header);
+                if (free_space >= rounded_request) {
+                    splice_free_list(node);
+                    // Handoff decision to split or not to our helper, takes care of all details.
+                    return split_alloc(header, rounded_request, free_space);
+                }
             }
         }
     }
@@ -400,21 +450,39 @@ static bool is_header_corrupted(header_t header_val) {
  * @return            true if everything is in order otherwise false.
  */
 static bool check_init() {
-    // We also need to make sure the leftmost header always says there is no space to the left.
-    if (is_left_space((heap.client_start))) {
-        breakpoint();
-        return false;
-    }
-    void *first_address = free_list.head;
-    void *last_address = (byte_t *)free_list.tail + FREE_NODE_WIDTH;
+    void *first_address = free_list.lookup_table;
+    void *last_address = (byte_t *)free_list.sentinel + FREE_NODE_WIDTH;
     if ((byte_t *)last_address - (byte_t *)first_address != heap.client_size) {
         breakpoint();
         return false;
     }
-    // There is one very rare edgecase that may affect the next field of the list tail. This
-    // is acceptable because we never use that field and do not need it to remain NULL.
-    if (free_list.head->prev != NULL) {
-        return false;
+
+    // Check our lookup table. Sizes should never be altered and pointers should never be NULL.
+
+    // Check the small sizes first
+    unsigned short size = 1;
+    for (int i = 0; i < SMALL_CLASS_MAX; i++, size++) {
+        if (free_list.lookup_table[i].class_size != size) {
+            breakpoint();
+            return false;
+        }
+        // This should either be a valid node or the sentinel.
+        if (NULL == free_list.lookup_table[i].list_start) {
+            breakpoint();
+            return false;
+        }
+    }
+    size = 16;
+    for (int i = SMALL_CLASS_MAX; i < CLASS_MAX; i++, size *= 2) {
+        if (free_list.lookup_table[i].class_size != size) {
+            breakpoint();
+            return false;
+        }
+        // This should either be a valid node or the sentinel.
+        if (NULL == free_list.lookup_table[i].list_start) {
+            breakpoint();
+            return false;
+        }
     }
     return true;
 }
@@ -449,7 +517,7 @@ static bool is_valid_header(header_t header, size_t block_size) {
 static bool is_memory_balanced(size_t *total_free_mem) {
     // Check that after checking all headers we end on size 0 tail and then end of address space.
     header_t *cur_header = heap.client_start;
-    size_t size_used = FREE_NODE_WIDTH * 2;
+    size_t size_used = FREE_NODE_WIDTH + (20 * sizeof(class_node));
     size_t total_free_nodes = 0;
     while (cur_header != heap.client_end) {
         size_t block_size_check = extract_block_size(*cur_header);
@@ -472,8 +540,15 @@ static bool is_memory_balanced(size_t *total_free_mem) {
         }
         cur_header = get_right_header(cur_header, block_size_check);
     }
-    return (size_used + *total_free_mem == heap.client_size)
-            && (total_free_nodes == free_list.total);
+    if (size_used + *total_free_mem != heap.client_size) {
+        breakpoint();
+        return false;
+    }
+    if (total_free_nodes != free_list.total) {
+        breakpoint();
+        return false;
+    }
+    return true;
 }
 
 
@@ -485,25 +560,28 @@ static bool is_memory_balanced(size_t *total_free_mem) {
  */
 static bool is_free_list_valid(size_t total_free_mem) {
     size_t linked_free_mem = 0;
-    size_t prev_size = 0;
-    for (free_node *cur = free_list.head->next; cur != free_list.tail; cur = cur->next) {
-        header_t *cur_header = get_block_header(cur);
-        size_t cur_size = extract_block_size(*cur_header);
-        // Make sure our ascending address order is valid.
-        if (prev_size >  cur_size) {
-            return false;
+    for (int i = 0; i < CLASS_MAX; i++) {
+        for (free_node *cur = free_list.lookup_table[i].list_start;
+                cur != free_list.sentinel; cur = cur->next) {
+            header_t *cur_header = get_block_header(cur);
+            size_t cur_size = extract_block_size(*cur_header);
+            if (is_block_allocated(*cur_header)) {
+                breakpoint();
+                return false;
+            }
+            // This algorithm does not allow two free blocks to remain next to one another.
+            if (is_left_space(get_block_header(cur))) {
+                breakpoint();
+                return false;
+            }
+            linked_free_mem += cur_size;
         }
-        if (is_block_allocated(*cur_header)) {
-            return false;
-        }
-        // This algorithm does not allow two free blocks to remain next to one another.
-        if (is_left_space(get_block_header(cur))) {
-            return false;
-        }
-        linked_free_mem += cur_size;
-        prev_size = cur_size;
     }
-    return total_free_mem == linked_free_mem;
+    if (total_free_mem != linked_free_mem) {
+        breakpoint();
+        return false;
+    }
+    return true;
 }
 
 
@@ -540,30 +618,25 @@ bool validate_heap() {
  *                           adding is progressing correctly.
  */
 static void print_linked_free(print_style style) {
-    printf(COLOR_RED);
-    printf("[");
-    if (style == VERBOSE) {
-        printf("%p:", free_list.head);
-    }
-    printf("(HEAD)]");
-    for (free_node *cur = free_list.head->next; cur != free_list.tail; cur = cur->next) {
-        if (cur) {
-            header_t *cur_header = get_block_header(cur);
-            printf("<=>[");
-            if (style == VERBOSE) {
-                printf("%p:", cur);
+    for (int i = 0; i < CLASS_MAX; i++) {
+        printf(COLOR_RED);
+        printf("[C:%hubytes]=>", free_list.lookup_table[i].class_size);
+        for (free_node *cur = free_list.lookup_table[i].list_start;
+                cur != free_list.sentinel; cur = cur->next) {
+            if (cur) {
+                header_t *cur_header = get_block_header(cur);
+                printf("<=>[");
+                if (style == VERBOSE) {
+                    printf("%p:", get_block_header(cur));
+                }
+                printf("(%zubytes)]", extract_block_size(*cur_header) - ALIGNMENT);
+            } else {
+                printf("Something went wrong. NULL free free_list node.\n");
+                break;
             }
-            printf("(%zubytes)]", extract_block_size(*cur_header) - ALIGNMENT);
-        } else {
-            printf("Something went wrong. NULL free free_list node.\n");
-            break;
         }
+        printf("<=>[%p]\n", free_list.sentinel);
     }
-    printf("<=>[");
-    if (style == VERBOSE) {
-        printf("%p:", free_list.tail);
-    }
-    printf("(TAIL)]\n");
     printf(COLOR_NIL);
 }
 
@@ -657,9 +730,17 @@ void dump_heap() {
             header, heap.client_end, heap.client_size);
     printf("A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n\n");
 
-    printf("%p: FIRST ADDRESS\n", free_list.head);
+    printf("%p: FIRST ADDRESS\n", free_list.lookup_table);
     printf(COLOR_RED);
-    printf("%p: NULL<-DUMMY HEAD NODE->%p\n", free_list.head, free_list.head->next);
+    for (int i = 0; i < CLASS_MAX; i++) {
+        printf("[CLASS:%hubytes]=>", free_list.lookup_table[i].class_size);
+        int total_nodes = 0;
+        for (free_node *cur = free_list.lookup_table[i].list_start;
+                cur != free_list.sentinel; cur = cur->next) {
+            total_nodes++;
+        }
+        printf("(+%d)\n", total_nodes);
+    }
     printf(COLOR_NIL);
     printf("%p: START OF HEAP. HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", heap.client_start);
     header_t *prev = header;
@@ -685,12 +766,12 @@ void dump_heap() {
     }
     printf("%p: END OF HEAP\n", heap.client_end);
     printf(COLOR_RED);
-    printf("%p: %p<-DUMMY TAIL NODE->NULL\n", free_list.tail, free_list.tail->prev);
+    printf("<-%pSENTINEL->\n", free_list.sentinel);
     printf(COLOR_NIL);
-    printf("%p: LAST ADDRESS\n", (byte_t *)free_list.tail + FREE_NODE_WIDTH);
+    printf("%p: LAST ADDRESS\n", (byte_t *)free_list.sentinel + FREE_NODE_WIDTH);
     printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
 
-    printf("\nDOUBLY LINKED LIST OF FREE NODES AND BLOCK SIZES.\n");
+    printf("\nSEGREGATED LIST OF FREE NODES AND BLOCK SIZES.\n");
     printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
     print_linked_free(VERBOSE);
 }

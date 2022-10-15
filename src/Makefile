@@ -6,6 +6,7 @@ OBJ := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o,$(SRC))
 # They had us try different optimization levels here (-O0, -O2, etc).
 $(OBJDIR)/list_bestfit.o: CFLAGS += -O3
 $(OBJDIR)/list_addressorder.o: CFLAGS += -O3
+$(OBJDIR)/list_segregated.o: CFLAGS += -Og
 $(OBJDIR)/rbtree_clrs.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_unified.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_linked.o: CFLAGS += -O3
@@ -15,7 +16,7 @@ $(OBJDIR)/rbtree_topdown.o: CFLAGS += -O3
 # Files that set up basic heap segment and script parsing. Needed by all programs that use allocator.
 DEPENDENCIES = segment.c script.c
 
-ALLOCATORS = list_bestfit list_addressorder rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
+ALLOCATORS = list_bestfit list_addressorder list_segregated rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
 TEST_PROGRAMS = $(addprefix $(OBJDIR)/test_,$(ALLOCATORS))
 TIMER_PROGRAMS = $(addprefix $(OBJDIR)/time_,$(ALLOCATORS))
 PRINT_PROGRAMS = $(addprefix $(OBJDIR)/print_peaks_,$(ALLOCATORS))
