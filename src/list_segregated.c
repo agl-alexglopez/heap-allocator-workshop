@@ -65,6 +65,13 @@ static struct heap {
     size_t client_size;
 }heap;
 
+static const char LogTable256[256] =
+{
+#define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
+    -1, 0, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3, 3,
+    LT(4), LT(5), LT(5), LT(6), LT(6), LT(6), LT(6),
+    LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
+};
 
 #define SIZE_MASK ~0x7UL
 #define STATUS_CHECK 0x4UL
@@ -75,6 +82,7 @@ static struct heap {
 #define SMALL_TABLE_MAX (unsigned short)8
 #define LARGE_TABLE_MIN (unsigned short)16
 #define TABLE_BYTES (20 * sizeof(seg_node))
+#define INDEX_OFFSET 4U
 
 
 /* * * * * * * * *   Static Minor Heap Methods   * * * * * * * * * * */
@@ -167,6 +175,26 @@ static bool is_left_space(header_t *header) {
     return !(*header & LEFT_ALLOCATED);
 }
 
+/* @brief find_index  finds the floored log2 of the block size to get lookup table index.
+ * @param block_size  the current block we are trying to find table index for.
+ * @return            the index in the lookup table.
+ */
+static int find_index(unsigned int block_size) {
+    // block_size = 32-bit word to find the log of
+    unsigned log_2;     // log_2 will be lg(block_size)
+    register unsigned int t, tt; // temporaries
+    if ((tt = block_size >> 16))
+    {
+      log_2 = (t = tt >> 8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
+    }
+    else
+    {
+      log_2 = (t = block_size >> 8) ? 8 + LogTable256[t] : LogTable256[block_size];
+    }
+    // We just found the floored log2(block_size). Now offset that as an index in our lookup table.
+    return INDEX_OFFSET + log_2;
+}
+
 /* @brief splice_free_node  removes a free node out of the free node list.
  * @param *to_splice        the heap node that we are either allocating or splitting.
  */
@@ -174,12 +202,22 @@ static void splice_free_node(free_node *to_splice) {
 
     // Catch if we are the first node pointed to by the lookup table.
     if (to_splice->prev == seg_list.sentinel) {
-        // Maybe there are bit tricks to find the nearest power of two and index but I just search.
-        int index = 0;
-        for ( ; seg_list.table[index].start != to_splice; index++) {
+        size_t block_size = extract_block_size(*get_block_header(to_splice));
+        if (block_size <= SMALL_TABLE_MAX) {
+            seg_list.table[block_size - 1].start = to_splice->next;
+            to_splice->next->prev = seg_list.sentinel;
+        } else if (block_size > seg_list.table[TABLE_SIZE - 2].size) {
+            seg_list.table[TABLE_SIZE - 1].start = to_splice->next;
+            to_splice->next->prev = seg_list.sentinel;
+        } else {
+            // We will use some bit tricks to find nearest log2(block_size), thus get the index.
+            int index = find_index(block_size);
+            if (seg_list.table[index].size < block_size) {
+                index++;
+            }
+            seg_list.table[index].start = to_splice->next;
+            to_splice->next->prev = seg_list.sentinel;
         }
-        seg_list.table[index].start = to_splice->next;
-        to_splice->next->prev = seg_list.sentinel;
     } else {
         // Because we have a sentinel we don't need to worry about middle or last node or NULL.
         to_splice->next->prev = to_splice->prev;
