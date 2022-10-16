@@ -201,20 +201,19 @@ static int find_index(unsigned int block_size) {
 static void splice_free_node(free_node *to_splice) {
 
     // Catch if we are the first node pointed to by the lookup table.
-    if (to_splice->prev == seg_list.sentinel) {
+    if (seg_list.sentinel == to_splice->prev) {
         size_t block_size = extract_block_size(*get_block_header(to_splice));
+        int index = 0;
         if (block_size <= SMALL_TABLE_MAX) {
-            seg_list.table[block_size - 1].start = to_splice->next;
-            to_splice->next->prev = seg_list.sentinel;
+            index = block_size - 1;
         } else if (block_size > seg_list.table[TABLE_SIZE - 1].size) {
-            seg_list.table[TABLE_SIZE - 1].start = to_splice->next;
-            to_splice->next->prev = seg_list.sentinel;
+            index = TABLE_SIZE - 1;
         } else {
             // We will use some bit tricks to find nearest log2(block_size), thus get the index.
-            int index = find_index(block_size);
-            seg_list.table[index].start = to_splice->next;
-            to_splice->next->prev = seg_list.sentinel;
+            index = find_index(block_size);
         }
+        seg_list.table[index].start = to_splice->next;
+        to_splice->next->prev = seg_list.sentinel;
     } else {
         // Because we have a sentinel we don't need to worry about middle or last node or NULL.
         to_splice->next->prev = to_splice->prev;
@@ -238,11 +237,7 @@ static void init_free_node(header_t *to_add, size_t block_size) {
     free_node *free_add = get_free_node(to_add);
 
     int index = 0;
-    for ( ; index < TABLE_SIZE - 1; index++) {
-        if (block_size >= seg_list.table[index].size &&
-                block_size < seg_list.table[index + 1].size) {
-            break;
-        }
+    for ( ; index < TABLE_SIZE - 1 && block_size >= seg_list.table[index + 1].size; index++) {
     }
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
     free_node *cur = seg_list.table[index].start;
@@ -386,9 +381,7 @@ void *mymalloc(size_t requested_size) {
     size_t rounded_request = roundup(requested_size + HEADER_AND_FREE_NODE, ALIGNMENT);
     for (int i = 0; i < TABLE_SIZE; i++) {
         // Last list is the only one that holds sizes greater than its advertised size.
-        if (i == TABLE_SIZE - 1 ||
-                (rounded_request >= seg_list.table[i].size &&
-                                    rounded_request < seg_list.table[i + 1].size)) {
+        if (i == TABLE_SIZE - 1 || rounded_request < seg_list.table[i + 1].size) {
 
             for (free_node *node = seg_list.table[i].start;
                     node != seg_list.sentinel; node = node->next) {
@@ -666,7 +659,7 @@ static void print_seg_list(print_style style) {
         }
         if (i == TABLE_SIZE - 1) {
             printf("[CLASS:%ubytes+]=>", seg_list.table[i].size);
-        } else if (i >= SMALL_TABLE_MAX - 1) {
+        } else if (i >= SMALL_TABLE_MAX) {
             printf("[CLASS:%u-%ubytes]=>", seg_list.table[i].size, seg_list.table[i + 1].size - 1U);
         } else {
             printf("[CLASS:%ubytes]=>", seg_list.table[i].size);
