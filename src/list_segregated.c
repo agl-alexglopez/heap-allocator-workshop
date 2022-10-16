@@ -175,23 +175,23 @@ static bool is_left_space(header_t *header) {
     return !(*header & LEFT_ALLOCATED);
 }
 
-/* @brief find_index  finds the floored log2 of the block size to get lookup table index.
+/* @brief find_index  taken from Sean Anderson's Bit Twiddling Hacks, finds the index in the lookup
+ *                    table that a given block size is stored in.
  * @param block_size  the current block we are trying to find table index for.
  * @return            the index in the lookup table.
  */
 static int find_index(unsigned int block_size) {
     // block_size = 32-bit word to find the log of
-    unsigned log_2;     // log_2 will be lg(block_size)
-    register unsigned int t, tt; // temporaries
-    if ((tt = block_size >> 16))
-    {
-      log_2 = (t = tt >> 8) ? 24 + LogTable256[t] : 16 + LogTable256[tt];
+    unsigned log_2;  // log_2 will be lg(block_size)
+    register unsigned int temp_1, temp_2;
+    if ((temp_2 = block_size >> 16)) {
+      log_2 = (temp_1 = temp_2 >> 8) ? 24 + LogTable256[temp_1] : 16 + LogTable256[temp_2];
+    } else {
+      log_2 = (temp_1 = block_size >> 8) ? 8 + LogTable256[temp_1] : LogTable256[block_size];
     }
-    else
-    {
-      log_2 = (t = block_size >> 8) ? 8 + LogTable256[t] : LogTable256[block_size];
-    }
-    // We just found the floored log2(block_size). Now offset that as an index in our lookup table.
+    /* After small sizes we double in base2 powers of 2 so we can predictably find our index with
+     * a fixed offset. The log_2 of each size class increments linearly by 1.
+     */
     return INDEX_OFFSET + log_2;
 }
 
