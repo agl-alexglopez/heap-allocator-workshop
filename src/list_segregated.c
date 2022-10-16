@@ -79,8 +79,8 @@ static const char LogTable256[256] =
 #define HEADER_AND_FREE_NODE (unsigned short)24
 #define MIN_BLOCK_SIZE (unsigned short)32
 #define TABLE_SIZE (unsigned short)20
-#define SMALL_TABLE_MAX (unsigned short)8
-#define LARGE_TABLE_MIN (unsigned short)16
+#define SMALL_TABLE_MAX (unsigned short)7
+#define LARGE_TABLE_MIN (unsigned short)8
 #define TABLE_BYTES (20 * sizeof(seg_node))
 #define INDEX_OFFSET 4U
 
@@ -206,15 +206,12 @@ static void splice_free_node(free_node *to_splice) {
         if (block_size <= SMALL_TABLE_MAX) {
             seg_list.table[block_size - 1].start = to_splice->next;
             to_splice->next->prev = seg_list.sentinel;
-        } else if (block_size > seg_list.table[TABLE_SIZE - 2].size) {
+        } else if (block_size > seg_list.table[TABLE_SIZE - 1].size) {
             seg_list.table[TABLE_SIZE - 1].start = to_splice->next;
             to_splice->next->prev = seg_list.sentinel;
         } else {
             // We will use some bit tricks to find nearest log2(block_size), thus get the index.
             int index = find_index(block_size);
-            if (seg_list.table[index].size < block_size) {
-                index++;
-            }
             seg_list.table[index].start = to_splice->next;
             to_splice->next->prev = seg_list.sentinel;
         }
@@ -241,7 +238,11 @@ static void init_free_node(header_t *to_add, size_t block_size) {
     free_node *free_add = get_free_node(to_add);
 
     int index = 0;
-    for ( ; index < TABLE_SIZE - 1 && block_size > seg_list.table[index].size; index++) {
+    for ( ; index < TABLE_SIZE - 1; index++) {
+        if (block_size >= seg_list.table[index].size &&
+                block_size < seg_list.table[index + 1].size) {
+            break;
+        }
     }
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
     free_node *cur = seg_list.table[index].start;
@@ -385,7 +386,9 @@ void *mymalloc(size_t requested_size) {
     size_t rounded_request = roundup(requested_size + HEADER_AND_FREE_NODE, ALIGNMENT);
     for (int i = 0; i < TABLE_SIZE; i++) {
         // Last list is the only one that holds sizes greater than its advertised size.
-        if (rounded_request < seg_list.table[i].size || i == TABLE_SIZE - 1) {
+        if (i == TABLE_SIZE - 1 ||
+                (rounded_request >= seg_list.table[i].size &&
+                                    rounded_request < seg_list.table[i + 1].size)) {
 
             for (free_node *node = seg_list.table[i].start;
                     node != seg_list.sentinel; node = node->next) {
@@ -595,7 +598,7 @@ static bool is_seg_list_valid(size_t total_free_mem) {
             size_t cur_size = extract_block_size(*cur_header);
 
             // These lists hold up to the advertised size and no more, except last infinity list.
-            if (i != TABLE_SIZE - 1 && cur_size > seg_list.table[i].size) {
+            if (i != TABLE_SIZE - 1 && cur_size >= seg_list.table[i + 1].size) {
                 breakpoint();
                 return false;
             }
@@ -662,9 +665,9 @@ static void print_seg_list(print_style style) {
             alternate = true;
         }
         if (i == TABLE_SIZE - 1) {
-            printf("[CLASS:%ubytes+]=>", seg_list.table[i - 1].size + 1U);
-        } else if (i >= SMALL_TABLE_MAX) {
-            printf("[CLASS:%u-%ubytes]=>", seg_list.table[i - 1].size + 1U, seg_list.table[i].size);
+            printf("[CLASS:%ubytes+]=>", seg_list.table[i].size);
+        } else if (i >= SMALL_TABLE_MAX - 1) {
+            printf("[CLASS:%u-%ubytes]=>", seg_list.table[i].size, seg_list.table[i + 1].size - 1U);
         } else {
             printf("[CLASS:%ubytes]=>", seg_list.table[i].size);
         }
