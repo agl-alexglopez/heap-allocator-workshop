@@ -39,8 +39,8 @@ typedef struct free_node {
 }free_node;
 
 /* Size Order Classes Maintained by an Array of segregated fits lists
- *     - Our size classes stand for the maximum size of a node in the list.
- *     - 20 Size Classes (in bytes):
+ *     - Our size classes stand for the minimum size of a node in the list less than the next.
+ *     - 15 Size Classes (in bytes):
 
             32,        40,         48,          56,          64-127,
             128-255,   256-511,    512-1023,    1024-2047,   2048-4095,
@@ -48,7 +48,7 @@ typedef struct free_node {
 
  *     - A first fit search will yeild approximately the best fit.
  *     - We will have one dummy node to serve as both the head and tail of all lists.
- *     - Hold the size with short to take less space. 32,768 is less than USHRT_MAX
+ *     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index.
  */
 typedef struct seg_node {
     unsigned short size;
@@ -73,7 +73,7 @@ static struct heap {
     size_t client_size;
 }heap;
 
-// In rare cases we need to find the table index a node belongs to in O(1) time. This sets that up.
+// In rare cases we find the table index a node belongs to in O(1) time. This sets that up.
 static const char LogTable256[256] =
 {
 #define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
