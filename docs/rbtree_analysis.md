@@ -16,9 +16,9 @@
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
    - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
-6. Topdown Fixups
-   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
+6. top-down Fixups
+   - Documentation **([`rbtree_top-down.md`](/docs/rbtree_top-down.md))**
+   - Implementation **([`rbtree_top-down.c`](/src/rbtree_top-down.c))**
 7. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
 8. The Programs
@@ -69,7 +69,19 @@ What's even more impressive is what happens when we step up the number of free n
 
 *Pictured Above: Two graphs. The top represents the number of free nodes over a script's lifetime and the bottom represents the time to complete a single request over the script's lifetime.*
 
-So, for further analysis of our tree implementations, we need to reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree allocators. We will no longer include the list allocator in further comparisons as that is not productive.
+### A Better List
+
+So far, it may seem that a list based allocator cannot compete with the Red-Black tree data structure. However, that is not the case. The simple list based allocator mentioned above is not the best representative for the list data structure. Many allocators, including the GNU Allocator to some extent, use something called a segregated fits allocator. This involves keeping an array of size ranges in which to store doubly linked lists of that size. We can get clever and mix storing singly sized lists with larger lists that are perfect base 2 power of 2 sizes. While a seemingly simple idea, it can yeild a major speed boost over the simple list. We can even obtain great utilization in some cases.
+
+For example, here is the time per request for the segregated list allocator over the same range of requests we discussed earlier.
+
+![seg-time-per-request](/images/seg-time-per-request.png)
+
+*Pictured Above: Two graphs. The top represents the number of free nodes over a script's lifetime and the bottom represents the time to complete a single request over the script's lifetime.*
+
+You may notice that this allocator resembles the O(lgN) runtime we like to see in our tree based allocators. However, it is slightly less resistant to growth in our number of free nodes. You will see this lack of resistance to the growth of the free lists as we continue our analysis. We will keep this allocator as a point of comparison in our different sections because it is competitive up to a certain point.
+
+For further analysis of our tree implementations, we will reduce our time scale by a factor of 1,000 and compare implementations in milliseconds. This will reveal interesting differences between the five Red Black Tree allocators and the Segregated Fits allocator that will serve as our baseline for performance. We will no longer include the simple list allocator in further comparisons as that is not productive.
 
 ## Testing Methodology
 
@@ -78,7 +90,7 @@ The following test methods and analysis are not targeted towards any specific ap
 - Is there any cost or benefit to uniting the left and right cases of Red Black trees into one case with the use of an array of pointers?
 - Does the approach of storing duplicate node sizes in a linked list benefit performance by trimming the tree?
 - When we abandon the parent field of the tree node in exchange for the linked list field, do we sacrifice performance?
-- Does a topdown approach to fixing a Red Black Tree reduce the number of O(lgN) operations enough to make a difference in performance?
+- Does a top-down approach to fixing a Red Black Tree reduce the number of O(lgN) operations enough to make a difference in performance?
 
 In order to answer these questions I wrote a `time_harness.c` program based upon the `test_harness.c` program the Stanford course staff wrote for us. The original `test_harness.c` program was focussed on correctness. Along with our own debugging and printing functions, the goal of the test harness was to be as thorough as possible in finding bugs quickly and ensuring our allocators functioned properly. This meant that the programs produced for each allocator were painfully slow. There were numerous O(N) operations built into the provided program and I added many more O(N) checks into my own implementations. For a red-black tree these checks only grow as the necessity to ensure the rules of a Red Black Tree are followed becomes critical.
 
@@ -122,9 +134,10 @@ Here are the key details from the above graph.
 - The time complexity of inserting and deleting N elements into our tree is O(NlgN).
   - We may also see some extra time cost from breaking off extra space from a block that is too large and reinserting it into the tree. However, this is hard to predictably measure and does not seem to have an effect on the Big-O time complexity.
 - We see an improvement exceeding 50% in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
-- The topdown approach to managing a Red-Black tree is not the fastest in terms of inserting and deleting from the tree.
+- The top-down approach to managing a Red-Black tree is not the fastest in terms of inserting and deleting from the tree.
+- These allocators clearly outperform the standard segregated fits's O($N^2$) time complexity. 
 
-Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_topdown` and `rbtree_stack`. The topdown approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implmentation seem the most pointless at this point if the same speed can be acheived with more space efficiency.
+Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_top-down` and `rbtree_stack`. The top-down approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implmentation seem the most pointless at this point if the same speed can be acheived with more space efficiency.
 
 Finally, the performance gap scales as a percentage, meaning we will remain over 50% faster when we manage duplicates to trim the tree even when we are dealing with millions of elements and our times have increased greatly. Managing duplicates in a linked list with only the use of one pointer is a worthwile optimization. Revisit any summary of the last three allocators if you want more details on how this optimization works.
 
@@ -140,7 +153,7 @@ Coalescing left and right in all implementations occurs whenever we `free()` or 
 
 In order to test the speed of coalescing across implementations we can set up a similar heap to the one we used for our insertion and deletion test. If we want to test the speed of N coalescing operations, we will create 2N allocations. Then, we will free N blocks of memory to insert into the tree such that every other allocation is freed to prevent premature coalescing. Finally, we will call `realloc()` on every allocation that we have remaining, N blocks. My implementation of `realloc()` and `free()` coalesce left and right every time, whether the reallocation request is for more or less space. I have set up a random distribution of calls for more or less space, with a slight skew towards asking for more space. This means we are garunteed to left and right coalesce for every call to `realloc()` giving us the maximum possible number of encounters with nodes that are in the tree. We will find a number of different coalescing scenarios this way as mentioned in the allocator summaries.
 
-If we are using a normal Red Black Tree with a parent field, we treat all coalescing the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost O(lgN) operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in an O(1) operation. No rotations, fixups, or searches are necessary. This is great! For the `rbtree_stack` and `rbtree_topdown` implementations, we were able to acheive the same time complexity by thinking creatively about how we view nodes and how they store the parent field if they are a duplicate. Both of those allocators represent advanced optimizations in speed and space efficiency. The only disadvantage to the `rbtree_stack` allocator, when compared to the `rbtree_linked` allocator, is that if we coalesce a unique node we must launch into a tree search to build its path in a stack in preparation for fixups. The `rbtree_linked` implementation is able to immediately start fixups because it still has the parent field, even in a unique node.
+If we are using a normal Red Black Tree with a parent field, we treat all coalescing the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost O(lgN) operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in an O(1) operation. No rotations, fixups, or searches are necessary. This is great! For the `rbtree_stack` and `rbtree_top-down` implementations, we were able to acheive the same time complexity by thinking creatively about how we view nodes and how they store the parent field if they are a duplicate. Both of those allocators represent advanced optimizations in speed and space efficiency. The only disadvantage to the `rbtree_stack` allocator, when compared to the `rbtree_linked` allocator, is that if we coalesce a unique node we must launch into a tree search to build its path in a stack in preparation for fixups. The `rbtree_linked` implementation is able to immediately start fixups because it still has the parent field, even in a unique node.
 
 ![chart-realloc-free](/images/chart-realloc-free.png)
 
@@ -148,9 +161,10 @@ Here are the key details from the above graph.
 
 - The runtime of N reallocations is O(NlgN).
 - The `rbtree_linked` implementation with nodes that have a `*parent`, `links[LEFT-RIGHT]`, and `*list_start` field is the clear winner. The number of O(1) encounters with duplicates reduces the overall runtime of the allocator significantly.
-- The stack approach is again a solid balance of space-efficiency and speed. However, it seems that accessing an array to get the nodes you need is a factor slowing this implementation down compared to `rbtree_linked`. The search to build the stack when we coalesce a unique node also shows up as a time cost without the `parent` field. There is also added complexity in how `rbtree_stack` and `rbtree_topdown` store the parent field, increasing instruction counts.
-- The topdown approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
+- The stack approach is again a solid balance of space-efficiency and speed. However, it seems that accessing an array to get the nodes you need is a factor slowing this implementation down compared to `rbtree_linked`. The search to build the stack when we coalesce a unique node also shows up as a time cost without the `parent` field. There is also added complexity in how `rbtree_stack` and `rbtree_top-down` store the parent field, increasing instruction counts.
+- The top-down approach must fix the tree while it goes down to remove a node, thus costing time due to extra work.
 - The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is faster in this application.
+- The `list_segregated` allocator is more competitive in this category, but is soon outclassed by the speed of the Red-Black tree allocators.
 
 These results make the most wasteful implementation in terms of space, `rbtree_linked`, more of a proof of concept. If the similar results can be acheived with more space efficiency, the implementation loses value.
 
@@ -180,7 +194,7 @@ The Linux `tree` command will print out all directory contents in a tree structu
 
 ![chart-tracetree](/images/chart-tracetree.png)
 
-It is again unproductive to discuss a speed comparison between the Red Black Tree allocators on this scale, so we will drop the list allocator for further comparison.
+It is again unproductive to discuss a speed comparison between the Red Black Tree allocators on this scale, so we will drop the list allocator for further comparison. We will also note that the Segregated Fits allocator was much more competitive across these categories in terms of speed. However, it is not quite fast enough to stay for further analysis amongst the different Red-Black tree allocators.
 
 ![chart-rbtracetree](/images/chart-rbtracetree.png)
 
@@ -203,28 +217,29 @@ Here are the key observations from the above graph.
 
 ### Utilization
 
-While it was not productive to compare speeds of the list allocator to the tree allocator, the list allocator can show value in its high utilization due to low overhead to maintain the list. Let's compare utilization across the insertion/deletion, coalescing, and tracing applications.
+While it was not productive to compare speeds of the list allocators to the tree allocators, the list allocators can show value in their high utilization due to low overhead to maintain the list. Let's compare utilization across the insertion/deletion, coalescing, and tracing applications.
 
 ![chart-utilization](/images/chart-utilization.png)
 
 Here are the key details from the above graph.
 
 - While slow, the doubly linked list allocator has excellent utilization.
-- The implementations of the `rbtree_clrs`, `rbtree_unified`, `rbtree_stack`, and `rbtree_topdown` are different in terms of the details of their code and algorithms. However, they have the exact same space used in their nodes, therefore the utilization is identical.
+- The implementations of the `rbtree_clrs`, `rbtree_unified`, `rbtree_stack`, and `rbtree_top-down` are different in terms of the details of their code and algorithms. However, they have the exact same space used in their nodes, therefore the utilization is identical.
 - Perhaps this view makes the cost of the speed gained by the `rbtree_linked` approach more apparent.
+- The more advanced Segregated Fits allocator can achieve an excellent balance of speed and utilization. However, its utilization is highly dependent on the workload (notice the severe dip to 76% illustrated by the blue line). This is due to the high overhead of the lookup table. If the number of free nodes remains low, this lookup table for the segregated lists will eat into overall utilization. But once heap usage grows the low overhead of the actual free nodes compared to the Red-Black tree nodes begins to shine.
 
 ## Conclusions
 
 Let's revisit the questions I was most interested in when starting the runtime analysis of these allocators.
 
 - Is there any cost or benefit to uniting the left and right cases of Red Black trees into one case with the use of an array of pointers?
-  - **Our initial runtime informations suggests that accessing pointers to other nodes in the tree from an array is slightly slower. We can explore the assembly of the traditional node versus the array based node to see for sure where the instruction counts expand. This is a possible extension to pursue in this project.**
+  - **Our initial runtime information suggests that accessing pointers to other nodes in the tree from an array is slightly slower. We can explore the assembly of the traditional node versus the array based node to see for sure where the instruction counts expand. This is a possible extension to pursue in this project.**
 - Does the approach of storing duplicate node sizes in a linked list benefit performance by trimming the tree?
   - **Absolutely. In fact, if you wish to make no compromises in terms of performance then simply add the linked list pointer to the traditional node. However, if you want a more space efficient approach use an explicit stack to track lineage of the tree, and store duplicates in a linked list pointer.**
 - When we abandon the parent field of the tree node in exchange for the linked list field, do we sacrifice performance?
-  - **If we use the CLRS algorithm to fix the tree with a bottom up approach, we do not lose much speed. However when we fix the tree with a topdown approach, we will lose some time even though we have eliminated the need for a parent field. This seems to be because we do extra work whenever we fix the tree on the way down, and our bottom up approach may not perform the worst case number of fixups on every execution.**
-- Does a topdown approach to fixing a Red Black Tree reduce the number of O(lgN) operations enough to make a difference in performance?
-  - **Yes. The difference is that the topdown algorithm is slower than the bottom up algorithm. Perhaps the added logic of handling duplicates and needing to rewire pointers slows down this implementation of an allocator initially intended for no duplicates and transplanting removed nodes by copying data from the replacement node to the one being removed. We may also perform more fixups while going down the tree that involve expensive operations such as rotations than we would in a bottom up approach. In these real world tests, the bottom up algorithm must not perform the worst case number of fixups as frequently as the topdown algorithm.**
+  - **If we use the CLRS algorithm to fix the tree with a bottom up approach, we do not lose much speed. However when we fix the tree with a top-down approach, we will lose some time even though we have eliminated the need for a parent field. This seems to be because we do extra work whenever we fix the tree on the way down, and our bottom up approach may not perform the worst case number of fixups on every execution.**
+- Does a top-down approach to fixing a Red Black Tree reduce the number of O(lgN) operations enough to make a difference in performance?
+  - **Yes. The difference is that the top-down algorithm is slower than the bottom up algorithm. Perhaps the added logic of handling duplicates and needing to rewire pointers slows down this implementation of an allocator initially intended for no duplicates and transplanting removed nodes by copying data from the replacement node to the one being removed. We may also perform more fixups while going down the tree that involve expensive operations such as rotations than we would in a bottom up approach. In these real world tests, the bottom up algorithm must not perform the worst case number of fixups as frequently as the top-down algorithm.**
 
 For further exploration, I would be interested in finding real world programs with more diverse heap calls, such as `realloc()`. The current real world tests were mostly calls to `malloc()` and `free()`, keeping our tree small.
 
