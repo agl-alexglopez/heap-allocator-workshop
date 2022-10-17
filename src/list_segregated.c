@@ -218,8 +218,6 @@ static unsigned int find_index(unsigned int block_size) {
                 return INDEX_3;
             break;
         }
-    } else if (block_size > fits.table[TABLE_SIZE - 1].size) {
-        return TABLE_SIZE - 1;
     }
     // block_size = 32-bit word to find the log of
     unsigned int log_2;  // log_2 will be lg(block_size)
@@ -237,12 +235,19 @@ static unsigned int find_index(unsigned int block_size) {
 
 /* @brief splice_free_node  removes a free node out of the free node list.
  * @param *to_splice        the heap node that we are either allocating or splitting.
+ * @param *block_size       number of bytes that is used by the block we are splicing.
  */
-static void splice_free_node(free_node *to_splice) {
+static void splice_free_node(free_node *to_splice, size_t block_size) {
     // Catch if we are the first node pointed to by the lookup table.
     if (fits.nil == to_splice->prev) {
-        size_t block_size = extract_block_size(*get_block_header(to_splice));
-        int index = find_index(block_size);
+        int index = 0;
+        // Block size may be larger than unsigned int, so handle here before find_index function.
+        if (block_size > fits.table[TABLE_SIZE - 1].size) {
+            index = TABLE_SIZE - 1;
+        } else {
+            // We have a few optimizations possible for finding to which list we belong.
+            index = find_index(block_size);
+        }
         fits.table[index].start = to_splice->next;
         to_splice->next->prev = fits.nil;
     } else {
@@ -314,14 +319,16 @@ static header_t *coalesce(header_t *leftmost_header) {
     size_t coalesced_space = extract_block_size(*leftmost_header);
     header_t *right_space = get_right_header(leftmost_header, coalesced_space);
     if (right_space != heap.client_end && !is_block_allocated(*right_space)) {
-        coalesced_space += extract_block_size(*right_space);
-        splice_free_node(get_free_node(right_space));
+        size_t block_size = extract_block_size(*right_space);
+        coalesced_space += block_size;
+        splice_free_node(get_free_node(right_space), block_size);
     }
 
     if (is_left_space(leftmost_header)) {
         leftmost_header = get_left_header(leftmost_header);
-        coalesced_space += extract_block_size(*leftmost_header);
-        splice_free_node(get_free_node(leftmost_header));
+        size_t block_size = extract_block_size(*leftmost_header);
+        coalesced_space += block_size;
+        splice_free_node(get_free_node(leftmost_header), block_size);
     }
     init_header(leftmost_header, coalesced_space, FREE);
     return leftmost_header;
@@ -418,7 +425,7 @@ void *mymalloc(size_t requested_size) {
                 header_t *header = get_block_header(node);
                 size_t free_space = extract_block_size(*header);
                 if (free_space >= rounded_request) {
-                    splice_free_node(node);
+                    splice_free_node(node, free_space);
                     // Handoff decision to split or not to our helper, takes care of all details.
                     return split_alloc(header, rounded_request, free_space);
                 }
