@@ -1,16 +1,46 @@
-# Heap Allocators
+# List Allocators
 
-What follows is a brief explanation of the different allocators I implemented in this repository. I will go over the high level designs of each allocator with some visualizations to help explain the data structures. For the exact algorithms, please see the source code.
+## Navigation
+
+1. Home
+   - Documentation **([`README.md`](/README.md))**
+2. The CLRS Standard
+   - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
+   - Implementation **([`rbtree_clrs.c`](/src/rbtree_clrs.c))**
+3. Unified Symmetry
+   - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
+   - Implementation **([`rbtree_unified.c`](/src/rbtree_unified.c))**
+4. Doubly Linked Duplicates
+   - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
+   - Implementation **([`rbtree_linked.c`](/src/rbtree_linked.c))**
+5. Stack Based
+   - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
+   - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
+6. Top-down Fixups
+   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
+   - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
+7. List Allocators
+   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+8. Runtime Analysis
+   - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
+9. The Programs
+   - Documentation **([`programs.md`](/docs/programs.md))**
+
+
+What follows is a brief explanation of allocators I implemented in this repository other than those based on a Red-Black tree. I needed other implementations to serve as a baseline, point of comparison, or competition for the Red-Black tree allocators. I will go over the high level designs of each allocator with some visualizations to help explain the data structures. For the exact algorithms, please see the source code.
 
 ## A Simple List
 
-This project began after I completed a heap allocator that used a doubly linked list to maintain the free nodes. While it sounds simple, a first encounter with a heap allocator can be quite intimidating. However, with the write helper functions and design choices, the project was complete. Here is how a doubly linked list can be used to manage an allocator.
+This project began after I completed a Stanford Computer Science assignment that used a doubly linked list to maintain the free nodes in a heap allocator. While it sounds simple, a first encounter with a heap allocator can be quite intimidating. However, with the right helper functions and design choices, I was able to make it happen. Here is how a doubly linked list can be used to manage an allocator.
 
 ### Address or Size
 
 We begin our allocator with one large pool of memory we have available to the user. If they request memory from us, we will begin the process of organizing our heap in terms of which sections are allocated and which are free. One way to do this is with a simple list.
 
-We can choose to organize this list by address in memory or by size, with tradeoffs for each approach. Both are attempts to maximize utilization.
+We can choose to organize this list by address in memory or by size, with tradeoffs for each approach. Both are attempts to maximize utilization and decrease fragmentation.
 
 ![list-bestfit](/images/list-bestfit.png)
 
@@ -20,7 +50,7 @@ Here are the key details from the above illustration.
 
 - We can use a head and tail node to simplify instruction counts, safety, and ease of use for the implementer.
 - We organize by size with a header that contains the size and and whether the block is free or allocated. In this image all the pictured nodes are free.
-- We have a certain amount of bytes available for the user and then a footer at the bottom of our block. This will help with coalescing, which we won't discuss in too much detail here.
+- We have a certain amount of bytes available for the user and then a footer at the bottom of our block. This will help with coalescing, which we won't discuss in detail here.
 
 Now that you have the idea of the list in the abstract, here is how it actually appears in memory in a heap allocator.
 
@@ -52,14 +82,6 @@ However, this list is somewhat long. There are 20 slots and they start at one by
 
 Read the runtime analysis section for a detailed breakdown of how this more clever take on a doubly linked list stacks up against a Red-Black tree based allocator.
 
-## Red Black Trees
+## Performance Analysis
 
-I will not go over the Red-Black tree data structure here. A detailed writeup of the algorithm can be found in this project's [README.md](/README.md).
-
-However, I will take a moment to connect the Red-Black tree data structure to the practical layout of the heap.
-
-![rbtree-real](/images/rbtree-real.png)
-
-*Pictured Above: A illustration of a red black tree in the context of a heap allocator.*
-
-Notice in the above illustration that the white lines represent the child and parent links. There are two links between child and parent nodes because children track their parent node. Also notice where the Black Sentinel node is and how all nodes at the bottom of the tree point to it. The root also has this node as the parent.
+These allocators serve as a point of comparison in my [Runtime Analysis](/docs/rbtree_analysis.md) section of the repository. For the Segregated Fits allocator there is much more room for optimizations and strategies to make the best fits possible. However, these strategies are all dependent on the intended utilization. For the purpose of this repository, the above strategy serves well as decent competition for the Red-Black tree allocators.

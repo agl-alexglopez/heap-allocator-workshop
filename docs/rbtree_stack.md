@@ -16,14 +16,19 @@
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
    - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
-6. Topdown Fixups
+6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
    - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
-7. Runtime Analysis
+7. List Allocators
+   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-8. The Programs
+9. The Programs
    - Documentation **([`programs.md`](/docs/programs.md))**
-
+   
 ## Overview
 
 If we now bring all of the strengths of the past improvements I have discussed, we can make a more space efficient, fast allocator that solves some of the challenges a heap allocator implementation poses for red black trees. One technique that is common when we want to save space in a red black tree is to eliminate the parent field. Instead, we use an array and treat it as a stack to represent the path down to the nodes we need to work with. This eliminates an eight byte pointer from the struct and in a normal red black tree might look something like this. Please note, I am using my array method for this implementation as well to eliminate symmetric cases.

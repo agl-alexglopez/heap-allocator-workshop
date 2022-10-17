@@ -1,4 +1,4 @@
-# Unified Topdown
+# Unified Top-down
 
 ## Navigation
 
@@ -16,12 +16,17 @@
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
    - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
-6. Topdown Fixups
+6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
    - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
-7. Runtime Analysis
+7. List Allocators
+   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-8. The Programs
+9. The Programs
    - Documentation **([`programs.md`](/docs/programs.md))**
 
 ## Overview

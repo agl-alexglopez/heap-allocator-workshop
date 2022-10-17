@@ -16,14 +16,19 @@
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
    - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
-6. top-down Fixups
-   - Documentation **([`rbtree_top-down.md`](/docs/rbtree_top-down.md))**
-   - Implementation **([`rbtree_top-down.c`](/src/rbtree_top-down.c))**
-7. Runtime Analysis
+6. Top-down Fixups
+   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
+   - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
+7. List Allocators
+   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-8. The Programs
+9. The Programs
    - Documentation **([`programs.md`](/docs/programs.md))**
-
+   
 ## Overview
 
 Now that we have gone over the basics for each heap allocator, we can see how they perform in relation to one another. Let's start by gaining some perspective in terms of how much faster a Red Black Tree implementation is compared to a simple doubly linked list. While we have not discussed the doubly linked list implementation in detail, it is a simple implementation that involves maintaining a sorted doubly linked list by block size and taking the best fit block for any given request. It is a common introduction to allocators, and if you wish for more details there are numerous articles and college assignments that will start with this implementation. A doubly linked list has a worst case of O(N) for any single request from `free()` to insert a block into the list and O(N) for any request to `malloc()` to free the block from the list.

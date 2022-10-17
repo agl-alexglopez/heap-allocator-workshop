@@ -16,14 +16,19 @@
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
    - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
-6. Topdown Fixups
+6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
    - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
-7. Runtime Analysis
+7. List Allocators
+   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-8. The Programs
+9. The Programs
    - Documentation **([`programs.md`](/docs/programs.md))**
-
+   
 ## Overview
 
 I modeled the code in my first allocator directly from the pseudocode in the textbook and it was a challenging endeavor. Making sure that all the code across every symmetric case is correct, well named, and specific to the needs of a heap allocator was a bug prone journey. However, I now have a faithful reproduction of the textbook algorithm where applicable. I added logic to make deleting from the tree a best fit approach. For a call to `malloc` we are able to service the request in O(lgN) time while providing the best possible fitting node and splitting off any extra space and returning it to the tree if it is far too big.

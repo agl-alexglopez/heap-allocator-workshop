@@ -2,26 +2,33 @@
 
 ## Navigation
 
-1. The CLRS Standard
+1. Home
+   - Documentation **([`README.md`](/README.md))**
+2. The CLRS Standard
    - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
    - Implementation **([`rbtree_clrs.c`](/src/rbtree_clrs.c))**
-2. Unified Symmetry
+3. Unified Symmetry
    - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
    - Implementation **([`rbtree_unified.c`](/src/rbtree_unified.c))**
-3. Doubly Linked Duplicates
+4. Doubly Linked Duplicates
    - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
    - Implementation **([`rbtree_linked.c`](/src/rbtree_linked.c))**
-4. Stack Based
+5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
    - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
-5. Top-Down Fixups
+6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
    - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
-6. Runtime Analysis
+7. List Allocators
+   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-7. The Programs
+9. The Programs
    - Documentation **([`programs.md`](/docs/programs.md))**
-
+   
 ## Summary
 
 I worked through five separate implementations of a Red-Black Tree heap allocator with different design choices, sacrifices, and optimizations. Here is a summary of each and a link if you wish to jump to any one section.
@@ -124,7 +131,21 @@ Whether we entered Case 3 or not, we now must execute Case 4, invariant.
 
 ![rb-delete-case-4](/images/rb-delete-case-4.png)
 
-That completes our overview of Red Black Trees. There are many interesting optimizations both in terms of lines of code and speed of the tree I decided to pursue. There are also interesting challenges to solve for a Red Black Tree in the context of a heap allocator. Please explore the implementation write ups and code in this repository.
+## Trees in a Heap
+
+The above overview of Red-Black trees is agnostic to specific applications. Because this is a repository focused on heap allocators, specifically, it is helpful to see how the data structure is applied to the heap. 
+
+![rbtree-real](/images/rbtree-real.png)
+
+*Pictured Above: A illustration of a red black tree in the context of a heap allocator.*
+
+Here are the key details of the above image.
+
+- The white lines represent the parent and child links. There are two lines because every child also tracks its parent. However, explore this repository for implementations that forgo this parent field.
+- The black sentinel node is made visible here for clarity. You can actually see its location in memory and how it serves as the child of all leaves and the parent of the root.
+- The purple lines help you see where in memory the nodes in the tree are located, for clarity.
+
+That completes our overview of Red Black Trees. There are many interesting optimizations both in terms of lines of code and speed of the tree I decided to pursue. There are also interesting challenges to solve for a Red Black Tree in the context of a heap allocator. Please explore the implementation write ups and code in this repository for more.
 
 ## Next Steps
 

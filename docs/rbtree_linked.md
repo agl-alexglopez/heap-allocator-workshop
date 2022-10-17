@@ -16,14 +16,19 @@
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
    - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
-6. Topdown Fixups
+6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
    - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
-7. Runtime Analysis
+7. List Allocators
+   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-8. The Programs
+9. The Programs
    - Documentation **([`programs.md`](/docs/programs.md))**
-
+   
 ## Overview
 
 Unified left and right cases makes an implmentation well suited to try out even more creative strategies for using an array and an enum. Recall in both implementations that duplicate nodes are allowed. This makes the allocator fast by giving us immediate access to free any node from the tree and then fix the removal, but what if we could get a best case of constant time removals and cut down on the size of our tree? This might help with costly fixup operations.

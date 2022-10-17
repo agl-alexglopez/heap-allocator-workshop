@@ -2,6 +2,35 @@
 
 ## Navigation
 
+1. Home
+   - Documentation **([`README.md`](/README.md))**
+2. The CLRS Standard
+   - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
+   - Implementation **([`rbtree_clrs.c`](/src/rbtree_clrs.c))**
+3. Unified Symmetry
+   - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
+   - Implementation **([`rbtree_unified.c`](/src/rbtree_unified.c))**
+4. Doubly Linked Duplicates
+   - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
+   - Implementation **([`rbtree_linked.c`](/src/rbtree_linked.c))**
+5. Stack Based
+   - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
+   - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
+6. Top-down Fixups
+   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
+   - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
+7. List Allocators
+   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+8. Runtime Analysis
+   - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
+9. The Programs
+   - Documentation **([`programs.md`](/docs/programs.md))**
+   
+## Program Navigation
+
 - [The Test Harness](#test-harness)
   - **[`test_harness.c`](/src/test_harness.c)**
 - [The Time Harness](#time-harness)
