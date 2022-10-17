@@ -126,7 +126,7 @@ To set up a measurement of inserting and deleting into a Red-Black Tree we start
 
 ![insert-delete](/images/chart-insert-delete.png)
 
-*Pictured Above: The five allocators compared on a runtime graph for insert delete requests. The time is now measured in milliseconds, while the number of requests remains the same as our previous comparison.*
+*Pictured Above: The six allocators compared on a runtime graph for insert delete requests. The time is now measured in milliseconds, while the number of requests remains the same as our previous comparison.*
 
 Here are the key details from the above graph.
 
@@ -135,7 +135,7 @@ Here are the key details from the above graph.
   - We may also see some extra time cost from breaking off extra space from a block that is too large and reinserting it into the tree. However, this is hard to predictably measure and does not seem to have an effect on the Big-O time complexity.
 - We see an improvement exceeding 50% in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
 - The top-down approach to managing a Red-Black tree is not the fastest in terms of inserting and deleting from the tree.
-- These allocators clearly outperform the standard segregated fits's O($N^2$) time complexity. 
+- These allocators clearly outperform the standard segregated fits' O(N^2) time complexity. 
 
 Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_top-down` and `rbtree_stack`. The top-down approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implmentation seem the most pointless at this point if the same speed can be acheived with more space efficiency.
 
@@ -157,6 +157,9 @@ If we are using a normal Red Black Tree with a parent field, we treat all coales
 
 ![chart-realloc-free](/images/chart-realloc-free.png)
 
+
+*Pictured Above: The six allocators compared on a runtime graph for realloc requests.*
+
 Here are the key details from the above graph.
 
 - The runtime of N reallocations is O(NlgN).
@@ -166,9 +169,9 @@ Here are the key details from the above graph.
 - The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is faster in this application.
 - The `list_segregated` allocator is more competitive in this category, but is soon outclassed by the speed of the Red-Black tree allocators.
 
-These results make the most wasteful implementation in terms of space, `rbtree_linked`, more of a proof of concept. If the similar results can be acheived with more space efficiency, the implementation loses value.
+These results make the most wasteful implementation in terms of space, `rbtree_linked`, more of a proof of concept. If the similar results can be achieved with more space efficiency, the implementation loses value.
 
-I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deltions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a fruitful challenge in terms of speed. To get an idea of just how many duplicates the allocators may encounter in these artificial workloads, here is a picture of the tree configuration for 50,000 insert delete requests at the peak of the tree size.
+I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deletions, but faster here. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a fruitful challenge in terms of speed. To get an idea of just how many duplicates the allocators may encounter in these artificial workloads, here is a picture of the tree configuration for 50,000 insert delete requests at the peak of the tree size.
 
 ![50k-insert-delete](/images/rb-tree-50k-insertdelete.png)
 
@@ -190,11 +193,11 @@ If we then write a simple parsing program we can turn the somewhat verbose outpu
 
 ### Linux Tree Command
 
-The Linux `tree` command will print out all directory contents in a tree structure from the current directory as root. This is similar to my tree printing function you have seen me use to illustrate Red Black trees throughout this write up. There are many options for this command but I am choosing to start in the `home/` directory of Ubuntu on WSL2 and use the `-f` and `-a` flags which will output full paths and hidden files for all directories. Again, for perspective here is the full comparison with the list allocator.
+The Linux `tree` command will print out all directory contents in a tree structure from the current directory as root. This is similar to my tree printing function you have seen me use to illustrate Red Black trees throughout this write up. There are many options for this command but I am choosing to start in the `home/` directory of Ubuntu on WSL2 and use the `-f` and `-a` flags which will output full paths and hidden files for all directories. Again, for perspective here is the full comparison with the list allocators.
 
 ![chart-tracetree](/images/chart-tracetree.png)
 
-It is again unproductive to discuss a speed comparison between the Red Black Tree allocators on this scale, so we will drop the list allocator for further comparison. We will also note that the Segregated Fits allocator was much more competitive across these categories in terms of speed. However, it is not quite fast enough to stay for further analysis amongst the different Red-Black tree allocators.
+It is again unproductive to discuss a speed comparison between the Red Black Tree allocators on this scale, so we will drop the list allocators for further comparison. We will also note that the Segregated Fits allocator was much more competitive across these categories in terms of speed. However, it is not quite fast enough to warrant further analysis amongst the different Red-Black tree allocators.
 
 ![chart-rbtracetree](/images/chart-rbtracetree.png)
 
