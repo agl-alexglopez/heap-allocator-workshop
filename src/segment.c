@@ -34,7 +34,7 @@ void *init_heap_segment(size_t total_size) {
         segment_start = NULL;
         segment_size = 0;
     }
-    
+
     // Re-initialize by reserving entire segment with mmap
     segment_start = mmap(HEAP_START_HINT, total_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
     assert(segment_start != MAP_FAILED);

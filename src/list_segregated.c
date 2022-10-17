@@ -1,10 +1,10 @@
-/*
+/**
  * File: list_segregated.c
  * ---------------------
  * This is a basic implementation of a segregated free list (aka fits) heap allocator. We
- * maintain 20 list sizes and do a first fit search on loosely sorted lists, approximating a best
+ * maintain 15 list sizes and do a first fit search on loosely sorted lists, approximating a best
  * fit search of the heap. We simply add new elements to a list class at the front to speed things
- * up rather than maintaining 20 sorted lists. This helps bring us closer to a O(lgN) runtime for
+ * up rather than maintaining 15 sorted lists. This helps bring us closer to a O(lgN) runtime for
  * a list based allocator and only costs a small amount of utilization.
  *
  * Citations:
@@ -48,7 +48,7 @@ typedef struct free_node {
 
  *     - A first fit search will yeild approximately the best fit.
  *     - We will have one dummy node to serve as both the head and tail of all lists.
- *     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index.
+ *     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index size.
  */
 typedef struct seg_node {
     unsigned short size;
@@ -61,7 +61,6 @@ typedef struct seg_node {
  * certain segregated list, so we can fix the table in special cases.
  */
 static struct fits {
-    // The table is a pointer to an array of our seg_nodes that point to our sublists.
     seg_node *table;
     free_node *nil;
     size_t total;
@@ -73,7 +72,11 @@ static struct heap {
     size_t client_size;
 }heap;
 
-// In rare cases we find the table index a node belongs to in O(1) time. This sets that up.
+/* This is taken from Sean Eron Anderson's Bit Twiddling Hacks. See the find_index() function for
+ * how it helps our implementation find the index of a node in a given list that is a base2 power
+ * of 2. We want to jump straight to the index by finding the log2(block_size).
+ * https://graphics.stanford.edu/~seander/bithacks.html
+ */
 static const char LogTable256[256] =
 {
 #define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
@@ -92,10 +95,14 @@ static const char LogTable256[256] =
 #define SMALL_TABLE_MAX (unsigned short)56
 #define LARGE_TABLE_MIN (unsigned short)64
 #define TABLE_BYTES (15 * sizeof(seg_node))
-#define INDEX_0 (unsigned short)32
-#define INDEX_1 (unsigned short)40
-#define INDEX_2 (unsigned short)48
-#define INDEX_3 (unsigned short)56
+#define INDEX_0 (unsigned short)0
+#define INDEX_0_SIZE (unsigned short)32
+#define INDEX_1 (unsigned short)1
+#define INDEX_1_SIZE (unsigned short)40
+#define INDEX_2 (unsigned short)2
+#define INDEX_2_SIZE (unsigned short)48
+#define INDEX_3 (unsigned short)3
+#define INDEX_3_SIZE (unsigned short)56
 #define INDEX_OFFSET 2U
 
 
@@ -195,6 +202,24 @@ static bool is_left_space(header_t *header) {
  * @return            the index in the lookup table.
  */
 static unsigned int find_index(unsigned int block_size) {
+    if (block_size <= SMALL_TABLE_MAX) {
+        switch (block_size) {
+            case INDEX_0_SIZE:
+                return INDEX_0;
+            break;
+            case INDEX_1_SIZE:
+                return INDEX_1;
+            break;
+            case INDEX_2_SIZE:
+                return INDEX_2;
+            break;
+            case INDEX_3_SIZE:
+                return INDEX_3;
+            break;
+        }
+    } else if (block_size > fits.table[TABLE_SIZE - 1].size) {
+        return TABLE_SIZE - 1;
+    }
     // block_size = 32-bit word to find the log of
     unsigned int log_2;  // log_2 will be lg(block_size)
     register unsigned int temp_1, temp_2;
@@ -203,8 +228,8 @@ static unsigned int find_index(unsigned int block_size) {
     } else {
       log_2 = (temp_1 = block_size >> 8) ? 8 + LogTable256[temp_1] : LogTable256[block_size];
     }
-    /* After small sizes we double in base2 powers of 2 so we can predictably find our index with
-     * a fixed offset. The log_2 of each size class increments linearly by 1.
+    /* After small sizes we double in base2 powers of 2 so we can predictably find our index
+     * with a fixed offset. The log_2 of each size class increments linearly by 1.
      */
     return log_2 - INDEX_OFFSET;
 }
@@ -216,28 +241,7 @@ static void splice_free_node(free_node *to_splice) {
     // Catch if we are the first node pointed to by the lookup table.
     if (fits.nil == to_splice->prev) {
         size_t block_size = extract_block_size(*get_block_header(to_splice));
-        int index = 0;
-        if (block_size <= SMALL_TABLE_MAX) {
-            switch (block_size) {
-                case INDEX_0:
-                    index = 0;
-                break;
-                case INDEX_1:
-                    index = 1;
-                break;
-                case INDEX_2:
-                    index = 2;
-                break;
-                case INDEX_3:
-                    index = 3;
-                break;
-            }
-        } else if (block_size > fits.table[TABLE_SIZE - 1].size) {
-            index = TABLE_SIZE - 1;
-        } else {
-            // We will use some bit tricks to find nearest log2(block_size), thus get the index.
-            index = find_index(block_size);
-        }
+        int index = find_index(block_size);
         fits.table[index].start = to_splice->next;
         to_splice->next->prev = fits.nil;
     } else {
@@ -432,7 +436,6 @@ void *mymalloc(size_t requested_size) {
  *                    find space.
  */
 void *myrealloc(void *old_ptr, size_t new_size) {
-    // There are some subtleties between these edgcases.
     if (new_size > MAX_REQUEST_SIZE) {
         return NULL;
     }
@@ -547,11 +550,9 @@ static bool is_valid_header(header_t header, size_t block_size) {
     if (block_size > heap.client_size) {
         return false;
     }
-    // Some bits are overlapping into our lower three control bits in the headers.
     if (is_header_corrupted(header)) {
         return false;
     }
-    // We are not staying divisible by 8
     if (block_size % ALIGNMENT != 0) {
         return false;
     }
@@ -571,7 +572,6 @@ static bool is_memory_balanced(size_t *total_free_mem) {
     while (cur_header != heap.client_end) {
         size_t block_size_check = extract_block_size(*cur_header);
         if (block_size_check == 0) {
-            // Bad jump check the previous node address compared to this one.
             breakpoint();
             return false;
         }
@@ -580,7 +580,6 @@ static bool is_memory_balanced(size_t *total_free_mem) {
             breakpoint();
             return false;
         }
-        // Now tally valid size into total.
         if (is_block_allocated(*cur_header)) {
             size_used += block_size_check;
         } else {
@@ -613,7 +612,6 @@ static bool are_fits_valid(size_t total_free_mem) {
         for (free_node *cur = fits.table[i].start; cur != fits.nil; cur = cur->next) {
             header_t *cur_header = get_block_header(cur);
             size_t cur_size = extract_block_size(*cur_header);
-            // These lists hold up to the advertised size and no more, except last infinity list.
             if (i != TABLE_SIZE - 1 && cur_size >= fits.table[i + 1].size) {
                 breakpoint();
                 return false;
@@ -650,7 +648,6 @@ bool validate_heap() {
         breakpoint();
         return false;
     }
-    // Check that after checking all headers we end on size 0 tail and then end of address space.
     size_t total_free_mem = 0;
     if (!is_memory_balanced(&total_free_mem)) {
         breakpoint();
@@ -724,8 +721,9 @@ static void print_free_block(header_t *header) {
     size_t full_size = extract_block_size(*header);
     size_t block_size = full_size - ALIGNMENT;
     header_t *footer = (header_t *)((byte_t *)header + full_size - ALIGNMENT);
-    // We should be able to see the header is the same as the footer. If they are not the same
-    // we will face subtle bugs that are very hard to notice.
+    /* We should be able to see the header is the same as the footer. If they are not the same
+     * we will face subtle bugs that are very hard to notice.
+     */
     if (*footer != *header) {
         *footer = ULONG_MAX;
     }
@@ -768,7 +766,6 @@ static void print_bad_jump(header_t *current, header_t *prev) {
     printf("\nJump by %zubytes...\n", cur_size);
     printf("Current state of the free list:\n");
     printf(COLOR_NIL);
-    // The segregated fits fits may be messed up as well.
     print_fits(VERBOSE);
 }
 

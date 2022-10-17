@@ -1,4 +1,5 @@
-/* Author: Alexander Griffin Lopez
+/**
+ * Author: Alexander Griffin Lopez
  *
  * File: rbtree_unified.c
  * ---------------------
@@ -662,12 +663,10 @@ static bool is_memory_balanced(size_t *total_free_mem) {
     while (cur_node != heap.client_end) {
         size_t block_size_check = get_size(cur_node->header);
         if (block_size_check == 0) {
-            // Bad jump check the previous node address compared to this one.
             breakpoint();
             return false;
         }
 
-        // Now tally valid size into total.
         if (is_block_allocated(cur_node->header)) {
             size_used += block_size_check + HEADERSIZE;
         } else {
@@ -703,8 +702,7 @@ static bool is_red_red(const rb_node *root) {
         return false;
     }
     if (get_color(root->header) == RED) {
-        if (get_color(root->links[L]->header) == RED
-                || get_color(root->links[R]->header) == RED) {
+        if (get_color(root->links[L]->header) == RED || get_color(root->links[R]->header) == RED) {
             return true;
         }
     }
@@ -748,8 +746,7 @@ static size_t extract_tree_mem(const rb_node *root) {
     if (root == tree.black_nil) {
         return 0UL;
     }
-    size_t total_mem = extract_tree_mem(root->links[R])
-                       + extract_tree_mem(root->links[L]);
+    size_t total_mem = extract_tree_mem(root->links[R]) + extract_tree_mem(root->links[L]);
     // We may have repeats so make sure to add the linked list values.
     total_mem += get_size(root->header) + HEADERSIZE;
     return total_mem;
@@ -783,6 +780,8 @@ static bool is_parent_valid(const rb_node *root) {
 /* @brief calculate_bheight_V2  verifies that the height of a red-black tree is valid. This is a
  *                              similar function to calculate_bheight but comes from a more
  *                              reliable source, because I saw results that made me doubt V1.
+ * @citation                    Julienne Walker's writeup on topdown Red-Black trees has a helpful
+ *                              function for verifying black heights.
  */
 static int calculate_bheight_V2(const rb_node *root) {
     if (root == tree.black_nil) {
@@ -819,12 +818,10 @@ static bool is_binary_tree(const rb_node *root) {
         return true;
     }
     size_t root_value = get_size(root->header);
-    if (root->links[L] != tree.black_nil
-            && root_value < get_size(root->links[L]->header)) {
+    if (root->links[L] != tree.black_nil && root_value < get_size(root->links[L]->header)) {
         return false;
     }
-    if (root->links[R] != tree.black_nil
-            && root_value > get_size(root->links[R]->header)) {
+    if (root->links[R] != tree.black_nil && root_value > get_size(root->links[R]->header)) {
         return false;
     }
     return is_binary_tree(root->links[L]) && is_binary_tree(root->links[R]);
@@ -905,7 +902,6 @@ static void print_node(const rb_node *root, print_style style) {
     printf(COLOR_NIL);
 
     if (style == VERBOSE) {
-        // print the black-height
         printf("(bh: %d)", get_black_height(root));
     }
     printf("\n");
@@ -922,12 +918,10 @@ static void print_inner_tree(const rb_node *root, const char *prefix,
     if (root == tree.black_nil) {
         return;
     }
-    // Print the root node
     printf("%s", prefix);
     printf("%s", node_type == LEAF ? " └──" : " ├──");
     print_node(root, style);
 
-    // Print any subtrees
     char *str = NULL;
     int string_length = snprintf(NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   ");
     if (string_length > 0) {
@@ -956,11 +950,9 @@ static void print_rb_tree(const rb_node *root, print_style style) {
     if (root == tree.black_nil) {
         return;
     }
-    // Print the root node
     printf(" ");
     print_node(root, style);
 
-    // Print any subtrees
     if (root->links[R] == tree.black_nil) {
         print_inner_tree(root->links[L], "", LEAF, style);
     } else if (root->links[L] == tree.black_nil) {
@@ -987,8 +979,9 @@ static void print_alloc_block(const rb_node *node) {
 static void print_free_block(const rb_node *node) {
     size_t block_size = get_size(node->header);
     header *footer = (header *)((byte *)node + block_size);
-    // We should be able to see the header is the same as the footer. However, due to fixup
-    // functions, the color may change for nodes and color is irrelevant to footers.
+    /* We should be able to see the header is the same as the footer. However, due to fixup
+     * functions, the color may change for nodes and color is irrelevant to footers.
+     */
     header to_print = *footer;
     if (get_size(*footer) != get_size(node->header)) {
         to_print = ULLONG_MAX;

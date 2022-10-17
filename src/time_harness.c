@@ -1,4 +1,6 @@
-/*
+/**
+ * Author: Alexander G. Lopez
+ *
  * Files: time_harness.c
  * ---------------------
  * Reads and interprets text-based script files containing a sequence of

@@ -122,7 +122,6 @@ int print_peaks(char *script_name, user_breaks *user_reqs) {
 
     // Evaluate this script and record the results
     printf("\nEvaluating allocator on %s...\n", script.name);
-    // We will bring back useful utilization info while we time.
     size_t used_segment = print_allocator(&script, user_reqs, &graphs);
     printf("...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
             script.num_ops, script.peak_size, used_segment);
@@ -199,6 +198,7 @@ static size_t print_allocator(script_t *script, user_breaks *user_reqs, gnuplots
      * and I don't want to expose heap internals to this program or make copies of the nodes. Just
      * run it twice and use the allocator's provided printer function to find max nodes.
      */
+
     init_heap_segment(HEAP_SIZE);
     if (!myinit(heap_segment_start(), heap_segment_size())) {
         allocator_error(script, 0, "myinit() returned false");
@@ -233,7 +233,6 @@ static size_t print_allocator(script_t *script, user_breaks *user_reqs, gnuplots
  * @param max                      the upper limit of user input and script range.
  */
 static void handle_user_breakpoints(user_breaks *user_reqs, int curr_break, int max) {
-    // We have just hit a requested breakpoint so we decrement, invariant.
     int min = user_reqs->breakpoints[curr_break] + 1;
     while (true) {
         int c;
@@ -348,7 +347,6 @@ static void validate_breakpoints(script_t *script, user_breaks *user_reqs) {
 /* @brief *binsert  performs binary insertion sort on an array, finding an element if it already
  *                  present or inserting it in sorted place if it not yet present. It will update
  *                  the size of the array if it inserts an element.
- * -----------------------------------------------------------------------------
  * @param *key      the element we are searching for in the array.
  * @param *p_nelem  the number of elements present in the array.
  * @param width     the size in bytes of each entry in the array.

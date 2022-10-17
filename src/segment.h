@@ -12,15 +12,13 @@
 /* Function: init_heap_segment
  * ---------------------------
  * This function is called to initialize the heap segment and allocate the
- * segment to hold total_size bytes. If init_heap_segment 
- * is called again, it discards the current heap segment and re-configures. 
- * The function returns the base address of the heap segment if successful 
- * or NULL if the initialization failed. The base address of the heap segment 
+ * segment to hold total_size bytes. If init_heap_segment
+ * is called again, it discards the current heap segment and re-configures.
+ * The function returns the base address of the heap segment if successful
+ * or NULL if the initialization failed. The base address of the heap segment
  * is always aligned to start on a page boundary (page size is 4096 bytes).
  */
 void *init_heap_segment(size_t total_size);
-
-
 
 /* Functions: heap_segment_start, heap_segment_size
  * ------------------------------------------------

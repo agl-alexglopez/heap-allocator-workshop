@@ -163,7 +163,6 @@ static void left_rotate(rb_node *current) {
         right_child->left->parent = current;
     }
     right_child->parent = current->parent;
-    // Take care of the root edgecase and find where the parent is in relation to current.
     if (current->parent == tree.black_nil) {
         tree.root = right_child;
     } else if (current == current->parent->left) {
@@ -187,7 +186,6 @@ static void right_rotate(rb_node *current) {
         left_child->right->parent = current;
     }
     left_child->parent = current->parent;
-    // Take care of the root edgecase and find where the parent is in relation to current.
     if (current->parent == tree.black_nil) {
         tree.root = left_child;
     } else if (current == current->parent->right) {
@@ -638,7 +636,6 @@ bool myinit(void *heap_start, size_t heap_size) {
 void *mymalloc(size_t requested_size) {
     if (requested_size != 0 && requested_size <= MAX_REQUEST_SIZE) {
         size_t client_request = roundup(requested_size + HEAP_NODE_WIDTH, ALIGNMENT);
-        // Search the tree for the best possible fitting node.
         rb_node *found_node = find_best_fit(client_request);
         return split_alloc(found_node, client_request, get_size(found_node->header));
     }
@@ -704,7 +701,6 @@ void myfree(void *ptr) {
  * @return            true if everything is in order otherwise false.
  */
 static bool check_init() {
-    // We also need to make sure the leftmost header always says there is no space to the left.
     if (is_left_space(heap.client_start)) {
         breakpoint();
         return false;
@@ -729,12 +725,10 @@ static bool is_memory_balanced(size_t *total_free_mem) {
     while (cur_node != heap.client_end) {
         size_t block_size_check = get_size(cur_node->header);
         if (block_size_check == 0) {
-            // Bad jump check the previous node address compared to this one.
             breakpoint();
             return false;
         }
 
-        // Now tally valid size into total.
         if (is_block_allocated(cur_node->header)) {
             size_used += block_size_check + HEADERSIZE;
         } else {
@@ -774,7 +768,6 @@ static bool is_red_red(const rb_node *root) {
             return true;
         }
     }
-    // Check all the subtrees.
     return is_red_red(root->right) || is_red_red(root->left);
 }
 
@@ -792,9 +785,8 @@ static int calculate_bheight(const rb_node *root) {
     int add = get_color(root->header) == BLACK;
     if (lf_bheight == -1 || rt_bheight == -1 || lf_bheight != rt_bheight) {
         return -1;
-    } else {
-        return lf_bheight + add;
     }
+    return lf_bheight + add;
 }
 
 /* @brief is_bheight_valid  the wrapper for calculate_bheight that verifies that the black height
@@ -848,6 +840,8 @@ static bool is_parent_valid(const rb_node *root) {
 /* @brief calculate_bheight_V2  verifies that the height of a red-black tree is valid. This is a
  *                              similar function to calculate_bheight but comes from a more
  *                              reliable source, because I saw results that made me doubt V1.
+ * @citation                    Julienne Walker's writeup on topdown Red-Black trees has a helpful
+ *                              function for verifying black heights.
  */
 static int calculate_bheight_V2(const rb_node *root) {
     if (root == tree.black_nil) {
@@ -860,9 +854,8 @@ static int calculate_bheight_V2(const rb_node *root) {
     }
     if (left_height != 0 && right_height != 0) {
         return get_color(root->header) == RED ? left_height : left_height + 1;
-    } else {
-        return 0;
     }
+    return 0;
 }
 
 /* @brief is_bheight_valid_V2  the wrapper for calculate_bheight_V2 that verifies that the black
@@ -906,7 +899,6 @@ bool validate_heap() {
         breakpoint();
         return false;
     }
-    // Check that after checking all headers we end on size 0 tail and then end of address space.
     size_t total_free_mem = 0;
     if (!is_memory_balanced(&total_free_mem)) {
         breakpoint();
@@ -917,7 +909,7 @@ bool validate_heap() {
         breakpoint();
         return false;
     }
-    // Two red nodes in a row are invalid for the table.
+    // Two red nodes in a row are invalid for the tree.
     if (is_red_red(tree.root)) {
         breakpoint();
         return false;
@@ -982,12 +974,10 @@ static void print_inner_tree(const rb_node *root, const char *prefix,
     if (root == tree.black_nil) {
         return;
     }
-    // Print the root node
     printf("%s", prefix);
     printf("%s", node_type == LEAF ? " └──" : " ├──");
     print_node(root, style);
 
-    // Print any subtrees
     char *str = NULL;
     int string_length = snprintf(NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   ");
     if (string_length > 0) {
@@ -1016,11 +1006,9 @@ static void print_rb_tree(const rb_node *root, print_style style) {
     if (root == tree.black_nil) {
         return;
     }
-    // Print the root node
     printf(" ");
     print_node(root, style);
 
-    // Print any subtrees
     if (root->right == tree.black_nil) {
         print_inner_tree(root->left, "", LEAF, style);
     } else if (root->left == tree.black_nil) {
@@ -1047,8 +1035,9 @@ static void print_alloc_block(const rb_node *node) {
 static void print_free_block(const rb_node *node) {
     size_t block_size = get_size(node->header);
     header *footer = (header *)((byte *)node + block_size);
-    // We should be able to see the header is the same as the footer. However, due to fixup
-    // functions, the color may change for nodes and color is irrelevant to footers.
+    /* We should be able to see the header is the same as the footer. However, due to fixup
+     * functions, the color may change for nodes and color is irrelevant to footers.
+     */
     header to_print = *footer;
     if (get_size(*footer) != get_size(node->header)) {
         to_print = ULLONG_MAX;
@@ -1059,7 +1048,6 @@ static void print_free_block(const rb_node *node) {
     printf("%p: HDR->0x%016zX(%zubytes)\n", node, node->header, block_size);
     printf("%*c", indent_struct_fields, ' ');
 
-    // Printing color logic will help us spot red black violations. Tree printing later helps too.
     if (node->parent) {
         printf(get_color(node->parent->header) == BLACK ? COLOR_BLK : COLOR_RED);
         printf("PRN->%p\n", node->parent);

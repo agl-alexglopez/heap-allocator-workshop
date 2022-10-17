@@ -44,6 +44,7 @@ const int MAX_SCRIPT_LINE_LEN = 1024;
  * @param *fp               the file for which we are parsing requests.
  * @param *pnread           the pointer we use to progress past a line whether it is read or skipped.
  * @return                  true if did read a valid line eventually, or false otherwise.
+ * @citation                 jzelenski and ntroccoli Stanford University.
  */
 static bool read_script_line(char buffer[], size_t buffer_size, FILE *fp, int *pnread) {
     while (true) {
@@ -76,6 +77,7 @@ static bool read_script_line(char buffer[], size_t buffer_size, FILE *fp, int *p
  * @param *script_name       the name of the current script we can output if an error occurs.
  * @return                   the request_t for the individual line parsed.
  * @warning                  if the line is malformed, this function throws an error.
+ * @citation                 jzelenski and ntroccoli Stanford University.
  */
 static request_t parse_script_line(char *buffer, int lineno, char *script_name) {
     request_t request = { .lineno = lineno, .op = 0, .size = 0};
@@ -106,6 +108,7 @@ static request_t parse_script_line(char *buffer, int lineno, char *script_name) 
  *                      is too long to store each request on the heap.
  * @param *path         the path to the .script file to parse.
  * @return              a pointer to the script_t with information regarding the .script requests.
+ * @citation            ntroccoli and jzelenski, Stanford University.
  */
 script_t parse_script(const char *path) {
     FILE *fp = fopen(path, "r");
@@ -388,6 +391,7 @@ void print_gnuplots(gnuplots *graphs) {
         FILE *util_pipe = popen("gnuplot -persist", "w");
         FILE *free_pipe = popen("gnuplot -persist", "w");
         FILE *time_pipe = popen("gnuplot -persist", "w");
+                            // This helps us see nice colors with our graphs.
         fprintf(util_pipe, "set terminal dumb ansi256;"
                             // This helps with compatibility on dumb terminals.
                            "set colorsequence classic;"

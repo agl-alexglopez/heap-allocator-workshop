@@ -9,7 +9,10 @@
  * compiled versions of this program, one using each type of
  * heap allocator.
  *
- * Written by jzelenski, updated by Nick Troccoli Winter 18-19
+ * Written by jzelenski, updated by Nick Troccoli Winter 18-19. Modified by Alexander G. Lopez to
+ * only include the heap testing logic. Previously, script parsing was included here as well. I
+ * decomposed the script parsing to the script.h library and left only the logic for testing the
+ * scripts behind.
  */
 
 #include <getopt.h>

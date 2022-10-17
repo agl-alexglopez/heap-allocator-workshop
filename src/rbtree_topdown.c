@@ -1,4 +1,5 @@
-/* Author: Alexander Griffin Lopez
+/**
+ * Author: Alexander Griffin Lopez
  *
  * File: rbtree_topdown.c
  * ---------------------
@@ -279,7 +280,6 @@ static void insert_rb_topdown(rb_node *current) {
             current->list_start = free_nodes.list_tail;
         } else if (get_color(child->links[L]->header) == RED &&
                      get_color(child->links[R]->header) == RED) {
-            // Color flip
             paint_node(child, RED);
             paint_node(child->links[L], BLACK);
             paint_node(child->links[R], BLACK);
@@ -374,9 +374,11 @@ static rb_node *delete_duplicate(rb_node *head) {
  */
 static rb_node *remove_node(rb_node *parent, rb_node *remove,
                             rb_node *replacement_parent, rb_node *replacement) {
+
     // Quick return, node waiting in the linked list will replace if we found duplicate.
     if (remove->list_start != free_nodes.list_tail) {
         return delete_duplicate(remove);
+
     }else if (remove->links[L] == free_nodes.black_nil
                 || remove->links[R] == free_nodes.black_nil) {
         tree_link nil_link = remove->links[L] != free_nodes.black_nil;
@@ -825,13 +827,11 @@ void myfree(void *ptr) {
  * @return            true if everything is in order otherwise false.
  */
 static bool check_init() {
-    // We also need to make sure the leftmost header always says there is no space to the left.
     if (is_left_space(heap.client_start)) {
         breakpoint();
         return false;
     }
-    if ((byte *)heap.client_end
-            - (byte *)heap.client_start + HEAP_NODE_WIDTH != heap.heap_size) {
+    if ((byte *)heap.client_end - (byte *)heap.client_start + HEAP_NODE_WIDTH != heap.heap_size) {
         breakpoint();
         return false;
     }
@@ -855,12 +855,10 @@ static bool is_memory_balanced(size_t *total_free_mem) {
     while (cur_node != heap.client_end) {
         size_t block_size_check = get_size(cur_node->header);
         if (block_size_check == 0) {
-            // Bad jump check the previous node address compared to this one.
             breakpoint();
             return false;
         }
 
-        // Now tally valid size into total.
         if (is_block_allocated(cur_node->header)) {
             size_used += block_size_check + HEADERSIZE;
         } else {
@@ -892,13 +890,11 @@ static int get_black_height(const rb_node *root) {
  */
 static bool is_red_red(const rb_node *root) {
     if (root == free_nodes.black_nil ||
-            (root->links[R] == free_nodes.black_nil
-             && root->links[L] == free_nodes.black_nil)) {
+            (root->links[R] == free_nodes.black_nil && root->links[L] == free_nodes.black_nil)) {
         return false;
     }
     if (get_color(root->header) == RED) {
-        if (get_color(root->links[L]->header) == RED
-                || get_color(root->links[R]->header) == RED) {
+        if (get_color(root->links[L]->header) == RED || get_color(root->links[R]->header) == RED) {
             return true;
         }
     }
@@ -969,6 +965,8 @@ static bool is_rbtree_mem_valid(const rb_node *root, size_t total_free_mem) {
 /* @brief calculate_bheight_V2  verifies that the height of a red-black tree is valid. This is a
  *                              similar function to calculate_bheight but comes from a more
  *                              reliable source, because I saw results that made me doubt V1.
+ * @citation                    Julienne Walker's writeup on topdown Red-Black trees has a helpful
+ *                              function for verifying black heights.
  */
 static int calculate_bheight_V2(const rb_node *root) {
     if (root == free_nodes.black_nil) {

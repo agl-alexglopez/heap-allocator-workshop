@@ -595,7 +595,6 @@ static bool is_left_space(const rb_node *node) {
     return !(node->header & LEFT_ALLOCATED);
 }
 
-
 /* @brief init_header_size  initializes any node as the size and indicating left is allocated. Left
  *                          is allocated because we always coalesce left and right.
  * @param *node             the region of possibly uninitialized heap we must initialize.
@@ -844,13 +843,11 @@ void myfree(void *ptr) {
  * @return            true if everything is in order otherwise false.
  */
 static bool check_init() {
-    // We also need to make sure the leftmost header always says there is no space to the left.
     if (is_left_space(heap.client_start)) {
         breakpoint();
         return false;
     }
-    if ((byte *)heap.client_end
-            - (byte *)heap.client_start + HEAP_NODE_WIDTH != heap.heap_size) {
+    if ((byte *)heap.client_end - (byte *)heap.client_start + HEAP_NODE_WIDTH != heap.heap_size) {
         breakpoint();
         return false;
     }
@@ -863,19 +860,16 @@ static bool check_init() {
  * @return                    true if our tallying is correct and our totals match.
  */
 static bool is_memory_balanced(size_t *total_free_mem) {
-    // Check that after checking all headers we end on size 0 tail and then end of address space.
     rb_node *cur_node = heap.client_start;
     size_t size_used = HEAP_NODE_WIDTH;
     size_t total_free_nodes = 0;
     while (cur_node != heap.client_end) {
         size_t block_size_check = get_size(cur_node->header);
         if (block_size_check == 0) {
-            // Bad jump check the previous node address compared to this one.
             breakpoint();
             return false;
         }
 
-        // Now tally valid size into total.
         if (is_block_allocated(cur_node->header)) {
             size_used += block_size_check + HEADERSIZE;
         } else {
@@ -957,8 +951,7 @@ static size_t extract_tree_mem(const rb_node *root) {
     if (root == free_nodes.black_nil) {
         return 0UL;
     }
-    size_t total_mem = extract_tree_mem(root->links[R])
-                       + extract_tree_mem(root->links[L]);
+    size_t total_mem = extract_tree_mem(root->links[R]) + extract_tree_mem(root->links[L]);
     // We may have repeats so make sure to add the linked list values.
     size_t node_size = get_size(root->header) + HEADERSIZE;
     total_mem += node_size;
@@ -984,6 +977,8 @@ static bool is_rbtree_mem_valid(const rb_node *root, size_t total_free_mem) {
 /* @brief calculate_bheight_V2  verifies that the height of a red-black tree is valid. This is a
  *                              similar function to calculate_bheight but comes from a more
  *                              reliable source, because I saw results that made me doubt V1.
+ * @citation                    Julienne Walker's writeup on topdown Red-Black trees has a helpful
+ *                              function for verifying black heights.
  */
 static int calculate_bheight_V2(const rb_node *root) {
     if (root == free_nodes.black_nil) {
@@ -1020,12 +1015,10 @@ static bool is_binary_tree(const rb_node *root) {
         return true;
     }
     size_t root_value = get_size(root->header);
-    if (root->links[L] != free_nodes.black_nil
-            && root_value < get_size(root->links[L]->header)) {
+    if (root->links[L] != free_nodes.black_nil && root_value < get_size(root->links[L]->header)) {
         return false;
     }
-    if (root->links[R] != free_nodes.black_nil
-            && root_value > get_size(root->links[R]->header)) {
+    if (root->links[R] != free_nodes.black_nil && root_value > get_size(root->links[R]->header)) {
         return false;
     }
     return is_binary_tree(root->links[L]) && is_binary_tree(root->links[R]);
@@ -1120,7 +1113,6 @@ static void print_node(const rb_node *root, print_style style) {
     printf(COLOR_NIL);
 
     if (style == VERBOSE) {
-        // print the black-height
         printf("(bh: %d)", get_black_height(root));
     }
 
@@ -1148,7 +1140,6 @@ static void print_inner_tree(const rb_node *root, const char *prefix,
     if (root == free_nodes.black_nil) {
         return;
     }
-    // Print the root node
     printf("%s", prefix);
     printf("%s", node_type == LEAF ? " └──" : " ├──");
     printf(COLOR_CYN);
@@ -1156,7 +1147,6 @@ static void print_inner_tree(const rb_node *root, const char *prefix,
     printf(COLOR_NIL);
     print_node(root, style);
 
-    // Print any subtrees
     char *str = NULL;
     int string_length = snprintf(NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   ");
     if (string_length > 0) {
@@ -1185,11 +1175,9 @@ static void print_rb_tree(const rb_node *root, print_style style) {
     if (root == free_nodes.black_nil) {
         return;
     }
-    // Print the root node
     printf(" ");
     print_node(root, style);
 
-    // Print any subtrees
     if (root->links[R] == free_nodes.black_nil) {
         print_inner_tree(root->links[L], "", LEAF, L, style);
     } else if (root->links[L] == free_nodes.black_nil) {
@@ -1216,17 +1204,16 @@ static void print_alloc_block(const rb_node *node) {
 static void print_free_block(const rb_node *node) {
     size_t block_size = get_size(node->header);
     header *footer = (header *)((byte *)node + block_size);
-    // We should be able to see the header is the same as the footer. However, due to fixup
-    // functions, the color may change for nodes and color is irrelevant to footers.
+    /* We should be able to see the header is the same as the footer. However, due to fixup
+     * functions, the color may change for nodes and color is irrelevant to footers.
+     */
     header to_print = *footer;
     if (get_size(*footer) != get_size(node->header)) {
         to_print = ULLONG_MAX;
     }
-    // How far indented the Header field normally is for all blocks.
     short indent_struct_fields = PRINTER_INDENT;
     get_color(node->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
     printf("%p: HDR->0x%016zX(%zubytes)\n", node, node->header, block_size);
-    // Printing color logic will help us spot red black violations. Tree printing later helps too.
     printf("%*c", indent_struct_fields, ' ');
     if (node->links[L]) {
         printf(get_color(node->links[L]->header) == BLACK ? COLOR_BLK : COLOR_RED);

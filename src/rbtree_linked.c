@@ -1,4 +1,5 @@
-/* Author: Alexander Griffin Lopez
+/**
+ * Author: Alexander Griffin Lopez
  *
  * File: rbtree_linked.c
  * ---------------------
@@ -412,7 +413,6 @@ static rb_node *delete_rb_node(rb_node *remove) {
  */
 static rb_node *find_best_fit(size_t key) {
     rb_node *seeker = free_nodes.tree_root;
-    // We will use this sentinel to start our competition while we search for best fit.
     size_t best_fit_size = ULLONG_MAX;
     rb_node *remove = seeker;
     while (seeker != free_nodes.black_nil) {
@@ -766,13 +766,11 @@ void myfree(void *ptr) {
  * @return            true if everything is in order otherwise false.
  */
 static bool check_init() {
-    // We also need to make sure the leftmost header always says there is no space to the left.
     if (is_left_space(heap.client_start)) {
         breakpoint();
         return false;
     }
-    if ((byte *)heap.client_end
-            - (byte *)heap.client_start + HEAP_NODE_WIDTH != heap.heap_size) {
+    if ((byte *)heap.client_end - (byte *)heap.client_start + HEAP_NODE_WIDTH != heap.heap_size) {
         breakpoint();
         return false;
     }
@@ -792,12 +790,10 @@ static bool is_memory_balanced(size_t *total_free_mem) {
     while (cur_node != heap.client_end) {
         size_t block_size_check = get_size(cur_node->header);
         if (block_size_check == 0) {
-            // Bad jump check the previous node address compared to this one.
             breakpoint();
             return false;
         }
 
-        // Now tally valid size into total.
         if (is_block_allocated(cur_node->header)) {
             size_used += block_size_check + HEADERSIZE;
         } else {
@@ -923,6 +919,8 @@ static bool is_parent_valid(const rb_node *root) {
 /* @brief calculate_bheight_V2  verifies that the height of a red-black tree is valid. This is a
  *                              similar function to calculate_bheight but comes from a more
  *                              reliable source, because I saw results that made me doubt V1.
+ * @citation                    Julienne Walker's writeup on topdown Red-Black trees has a helpful
+ *                              function for verifying black heights.
  */
 static int calculate_bheight_V2(const rb_node *root) {
     if (root == free_nodes.black_nil) {
@@ -959,12 +957,10 @@ static bool is_binary_tree(const rb_node *root) {
         return true;
     }
     size_t root_value = get_size(root->header);
-    if (root->links[L] != free_nodes.black_nil
-            && root_value < get_size(root->links[L]->header)) {
+    if (root->links[L] != free_nodes.black_nil && root_value < get_size(root->links[L]->header)) {
         return false;
     }
-    if (root->links[R] != free_nodes.black_nil
-            && root_value > get_size(root->links[R]->header)) {
+    if (root->links[R] != free_nodes.black_nil && root_value > get_size(root->links[R]->header)) {
         return false;
     }
     return is_binary_tree(root->links[L]) && is_binary_tree(root->links[R]);
