@@ -57,3 +57,9 @@ Read the runtime analysis section for a detailed breakdown of how this more clev
 I will not go over the Red-Black tree data structure here. A detailed writeup of the algorithm can be found in this project's [README.md](/README.md).
 
 However, I will take a moment to connect the Red-Black tree data structure to the practical layout of the heap.
+
+![rbtree-real](/images/rbtree-real.png)
+
+*Pictured Above: A illustration of a red black tree in the context of a heap allocator.*
+
+Notice in the above illustration that the white lines represent the child and parent links. There are two links between child and parent nodes because children track their parent node. Also notice where the Black Sentinel node is and how all nodes at the bottom of the tree point to it. The root also has this node as the parent.
