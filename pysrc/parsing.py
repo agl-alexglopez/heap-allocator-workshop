@@ -134,6 +134,10 @@ def get_heap_bytes(line):
     >>> get_heap_bytes('make->free(0x56167a22c440)=<void>')
     >>> get_heap_bytes('make->realloc(0x56167a22c440,8192)=0x56167a22c440')
     '8192'
+    >>> get_heap_bytes('make->calloc(8192,4<no_return>=...')
+    >>> get_heap_bytes('make->malloc(8192<no_return>=...')
+    >>> get_heap_bytes('make->realloc(0x56167a22c440,8192<noreturn>...=0x56167a22c440')
+    >>> get_heap_bytes('make-><resuming>=...')
     >>> get_heap_bytes('gcc-g3-O0-std=gnu99-Wall$warnflagstriangle.c-otriangle')
     >>> get_heap_bytes('+++exited(status0)+++')
     >>> get_heap_bytes('---SIGCHLD(Childexited)---')
@@ -148,17 +152,22 @@ def get_heap_bytes(line):
         number_of_items = line[open_bracket + 1: comma]
         closing_bracket = line.find(')', comma)
         byte_size = line[comma + 1: closing_bracket]
+
+        # There are some strange calloc(1,16<noreturn> erors that can mess up int function.
+        if not byte_size.isnumeric():
+            return None
+
         full_bytes = str(int(number_of_items) * int(byte_size))
         return full_bytes
     elif specific_call == Heap_Strings.malloc:
         closing_bracket = line.find(')', open_bracket)
         full_bytes = line[open_bracket + 1: closing_bracket]
-        return full_bytes
+        return full_bytes if full_bytes.isnumeric() else None
     elif specific_call == Heap_Strings.realloc:
         comma = line.find(',', open_bracket)
         closing_bracket = line.find(')', comma)
         full_bytes = line[comma + 1: closing_bracket]
-        return full_bytes
+        return full_bytes if full_bytes.isnumeric() else None
     return None
 
 
