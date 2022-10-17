@@ -1,7 +1,7 @@
 /*
  * File: list_segregated.c
  * ---------------------
- * This is a basic implementation of a segregated free list (aka seg_list) heap allocator. We
+ * This is a basic implementation of a segregated free list (aka fits) heap allocator. We
  * maintain 20 list sizes and do a first fit search on loosely sorted lists, approximating a best
  * fit search of the heap. We simply add new elements to a list class at the front to speed things
  * up rather than maintaining 20 sorted lists. This helps bring us closer to a O(lgN) runtime for
@@ -10,7 +10,7 @@
  * Citations:
  * -------------------
  * 1. Bryant and O'Hallaron, Computer Systems: A Programmer's Perspective, Chapter 9.
- *    I used the explicit free seg_list outline from the textbook, specifically
+ *    I used the explicit free fits outline from the textbook, specifically
  *    regarding how to implement left and right coalescing. I even used their suggested
  *    optimization of an extra control bit so that the footers to the left can be overwritten
  *    if the block is allocated so the user can have more space. I also took their basic outline
@@ -40,9 +40,15 @@ typedef struct free_node {
 
 /* Size Order Classes Maintained by an Array of segregated fits lists
  *     - Our size classes stand for the maximum size of a node in the list.
- *     - 20 Size Classes: 1,2,3,4,5,6,7,8,16,32,64,128,256,512,1024,2048,4096,8192,16384+
+ *     - 20 Size Classes (in bytes):
+
+            32,        40,         48,          56,          64-127,
+            128-255,   256-511,    512-1023,    1024-2047,   2048-4095,
+            4096-8191, 8192-16383, 16384-32767, 32768-65535, 65536+,
+
  *     - A first fit search will yeild approximately the best fit.
  *     - We will have one dummy node to serve as both the head and tail of all lists.
+ *     - Hold the size with short to take less space. 32,768 is less than USHRT_MAX
  */
 typedef struct seg_node {
     unsigned short size;
@@ -50,14 +56,16 @@ typedef struct seg_node {
 }seg_node;
 
 /* Sacrifice one block on the heap for simple coalescing and freeing. It is both head and tail. We
- * never use it to know a nodes location, rather it helps us avoid checking the null case. It can
- * also tell us if we are the first node in a certain segregated list, so we can fix table.
+ * never use it to know a nodes location, rather it helps us avoid checking the null case
+ * and allows for invariant coding techniques. It can also tell us if we are the first node in a
+ * certain segregated list, so we can fix the table in special cases.
  */
-static struct seg_list {
+static struct fits {
+    // The table is a pointer to an array of our seg_nodes that point to our sublists.
     seg_node *table;
-    free_node *sentinel;
+    free_node *nil;
     size_t total;
-}seg_list;
+}fits;
 
 static struct heap {
     void *client_start;
@@ -65,6 +73,7 @@ static struct heap {
     size_t client_size;
 }heap;
 
+// In rare cases we need to find the table index a node belongs to in O(1) time. This sets that up.
 static const char LogTable256[256] =
 {
 #define LT(n) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
@@ -78,11 +87,16 @@ static const char LogTable256[256] =
 #define FREE_NODE_WIDTH (unsigned short)16
 #define HEADER_AND_FREE_NODE (unsigned short)24
 #define MIN_BLOCK_SIZE (unsigned short)32
-#define TABLE_SIZE (unsigned short)20
-#define SMALL_TABLE_MAX (unsigned short)7
-#define LARGE_TABLE_MIN (unsigned short)8
-#define TABLE_BYTES (20 * sizeof(seg_node))
-#define INDEX_OFFSET 4U
+#define TABLE_SIZE (unsigned short)15
+#define SMALL_TABLE_SIZE (unsigned short)4
+#define SMALL_TABLE_MAX (unsigned short)56
+#define LARGE_TABLE_MIN (unsigned short)64
+#define TABLE_BYTES (15 * sizeof(seg_node))
+#define INDEX_0 (unsigned short)32
+#define INDEX_1 (unsigned short)40
+#define INDEX_2 (unsigned short)48
+#define INDEX_3 (unsigned short)56
+#define INDEX_OFFSET 2U
 
 
 /* * * * * * * * *   Static Minor Heap Methods   * * * * * * * * * * */
@@ -180,9 +194,9 @@ static bool is_left_space(header_t *header) {
  * @param block_size  the current block we are trying to find table index for.
  * @return            the index in the lookup table.
  */
-static int find_index(unsigned int block_size) {
+static unsigned int find_index(unsigned int block_size) {
     // block_size = 32-bit word to find the log of
-    unsigned log_2;  // log_2 will be lg(block_size)
+    unsigned int log_2;  // log_2 will be lg(block_size)
     register unsigned int temp_1, temp_2;
     if ((temp_2 = block_size >> 16)) {
       log_2 = (temp_1 = temp_2 >> 8) ? 24 + LogTable256[temp_1] : 16 + LogTable256[temp_2];
@@ -192,34 +206,46 @@ static int find_index(unsigned int block_size) {
     /* After small sizes we double in base2 powers of 2 so we can predictably find our index with
      * a fixed offset. The log_2 of each size class increments linearly by 1.
      */
-    return INDEX_OFFSET + log_2;
+    return log_2 - INDEX_OFFSET;
 }
 
 /* @brief splice_free_node  removes a free node out of the free node list.
  * @param *to_splice        the heap node that we are either allocating or splitting.
  */
 static void splice_free_node(free_node *to_splice) {
-
     // Catch if we are the first node pointed to by the lookup table.
-    if (seg_list.sentinel == to_splice->prev) {
+    if (fits.nil == to_splice->prev) {
         size_t block_size = extract_block_size(*get_block_header(to_splice));
         int index = 0;
         if (block_size <= SMALL_TABLE_MAX) {
-            index = block_size - 1;
-        } else if (block_size > seg_list.table[TABLE_SIZE - 1].size) {
+            switch (block_size) {
+                case INDEX_0:
+                    index = 0;
+                break;
+                case INDEX_1:
+                    index = 1;
+                break;
+                case INDEX_2:
+                    index = 2;
+                break;
+                case INDEX_3:
+                    index = 3;
+                break;
+            }
+        } else if (block_size > fits.table[TABLE_SIZE - 1].size) {
             index = TABLE_SIZE - 1;
         } else {
             // We will use some bit tricks to find nearest log2(block_size), thus get the index.
             index = find_index(block_size);
         }
-        seg_list.table[index].start = to_splice->next;
-        to_splice->next->prev = seg_list.sentinel;
+        fits.table[index].start = to_splice->next;
+        to_splice->next->prev = fits.nil;
     } else {
         // Because we have a sentinel we don't need to worry about middle or last node or NULL.
         to_splice->next->prev = to_splice->prev;
         to_splice->prev->next = to_splice->next;
     }
-    seg_list.total--;
+    fits.total--;
 }
 
 /* @brief init_free_node  initializes the header and footer of a free node, informs the right
@@ -233,19 +259,18 @@ static void init_free_node(header_t *to_add, size_t block_size) {
     *footer = *to_add;
     header_t *neighbor = get_right_header(to_add, block_size);
     *neighbor &= LEFT_FREE;
-
     free_node *free_add = get_free_node(to_add);
 
     int index = 0;
-    for ( ; index < TABLE_SIZE - 1 && block_size >= seg_list.table[index + 1].size; index++) {
+    for ( ; index < TABLE_SIZE - 1 && block_size >= fits.table[index + 1].size; index++) {
     }
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
-    free_node *cur = seg_list.table[index].start;
-    seg_list.table[index].start = free_add;
-    free_add->prev = seg_list.sentinel;
+    free_node *cur = fits.table[index].start;
+    fits.table[index].start = free_add;
+    free_add->prev = fits.nil;
     free_add->next = cur;
     cur->prev = free_add;
-    seg_list.total++;
+    fits.total++;
 }
 
 /* @brief *split_alloc  determines if a block should be taken entirely or split into two blocks. If
@@ -282,9 +307,7 @@ static void *split_alloc(header_t *free_block, size_t request, size_t block_spac
  */
 static header_t *coalesce(header_t *leftmost_header) {
     size_t coalesced_space = extract_block_size(*leftmost_header);
-
     header_t *right_space = get_right_header(leftmost_header, coalesced_space);
-    // Here is the edgecase mentioned in the heap struct. Need to know when to stop right.
     if (right_space != heap.client_end && !is_block_allocated(*right_space)) {
         coalesced_space += extract_block_size(*right_space);
         splice_free_node(get_free_node(right_space));
@@ -316,7 +339,7 @@ size_t roundup(size_t requested_size, size_t multiple) {
  * @return                a size_t representing the total quantity of free nodes.
  */
 size_t get_free_total() {
-    return seg_list.total;
+    return fits.total;
 }
 
 /* @brief myinit      initializes the heap space for use for the client.
@@ -331,40 +354,43 @@ bool myinit(void *heap_start, size_t heap_size) {
 
     heap.client_size = roundup(heap_size, ALIGNMENT);
     // This costs some memory in exchange for ease of use and low instruction counts.
-    seg_list.sentinel = (free_node*)((byte_t*)heap_start + (heap.client_size - FREE_NODE_WIDTH));
-    seg_list.sentinel->prev = NULL;
-    seg_list.sentinel->next = NULL;
+    fits.nil = (free_node*)((byte_t*)heap_start + (heap.client_size - FREE_NODE_WIDTH));
+    fits.nil->prev = NULL;
+    fits.nil->next = NULL;
 
     // Initialize array of free list sizes.
     heap_start = (seg_node (*)[TABLE_SIZE]) heap_start;
-    seg_list.table = heap_start;
-    // Small sizes go from 1 to 8, and lists will only hold those sizes
-    unsigned short size = 1;
-    for (int index = 0; index < SMALL_TABLE_MAX; index++, size++) {
-        seg_list.table[index].size = size;
-        seg_list.table[index].start = seg_list.sentinel;
+    fits.table = heap_start;
+    // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
+    unsigned short size = MIN_BLOCK_SIZE;
+    for (int index = 0; index < SMALL_TABLE_SIZE; index++, size += ALIGNMENT) {
+        fits.table[index].size = size;
+        fits.table[index].start = fits.nil;
     }
-    // Large sizes double until end of array.
+    // Large sizes double until end of array except last index needs special attention.
     size = LARGE_TABLE_MIN;
-    for (int index = SMALL_TABLE_MAX; index < TABLE_SIZE; index++, size *= 2) {
-        seg_list.table[index].size = size;
-        seg_list.table[index].start = seg_list.sentinel;
+    for (int index = SMALL_TABLE_SIZE; index < TABLE_SIZE - 1; index++, size *= 2) {
+        fits.table[index].size = size;
+        fits.table[index].start = fits.nil;
     }
+    // Be careful here. We can't double to get 14th index. USHRT_MAX=65535 not 65536.
+    fits.table[TABLE_SIZE - 1].size = USHRT_MAX;
+    fits.table[TABLE_SIZE - 1].start = fits.nil;
+
 
     header_t *first_block = (header_t *)((byte_t *)heap_start + TABLE_BYTES);
     init_header(first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH, FREE);
     init_footer(first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH);
 
     free_node *first_free = (free_node *)((byte_t *)first_block + ALIGNMENT);
-    first_free->next = seg_list.sentinel;
-    first_free->prev = seg_list.sentinel;
-
+    first_free->next = fits.nil;
+    first_free->prev = fits.nil;
     // Insert this first free into the appropriately sized list.
     init_free_node(first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH);
 
     heap.client_start = first_block;
-    heap.client_end = seg_list.sentinel;
-    seg_list.total = 1;
+    heap.client_end = fits.nil;
+    fits.total = 1;
     return true;
 }
 
@@ -380,11 +406,9 @@ void *mymalloc(size_t requested_size) {
 
     size_t rounded_request = roundup(requested_size + HEADER_AND_FREE_NODE, ALIGNMENT);
     for (int i = 0; i < TABLE_SIZE; i++) {
-        // Last list is the only one that holds sizes greater than its advertised size.
-        if (i == TABLE_SIZE - 1 || rounded_request < seg_list.table[i + 1].size) {
-
-            for (free_node *node = seg_list.table[i].start;
-                    node != seg_list.sentinel; node = node->next) {
+        // All lists hold advertised size and up to one byte less than next list.
+        if (i == TABLE_SIZE - 1 || rounded_request < fits.table[i + 1].size) {
+            for (free_node *node = fits.table[i].start; node != fits.nil; node = node->next) {
 
                 header_t *header = get_block_header(node);
                 size_t free_space = extract_block_size(*header);
@@ -474,39 +498,40 @@ static bool is_header_corrupted(header_t header_val) {
  * @return            true if everything is in order otherwise false.
  */
 static bool check_init() {
-    void *first_address = seg_list.table;
-    void *last_address = (byte_t *)seg_list.sentinel + FREE_NODE_WIDTH;
+    void *first_address = fits.table;
+    void *last_address = (byte_t *)fits.nil + FREE_NODE_WIDTH;
     if ((byte_t *)last_address - (byte_t *)first_address != heap.client_size) {
         breakpoint();
         return false;
     }
-
     // Check our lookup table. Sizes should never be altered and pointers should never be NULL.
-
-    // Check the small sizes first
-    unsigned short size = 1;
-    for (int i = 0; i < SMALL_TABLE_MAX; i++, size++) {
-        if (seg_list.table[i].size != size) {
+    unsigned short size = MIN_BLOCK_SIZE;
+    for (int i = 0; i < SMALL_TABLE_SIZE; i++, size += ALIGNMENT) {
+        if (fits.table[i].size != size) {
             breakpoint();
             return false;
         }
         // This should either be a valid node or the sentinel.
-        if (NULL == seg_list.table[i].start) {
+        if (NULL == fits.table[i].start) {
             breakpoint();
             return false;
         }
     }
     size = LARGE_TABLE_MIN;
-    for (int i = SMALL_TABLE_MAX; i < TABLE_SIZE; i++, size *= 2) {
-        if (seg_list.table[i].size != size) {
+    for (int i = SMALL_TABLE_SIZE; i < TABLE_SIZE - 1; i++, size *= 2) {
+        if (fits.table[i].size != size) {
             breakpoint();
             return false;
         }
-        // This should either be a valid node or the sentinel.
-        if (NULL == seg_list.table[i].start) {
+        // This should either be a valid node or the nil.
+        if (NULL == fits.table[i].start) {
             breakpoint();
             return false;
         }
+    }
+    if (fits.table[TABLE_SIZE - 1].size != USHRT_MAX) {
+        breakpoint();
+        return false;
     }
     return true;
 }
@@ -568,7 +593,7 @@ static bool is_memory_balanced(size_t *total_free_mem) {
         breakpoint();
         return false;
     }
-    if (total_free_nodes != seg_list.total) {
+    if (total_free_nodes != fits.total) {
         breakpoint();
         return false;
     }
@@ -576,22 +601,20 @@ static bool is_memory_balanced(size_t *total_free_mem) {
 }
 
 
-/* @brief is_seg_list_valid  loops through only the segregated fits list to make sure it matches
- *                            the loop we just completed by checking all blocks.
- * @param total_free_mem      the input from a previous loop that was completed by jumping block
- *                            by block over the entire heap.
- * @return                    true if the segregated fits list totals correctly, false if not.
+/* @brief are_fits_valid  loops through only the segregated fits list to make sure it matches
+ *                        the loop we just completed by checking all blocks.
+ * @param total_free_mem  the input from a previous loop that was completed by jumping block
+ *                        by block over the entire heap.
+ * @return                true if the segregated fits list totals correctly, false if not.
  */
-static bool is_seg_list_valid(size_t total_free_mem) {
+static bool are_fits_valid(size_t total_free_mem) {
     size_t linked_free_mem = 0;
     for (int i = 0; i < TABLE_SIZE; i++) {
-        for (free_node *cur = seg_list.table[i].start;
-                cur != seg_list.sentinel; cur = cur->next) {
+        for (free_node *cur = fits.table[i].start; cur != fits.nil; cur = cur->next) {
             header_t *cur_header = get_block_header(cur);
             size_t cur_size = extract_block_size(*cur_header);
-
             // These lists hold up to the advertised size and no more, except last infinity list.
-            if (i != TABLE_SIZE - 1 && cur_size >= seg_list.table[i + 1].size) {
+            if (i != TABLE_SIZE - 1 && cur_size >= fits.table[i + 1].size) {
                 breakpoint();
                 return false;
             }
@@ -633,7 +656,7 @@ bool validate_heap() {
         breakpoint();
         return false;
     }
-    if (!is_seg_list_valid(total_free_mem)) {
+    if (!are_fits_valid(total_free_mem)) {
         breakpoint();
         return false;
     }
@@ -644,28 +667,28 @@ bool validate_heap() {
 /* * * * * * * * *   Static Printing Helpers   * * * * * * * * * * */
 
 
-/* @brief print_seg_list  prints the segregated fits free list in order to check if splicing and
- *                        adding is progressing correctly.
+/* @brief print_fits  prints the segregated fits free list in order to check if splicing and
+ *                    adding is progressing correctly.
  */
-static void print_seg_list(print_style style) {
+static void print_fits(print_style style) {
     bool alternate = false;
     for (int i = 0; i < TABLE_SIZE; i++) {
+        printf(COLOR_GRN);
+        if (i == TABLE_SIZE - 1) {
+            printf("[CLASS:%ubytes+]=>", fits.table[i].size);
+        } else if (i >= SMALL_TABLE_SIZE) {
+            printf("[CLASS:%u-%ubytes]=>", fits.table[i].size, fits.table[i + 1].size - 1U);
+        } else {
+            printf("[CLASS:%ubytes]=>", fits.table[i].size);
+        }
+        printf(COLOR_NIL);
         if (alternate) {
             printf(COLOR_RED);
-            alternate = false;
         } else {
             printf(COLOR_CYN);
-            alternate = true;
         }
-        if (i == TABLE_SIZE - 1) {
-            printf("[CLASS:%ubytes+]=>", seg_list.table[i].size);
-        } else if (i >= SMALL_TABLE_MAX) {
-            printf("[CLASS:%u-%ubytes]=>", seg_list.table[i].size, seg_list.table[i + 1].size - 1U);
-        } else {
-            printf("[CLASS:%ubytes]=>", seg_list.table[i].size);
-        }
-        for (free_node *cur = seg_list.table[i].start;
-                cur != seg_list.sentinel; cur = cur->next) {
+        alternate = !alternate;
+        for (free_node *cur = fits.table[i].start; cur != fits.nil; cur = cur->next) {
             if (cur) {
                 header_t *cur_header = get_block_header(cur);
                 printf("<=>[");
@@ -674,15 +697,14 @@ static void print_seg_list(print_style style) {
                 }
                 printf("(%zubytes)]", extract_block_size(*cur_header));
             } else {
-                printf("Something went wrong. NULL free seg_list node.\n");
+                printf("Something went wrong. NULL free fits node.\n");
                 break;
             }
         }
-        printf("<=>[%p]\n", seg_list.sentinel);
+        printf("<=>[%p]\n", fits.nil);
         printf(COLOR_NIL);
     }
 }
-
 
 /* @brief print_alloc_block  prints the contents of an allocated block of memory.
  * @param *header            a valid header to a block of allocated memory.
@@ -746,8 +768,8 @@ static void print_bad_jump(header_t *current, header_t *prev) {
     printf("\nJump by %zubytes...\n", cur_size);
     printf("Current state of the free list:\n");
     printf(COLOR_NIL);
-    // The segregated fits seg_list may be messed up as well.
-    print_seg_list(VERBOSE);
+    // The segregated fits fits may be messed up as well.
+    print_fits(VERBOSE);
 }
 
 
@@ -760,7 +782,7 @@ static void print_bad_jump(header_t *current, header_t *prev) {
  *                          memory addresses.
  */
 void print_free_nodes(print_style style) {
-    print_seg_list(style);
+    print_fits(style);
 }
 
 /* @brief dump_heap  prints our the complete status of the heap, all of its blocks, and the sizes
@@ -773,20 +795,26 @@ void dump_heap() {
             header, heap.client_end, heap.client_size);
     printf("A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n\n");
 
-    printf("%p: FIRST ADDRESS\n", seg_list.table);
+    printf("%p: FIRST ADDRESS\n", fits.table);
     bool alternate = false;
     for (int i = 0; i < TABLE_SIZE; i++) {
+        printf(COLOR_GRN);
+        if (i == TABLE_SIZE - 1) {
+            printf("[CLASS:%ubytes+]=>", fits.table[i].size);
+        } else if (i >= SMALL_TABLE_SIZE) {
+            printf("[CLASS:%u-%ubytes]=>", fits.table[i].size, fits.table[i + 1].size - 1U);
+        } else {
+            printf("[CLASS:%ubytes]=>", fits.table[i].size);
+        }
+        printf(COLOR_NIL);
         if (alternate) {
             printf(COLOR_RED);
-            alternate = false;
         } else {
             printf(COLOR_CYN);
-            alternate = true;
         }
-        printf("[CLASS:%hubytes]=>", seg_list.table[i].size);
+        alternate = !alternate;
         int total_nodes = 0;
-        for (free_node *cur = seg_list.table[i].start;
-                cur != seg_list.sentinel; cur = cur->next) {
+        for (free_node *cur = fits.table[i].start; cur != fits.nil; cur = cur->next) {
             total_nodes++;
         }
         printf("(+%d)\n", total_nodes);
@@ -816,13 +844,13 @@ void dump_heap() {
     }
     printf("%p: END OF HEAP\n", heap.client_end);
     printf(COLOR_RED);
-    printf("<-%pSENTINEL->\n", seg_list.sentinel);
+    printf("<-%pSENTINEL->\n", fits.nil);
     printf(COLOR_NIL);
-    printf("%p: LAST ADDRESS\n", (byte_t *)seg_list.sentinel + FREE_NODE_WIDTH);
+    printf("%p: LAST ADDRESS\n", (byte_t *)fits.nil + FREE_NODE_WIDTH);
     printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
 
     printf("\nSEGREGATED LIST OF FREE NODES AND BLOCK SIZES.\n");
     printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
-    print_seg_list(VERBOSE);
+    print_fits(VERBOSE);
 }
 
