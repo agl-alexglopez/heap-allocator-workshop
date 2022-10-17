@@ -1,0 +1,59 @@
+# Heap Allocators
+
+What follows is a brief explanation of the different allocators I implemented in this repository. I will go over the high level designs of each allocator with some visualizations to help explain the data structures. For the exact algorithms, please see the source code.
+
+## A Simple List
+
+This project began after I completed a heap allocator that used a doubly linked list to maintain the free nodes. While it sounds simple, a first encounter with a heap allocator can be quite intimidating. However, with the write helper functions and design choices, the project was complete. Here is how a doubly linked list can be used to manage an allocator.
+
+### Address or Size
+
+We begin our allocator with one large pool of memory we have available to the user. If they request memory from us, we will begin the process of organizing our heap in terms of which sections are allocated and which are free. One way to do this is with a simple list.
+
+We can choose to organize this list by address in memory or by size, with tradeoffs for each approach. Both are attempts to maximize utilization.
+
+![list-bestfit](/images/list-bestfit.png)
+
+*Pictured Above: A simplified illustration of a doubly linked list of free nodes.*
+
+Here are the key details from the above illustration.
+
+- We can use a head and tail node to simplify instruction counts, safety, and ease of use for the implementer.
+- We organize by size with a header that contains the size and and whether the block is free or allocated. In this image all the pictured nodes are free.
+- We have a certain amount of bytes available for the user and then a footer at the bottom of our block. This will help with coalescing, which we won't discuss in too much detail here.
+
+Now that you have the idea of the list in the abstract, here is how it actually appears in memory in a heap allocator.
+
+![list-bestfit-real](/images/list-bestfit-real.png)
+
+*Pictured Above: A more chaotic illustration of how the list actually works in memory. The doubly linked list is drawn to the right and the actual nodes they represent are illustrated by the thin white line.*
+
+As an exercise, think about how this same configuration of nodes would look if they were organized by address in memory rather than by size.
+
+## A Smart List
+
+While the previous doubly linked list will work in many cases and is simple to implement, we can do better. With a strategy called Segregated Fits, we can massively decrease our runtime speed while improving utilization in many cases.
+
+When we begin managing our heap, we can decide to make an array of doubly linked lists. There are many ways to organize this array, but one approach is to organize it by increasing size. We can store nodes that fit in a size range for a particular list.
+
+For smaller sizes we can choose to maintain a list of one size. However, once we reach a size of 8 bytes, we can start doubling our sizes that serve as the minimum for each list. While I won't go over the details here, this doubling in base 2 allows us to make some interesting optimizations you can check out in the code.
+
+Here is the high level scheme of this list of lists.
+
+![list-segregated](/images/list-segregated.png)
+
+*Pictured Above: An abstract layout of our lookup table. Notice that the nodes in the actual lists are not sorted. We rely on our loose sorting across all lists and add nodes to the front of each list to speed things up.*
+
+However, this list is somewhat long. There are 20 slots and they start at one byte. This is not practical in the scheme of a heap allocator because our minimum block size we can accommodate or store starts at 32 bytes. So let's take a look at how this scheme actually looks in a heap allocator with properly sized segregated lists.
+
+![list-segregated-real](/images/list-segregated-real.png)
+
+*Pictured Above: The segregated lists that store various block sizes in our heap. Notice that the first four lists increment by 8 because that is the alignment we hold all blocks to for performance.*
+
+Read the runtime analysis section for a detailed breakdown of how this more clever take on a doubly linked list stacks up against a Red-Black tree based allocator.
+
+## Red Black Trees
+
+I will not go over the Red-Black tree data structure here. A detailed writeup of the algorithm can be found in this project's [README.md](/README.md).
+
+However, I will take a moment to connect the Red-Black tree data structure to the practical layout of the heap.
