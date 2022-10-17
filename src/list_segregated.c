@@ -18,6 +18,7 @@
  */
 #include <limits.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
 #include "./allocator.h"
@@ -216,6 +217,10 @@ static unsigned int find_index(unsigned int block_size) {
             break;
             case INDEX_3_SIZE:
                 return INDEX_3;
+            break;
+            default:
+                fprintf(stderr, "Error: Size %ubytes is out of alignment.", block_size);
+                abort();
             break;
         }
     }
