@@ -196,10 +196,12 @@ static bool is_left_space(header_t *header) {
     return !(*header & LEFT_ALLOCATED);
 }
 
-/* @brief find_index  taken from Sean Anderson's Bit Twiddling Hacks, finds the index in the lookup
+/* @brief find_index  finds the index in the lookup
  *                    table that a given block size is stored in.
  * @param block_size  the current block we are trying to find table index for.
  * @return            the index in the lookup table.
+ * @citation          the bit manipulation is taken from Sean Anderson's Bit Twiddling Hacks.
+ *                    https://graphics.stanford.edu/~seander/bithacks.html
  */
 static unsigned int find_index(unsigned int block_size) {
     if (block_size <= SMALL_TABLE_MAX) {
