@@ -1,4 +1,5 @@
-/* Author: Alexander Griffin Lopez
+/**
+ * Author: Alexander Griffin Lopez
  *
  * File: rbtree_clrs.c
  * ---------------------

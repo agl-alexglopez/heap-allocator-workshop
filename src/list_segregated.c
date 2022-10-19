@@ -1,4 +1,6 @@
 /**
+ * Author: Alexander G. Lopez
+ *
  * File: list_segregated.c
  * ---------------------
  * This is a basic implementation of a segregated free list (aka fits) heap allocator. We

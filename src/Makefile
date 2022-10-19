@@ -1,5 +1,9 @@
 # The SRCDIR is implicit because I leave the Makefile in the same directory as the source files.
+SRCDIR = ../src
 OBJDIR = ../obj
+BINDIR = ../bin
+SRC := $(wildcard $(SRCDIR)/*.c)
+OBJ := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o,$(SRC))
 
 # While debugging and testing allocators use -Og flag, then optimize once correct.
 $(OBJDIR)/list_bestfit.o: CFLAGS += -O3
@@ -15,10 +19,10 @@ $(OBJDIR)/rbtree_topdown.o: CFLAGS += -O3
 DEPENDENCIES = segment.c script.c
 
 ALLOCATORS = list_bestfit list_addressorder list_segregated rbtree_clrs rbtree_unified rbtree_stack rbtree_linked rbtree_topdown
-TEST_PROGRAMS = $(addprefix $(OBJDIR)/test_,$(ALLOCATORS))
-TIMER_PROGRAMS = $(addprefix $(OBJDIR)/time_,$(ALLOCATORS))
-PRINT_PROGRAMS = $(addprefix $(OBJDIR)/print_peaks_,$(ALLOCATORS))
-MY_PROGRAMS = $(addprefix $(OBJDIR)/my_optional_program_,$(ALLOCATORS))
+TEST_PROGRAMS = $(addprefix $(BINDIR)/test_,$(ALLOCATORS))
+TIMER_PROGRAMS = $(addprefix $(BINDIR)/time_,$(ALLOCATORS))
+PRINT_PROGRAMS = $(addprefix $(BINDIR)/print_peaks_,$(ALLOCATORS))
+MY_PROGRAMS = $(addprefix $(BINDIR)/my_optional_program_,$(ALLOCATORS))
 
 all:: $(TEST_PROGRAMS) $(TIMER_PROGRAMS) $(PRINT_PROGRAMS) $(MY_PROGRAMS)
 
@@ -35,21 +39,22 @@ export warnflags = -Wfloat-equal -Wtype-limits -Wpointer-arith -Wlogical-op -Wsh
 LDFLAGS =
 LDLIBS =
 
-$(TEST_PROGRAMS): $(OBJDIR)/test_%:%.o $(DEPENDENCIES) test_harness.c
+$(OBJ): $(OBJDIR)/%.o: $(SRCDIR)/%.c
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+$(TEST_PROGRAMS): $(BINDIR)/test_%:$(OBJDIR)/%.o $(DEPENDENCIES) test_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(TIMER_PROGRAMS): $(OBJDIR)/time_%:%.o $(DEPENDENCIES) time_harness.c
+$(TIMER_PROGRAMS): $(BINDIR)/time_%:$(OBJDIR)/%.o $(DEPENDENCIES) time_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(PRINT_PROGRAMS): $(OBJDIR)/print_peaks_%:%.o $(DEPENDENCIES) print_peaks.c
+$(PRINT_PROGRAMS): $(BINDIR)/print_peaks_%:$(OBJDIR)/%.o $(DEPENDENCIES) print_peaks.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(MY_PROGRAMS): $(OBJDIR)/my_optional_program_%:my_optional_program.c %.o $(DEPENDENCIES)
+$(MY_PROGRAMS): $(BINDIR)/my_optional_program_%:my_optional_program.c $(OBJDIR)/%.o $(DEPENDENCIES)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean::
-	rm -f $(TEST_PROGRAMS) $(TIMER_PROGRAMS) $(PRINT_PROGRAMS) $(MY_PROGRAMS) *.o callgrind.out.*
+	rm -f $(TEST_PROGRAMS) $(TIMER_PROGRAMS) $(PRINT_PROGRAMS) $(MY_PROGRAMS) $(OBJ) callgrind.out.*
 
 .PHONY: clean all
-
-.INTERMEDIATE: $(ALLOCATORS:%=%.o)
