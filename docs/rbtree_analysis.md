@@ -28,7 +28,7 @@
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
 9. The Programs
    - Documentation **([`programs.md`](/docs/programs.md))**
-   
+
 ## Overview
 
 Now that we have gone over the basics for each heap allocator, we can see how they perform in relation to one another. Let's start by gaining some perspective in terms of how much faster a Red Black Tree implementation is compared to a simple doubly linked list. While we have not discussed the doubly linked list implementation in detail, it is a simple implementation that involves maintaining a sorted doubly linked list by block size and taking the best fit block for any given request. It is a common introduction to allocators, and if you wish for more details there are numerous articles and college assignments that will start with this implementation. A doubly linked list has a worst case of O(N) for any single request from `free()` to insert a block into the list and O(N) for any request to `malloc()` to free the block from the list.
@@ -108,7 +108,7 @@ Instead, we will allocate 2N blocks of memory and then call `free()` on every ot
 The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
 
 ```bash
- .././obj/time_rbtree_clrs -s 200000 -e 300000 -s 300001 ../scripts/time-insertdelete-100k.script
+ .././bin/time_rbtree_clrs -s 200000 -e 300000 -s 300001 ../scripts/time-insertdelete-100k.script
 ```
 
 - The above command is for timing 100 thousand insertions, `free()`, and 100 thousand removals, `malloc()`, from our tree.
@@ -140,7 +140,7 @@ Here are the key details from the above graph.
   - We may also see some extra time cost from breaking off extra space from a block that is too large and reinserting it into the tree. However, this is hard to predictably measure and does not seem to have an effect on the Big-O time complexity.
 - We see an improvement exceeding 50% in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
 - The top-down approach to managing a Red-Black tree is not the fastest in terms of inserting and deleting from the tree.
-- These allocators clearly outperform the standard segregated fits' O(N^2) time complexity. 
+- These allocators clearly outperform the standard segregated fits' O(N^2) time complexity.
 
 Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_top-down` and `rbtree_stack`. The top-down approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implmentation seem the most pointless at this point if the same speed can be acheived with more space efficiency.
 

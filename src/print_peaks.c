@@ -62,13 +62,13 @@ static int cmp_breakpoints(const void *a, const void *b);
  *              a red black tree.
  *
  *                  - print the peak number of free nodes managed by an allocator.
- *                  .././obj/print_peaks_rbtree_clrs ../scripts/pattern-mixed.script
+ *                  .././bin/print_peaks_rbtree_clrs ../scripts/pattern-mixed.script
  *
  *                  - print the peak number of free nodes managed by an allocator, verbose.
- *                  .././obj/print_peaks_rbtree_clrs -v ../scripts/pattern-mixed.script
+ *                  .././bin/print_peaks_rbtree_clrs -v ../scripts/pattern-mixed.script
  *
  *                  - include breakpoints on script line numbers and examine each.
- *                  .././obj/print_peaks_rbtree_clrs -v -b 10 -b 200../scripts/pattern-mixed.script
+ *                  .././bin/print_peaks_rbtree_clrs -v -b 10 -b 200../scripts/pattern-mixed.script
  *
  * @arg -v    verbose print. Includes memory addresses and black height of the tree.
  * @arg -b    break on line number of a script and print the state of the free nodes. Breakpoints

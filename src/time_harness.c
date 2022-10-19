@@ -69,7 +69,7 @@ static void validate_intervals(script_t *script, interval_reqs *user_requests);
 /* @brief main  parses command line arguments that request a range of lines to be timed for
  *              performance. Arguments may take the following form:
  *
- *              ./time_rbtree_clrs -s 10001 -e 15000 -s 15001 scripts/time-insertdelete-5k.script
+ *              ../bin/time_rbtree_clrs -s 10001 -e 15000 -s 15001 scripts/time-insertdelete-5k.script
  *
  * @arg -s      the flag to start the timer on a certain line number. May be followed by -e flag.
  *              If no -e flag follows, the program will time the remainder of lines to execute.
