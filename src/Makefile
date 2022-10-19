@@ -1,9 +1,7 @@
-SRCDIR = ../src
+# The SRCDIR is implicit because I leave the Makefile in the same directory as the source files.
 OBJDIR = ../obj
-SRC := $(wildcard $(SRCDIR)/*.c)
-OBJ := $(patsubst $(SRCDIR)/%.c, $(OBJDIR)/%.o,$(SRC))
 
-# They had us try different optimization levels here (-O0, -O2, etc).
+# While debugging and testing allocators use -Og flag, then optimize once correct.
 $(OBJDIR)/list_bestfit.o: CFLAGS += -O3
 $(OBJDIR)/list_addressorder.o: CFLAGS += -O3
 $(OBJDIR)/list_segregated.o: CFLAGS += -O3
@@ -37,20 +35,21 @@ export warnflags = -Wfloat-equal -Wtype-limits -Wpointer-arith -Wlogical-op -Wsh
 LDFLAGS =
 LDLIBS =
 
-$(OBJ): $(OBJDIR)/%.o: $(SRCDIR)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
-
-$(TEST_PROGRAMS): $(OBJDIR)/test_%: $(OBJDIR)/%.o $(DEPENDENCIES) test_harness.c
+$(TEST_PROGRAMS): $(OBJDIR)/test_%:%.o $(DEPENDENCIES) test_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(TIMER_PROGRAMS): $(OBJDIR)/time_%: $(OBJDIR)/%.o $(DEPENDENCIES) time_harness.c
+$(TIMER_PROGRAMS): $(OBJDIR)/time_%:%.o $(DEPENDENCIES) time_harness.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(PRINT_PROGRAMS): $(OBJDIR)/print_peaks_%: $(OBJDIR)/%.o $(DEPENDENCIES) print_peaks.c
+$(PRINT_PROGRAMS): $(OBJDIR)/print_peaks_%:%.o $(DEPENDENCIES) print_peaks.c
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
-$(MY_PROGRAMS): $(OBJDIR)/my_optional_program_%: my_optional_program.c $(OBJDIR)/%.o $(DEPENDENCIES)
+$(MY_PROGRAMS): $(OBJDIR)/my_optional_program_%:my_optional_program.c %.o $(DEPENDENCIES)
 	$(CC) $(CFLAGS) $(LDFLAGS) $^ $(LDLIBS) -o $@
 
 clean::
-	rm -f $(TEST_PROGRAMS) $(TIMER_PROGRAMS) $(PRINT_PROGRAMS) $(MY_PROGRAMS) $(OBJ) callgrind.out.*
+	rm -f $(TEST_PROGRAMS) $(TIMER_PROGRAMS) $(PRINT_PROGRAMS) $(MY_PROGRAMS) *.o callgrind.out.*
+
+.PHONY: clean all
+
+.INTERMEDIATE: $(ALLOCATORS:%=%.o)
