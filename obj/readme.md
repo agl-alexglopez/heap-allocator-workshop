@@ -1,4 +1,4 @@
-# Compiled Files
+# Compiled Objects
 
-The compilation process places all different versions of the heap allocator compiled in conjuction with the `test_harness.c`, `time_harness.c`, and `my_optional_program.c` here in the `obj/` folder. I am including this readme, even though the `obj/` folder is ignored, so that if you decide to make this project you will not get a fatal error on first compile. This error occurs because git does not track empty folders, like the `obj/` folder.
+Following good practices by keeping object files around for each compile. Project is relatively small but this is where each allocator goes before it is linked into the interactive programs and their final binaries. File here so `obj/` folder is cloned and there are no build errors on first compile.
 
