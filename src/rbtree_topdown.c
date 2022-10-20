@@ -267,7 +267,7 @@ static void insert_rb_topdown(rb_node *current) {
     tree_link search_direction = L;
     tree_link last_link = search_direction;
 
-    for (;;) {
+    for (;; child = child->links[search_direction]) {
         size_t child_size = get_size(child->header);
         if (child_size == key) {
             add_duplicate(child, (duplicate_node *)current, parent);
@@ -278,8 +278,8 @@ static void insert_rb_topdown(rb_node *current) {
             current->links[L] = free_nodes.black_nil;
             current->links[R] = free_nodes.black_nil;
             current->list_start = free_nodes.list_tail;
-        } else if (get_color(child->links[L]->header) == RED &&
-                     get_color(child->links[R]->header) == RED) {
+        } else if (get_color(child->links[L]->header) == RED
+                    && get_color(child->links[R]->header) == RED) {
             paint_node(child, RED);
             paint_node(child->links[L], BLACK);
             paint_node(child->links[R], BLACK);
@@ -311,7 +311,6 @@ static void insert_rb_topdown(rb_node *current) {
         }
         gparent = parent;
         parent = child;
-        child = child->links[search_direction];
     }
 
     if (parent == free_nodes.black_nil) {

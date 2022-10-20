@@ -13,7 +13,7 @@ $(OBJDIR)/rbtree_clrs.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_unified.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_linked.o: CFLAGS += -O3
 $(OBJDIR)/rbtree_stack.o: CFLAGS += -O3
-$(OBJDIR)/rbtree_topdown.o: CFLAGS += -O3
+$(OBJDIR)/rbtree_topdown.o: CFLAGS += -Og
 
 # Files that set up basic heap segment and script parsing. Needed by all programs that use allocator.
 DEPENDENCIES = $(SRCDIR)/segment.c $(SRCDIR)/script.c
