@@ -298,7 +298,7 @@ static void insert_rb_topdown(rb_node *current) {
             paint_node(child->links[R], BLACK);
         }
 
-        // Splitting the black down the tree can create a black aunt, so we rotate.
+        // Our previous fix could have created a violation further up tree.
         if (get_color(parent->header) == RED && get_color(child->header) == RED) {
             tree_link ancestor_link = ancestor->links[R] == gparent;
             if (child == parent->links[last_link]) {
