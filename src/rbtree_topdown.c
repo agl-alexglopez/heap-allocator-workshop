@@ -260,15 +260,27 @@ static void add_duplicate(rb_node *head, duplicate_node *to_add, rb_node *parent
 static void insert_rb_topdown(rb_node *current) {
     size_t key = get_size(current->header);
     paint_node(current, RED);
+
+    tree_link last_link = L;
+    tree_link search_direction = L;
     rb_node *ancestor = free_nodes.black_nil;
     rb_node *gparent = free_nodes.black_nil;
     rb_node *parent = free_nodes.black_nil;
     rb_node *child = free_nodes.tree_root;
-    tree_link search_direction = L;
-    tree_link last_link = search_direction;
+    size_t child_size = 0;
 
-    for (;; child = child->links[search_direction]) {
-        size_t child_size = get_size(child->header);
+    /* Unfortunate infinite loop structure due to odd nature of topdown fixups. I kept the search
+     * and pointer updates at top of loop for clarity but can't figure out how to make proper
+     * loop conditions from this logic.
+     */
+    for (;; last_link = search_direction,
+            search_direction = child_size < key,
+            ancestor = gparent,
+            gparent = parent,
+            parent = child,
+            child = child->links[search_direction]) {
+
+        child_size = get_size(child->header);
         if (child_size == key) {
             add_duplicate(child, (duplicate_node *)current, parent);
         } else if (child == free_nodes.black_nil) {
@@ -281,12 +293,13 @@ static void insert_rb_topdown(rb_node *current) {
         } else if (get_color(child->links[L]->header) == RED
                     && get_color(child->links[R]->header) == RED) {
             paint_node(child, RED);
+            // If you split a black node down the tree the black height remains constant.
             paint_node(child->links[L], BLACK);
             paint_node(child->links[R], BLACK);
         }
 
-        // Fix red-red violations. Could have one last violation between parent and new child.
-        if (get_color(child->header) == RED && get_color(parent->header) == RED) {
+        // Splitting the black down the tree can create a black aunt, so we rotate.
+        if (get_color(parent->header) == RED && get_color(child->header) == RED) {
             tree_link ancestor_link = ancestor->links[R] == gparent;
             if (child == parent->links[last_link]) {
                 ancestor->links[ancestor_link] = single_rotation(gparent, ancestor, !last_link);
@@ -294,23 +307,9 @@ static void insert_rb_topdown(rb_node *current) {
                 ancestor->links[ancestor_link] = double_rotation(gparent, ancestor, !last_link);
             }
         }
-
-        /* Topdown is not normally meant for duplicates. But if we add duplicate then do one last
-         * set of color and rotation checks then we can break out.
-         */
         if (child_size == key) {
             break;
         }
-
-        last_link = search_direction;
-        search_direction = child_size < key;
-
-        // Ancestor will end up waiting two turns before moving.
-        if (gparent != free_nodes.black_nil) {
-            ancestor = gparent;
-        }
-        gparent = parent;
-        parent = child;
     }
 
     if (parent == free_nodes.black_nil) {
