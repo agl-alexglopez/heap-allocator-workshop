@@ -409,85 +409,85 @@ static rb_node *remove_node(rb_node *parent, rb_node *remove,
 static rb_node *delete_rb_topdown(size_t key) {
     rb_node *gparent = free_nodes.black_nil;
     rb_node *parent = free_nodes.black_nil;
-    rb_node *seeker = free_nodes.black_nil;
+    rb_node *child = free_nodes.black_nil;
     rb_node *best = free_nodes.black_nil;
     rb_node *best_parent = free_nodes.black_nil;
     size_t best_fit_size = ULLONG_MAX;
-    tree_link search = R;
-    seeker->links[R] = free_nodes.tree_root;
-    seeker->links[L] = free_nodes.black_nil;
+    tree_link link = R;
+    child->links[R] = free_nodes.tree_root;
+    child->links[L] = free_nodes.black_nil;
 
-    while (seeker->links[search] != free_nodes.black_nil) {
-        tree_link last_link = search;
+    while (child->links[link] != free_nodes.black_nil) {
+        tree_link prev_link = link;
         gparent = parent;
-        parent = seeker;
-        seeker = seeker->links[search];
-        size_t seeker_size = get_size(seeker->header);
-        search = seeker_size < key;
+        parent = child;
+        child = child->links[link];
+        size_t child_size = get_size(child->header);
+        link = child_size < key;
 
         // Best fit approximation and the best choice will win by the time we reach bottom.
-        if (search == L && seeker_size < best_fit_size) {
+        if (link == L && child_size < best_fit_size) {
             best_parent = parent;
-            best = seeker;
+            best = child;
         }
-        // We can cut the search off early just to save more needless fixup work if duplicate.
-        if (key == seeker_size && best->list_start != free_nodes.list_tail) {
+        // We can cut the link off early just to save more needless fixup work if duplicate.
+        if (key == child_size && best->list_start != free_nodes.list_tail) {
             return delete_duplicate(best);
         }
 
         // Double black needs our attention due to black height requirements.
-        if (get_color(seeker->header) == BLACK
-                && get_color(seeker->links[search]->header) == BLACK) {
+        if (get_color(child->header) == BLACK
+                && get_color(child->links[link]->header) == BLACK) {
 
             // We need access to six pointers, and two directions. Decomposition is difficult.
-            rb_node *nxt_sibling = seeker->links[!search];
-            rb_node *sibling = parent->links[!last_link];
+            rb_node *nxt_sibling = child->links[!link];
+            rb_node *sibling = parent->links[!prev_link];
             if (get_color(nxt_sibling->header) == RED) {
                 gparent = nxt_sibling;
-                parent = parent->links[last_link] = single_rotation(seeker, parent, search);
-                if (seeker == best) {
+                parent = parent->links[prev_link] = single_rotation(child, parent, link);
+                if (child == best) {
                     best_parent = gparent;
                 }
             // Our black height will be altered. Recolor.
             } else if (sibling != free_nodes.black_nil
                          && get_color(nxt_sibling->header) == BLACK
-                           && get_color(sibling->links[!last_link]->header) == BLACK
-                             && get_color(sibling->links[last_link]->header) == BLACK) {
+                           && get_color(sibling->links[!prev_link]->header) == BLACK
+                             && get_color(sibling->links[prev_link]->header) == BLACK) {
                 paint_node(parent, BLACK);
                 paint_node(sibling, RED);
-                paint_node(seeker, RED);
+                paint_node(child, RED);
             // Another black is waiting down the tree. Red violations and path violations possible.
             } else if (sibling != free_nodes.black_nil
                          && get_color(nxt_sibling->header) == BLACK) {
-                tree_link p_link = gparent->links[R] == parent;
+                tree_link to_parent = gparent->links[R] == parent;
                 rb_node *new_gparent = free_nodes.black_nil;
 
                 // These two cases may ruin lineage of node to be removed. Repair if necessary.
-                if (get_color(sibling->links[last_link]->header) == RED) {
-                    new_gparent = gparent->links[p_link] = double_rotation(parent,
-                                                                           gparent,
-                                                                           last_link);
+                if (get_color(sibling->links[prev_link]->header) == RED) {
+                    new_gparent = gparent->links[to_parent] = double_rotation(parent,
+                                                                              gparent,
+                                                                              prev_link);
                     if (best == parent) {
                         best_parent = new_gparent;
                     }
-                } else if (get_color(sibling->links[!last_link]->header) == RED) {
-                    new_gparent = gparent->links[p_link] = single_rotation(parent,
-                                                                           gparent,
-                                                                           last_link);
+                } else if (get_color(sibling->links[!prev_link]->header) == RED) {
+                    new_gparent = gparent->links[to_parent] = single_rotation(parent,
+                                                                              gparent,
+                                                                              prev_link);
                     if (best == parent) {
                         best_parent = sibling;
                     }
                 }
-                paint_node(seeker, RED);
-                paint_node(gparent->links[p_link], RED);
-                paint_node(gparent->links[p_link]->links[L], BLACK);
-                paint_node(gparent->links[p_link]->links[R], BLACK);
+                paint_node(child, RED);
+                paint_node(gparent->links[to_parent], RED);
+                paint_node(gparent->links[to_parent]->links[L], BLACK);
+                paint_node(gparent->links[to_parent]->links[R], BLACK);
                 // Either single or double rotation has adjusted grandparent position.
                 gparent = new_gparent;
             }
         }
     }
-    return remove_node(best_parent, best, parent, seeker);
+    return remove_node(best_parent, best, parent, child);
 }
 
 /* @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
