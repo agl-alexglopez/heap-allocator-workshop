@@ -261,8 +261,8 @@ static void insert_rb_topdown(rb_node *current) {
     size_t key = get_size(current->header);
     paint_node(current, RED);
 
-    tree_link last_link = L;
-    tree_link search_direction = L;
+    tree_link prev_link = L;
+    tree_link link = L;
     rb_node *ancestor = free_nodes.black_nil;
     rb_node *gparent = free_nodes.black_nil;
     rb_node *parent = free_nodes.black_nil;
@@ -273,12 +273,11 @@ static void insert_rb_topdown(rb_node *current) {
      * and pointer updates at top of loop for clarity but can't figure out how to make proper
      * loop conditions from this logic.
      */
-    for (;; last_link = search_direction,
-            search_direction = child_size < key,
-            ancestor = gparent,
+    for (;; ancestor = gparent,
             gparent = parent,
             parent = child,
-            child = child->links[search_direction]) {
+            prev_link = link,
+            child = child->links[link = child_size < key]) {
 
         child_size = get_size(child->header);
         if (child_size == key) {
@@ -286,7 +285,7 @@ static void insert_rb_topdown(rb_node *current) {
         } else if (child == free_nodes.black_nil) {
             child = current;
             child_size = key;
-            parent->links[search_direction] = current;
+            parent->links[link] = current;
             current->links[L] = free_nodes.black_nil;
             current->links[R] = free_nodes.black_nil;
             current->list_start = free_nodes.list_tail;
@@ -301,10 +300,10 @@ static void insert_rb_topdown(rb_node *current) {
         // Our previous fix could have created a violation further up tree.
         if (get_color(parent->header) == RED && get_color(child->header) == RED) {
             tree_link ancestor_link = ancestor->links[R] == gparent;
-            if (child == parent->links[last_link]) {
-                ancestor->links[ancestor_link] = single_rotation(gparent, ancestor, !last_link);
+            if (child == parent->links[prev_link]) {
+                ancestor->links[ancestor_link] = single_rotation(gparent, ancestor, !prev_link);
             } else {
-                ancestor->links[ancestor_link] = double_rotation(gparent, ancestor, !last_link);
+                ancestor->links[ancestor_link] = double_rotation(gparent, ancestor, !prev_link);
             }
         }
         if (child_size == key) {
