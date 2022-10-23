@@ -278,7 +278,7 @@ python3 parsing.py -generate ../scripts/time-100kinsertdelete.script '-alloc(1,5
 
 Here are two commands you can run if you would like to generate all the missing files I used to time my allocators. They are ignored by default because they are too large, so you must generate them yourself if you want to test the allocators on larger files.
 
-> **Be warned, the `list_` based allocators will not be able to finish the larger files (more than about 50-80k alloc or realloc requests) in a reasonable amount of time.**
+> **Be warned, the naive `list_` based allocators will not be able to finish the larger files (more than about 50-80k alloc or realloc requests) in a reasonable amount of time. However, the `list_segregated` allocator is quite capable with larger scripts.**
 
 Generate a decent range of files that test allocators' abilities to quicky `malloc()` and `free()` from and to free node structures of increasing size.
 
