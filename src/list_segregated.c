@@ -230,9 +230,9 @@ static unsigned int find_index(unsigned int block_size) {
     unsigned int log_2;  // log_2 will be lg(block_size)
     register unsigned int temp_1, temp_2;
     if ((temp_2 = block_size >> 16)) {
-      log_2 = (temp_1 = temp_2 >> 8) ? 24 + LogTable256[temp_1] : 16 + LogTable256[temp_2];
+        log_2 = (temp_1 = temp_2 >> 8) ? 24 + LogTable256[temp_1] : 16 + LogTable256[temp_2];
     } else {
-      log_2 = (temp_1 = block_size >> 8) ? 8 + LogTable256[temp_1] : LogTable256[block_size];
+        log_2 = (temp_1 = block_size >> 8) ? 8 + LogTable256[temp_1] : LogTable256[block_size];
     }
     /* After small sizes we double in base2 powers of 2 so we can predictably find our index
      * with a fixed offset. The log_2 of each size class increments linearly by 1.
