@@ -1,4 +1,10 @@
 
+# These are initial flags that came with the project so I am keeping them. The most important is
+# -g3 that gives us the maximum possible debug information for gdb debugger. Set the level of
+# optimization for each allocator while debugging (-O0 or -Og) and then for efficiency testing
+# (-O2 or -O3).
+set(project_flags "-g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie")
+
 add_library(debug_break debug_break.h debug_break.c)
 add_library(segment segment.h segment.c)
 add_library(script script.h script.c)
@@ -13,7 +19,7 @@ target_link_libraries(list_addressorder PUBLIC
 )
 set_target_properties(list_addressorder PROPERTIES
                       COMPILE_FLAGS
-                      "-O3 -g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fPIE"
+                      "-O3 ${project_flags}"
 )
 
 
@@ -26,7 +32,7 @@ target_link_libraries(list_bestfit PUBLIC
 )
 set_target_properties(list_bestfit PROPERTIES
                       COMPILE_FLAGS
-                      "-O3 -g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fPIE"
+                      "-O3 ${project_flags}"
 )
 
 
@@ -39,7 +45,7 @@ target_link_libraries(list_segregated PUBLIC
 )
 set_target_properties(list_segregated PROPERTIES
                       COMPILE_FLAGS
-                      "-O3 -g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fPIE"
+                      "-O3 ${project_flags}"
 )
 
 
@@ -52,7 +58,7 @@ target_link_libraries(rbtree_clrs PUBLIC
 )
 set_target_properties(rbtree_clrs PROPERTIES
                       COMPILE_FLAGS
-                      "-O3 -g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fPIE"
+                      "-O3 ${project_flags}"
 )
 
 
@@ -65,7 +71,7 @@ target_link_libraries(rbtree_unified PUBLIC
 )
 set_target_properties(rbtree_unified PROPERTIES
                       COMPILE_FLAGS
-                      "-O3 -g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fPIE"
+                      "-O3 ${project_flags}"
 )
 
 
@@ -78,7 +84,7 @@ target_link_libraries(rbtree_linked PUBLIC
 )
 set_target_properties(rbtree_linked PROPERTIES
                       COMPILE_FLAGS
-                      "-O3 -g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fPIE"
+                      "-O3 ${project_flags}"
 )
 
 
@@ -91,7 +97,7 @@ target_link_libraries(rbtree_stack PUBLIC
 )
 set_target_properties(rbtree_stack PROPERTIES
                       COMPILE_FLAGS
-                      "-O3 -g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fPIE"
+                      "-O3 ${project_flags}"
 )
 
 
@@ -104,6 +110,6 @@ target_link_libraries(rbtree_topdown PUBLIC
 )
 set_target_properties(rbtree_topdown PROPERTIES
                       COMPILE_FLAGS
-                      "-O3 -g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fPIE"
+                      "-O3 ${project_flags}"
 )
 
