@@ -212,7 +212,7 @@ python3 parsing.py -parse ltrace-output/ltrace-output.txt ../scripts/time-ltrace
 
 Generating custom scripts for a heap allocator is more complex and allows for more options. By default, we can allocate, free, and reallocate as much memory as we want, and our program will free all remaining memory for the script file at the end so the allocators do not leak memory due to an oversite in the script.
 
-#### Allocations
+### Allocations
 
 To allocate blocks of memory in a script file use the following commands or options as needed. These commands are run as if you are currently int the `pysrc/` directory, where the python program is located.
 
@@ -234,7 +234,7 @@ Choose a byte size range and every call will be a random size within that range 
 python3 parsing.py -generate ../scripts/10k-allocations.script '-alloc(20,500)' 10000
 ```
 
-#### Reallocations
+### Reallocations
 
 To reallocate blocks of memory in a script file use the following commands or options as needed.
 
@@ -256,7 +256,7 @@ Choose a byte size range and every call will be a random size within that range 
 python3 parsing.py -generate ../scripts/5k-reallocations.script '-alloc(20,500)' 10000 '-realloc(800,1200)' 5000
 ```
 
-#### Free
+### Free
 
 To free blocks of memory in a script file use the following commands or options as needed. As a special note, freeing memory defaults to freeing every other block of allocated memory. This is done because my allocator coalesced the blocks to its left and right on every call to `realloc()` or `free()`. This made it hard to build large trees of free memory because I was just reforming one large pool of free memory as I made calls to free. To better test performance with more free nodes, freeing every other block will ensure that the desired number of nodes enters the tree. Be sure to have double the amount of allocated memory compared to your number of free requests. If you want a tree of N free nodes, make 2N allocations first.
 
