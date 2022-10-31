@@ -770,7 +770,9 @@ static bool check_init() {
         breakpoint();
         return false;
     }
-    if ((byte *)heap.client_end - (byte *)heap.client_start + HEAP_NODE_WIDTH != heap.heap_size) {
+    if ((byte *)heap.client_end - (byte *)heap.client_start
+                                + (size_t)HEAP_NODE_WIDTH
+                                != heap.heap_size) {
         breakpoint();
         return false;
     }
@@ -944,7 +946,7 @@ static int calculate_bheight_V2(const rb_node *root) {
  * @return                     true if the paths are valid, false if not.
  */
 static bool is_bheight_valid_V2(const rb_node *root) {
-    return calculate_bheight_V2(free_nodes.tree_root) != 0;
+    return calculate_bheight_V2(root) != 0;
 }
 
 /* @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left should

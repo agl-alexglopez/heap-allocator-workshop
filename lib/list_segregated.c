@@ -518,7 +518,7 @@ static bool is_header_corrupted(header_t header_val) {
 static bool check_init() {
     void *first_address = fits.table;
     void *last_address = (byte_t *)fits.nil + FREE_NODE_WIDTH;
-    if ((byte_t *)last_address - (byte_t *)first_address != heap.client_size) {
+    if ((size_t)((byte_t *)last_address - (byte_t *)first_address) != heap.client_size) {
         breakpoint();
         return false;
     }

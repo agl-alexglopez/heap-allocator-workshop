@@ -137,3 +137,7 @@ fabric.properties
 # Ignore local note taking tools.
 .obsidian/
 .obsidian.vimrc
+
+# ignore exported compile commands.
+.cache/
+build/
