@@ -45,18 +45,22 @@
 In order to compile programs in this repository, follow these steps.
 
 1. Install Dependencies
-   - I am trying to make this project more compatible with Clang, but for now, you must compile the project using GCC. Install GCC on MacOS and place it before clang in your path. For Linux, compiling with GCC should not cause any errors. For windows, I do not have a way to build this project. I would recommend using `WSL2` with Ubuntu on Windows if you have not tried it yet to build and run this project.
+   - This project uses CMake to build and run. So far, I have tested this on multiple Linux distributions and the directions that follow should work with your compiler. I have tested this on Mac as well, using CMake, and it seems that CMake is able to manage Clang building the project on Mac. For windows, I do not have a way to build the project at this time. I would recommend using `WSL2` with Ubuntu on Windows to build the project.
    - Install Gnuplot. This comes with some Linux distributions. If it is not installed on Linux use your package manager to install it. However, all programs will compile and run without it installed, you will just miss out on nice graphs in the terminal if it is not installed.
    - On MacOS, I would recommend installing Gnuplot with Homebrew like this.
      - `brew install gnuplot`
    - Use a terminal that supports ANSI escape sequences and rgb colors. I am considering adding portability with a library like `ncurses.h` but that might require another dependency installation and seems overkill.
 2. Make the Programs
-   - If you would like to explore how the programs and different versions of the allocators build together, explore the Makefile. The basics are that we make a different version of every program for each allocator.
-   - Enter the `src/` directory and run `make`.
-   - This compiles all programs to the `bin/` folder from which you will run each allocator's version of the program. Directions on the commands to run will follow in each program's description below.
+   - If you would like to explore how the programs and different versions of the allocators build together, explore the `CMakeLists.txt` files in the root, `lib/` and `src/` directories. The basics are that we make a different version of every program for each allocator.
+   - From the root directory run the following commands.
+       - `cmake -S . -B build/`
+           - This tells CMake to treat the root directory as the project source directory and generate the necessary build files and directories to the `build/` directory. I ignore the `build/` directory in my `.gitignore` so this command will create the folder if it is not present.
+        - `cmake --build build`
+            - This tells CMake to build the project. If all is well, everything will build and link together. This may be where you see errors if I have been unable to verify the project on your distribution or platform.
+   - This compiles all programs to the `/build/src/` folder from which you will run each allocator's version of the program. Directions on the commands to run will follow in each program's description below.
 3. Run the Programs
    - I will specify commands for each programs, but they all involve some variation on the following formula.
-     - `.././bin/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] ../scripts/[.SCRIPT FILE TO RUN]`
+     - `./build/src/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] scripts/[.SCRIPT FILE TO RUN]`
    - We specify the program, the allocator version, any arguments valid for that program, and then the script file we want to run for our allocator to execute.
    - All directions assume you are running programs from the `src/` folder but this is not required.
 4. Generate Additional Scripts
@@ -74,18 +78,18 @@ After I submitted my work for this original list based allocator assignment and 
 
 We can run this program on one or multiple `.script` files to ensure they run without error and check their utilization.
 
-- All allocators have been prepended with the word `test_` and have been compiled to our `bin/` folder.
+- All allocators have been prepended with the word `test_` and have been compiled to our `build/src/` folder.
   - `test_rbtree_clrs`, `test_rbtree_unified`, `test_rbtree_linked`, `test_rbtree_stack`, `test_rbtree_topdown`, `test_list_bestfit`, `test_list_addressorder`
 - Run an allocator on a single test script.
-  - `.././bin/test_rbtree_clrs ../scripts/pattern-mixed.script`
+  - `./build/src/test_rbtree_clrs scripts/pattern-mixed.script`
 - Run an allocator on multiple scripts with the additional wildcard symbol if there are multiple files with the same name format.
-  - `.././bin/test_rbtree_clrs ../scripts/trace-emacs.script ../scripts/trace-gcc.script ../scripts/trace-chs.script`
+  - `./build/src/test_rbtree_clrs scripts/trace-emacs.script scripts/trace-gcc.script scripts/trace-chs.script`
   - Is the same as...
-  - `.././bin/test_rbtree_clrs ../scripts/trace-*.script`
+  - `./build/src/test_rbtree_clrs scripts/trace-*.script`
   - And then add as many scripts as you would like...
-  - `.././bin/test_rbtree_clrs ../scripts/trace-*.script ../scripts/example*.script ../scripts/pattern-*.script`
+  - `./build/src/test_rbtree_clrs scripts/trace-*.script scripts/example*.script scripts/pattern-*.script`
 - Run an allocator in quiet mode which will not validate the heap after every call, speeding up our ability to check utilization.
-  - `.././bin/test_rbtree_clrs -q ../scripts/trace-*.script ../scripts/example*.script ../scripts/pattern-*.script`
+  - `./build/src/test_rbtree_clrs -q scripts/trace-*.script scripts/example*.script scripts/pattern-*.script`
 - Output will include how many successful calls to the heap completed and the utilization averaged across all run scripts.
 
 ## Time Harness
@@ -101,7 +105,7 @@ Instead, we will allocate 2N blocks of memory and then call `free()` on every ot
 The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
 
 ```bash
- .././bin/time_list_bestfit -s 200000 -e 300000 -s 300001 ../scripts/time-insertdelete-100k.script
+ ./build/src/time_list_bestfit -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script
 ```
 
 - The above command is for timing one-hundred thousand insertions, `free()`, and one-hundred thousand removals, `malloc()`, from our tree.
@@ -118,12 +122,12 @@ We would then get output such as the following.
 
 ### How to Use the Time Harness
 
-- All allocators have been prepended with the word `time_` and have been compiled to our `bin/` folder.
+- All allocators have been prepended with the word `time_` and have been compiled to our `build/src/` folder.
   - `time_rbtree_clrs`, `time_rbtree_unified`, `time_rbtree_linked`, `time_rbtree_stack`, `time_rbtree_topdown`, `time_list_bestfit`, `time_list_addressorder`
 - Time the entire execution time of the allocator over an entire script.
-  - `.././bin/time_rbtree_clrs ../scripts/time-insertdelete-100k.script`
+  - `./build/src/time_rbtree_clrs scripts/time-insertdelete-100k.script`
 - Time only sections of the script according to line number ranges.
-  - `.././bin/time_rbtree_clrs -s 200000 -e 300000 -s 300001 ../scripts/time-insertdelete-100k.script`
+  - `./build/src/time_rbtree_clrs -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script`
 
 ## Print Peaks
 
@@ -139,14 +143,14 @@ Here is the same command for a list based allocator. The list output is far less
 
 ### How to Use Print Peaks
 
-- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `bin/` folder.
+- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/src/` folder.
   - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, `print_peaks_rbtree_stack`, `print_peaks_rbtree_topdown`, `print_peaks_list_bestfit`, `print_peaks_list_addressorder`
 - Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
-  - `.././bin/print_peaks_list_bestfit ../scripts/pattern-mixed.script`
-- Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and black heights for the tree allocators. This is the printer I used because I needed to see memory addresses to better understand where errors were occuring. Verbose should always be the first argument if it will be included.
-  - `.././bin/print_peaks_list_bestfit -v ../scripts/pattern-mixed.script`
+  - `./build/src/print_peaks_list_bestfit scripts/pattern-mixed.script`
+- Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and black heights for the tree allocators. This is the printer I used because I needed to see memory addresses to better understand where errors were occurring. Verbose should always be the first argument if it will be included.
+  - `./build/src/print_peaks_list_bestfit -v scripts/pattern-mixed.script`
 - Add breakpoints corresponding to line numbers in the script. This will show you how many free nodes existed after that line executes. You will also enter an interactive terminal session. You can decide if you want to continue to the next breakpoint, add a new future breakpoint, or continue to the end of the program execution. Be sure to follow the prompt directions.
-  - `.././bin/print_peaks_list_bestfit -v -b 100 -b 200 -b 450 ../scripts/pattern-mixed.script`
+  - `./build/src/print_peaks_list_bestfit -v -b 100 -b 200 -b 450 scripts/pattern-mixed.script`
 
 ## Python Script Generation
 
@@ -302,7 +306,7 @@ This was a program we created to test our heap allocators in a more "real" conte
 
 ### How to Use My Optional Program
 
-- All allocators have been prepended with the word `my_optional_program_` and have been compiled to our `bin/` folder.
+- All allocators have been prepended with the word `my_optional_program_` and have been compiled to our `build/src/` folder.
   - `my_optional_program_rbtree_clrs`, `my_optional_program_rbtree_unified`, `my_optional_program_rbtree_linked`, `my_optional_program_rbtree_stack`, `my_optional_program_rbtree_topdown`, `my_optional_program_list_bestfit`, `my_optional_program_list_addressorder`
 - The rest is up to you. Design whatever program you would like.
 
