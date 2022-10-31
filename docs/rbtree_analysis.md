@@ -35,14 +35,14 @@ Now that we have gone over the basics for each heap allocator, we can see how th
 
 ![list-v-tree](/images/list-v-tree.png)
 
-*Pictured Above: A chart representing the time to complete (N) insert delete requests. The first implementation is a simple doubly linked list that maintains sorted order by free block size to acheive best fit. The second red line that is hardly visible at the bottom is a Red Black Tree that maintains sorted order to acheive best fit.*
+*Pictured Above: A chart representing the time to complete (N) insert delete requests. The first implementation is a simple doubly linked list that maintains sorted order by free block size to achieve best fit. The second red line that is hardly visible at the bottom is a Red Black Tree that maintains sorted order to achieve best fit.*
 
 Here are the key details from the above graph.
 
 - The time complexity of inserting and deleting N elements into and out of the list is O(N^2).
   - There may also be some intermittent extra work every time we delete a node from the list because we split of any extra part of a block that is too big and re-insert it into the list.
 - As the number of free blocks grows in size the list becomes increasingly impractical taking over a minute to cycle through all requests at the peak of requests.
-- The tree implementation is hardly measureable in comparison to the list. Not only do we never exceed one second to service any number of requests on this chart, but also the time scale of seconds is not informative.
+- The tree implementation is hardly measurable in comparison to the list. Not only do we never exceed one second to service any number of requests on this chart, but also the time scale of seconds is not informative.
 
 For a further explanation of why we see such a drastic performance difference we can look at the time another way. I added monitoring to the `time_harness.c` program that will use Gnuplot to output information about heap allocator performance. We can observe the number of free nodes the allocator had to manage and also the time it takes to complete a single request. Observe the relationship between request speed and free nodes in the list based allocator.
 
@@ -56,7 +56,7 @@ Here are the key details from the above graphs.
 - This is the most direct representation I can show of the O(N) time it takes for a list based allocator to operate on a single request.
 - Keep note of the y axis when we compare this to our tree allocator and how the timescale changes.
 
-Now let's see how the same script operates with a tree based allocator. We will compare it to our naive implementation of the standard CLRS implementation without any additional optimizations that later allocators include.
+Now let's see how the same script operates with a tree based allocator. We will compare it to our naïve implementation of the standard CLRS implementation without any additional optimizations that later allocators include.
 
 ![rb-time-per-request](/images/rb-time-per-request.png)
 
@@ -108,7 +108,7 @@ Instead, we will allocate 2N blocks of memory and then call `free()` on every ot
 The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
 
 ```bash
- .././bin/time_rbtree_clrs -s 200000 -e 300000 -s 300001 ../scripts/time-insertdelete-100k.script
+ ./build/src/time_rbtree_clrs -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script
 ```
 
 - The above command is for timing 100 thousand insertions, `free()`, and 100 thousand removals, `malloc()`, from our tree.
@@ -142,9 +142,9 @@ Here are the key details from the above graph.
 - The top-down approach to managing a Red-Black tree is not the fastest in terms of inserting and deleting from the tree.
 - These allocators clearly outperform the standard segregated fits' O(N^2) time complexity.
 
-Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_top-down` and `rbtree_stack`. The top-down approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implmentation seem the most pointless at this point if the same speed can be acheived with more space efficiency.
+Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_top-down` and `rbtree_stack`. The top-down approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implementation seem the most pointless at this point if the same speed can be achieved with more space efficiency.
 
-Finally, the performance gap scales as a percentage, meaning we will remain over 50% faster when we manage duplicates to trim the tree even when we are dealing with millions of elements and our times have increased greatly. Managing duplicates in a linked list with only the use of one pointer is a worthwile optimization. Revisit any summary of the last three allocators if you want more details on how this optimization works.
+Finally, the performance gap scales as a percentage, meaning we will remain over 50% faster when we manage duplicates to trim the tree even when we are dealing with millions of elements and our times have increased greatly. Managing duplicates in a linked list with only the use of one pointer is a worthwhile optimization. Revisit any summary of the last three allocators if you want more details on how this optimization works.
 
 On a per request basis, we can observe the speedup in an allocator like `rbtree_linked`. Recall the earlier graph I showed of the CLRS implementation completing 1 million insertions and deletions from the tree. Here is the graph illustrating the speedup we gain with these optimizations. The times often fall too low to be consistently measurable and there is far less jumping up in time to complete a request.
 
