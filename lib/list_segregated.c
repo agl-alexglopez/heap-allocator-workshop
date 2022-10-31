@@ -23,8 +23,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include "./allocator.h"
-#include "./debug_break.h"
+#include "allocator.h"
+#include "debug_break.h"
 
 typedef size_t header_t;
 typedef unsigned char byte_t;

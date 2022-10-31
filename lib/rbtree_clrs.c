@@ -53,8 +53,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "./allocator.h"
-#include "./debug_break.h"
+#include "allocator.h"
+#include "debug_break.h"
 
 
 /* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */
