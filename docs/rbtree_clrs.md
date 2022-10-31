@@ -6,29 +6,29 @@
    - Documentation **([`README.md`](/README.md))**
 2. The CLRS Standard
    - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
-   - Implementation **([`rbtree_clrs.c`](/src/rbtree_clrs.c))**
+   - Implementation **([`rbtree_clrs.c`](/lib/rbtree_clrs.c))**
 3. Unified Symmetry
    - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
-   - Implementation **([`rbtree_unified.c`](/src/rbtree_unified.c))**
+   - Implementation **([`rbtree_unified.c`](/lib/rbtree_unified.c))**
 4. Doubly Linked Duplicates
    - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
-   - Implementation **([`rbtree_linked.c`](/src/rbtree_linked.c))**
+   - Implementation **([`rbtree_linked.c`](/lib/rbtree_linked.c))**
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
-   - Implementation **([`rbtree_stack.c`](/src/rbtree_stack.c))**
+   - Implementation **([`rbtree_stack.c`](/lib/rbtree_stack.c))**
 6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Implementation **([`rbtree_topdown.c`](/src/rbtree_topdown.c))**
+   - Implementation **([`rbtree_topdown.c`](/lib/rbtree_topdown.c))**
 7. List Allocators
    - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
-   - Implementation **([`list_addressorder.c`](/src/list_addressorder.c))**
-   - Implementation **([`list_bestfit.c`](/src/list_bestfit.c))**
-   - Implementation **([`list_segregated.c`](/src/list_segregated.c))**
+   - Implementation **([`list_addressorder.c`](/lib/list_addressorder.c))**
+   - Implementation **([`list_bestfit.c`](/lib/list_bestfit.c))**
+   - Implementation **([`list_segregated.c`](/lib/list_segregated.c))**
 8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
 9. The Programs
    - Documentation **([`programs.md`](/docs/programs.md))**
-   
+
 ## Overview
 
 I modeled the code in my first allocator directly from the pseudocode in the textbook and it was a challenging endeavor. Making sure that all the code across every symmetric case is correct, well named, and specific to the needs of a heap allocator was a bug prone journey. However, I now have a faithful reproduction of the textbook algorithm where applicable. I added logic to make deleting from the tree a best fit approach. For a call to `malloc` we are able to service the request in O(lgN) time while providing the best possible fitting node and splitting off any extra space and returning it to the tree if it is far too big.
