@@ -1,6 +1,6 @@
 
 set(project_flags "-g3 -Wall -Wextra")
-set(lib-dir lib)
+set(libdir lib)
 
 
 ################################# TEST HARNESS PROGRAM ############################################
@@ -17,7 +17,7 @@ target_link_libraries(test_list_addressorder PUBLIC
                       list_addressorder
 )
 target_include_directories(test_list_addressorder PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(test_list_bestfit test_harness.c)
@@ -31,7 +31,7 @@ target_link_libraries(test_list_bestfit PUBLIC
                       list_bestfit
 )
 target_include_directories(test_list_bestfit PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(test_list_segregated test_harness.c)
@@ -45,7 +45,7 @@ target_link_libraries(test_list_segregated PUBLIC
                       list_segregated
 )
 target_include_directories(test_list_segregated PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(test_rbtree_clrs test_harness.c)
@@ -59,7 +59,7 @@ target_link_libraries(test_rbtree_clrs PUBLIC
                       rbtree_clrs
 )
 target_include_directories(test_rbtree_clrs PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(test_rbtree_unified test_harness.c)
@@ -73,7 +73,7 @@ target_link_libraries(test_rbtree_unified PUBLIC
                       rbtree_unified
 )
 target_include_directories(test_rbtree_unified PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(test_rbtree_linked test_harness.c)
@@ -87,7 +87,7 @@ target_link_libraries(test_rbtree_linked PUBLIC
                       rbtree_linked
 )
 target_include_directories(test_rbtree_linked PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(test_rbtree_stack test_harness.c)
@@ -101,7 +101,7 @@ target_link_libraries(test_rbtree_stack PUBLIC
                       rbtree_stack
 )
 target_include_directories(test_rbtree_stack PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(test_rbtree_topdown test_harness.c)
@@ -115,7 +115,7 @@ target_link_libraries(test_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 target_include_directories(test_rbtree_topdown PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 
@@ -133,7 +133,7 @@ set_target_properties(time_list_addressorder PROPERTIES
                       "-O0 ${project_flags}"
 )
 target_include_directories(time_list_addressorder PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(time_list_bestfit time_harness.c)
@@ -147,7 +147,7 @@ target_link_libraries(time_list_bestfit PUBLIC
                       list_bestfit
 )
 target_include_directories(time_list_bestfit PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(time_list_segregated time_harness.c)
@@ -161,7 +161,7 @@ target_link_libraries(time_list_segregated PUBLIC
                       list_segregated
 )
 target_include_directories(time_list_segregated PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(time_rbtree_clrs time_harness.c)
@@ -175,7 +175,7 @@ target_link_libraries(time_rbtree_clrs PUBLIC
                       rbtree_clrs
 )
 target_include_directories(time_rbtree_clrs PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(time_rbtree_unified time_harness.c)
@@ -189,7 +189,7 @@ target_link_libraries(time_rbtree_unified PUBLIC
                       rbtree_unified
 )
 target_include_directories(time_rbtree_unified PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(time_rbtree_linked time_harness.c)
@@ -203,7 +203,7 @@ target_link_libraries(time_rbtree_linked PUBLIC
                       rbtree_linked
 )
 target_include_directories(time_rbtree_linked PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(time_rbtree_stack time_harness.c)
@@ -217,7 +217,7 @@ target_link_libraries(time_rbtree_stack PUBLIC
                       rbtree_stack
 )
 target_include_directories(time_rbtree_stack PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(time_rbtree_topdown time_harness.c)
@@ -231,7 +231,7 @@ target_link_libraries(time_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 target_include_directories(time_rbtree_topdown PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 
@@ -249,7 +249,7 @@ target_link_libraries(print_peaks_list_addressorder PUBLIC
                       list_addressorder
 )
 target_include_directories(print_peaks_list_addressorder PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(print_peaks_list_bestfit print_peaks.c)
@@ -263,7 +263,7 @@ target_link_libraries(print_peaks_list_bestfit PUBLIC
                       list_bestfit
 )
 target_include_directories(print_peaks_list_bestfit PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(print_peaks_list_segregated print_peaks.c)
@@ -277,7 +277,7 @@ target_link_libraries(print_peaks_list_segregated PUBLIC
                       list_segregated
 )
 target_include_directories(print_peaks_list_segregated PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(print_peaks_rbtree_clrs print_peaks.c)
@@ -291,7 +291,7 @@ target_link_libraries(print_peaks_rbtree_clrs PUBLIC
                       rbtree_clrs
 )
 target_include_directories(print_peaks_rbtree_clrs PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(print_peaks_rbtree_unified print_peaks.c)
@@ -305,7 +305,7 @@ target_link_libraries(print_peaks_rbtree_unified PUBLIC
                       rbtree_unified
 )
 target_include_directories(print_peaks_rbtree_unified PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(print_peaks_rbtree_linked print_peaks.c)
@@ -319,7 +319,7 @@ target_link_libraries(print_peaks_rbtree_linked PUBLIC
                       rbtree_linked
 )
 target_include_directories(print_peaks_rbtree_linked PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(print_peaks_rbtree_stack print_peaks.c)
@@ -333,7 +333,7 @@ target_link_libraries(print_peaks_rbtree_stack PUBLIC
                       rbtree_stack
 )
 target_include_directories(print_peaks_rbtree_stack PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(print_peaks_rbtree_topdown print_peaks.c)
@@ -347,7 +347,7 @@ target_link_libraries(print_peaks_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 target_include_directories(print_peaks_rbtree_topdown PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 
@@ -365,7 +365,7 @@ target_link_libraries(my_optional_program_list_addressorder PUBLIC
                       list_addressorder
 )
 target_include_directories(my_optional_program_list_addressorder PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(my_optional_program_list_bestfit my_optional_program.c)
@@ -379,7 +379,7 @@ target_link_libraries(my_optional_program_list_bestfit PUBLIC
                       list_bestfit
 )
 target_include_directories(my_optional_program_list_bestfit PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(my_optional_program_list_segregated my_optional_program.c)
@@ -393,7 +393,7 @@ target_link_libraries(my_optional_program_list_segregated PUBLIC
                       list_segregated
 )
 target_include_directories(my_optional_program_list_segregated PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(my_optional_program_rbtree_clrs my_optional_program.c)
@@ -407,7 +407,7 @@ target_link_libraries(my_optional_program_rbtree_clrs PUBLIC
                       rbtree_clrs
 )
 target_include_directories(my_optional_program_rbtree_clrs PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(my_optional_program_rbtree_unified my_optional_program.c)
@@ -421,7 +421,7 @@ target_link_libraries(my_optional_program_rbtree_unified PUBLIC
                       rbtree_unified
 )
 target_include_directories(my_optional_program_rbtree_unified PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(my_optional_program_rbtree_linked my_optional_program.c)
@@ -435,7 +435,7 @@ target_link_libraries(my_optional_program_rbtree_linked PUBLIC
                       rbtree_linked
 )
 target_include_directories(my_optional_program_rbtree_linked PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(my_optional_program_rbtree_stack my_optional_program.c)
@@ -449,7 +449,7 @@ target_link_libraries(my_optional_program_rbtree_stack PUBLIC
                       rbtree_stack
 )
 target_include_directories(my_optional_program_rbtree_stack PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
 add_executable(my_optional_program_rbtree_topdown my_optional_program.c)
@@ -463,6 +463,6 @@ target_link_libraries(my_optional_program_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 target_include_directories(my_optional_program_rbtree_topdown PUBLIC
-                           ${PROJECT_SOURCE_DIR}/${lib-dir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}
 )
 
