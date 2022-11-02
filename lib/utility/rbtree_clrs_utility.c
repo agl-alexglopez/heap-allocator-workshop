@@ -11,6 +11,10 @@
 #include "rbtree_clrs_utility.h"
 #include "debug_break.h"
 
+
+/* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
+
+
 /* @brief paint_node  flips the third least significant bit to reflect the color of the node.
  * @param *node       the node we need to paint.
  * @param color       the color the user wants to paint the node.
