@@ -22,6 +22,10 @@
 #include <stdbool.h>
 #include "print_utility.h"
 
+
+/* * * * * * * * * * * * * *           Type Definitions            * * * * * * * * * * * * * * * */
+
+
 #define SIZE_MASK ~0x7UL
 #define STATUS_CHECK 0x4UL
 #define FREE_NODE_WIDTH (unsigned short)16
