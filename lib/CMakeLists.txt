@@ -14,7 +14,8 @@ add_library(segment segment.h segment.c)
 
 add_library(list_addressorder allocator.h list_addressorder.c)
 target_link_libraries(list_addressorder PUBLIC
-    list_utility
+    print_utility
+    list_addressorder_utility
 )
 target_include_directories(list_addressorder PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -30,7 +31,8 @@ set_target_properties(list_addressorder PROPERTIES
 
 add_library(list_bestfit allocator.h list_bestfit.c)
 target_link_libraries(list_bestfit PUBLIC
-    list_utility
+    print_utility
+    list_bestfit_utility
 )
 target_include_directories(list_bestfit PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -46,7 +48,8 @@ set_target_properties(list_bestfit PROPERTIES
 
 add_library(list_segregated allocator.h list_segregated.c)
 target_link_libraries(list_segregated PUBLIC
-    list_utility
+    print_utility
+    list_segregated_utility
 )
 target_include_directories(list_segregated PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -62,7 +65,8 @@ set_target_properties(list_segregated PROPERTIES
 
 add_library(rbtree_clrs allocator.h rbtree_clrs.c)
 target_link_libraries(rbtree_clrs PUBLIC
-                      debug_break
+    print_utility
+    rbtree_clrs_utility
 )
 target_include_directories(rbtree_clrs PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -78,7 +82,8 @@ set_target_properties(rbtree_clrs PROPERTIES
 
 add_library(rbtree_unified allocator.h rbtree_unified.c)
 target_link_libraries(rbtree_unified PUBLIC
-                      debug_break
+    print_utility
+    rbtree_unified_utility
 )
 target_include_directories(rbtree_unified PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -94,7 +99,8 @@ set_target_properties(rbtree_unified PROPERTIES
 
 add_library(rbtree_linked allocator.h rbtree_linked.c)
 target_link_libraries(rbtree_linked PUBLIC
-                      debug_break
+    print_utility
+    rbtree_linked_utility
 )
 target_include_directories(rbtree_linked PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -110,7 +116,8 @@ set_target_properties(rbtree_linked PROPERTIES
 
 add_library(rbtree_stack allocator.h rbtree_stack.c)
 target_link_libraries(rbtree_stack PUBLIC
-                      debug_break
+    print_utility
+    rbtree_stack_utility
 )
 target_include_directories(rbtree_stack PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -126,7 +133,8 @@ set_target_properties(rbtree_stack PROPERTIES
 
 add_library(rbtree_topdown allocator.h rbtree_topdown.c)
 target_link_libraries(rbtree_topdown PUBLIC
-                      debug_break
+    print_utility
+    rbtree_topdown_utility
 )
 target_include_directories(rbtree_topdown PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility

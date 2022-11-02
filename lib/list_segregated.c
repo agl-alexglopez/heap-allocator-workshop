@@ -24,22 +24,21 @@
 #include <string.h>
 #include <strings.h>
 #include "allocator.h"
+#include "list_segregated_utility.h"
 
 /* Size Order Classes Maintained by an Array of segregated fits lists
  *     - Our size classes stand for the minimum size of a node in the list less than the next.
  *     - 15 Size Classes (in bytes):
-
             32,        40,         48,          56,          64-127,
             128-255,   256-511,    512-1023,    1024-2047,   2048-4095,
             4096-8191, 8192-16383, 16384-32767, 32768-65535, 65536+,
-
  *     - A first fit search will yeild approximately the best fit.
  *     - We will have one dummy node to serve as both the head and tail of all lists.
  *     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index size.
  */
 static struct fits {
     seg_node *table;
-    list_node *nil;
+    free_node *nil;
     size_t total;
 }fits;
 
@@ -62,8 +61,6 @@ static const char LogTable256[256] =
     LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
 };
 
-
-/* * * * * * * * *   Static Minor Heap Methods   * * * * * * * * * * */
 
 
 /* @brief find_index  finds the index in the lookup table that a given block size is stored in.
@@ -107,11 +104,11 @@ static unsigned int find_index(unsigned int block_size) {
     return log_2 - INDEX_OFFSET;
 }
 
-/* @brief splice_list_node  removes a free node out of the free node list.
+/* @brief splice_free_node  removes a free node out of the free node list.
  * @param *to_splice        the heap node that we are either allocating or splitting.
  * @param *block_size       number of bytes that is used by the block we are splicing.
  */
-static void splice_list_node(list_node *to_splice, size_t block_size) {
+static void splice_free_node(free_node *to_splice, size_t block_size) {
     // Catch if we are the first node pointed to by the lookup table.
     if (fits.nil == to_splice->prev) {
         int index = 0;
@@ -132,24 +129,24 @@ static void splice_list_node(list_node *to_splice, size_t block_size) {
     fits.total--;
 }
 
-/* @brief init_list_node  initializes the header and footer of a free node, informs the right
+/* @brief init_free_node  initializes the header and footer of a free node, informs the right
  *                        neighbor of its status and ads the node to the explicit free list.
  * @param to_add          the newly freed header for a heap_node to prepare for the free list.
  * @param block_size      the size of free memory that will now be added to the free list.
  */
-static void init_list_node(header *to_add, size_t block_size) {
+static void init_free_node(header *to_add, size_t block_size) {
     *to_add = LEFT_ALLOCATED | block_size;
     header *footer = (header*)((byte *)to_add + block_size - ALIGNMENT);
     *footer = *to_add;
     header *neighbor = get_right_header(to_add, block_size);
     *neighbor &= LEFT_FREE;
-    list_node *free_add = get_list_node(to_add);
+    free_node *free_add = get_free_node(to_add);
 
     int index = 0;
     for ( ; index < TABLE_SIZE - 1 && block_size >= fits.table[index + 1].size; index++) {
     }
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
-    list_node *cur = fits.table[index].start;
+    free_node *cur = fits.table[index].start;
     fits.table[index].start = free_add;
     free_add->prev = fits.nil;
     free_add->next = cur;
@@ -169,14 +166,14 @@ static void *split_alloc(header *free_block, size_t request, size_t block_space)
     if (block_space >= request + MIN_BLOCK_SIZE) {
         neighbor = get_right_header(free_block, request);
         // This takes care of the neighbor and ITS neighbor with appropriate updates.
-        init_list_node(neighbor, block_space - request);
+        init_free_node(neighbor, block_space - request);
     } else {
         request = block_space;
         neighbor = get_right_header(free_block, block_space);
         *neighbor |= LEFT_ALLOCATED;
     }
     init_header(free_block, request, ALLOCATED);
-    return get_list_node(free_block);
+    return get_free_node(free_block);
 }
 
 /* @brief *coalesce           performs an in place coalesce to the right and left on free and
@@ -190,19 +187,19 @@ static void *split_alloc(header *free_block, size_t request, size_t block_space)
  *                            or forget to add this node to free list, whichever they are doing.
  */
 static header *coalesce(header *leftmost_header) {
-    size_t coalesced_space = extract_block_size(*leftmost_header);
+    size_t coalesced_space = get_size(*leftmost_header);
     header *right_space = get_right_header(leftmost_header, coalesced_space);
     if (right_space != heap.client_end && !is_block_allocated(*right_space)) {
-        size_t block_size = extract_block_size(*right_space);
+        size_t block_size = get_size(*right_space);
         coalesced_space += block_size;
-        splice_list_node(get_list_node(right_space), block_size);
+        splice_free_node(get_free_node(right_space), block_size);
     }
 
     if (is_left_space(leftmost_header)) {
         leftmost_header = get_left_header(leftmost_header);
-        size_t block_size = extract_block_size(*leftmost_header);
+        size_t block_size = get_size(*leftmost_header);
         coalesced_space += block_size;
-        splice_list_node(get_list_node(leftmost_header), block_size);
+        splice_free_node(get_free_node(leftmost_header), block_size);
     }
     init_header(leftmost_header, coalesced_space, FREE);
     return leftmost_header;
@@ -240,7 +237,7 @@ bool myinit(void *heap_start, size_t heap_size) {
 
     heap.client_size = roundup(heap_size, ALIGNMENT);
     // This costs some memory in exchange for ease of use and low instruction counts.
-    fits.nil = (list_node*)((byte*)heap_start + (heap.client_size - LIST_NODE_WIDTH));
+    fits.nil = (free_node*)((byte*)heap_start + (heap.client_size - FREE_NODE_WIDTH));
     fits.nil->prev = NULL;
     fits.nil->next = NULL;
 
@@ -265,14 +262,14 @@ bool myinit(void *heap_start, size_t heap_size) {
 
 
     header *first_block = (header *)((byte *)heap_start + TABLE_BYTES);
-    init_header(first_block, heap.client_size - TABLE_BYTES - LIST_NODE_WIDTH, FREE);
-    init_footer(first_block, heap.client_size - TABLE_BYTES - LIST_NODE_WIDTH);
+    init_header(first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH, FREE);
+    init_footer(first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH);
 
-    list_node *first_free = (list_node *)((byte *)first_block + ALIGNMENT);
+    free_node *first_free = (free_node *)((byte *)first_block + ALIGNMENT);
     first_free->next = fits.nil;
     first_free->prev = fits.nil;
     // Insert this first free into the appropriately sized list.
-    init_list_node(first_block, heap.client_size - TABLE_BYTES - LIST_NODE_WIDTH);
+    init_free_node(first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH);
 
     heap.client_start = first_block;
     heap.client_end = fits.nil;
@@ -290,18 +287,18 @@ void *mymalloc(size_t requested_size) {
         return NULL;
     }
 
-    size_t rounded_request = roundup(requested_size + HEADER_AND_LIST_NODE, ALIGNMENT);
+    size_t rounded_request = roundup(requested_size + HEADER_AND_FREE_NODE, ALIGNMENT);
     for (int i = 0; i < TABLE_SIZE; i++) {
         // All lists hold advertised size and up to one byte less than next list.
         if (i == TABLE_SIZE - 1 || rounded_request < fits.table[i + 1].size) {
-            for (list_node *node = fits.table[i].start; node != fits.nil; node = node->next) {
+            for (free_node *node = fits.table[i].start; node != fits.nil; node = node->next) {
 
-                header *header = get_block_header(node);
-                size_t free_space = extract_block_size(*header);
+                header *cur_header = get_block_header(node);
+                size_t free_space = get_size(*cur_header);
                 if (free_space >= rounded_request) {
-                    splice_list_node(node, free_space);
+                    splice_free_node(node, free_space);
                     // Handoff decision to split or not to our helper, takes care of all details.
-                    return split_alloc(header, rounded_request, free_space);
+                    return split_alloc(cur_header, rounded_request, free_space);
                 }
             }
         }
@@ -328,14 +325,14 @@ void *myrealloc(void *old_ptr, size_t new_size) {
         myfree(old_ptr);
         return NULL;
     }
-    size_t size_needed = roundup(new_size + HEADER_AND_LIST_NODE, ALIGNMENT);
+    size_t size_needed = roundup(new_size + HEADER_AND_FREE_NODE, ALIGNMENT);
     header *old_header = get_block_header(old_ptr);
-    size_t old_space = extract_block_size(*old_header);
+    size_t old_space = get_size(*old_header);
 
     // Spec requires we coalesce as much as possible even if there were sufficient space in place.
     header *leftmost_header = coalesce(old_header);
-    size_t coalesced_total = extract_block_size(*leftmost_header);
-    void *client_block = get_list_node(leftmost_header);
+    size_t coalesced_total = get_size(*leftmost_header);
+    void *client_block = get_free_node(leftmost_header);
 
     if (coalesced_total >= size_needed) {
         /* memmove seems bad but if we just coalesced right and did not find space, I would have to
@@ -349,7 +346,7 @@ void *myrealloc(void *old_ptr, size_t new_size) {
         client_block = split_alloc(leftmost_header, size_needed, coalesced_total);
     } else if ((client_block = mymalloc(size_needed))) {
         memcpy(client_block, old_ptr, old_space);
-        init_list_node(leftmost_header, coalesced_total);
+        init_free_node(leftmost_header, coalesced_total);
     }
     // NULL or the space we found from in-place or malloc.
     return client_block;
@@ -362,10 +359,9 @@ void myfree(void *ptr) {
     if (ptr != NULL) {
         header *to_free = get_block_header(ptr);
         to_free = coalesce(to_free);
-        init_list_node(to_free, extract_block_size(*to_free));
+        init_free_node(to_free, get_size(*to_free));
     }
 }
-
 
 /* * * * * * * * * * *   Shared Debugging  * * * * * * * * * * * * * */
 
@@ -375,15 +371,15 @@ void myfree(void *ptr) {
  * @return               true if the heap is valid and false if the heap is invalid.
  */
 bool validate_heap() {
-    if (!check_seg_list_init(fits.table, fits.nil, heap.client_size)) {
+    if (!check_init(fits.table, fits.nil, heap.client_size)) {
         return false;
     }
     size_t total_free_mem = 0;
-    if (!is_list_balanced(&total_free_mem, heap.client_start, heap.client_end, heap.client_size,
-                          fits.total)) {
+    if (!is_memory_balanced(&total_free_mem, heap.client_start, heap.client_end,
+                            heap.client_size, fits.total)) {
         return false;
     }
-    if (!is_seg_list_valid(total_free_mem, fits.table, fits.nil)) {
+    if (!are_fits_valid(total_free_mem, fits.table, fits.nil)) {
         return false;
     }
     return true;
@@ -399,7 +395,7 @@ bool validate_heap() {
  *                          memory addresses.
  */
 void print_free_nodes(print_style style) {
-    print_seg_list(style, fits.table, fits.nil);
+    print_fits(style, fits.table, fits.nil);
 }
 
 /* @brief dump_heap  prints our the complete status of the heap, all of its blocks, and the sizes
@@ -407,9 +403,9 @@ void print_free_nodes(print_style style) {
  *                   between heap blocks or corrupted headers.
  */
 void dump_heap() {
-    header *header = heap.client_start;
+    header *cur_header = heap.client_start;
     printf("Heap client segment starts at address %p, ends %p. %zu total bytes currently used.\n",
-            header, heap.client_end, heap.client_size);
+            cur_header, heap.client_end, heap.client_size);
     printf("A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n\n");
 
     printf("%p: FIRST ADDRESS\n", fits.table);
@@ -431,34 +427,43 @@ void dump_heap() {
         }
         alternate = !alternate;
         int total_nodes = 0;
-        for (list_node *cur = fits.table[i].start; cur != fits.nil; cur = cur->next) {
+        for (free_node *cur = fits.table[i].start; cur != fits.nil; cur = cur->next) {
             total_nodes++;
         }
         printf("(+%d)\n", total_nodes);
         printf(COLOR_NIL);
     }
     printf("%p: START OF HEAP. HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", heap.client_start);
-    header *prev = header;
-    while (header != heap.client_end) {
-        size_t full_size = extract_block_size(*header);
+    header *prev = cur_header;
+    while (cur_header != heap.client_end) {
+        size_t full_size = get_size(*cur_header);
 
-        if (is_block_allocated(*header)) {
-            print_alloc_block(header);
-        } else {
-            print_free_block(header);
+        if (full_size == 0) {
+            print_bad_jump(cur_header, prev, fits.table, fits.nil);
+            printf("Last known pointer before jump: %p", prev);
+            return;
         }
-        prev = header;
-        header = get_right_header(header, full_size);
+        if (!is_valid_header(*cur_header, full_size, heap.client_size)) {
+            print_error_block(cur_header, full_size);
+            return;
+        }
+        if (is_block_allocated(*cur_header)) {
+            print_alloc_block(cur_header);
+        } else {
+            print_free_block(cur_header);
+        }
+        prev = cur_header;
+        cur_header = get_right_header(cur_header, full_size);
     }
     printf("%p: END OF HEAP\n", heap.client_end);
     printf(COLOR_RED);
     printf("<-%pSENTINEL->\n", fits.nil);
     printf(COLOR_NIL);
-    printf("%p: LAST ADDRESS\n", (byte *)fits.nil + LIST_NODE_WIDTH);
+    printf("%p: LAST ADDRESS\n", (byte *)fits.nil + FREE_NODE_WIDTH);
     printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
 
     printf("\nSEGREGATED LIST OF FREE NODES AND BLOCK SIZES.\n");
     printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
-    print_seg_list(VERBOSE, fits.table, fits.nil);
+    print_fits(VERBOSE, fits.table, fits.nil);
 }
 
