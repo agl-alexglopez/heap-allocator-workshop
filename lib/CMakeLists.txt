@@ -2,14 +2,14 @@
 # These are initial flags that came with the project so I am keeping them. The most important is
 # -g3 that gives us the maximum possible debug information for gdb debugger. Set the level of
 # optimization for each allocator while debugging (-O0 or -Og) and then for efficiency testing
-# (-O2 or -O3).
-# set(project_flags "-g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie")
-
+# (-O2 or -O3). Finally, I do not want to configure a Debug and Release package for this project.
+# Instead just go the the target_compile_options() for each allocator and set the level of
+# optimization required. Use -Og while debugging then -O2 or -O3 when it is working.
 add_library(allocator_compiler_flags INTERFACE)
 target_compile_features(allocator_compiler_flags INTERFACE c_std_99)
 set(gcc_like_c "$<COMPILE_LANG_AND_ID:C,ARMClang,AppleClang,Clang,GNU>")
 target_compile_options(allocator_compiler_flags INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-g3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie>>"
 )
 
 
@@ -30,6 +30,10 @@ target_link_libraries(list_addressorder PUBLIC
 target_include_directories(list_addressorder PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
 )
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(list_addressorder BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
 
 
 ############################# List Bestfit Allocator ########################################
@@ -44,6 +48,10 @@ target_link_libraries(list_bestfit PUBLIC
 )
 target_include_directories(list_bestfit PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
+)
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(list_bestfit BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
 
@@ -60,7 +68,10 @@ target_link_libraries(list_segregated PUBLIC
 target_include_directories(list_segregated PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
 )
-
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(list_segregated BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
 
 ############################# RBTree CLRS Allocator ########################################
 
@@ -74,6 +85,10 @@ target_link_libraries(rbtree_clrs PUBLIC
 )
 target_include_directories(rbtree_clrs PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
+)
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_clrs BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
 
@@ -90,6 +105,10 @@ target_link_libraries(rbtree_unified PUBLIC
 target_include_directories(rbtree_unified PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
 )
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_unified BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
 
 
 ############################# RBTree Linked Allocator ########################################
@@ -105,9 +124,9 @@ target_link_libraries(rbtree_linked PUBLIC
 target_include_directories(rbtree_linked PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
 )
-set_target_properties(rbtree_linked PROPERTIES
-                      COMPILE_FLAGS
-                      "-O3"
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_linked BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
 
@@ -124,9 +143,9 @@ target_link_libraries(rbtree_stack PUBLIC
 target_include_directories(rbtree_stack PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
 )
-set_target_properties(rbtree_stack PROPERTIES
-                      COMPILE_FLAGS
-                      "-O3"
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_stack BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
 
@@ -143,8 +162,8 @@ target_link_libraries(rbtree_topdown PUBLIC
 target_include_directories(rbtree_topdown PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
 )
-set_target_properties(rbtree_topdown PROPERTIES
-                      COMPILE_FLAGS
-                      "-O3"
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_topdown BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 

@@ -91,6 +91,9 @@ void print_fits(print_style style, seg_node table[], free_node *nil) {
     bool alternate = false;
     for (int i = 0; i < TABLE_SIZE; i++, alternate = !alternate) {
         printf(COLOR_GRN);
+        if (style == VERBOSE) {
+            printf("%p: ", &table[i]);
+        }
         if (i == TABLE_SIZE - 1) {
             printf("[CLASS:%ubytes+]=>", table[i].size);
         } else if (i >= SMALL_TABLE_SIZE) {
@@ -143,6 +146,7 @@ void print_all(void *client_start, void *client_end, size_t client_size,
 
     // This will create large amount of output but realistically table is before the rest of heap.
     print_fits(VERBOSE, table, nil);
+    printf("--END OF LOOKUP TABLE, START OF HEAP--\n");
 
     header *prev = cur_header;
     while (cur_header != client_end) {
@@ -164,7 +168,7 @@ void print_all(void *client_start, void *client_end, size_t client_size,
     }
     printf("%p: END OF HEAP\n", client_end);
     printf(COLOR_RED);
-    printf("<-%pSENTINEL->\n", nil);
+    printf("<-%p:SENTINEL->\n", nil);
     printf(COLOR_NIL);
     printf("%p: LAST ADDRESS\n", (byte *)nil + FREE_NODE_WIDTH);
     printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
