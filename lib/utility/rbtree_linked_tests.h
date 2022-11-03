@@ -10,7 +10,7 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "rbtree_linked_utility.h"
+#include "rbtree_linked_design.h"
 
 
 /* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */

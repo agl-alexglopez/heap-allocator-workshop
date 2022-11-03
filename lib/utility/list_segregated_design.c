@@ -1,30 +1,20 @@
 /**
- * File list_addressorder_utility.c
+ * File list_segregated_design.c
  * ---------------------------------
- * This file contains the implementation of utility functions for the list_addressorder heap
- * allocator. These functions serve as basic navigation for nodes and blocks based on the node
- * types and sizes we have established.
+ * This file contains the implementation of utility functions for the list_segregated heap
+ * allocator. These functions serve as basic navigation for nodes and blocks, testing functions for
+ * heap debugging, and printing functions for heap debugging. These functions can distract from the
+ * algorithm implementations in the actual list_segregated.c file so we seperate them out here.
  */
-#include <limits.h>
-#include "list_addressorder_utility.h"
+#include "list_segregated_design.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
 
 
-/* @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
- * @param requested_size  size given to us by the client.
- * @param multiple        the nearest multiple to raise our number to.
- * @return                rounded number.
- */
-size_t roundup(size_t requested_size, size_t multiple) {
-    return (requested_size + multiple - 1) & ~(multiple - 1);
-}
-
-
-/* @brief get_size    given a valid header find the total size of the header and block.
- * @param header_val  the pointer to the current header block we are on.
- * @return            the size in bytes of the header and memory block.
+/* @brief get_size     given a valid header find the total size of the header and block.
+ * @param *header_val  the pointer to the current header block we are on.
+ * @return             the size in bytes of the header and memory block.
  */
 size_t get_size(header header_val) {
     return header_val & SIZE_MASK;
@@ -50,7 +40,7 @@ header *get_left_header(header *cur_header) {
 }
 
 /* @brief is_block_allocated  will determine if a block is marked as allocated.
- * @param header_val          the valid header we will determine status for.
+ * @param *header_val         the valid header we will determine status for.
  * @return                    true if the block is allocated, false if not.
  */
 bool is_block_allocated(header header_val) {
@@ -74,11 +64,11 @@ header *get_block_header(free_node *user_mem_space) {
     return (header *)((byte *)user_mem_space - HEADERSIZE);
 }
 
-/* @brief init_header  initializes the header in the header_header field to reflect the
- *                     specified status and that the left neighbor is allocated or unavailable.
- * @param *cur_header  the header we will initialize.
- * @param block_size   the size, including the header, of the entire block.
- * @param status       FREE or ALLOCATED to reflect the status of the memory.
+/* @brief init_header    initializes the header in the header_header field to reflect the
+ *                       specified status and that the left neighbor is allocated or unavailable.
+ * @param *cur_header    the header we will initialize.
+ * @param block_size     the size, including the header, of the entire block.
+ * @param header_status  FREE or ALLOCATED to reflect the status of the memory.
  */
 void init_header(header *cur_header, size_t block_size, header_status_t header_status) {
     *cur_header = LEFT_ALLOCATED | block_size | header_status;
@@ -92,7 +82,7 @@ void init_header(header *cur_header, size_t block_size, header_status_t header_s
  * @param block_size   the size to use to update the footer of the block.
  */
 void init_footer(header *cur_header, size_t block_size) {
-    header *footer = (header *)((byte *)cur_header + block_size - HEADERSIZE);
+    header *footer = (header*)((byte *)cur_header + block_size - HEADERSIZE);
     *footer = LEFT_ALLOCATED | block_size | FREE;
 }
 

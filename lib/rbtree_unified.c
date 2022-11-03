@@ -50,12 +50,9 @@
  * information in the rest of the struct when it is free and either in our tree.
  */
 #include <limits.h>
-#include <stddef.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "allocator.h"
-#include "rbtree_unified_utility.h"
+#include "rbtree_unified_design.h"
 #include "rbtree_unified_tests.h"
 #include "rbtree_unified_printer.h"
 

@@ -1,14 +1,15 @@
 /**
- * File: rbtree_unified_printer.c
- * ------------------------------
- * This file contains the printing implementation for the rbtree_unified allocator. They are most
- * helpful while debugging in gdb but one function is used for visualizations in the print_peaks
- * program.
+ * File: rbtree_topdown_printer.c
+ * ----------------------------
+ * This file contains the printing utilities for the rbtree_topdown allocator. These are most helpful
+ * while debugging in gdb. However, we use one of these functions to help visualize the heap in
+ * the print_peaks program.
  */
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "rbtree_unified_printer.h"
+#include "print_utility.h"
+#include "rbtree_topdown_printer.h"
 
 
 /* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */
@@ -29,47 +30,58 @@ static int get_black_height(const rb_node *root, const rb_node *black_nil) {
     return get_black_height(root->links[L], black_nil);
 }
 
-/* @brief print_node  prints an individual node in its color and status as left or right child.
- * @param *root       the root we will print with the appropriate info.
- * @param *black_nil  the sentinel node at the bottom of the tree that is always black.
- * @param style       the print style: PLAIN or VERBOSE(displays memory addresses).
+/* @brief print_node     prints an individual node in its color and status as left or right child.
+ * @param *root          the root we will print with the appropriate info.
+ * @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
+ * @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
  */
-static void print_node(const rb_node *root, const rb_node *black_nil, print_style style) {
+static void print_node(const rb_node *root, const void *nil_and_tail, print_style style) {
     size_t block_size = get_size(root->header);
-    printf(COLOR_CYN);
-    if (root->parent != black_nil) {
-        root->parent->links[L] == root ? printf("L:") : printf("R:");
-    }
-    printf(COLOR_NIL);
     get_color(root->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
+
     if (style == VERBOSE) {
         printf("%p:", root);
     }
+
     printf("(%zubytes)", block_size);
     printf(COLOR_NIL);
+
     if (style == VERBOSE) {
-        // print the black-height
-        printf("(bh: %d)", get_black_height(root, black_nil));
+        printf("(bh: %d)", get_black_height(root, nil_and_tail));
     }
+
+    printf(COLOR_CYN);
+    // If a node is a duplicate, we will give it a special mark among nodes.
+    if (root->list_start != nil_and_tail) {
+        int duplicates = 1;
+        duplicate_node *duplicate = root->list_start;
+        for (;(duplicate = duplicate->links[N]) != nil_and_tail; duplicates++) {
+        }
+        printf("(+%d)", duplicates);
+    }
+    printf(COLOR_NIL);
     printf("\n");
 }
 
 /* @brief print_inner_tree  recursively prints the contents of a red black tree with color and in
  *                          a style similar to a directory structure to be read from left to right.
  * @param *root             the root node to start at.
- * @param *black_nil        the sentinel node at the bottom of the tree that is always black.
+ * @param *nil_and_tail     address of a sentinel node serving as both list tail and black nil.
  * @param *prefix           the string we print spacing and characters across recursive calls.
  * @param node_type         the node to print can either be a leaf or internal branch.
  * @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
  */
-static void print_inner_tree(const rb_node *root, const rb_node *black_nil, const char *prefix,
-                             const print_link node_type, print_style style) {
-    if (root == black_nil) {
+static void print_inner_tree(const rb_node *root, const void *nil_and_tail, const char *prefix,
+                      const print_link node_type, const tree_link dir, print_style style) {
+    if (root == nil_and_tail) {
         return;
     }
     printf("%s", prefix);
     printf("%s", node_type == LEAF ? " └──" : " ├──");
-    print_node(root, black_nil, style);
+    printf(COLOR_CYN);
+    dir == L ? printf("L:") : printf("R:");
+    printf(COLOR_NIL);
+    print_node(root, nil_and_tail, style);
 
     char *str = NULL;
     int string_length = snprintf(NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   ");
@@ -78,39 +90,39 @@ static void print_inner_tree(const rb_node *root, const rb_node *black_nil, cons
         snprintf(str, string_length, "%s%s", prefix, node_type == LEAF ? "     " : " │   ");
     }
     if (str != NULL) {
-        if (root->links[R] == black_nil) {
-            print_inner_tree(root->links[L], black_nil, str, LEAF, style);
-        } else if (root->links[L] == black_nil) {
-            print_inner_tree(root->links[R], black_nil, str, LEAF, style);
+        if (root->links[R] == nil_and_tail) {
+            print_inner_tree(root->links[L], nil_and_tail, str, LEAF, L, style);
+        } else if (root->links[L] == nil_and_tail) {
+            print_inner_tree(root->links[R], nil_and_tail, str, LEAF, R, style);
         } else {
-            print_inner_tree(root->links[R], black_nil, str, BRANCH, style);
-            print_inner_tree(root->links[L], black_nil, str, LEAF, style);
+            print_inner_tree(root->links[R], nil_and_tail, str, BRANCH, R, style);
+            print_inner_tree(root->links[L], nil_and_tail, str, LEAF, L, style);
         }
     } else {
-        printf(COLOR_ERR "memory exceeded. Cannot display " COLOR_NIL);
+        printf(COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL);
     }
     free(str);
 }
 
 /* @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
  * @param *root          the root node to begin at for printing recursively.
- * @param *black_nil     the sentinel node at the bottom of the tree that is always black.
+ * @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
  * @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
  */
-void print_rb_tree(const rb_node *root, const rb_node *black_nil, print_style style) {
-    if (root == black_nil) {
+void print_rb_tree(const rb_node *root, const void *nil_and_tail, print_style style) {
+    if (root == nil_and_tail) {
         return;
     }
     printf(" ");
-    print_node(root, black_nil, style);
+    print_node(root, nil_and_tail, style);
 
-    if (root->links[R] == black_nil) {
-        print_inner_tree(root->links[L], black_nil, "", LEAF, style);
-    } else if (root->links[L] == black_nil) {
-        print_inner_tree(root->links[R], black_nil, "", LEAF, style);
+    if (root->links[R] == nil_and_tail) {
+        print_inner_tree(root->links[L], nil_and_tail, "", LEAF, L, style);
+    } else if (root->links[L] == nil_and_tail) {
+        print_inner_tree(root->links[R], nil_and_tail, "", LEAF, R, style);
     } else {
-        print_inner_tree(root->links[R], black_nil, "", BRANCH, style);
-        print_inner_tree(root->links[L], black_nil, "", LEAF, style);
+        print_inner_tree(root->links[R], nil_and_tail, "", BRANCH, R, style);
+        print_inner_tree(root->links[L], nil_and_tail, "", LEAF, L, style);
     }
 }
 
@@ -125,7 +137,7 @@ static void print_alloc_block(const rb_node *node) {
 }
 
 /* @brief print_free_block  prints the contents of a free block of heap memory.
- * @param *header           a valid header to a block of allocated memory.
+ * @param *node             a valid header to a block of allocated memory.
  */
 static void print_free_block(const rb_node *node) {
     size_t block_size = get_size(node->header);
@@ -137,19 +149,9 @@ static void print_free_block(const rb_node *node) {
     if (get_size(*footer) != get_size(node->header)) {
         to_print = ULLONG_MAX;
     }
-    // How far indented the Header field normally is for all blocks.
     short indent_struct_fields = PRINTER_INDENT;
     get_color(node->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
     printf("%p: HDR->0x%016zX(%zubytes)\n", node, node->header, block_size);
-    printf("%*c", indent_struct_fields, ' ');
-
-    if (node->parent) {
-        printf(get_color(node->parent->header) == BLACK ? COLOR_BLK : COLOR_RED);
-        printf("PRN->%p\n", node->parent);
-    } else {
-        printf("PRN->%p\n", NULL);
-    }
-    printf(COLOR_NIL);
     printf("%*c", indent_struct_fields, ' ');
     if (node->links[L]) {
         printf(get_color(node->links[L]->header) == BLACK ? COLOR_BLK : COLOR_RED);
@@ -171,12 +173,14 @@ static void print_free_block(const rb_node *node) {
      */
     printf(COLOR_NIL);
     printf("%*c", indent_struct_fields, ' ');
+    printf("LST->%p\n", node->list_start ? node->list_start : NULL);
+    printf("%*c", indent_struct_fields, ' ');
     printf("FTR->0x%016zX\n", to_print);
 }
 
 /* @brief print_error_block  prints a helpful error message if a block is corrupted.
  * @param *header            a header to a block of memory.
- * @param block_size         the full size of a block of memory, not just the user block size.
+ * @param full_size          the full size of a block of memory, not just the user block size.
  */
 static void print_error_block(const rb_node *node, size_t block_size) {
     printf("\n%p: HDR->0x%016zX->%zubyts\n",
@@ -188,11 +192,11 @@ static void print_error_block(const rb_node *node, size_t block_size) {
  *                        notice where we went wrong and what the addresses were.
  * @param *current        the current node that is likely garbage values that don't make sense.
  * @param *prev           the previous node that we jumped from.
- * @param *root           the root node of the tree to start at for an overall heap check.
- * @param *black_nil      the sentinel node at the bottom of the tree that is always black.
+ * @param *root           the root node to begin at for printing recursively.
+ * @param *nil_and_tail   address of a sentinel node serving as both list tail and black nil.
  */
 static void print_bad_jump(const rb_node *current, const rb_node *prev,
-                           const rb_node *root, const rb_node *black_nil) {
+                    const rb_node *root, const void *nil_and_tail) {
     size_t prev_size = get_size(prev->header);
     size_t cur_size = get_size(current->header);
     printf("A bad jump from the value of a header has occured. Bad distance to next header.\n");
@@ -205,7 +209,7 @@ static void print_bad_jump(const rb_node *current, const rb_node *prev,
     printf("\tBlock Byte Value: %zubytes:\n", cur_size);
     printf("\nJump by %zubytes...\n", cur_size);
     printf("Current state of the free tree:\n");
-    print_rb_tree(root, black_nil, VERBOSE);
+    print_rb_tree(root, nil_and_tail, VERBOSE);
 }
 
 /* @brief print_all    prints our the complete status of the heap, all of its blocks, and the sizes
@@ -217,7 +221,7 @@ static void print_bad_jump(const rb_node *current, const rb_node *prev,
  * @param *root        the root of the tree we start at for printing.
  * @param *black_nil   the sentinel node that waits at the bottom of the tree for all leaves.
  */
-void print_all(void *client_start, void *client_end, size_t heap_size, rb_node *root,
+void print_all(void *client_start, void *client_end, size_t heap_size, rb_node *tree_root,
                rb_node *black_nil) {
     rb_node *node = client_start;
     printf("Heap client segment starts at address %p, ends %p. %zu total bytes currently used.\n",
@@ -234,7 +238,7 @@ void print_all(void *client_start, void *client_end, size_t heap_size, rb_node *
         size_t full_size = get_size(node->header);
 
         if (full_size == 0) {
-            print_bad_jump(node, prev, root, black_nil);
+            print_bad_jump(node, prev, tree_root, black_nil);
             printf("Last known pointer before jump: %p", prev);
             return;
         }
@@ -263,7 +267,8 @@ void print_all(void *client_start, void *client_end, size_t heap_size, rb_node *
     printf("\nRED BLACK TREE OF FREE NODES AND BLOCK SIZES.\n");
     printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
     printf(COLOR_CYN "(+X)" COLOR_NIL);
-    printf(" INDICATES DUPLICATE NODES IN THE  THEY HAVE A NEXT NODE.\n");
-    print_rb_tree(root, black_nil, VERBOSE);
+    printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A N NODE.\n");
+    print_rb_tree(tree_root, black_nil, VERBOSE);
 }
+
 

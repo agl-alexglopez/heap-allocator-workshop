@@ -1,15 +1,12 @@
 /**
- * File rbtree_unified_utility.c
+ * File rbtree_clrs_design.c
  * ---------------------------------
- * This file contains the implementation of utility functions for the rbtree_unified heap
+ * This file contains the implementation of utility functions for the rbtree_clrs heap
  * allocator. These functions serve as basic navigation for nodes and blocks, testing functions for
  * heap debugging, and printing functions for heap debugging. These functions can distract from the
- * algorithm implementations in the actual rbtree_unified.c file so we seperate them out here.
+ * algorithm implementations in the actual rbtree_clrs.c file so we seperate them out here.
  */
-#include <limits.h>
-#include <stdlib.h>
-#include "rbtree_unified_utility.h"
-#include "debug_break.h"
+#include "rbtree_clrs_design.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
@@ -45,7 +42,7 @@ size_t get_size(header header_val) {
  * @return            a pointer to the minimum node in a valid binary search tree.
  */
 rb_node *get_min(rb_node *root, rb_node *black_nil) {
-    for (; root->links[L] != black_nil; root = root->links[L]) {
+    for (; root->left != black_nil; root = root->left) {
     }
     return root;
 }

@@ -69,13 +69,12 @@
  * list.
  */
 #include <limits.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "allocator.h"
-#include "print_utility.h"
-#include "rbtree_topdown_utility.h"
+#include "rbtree_topdown_design.h"
+#include "rbtree_topdown_tests.h"
+#include "rbtree_topdown_printer.h"
 
 
 /* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */
@@ -721,51 +720,7 @@ void print_free_nodes(print_style style) {
  *                   between heap blocks or corrupted headers.
  */
 void dump_heap() {
-    rb_node *node = heap.client_start;
-    printf("Heap client segment starts at address %p, ends %p. %zu total bytes currently used.\n",
-            node, heap.client_end, heap.heap_size);
-    printf("A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
-    printf("COLOR KEY: "
-            COLOR_BLK "[BLACK NODE] " COLOR_NIL
-            COLOR_RED "[RED NODE] " COLOR_NIL
-            COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n");
-
-    printf("%p: START OF HEAP. HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", heap.client_start);
-    rb_node *prev = node;
-    while (node != heap.client_end) {
-        size_t full_size = get_size(node->header);
-
-        if (full_size == 0) {
-            print_bad_jump(node, prev, free_nodes.tree_root, free_nodes.black_nil);
-            printf("Last known pointer before jump: %p", prev);
-            return;
-        }
-        if ((void *)node > heap.client_end) {
-            print_error_block(node, full_size);
-            return;
-        }
-        if (is_block_allocated(node->header)) {
-            print_alloc_block(node);
-        } else {
-            print_free_block(node);
-        }
-        prev = node;
-        node = get_right_neighbor(node, full_size);
-    }
-    get_color(free_nodes.black_nil->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
-    printf("%p: BLACK NULL HDR->0x%016zX\n" COLOR_NIL,
-            free_nodes.black_nil, free_nodes.black_nil->header);
-    printf("%p: FINAL ADDRESS", (byte *)heap.client_end + HEAP_NODE_WIDTH);
-    printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
-    printf("COLOR KEY: "
-            COLOR_BLK "[BLACK NODE] " COLOR_NIL
-            COLOR_RED "[RED NODE] " COLOR_NIL
-            COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n");
-
-    printf("\nRED BLACK TREE OF FREE NODES AND BLOCK SIZES.\n");
-    printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
-    printf(COLOR_CYN "(+X)" COLOR_NIL);
-    printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A N NODE.\n");
-    print_free_nodes(VERBOSE);
+    print_all(heap.client_start, heap.client_end, heap.heap_size,
+              free_nodes.tree_root, free_nodes.black_nil);
 }
 

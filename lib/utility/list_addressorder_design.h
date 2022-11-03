@@ -1,5 +1,5 @@
 /**
- * File: list_addressorder_utility.h
+ * File: list_addressorder_design.h
  * ---------------------------------
  * This file contains the interface that defines our custom types for the list_addressorder
  * allocator. It also contains useful methods for these types that are not key to understanding
@@ -14,11 +14,10 @@
  * library to define its fundamentals, without worrying about fitting in to types and methods
  * previously established by other allocators.
  */
-#ifndef LIST_ADDRESSORDER_UTILITY_H
-#define LIST_ADDRESSORDER_UTILITY_H
+#ifndef LIST_ADDRESSORDER_DESIGN_H
+#define LIST_ADDRESSORDER_DESIGN_H
 #include <stddef.h>
 #include <stdbool.h>
-#include "print_utility.h"
 
 
 /* * * * * * * * * * * * * *           Type Definitions            * * * * * * * * * * * * * * * */
@@ -119,5 +118,6 @@ void init_footer(header *cur_header, size_t block_size);
  * @return               true if there is space to the left, false if not.
  */
 bool is_left_space(header *cur_header);
+
 
 #endif

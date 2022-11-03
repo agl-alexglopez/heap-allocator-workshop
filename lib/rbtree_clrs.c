@@ -51,10 +51,9 @@
  */
 #include <limits.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "allocator.h"
-#include "rbtree_clrs_utility.h"
+#include "rbtree_clrs_design.h"
 #include "rbtree_clrs_tests.h"
 #include "rbtree_clrs_printer.h"
 

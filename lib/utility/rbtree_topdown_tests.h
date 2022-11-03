@@ -1,15 +1,16 @@
 /**
- * File: rbtree_clrs_tests.h
- * -------------------------
- * This file contains the interface for the tests for the rbtree_clrs allocator. The number of
- * tests grows for the tree allocators due to the risks of incorrectly rotating a Red Black Tree.
+ * File: rbtree_topdown_tests.h
+ * --------------------------
+ * This file contains the test interface for the rbtree_topdown allocator. These tests are most
+ * helpful for the test_harness program and to use in gdb. If a failing test is run in gdb it will
+ * automatically activate a breakpoint on the failing stackframe so we can see what went wrong.
  */
-#ifndef RBTREE_CLRS_TESTS_H
-#define RBTREE_CLRS_TESTS_H
+#ifndef RBTREE_TOPDOWN_TESTS_H
+#define RBTREE_TOPDOWN_TESTS_H
 
 #include <stdbool.h>
 #include <stddef.h>
-#include "rbtree_clrs_design.h"
+#include "rbtree_topdown_design.h"
 
 
 /* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */
@@ -54,31 +55,23 @@ bool is_bheight_valid(const rb_node *root, const rb_node *black_nil);
 /* @brief extract_tree_mem  sums the total memory in the red black tree to see if it matches the
  *                          total memory we got from traversing blocks of the heap.
  * @param *root             the root to start at for the summing recursive search.
- * @param *black_nil        the sentinel node at the bottom of the tree that is always black.
+ * @param *nil_and_tail     the address of a sentinel node serving as both list tail and black nil.
  * @return                  the total memory in bytes as a size_t in the red black tree.
  */
-size_t extract_tree_mem(const rb_node *root, const rb_node *black_nil);
+size_t extract_tree_mem(const rb_node *root, const void *nil_and_tail);
 
 /* @brief is_rbtree_mem_valid  a wrapper for tree memory sum function used to check correctness.
  * @param *root                the root node to begin at for the recursive summing search.
- * @param *black_nil           the sentinel node at the bottom of the tree that is always black.
- * @param total_free_mem       the previously calculated free memory from a linear heap search.
+ * @param *nil_and_tail        address of a sentinel node serving as both list tail and black nil.
+ * @param total_free_mem       the total free memory collected from a linear heap search.
  * @return                     true if the totals match false if they do not.
  */
-bool is_rbtree_mem_valid(const rb_node *root, const rb_node *black_nil, size_t total_free_mem);
-
-/* @brief is_parent_valid  for duplicate node operations it is important to check the parents and
- *                         fields are updated corectly so we can continue using the tree.
- * @param *root            the root to start at for the recursive search.
- * @param *black_nil       the sentinel node at the bottom of the tree that is always black.
- * @return                 true if every parent child relationship is accurate.
- */
-bool is_parent_valid(const rb_node *root, const rb_node *black_nil);
+bool is_rbtree_mem_valid(const rb_node *root, const void *nil_and_tail, size_t total_free_mem);
 
 /* @brief is_bheight_valid_V2  the wrapper for calculate_bheight_V2 that verifies that the black
  *                             height property is upheld.
  * @param *root                the starting node of the red black tree to check.
- * @param *black_nil            the sentinel node at the bottom of the tree that is always black.
+ * @param *black_nil           the sentinel node at the bottom of the tree that is always black.
  * @return                     true if the paths are valid, false if not.
  */
 bool is_bheight_valid_V2(const rb_node *root, const rb_node *black_nil);
@@ -90,6 +83,16 @@ bool is_bheight_valid_V2(const rb_node *root, const rb_node *black_nil);
  * @return                true if the tree is valid, false if not.
  */
 bool is_binary_tree(const rb_node *root, const rb_node *black_nil);
+
+/* @brief is_parent_valid  for duplicate node operations it is important to check the parents and
+ *                         fields are updated corectly so we can continue using the tree.
+ * @param *parent          the parent of the current root.
+ * @param *root            the root to start at for the recursive search.
+ * @param *nil_and_tail    address of a sentinel node serving as both list tail and black nil.
+ * @return                 true if all parent child relationships are correct.
+ */
+bool is_duplicate_storing_parent(const rb_node *parent, const rb_node *root,
+                                 const void *nil_and_tail);
 
 
 #endif

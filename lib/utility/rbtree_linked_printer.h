@@ -9,7 +9,7 @@
 #define RBTREE_LINKED_PRINTER_H
 
 #include "print_utility.h"
-#include "rbtree_linked_utility.h"
+#include "rbtree_linked_design.h"
 
 
 /* * * * * * * * * * * * * *            Printing Functions         * * * * * * * * * * * * * * * */

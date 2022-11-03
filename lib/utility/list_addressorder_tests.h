@@ -8,7 +8,7 @@
 #define LIST_ADDRESSORDER_TESTS_H
 
 #include <stdbool.h>
-#include "list_addressorder_utility.h"
+#include "list_addressorder_design.h"
 
 /* @breif check_init     checks the internal representation of our heap, especially the head and
  *                       tail nodes for any issues that would ruin our algorithms.

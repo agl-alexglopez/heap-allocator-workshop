@@ -1,14 +1,12 @@
 /**
- * File list_bestfit_utility.c
+ * File list_bestfit_design.c
  * ---------------------------------
  * This file contains the implementation of utility functions for the list_bestfit heap
  * allocator. These functions serve as basic navigation for nodes and blocks, testing functions for
  * heap debugging, and printing functions for heap debugging. These functions can distract from the
  * algorithm implementations in the actual list_bestfit.c file so we seperate them out here.
  */
-#include <limits.h>
-#include "list_bestfit_utility.h"
-#include "debug_break.h"
+#include "list_bestfit_design.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */

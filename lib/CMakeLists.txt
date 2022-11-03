@@ -14,8 +14,9 @@ add_library(segment segment.h segment.c)
 
 add_library(list_addressorder allocator.h list_addressorder.c)
 target_link_libraries(list_addressorder PUBLIC
-    print_utility
-    list_addressorder_utility
+    list_addressorder_design
+    list_addressorder_tests
+    list_addressorder_printer
 )
 target_include_directories(list_addressorder PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -31,8 +32,9 @@ set_target_properties(list_addressorder PROPERTIES
 
 add_library(list_bestfit allocator.h list_bestfit.c)
 target_link_libraries(list_bestfit PUBLIC
-    print_utility
-    list_bestfit_utility
+    list_bestfit_design
+    list_bestfit_tests
+    list_bestfit_printer
 )
 target_include_directories(list_bestfit PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -48,8 +50,9 @@ set_target_properties(list_bestfit PROPERTIES
 
 add_library(list_segregated allocator.h list_segregated.c)
 target_link_libraries(list_segregated PUBLIC
-    print_utility
-    list_segregated_utility
+    list_segregated_design
+    list_segregated_tests
+    list_segregated_printer
 )
 target_include_directories(list_segregated PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -65,8 +68,9 @@ set_target_properties(list_segregated PROPERTIES
 
 add_library(rbtree_clrs allocator.h rbtree_clrs.c)
 target_link_libraries(rbtree_clrs PUBLIC
-    print_utility
-    rbtree_clrs_utility
+    rbtree_clrs_design
+    rbtree_clrs_tests
+    rbtree_clrs_printer
 )
 target_include_directories(rbtree_clrs PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -82,8 +86,9 @@ set_target_properties(rbtree_clrs PROPERTIES
 
 add_library(rbtree_unified allocator.h rbtree_unified.c)
 target_link_libraries(rbtree_unified PUBLIC
-    print_utility
-    rbtree_unified_utility
+    rbtree_unified_design
+    rbtree_unified_tests
+    rbtree_unified_printer
 )
 target_include_directories(rbtree_unified PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -99,8 +104,9 @@ set_target_properties(rbtree_unified PROPERTIES
 
 add_library(rbtree_linked allocator.h rbtree_linked.c)
 target_link_libraries(rbtree_linked PUBLIC
-    print_utility
-    rbtree_linked_utility
+    rbtree_linked_design
+    rbtree_linked_tests
+    rbtree_linked_printer
 )
 target_include_directories(rbtree_linked PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -116,8 +122,9 @@ set_target_properties(rbtree_linked PROPERTIES
 
 add_library(rbtree_stack allocator.h rbtree_stack.c)
 target_link_libraries(rbtree_stack PUBLIC
-    print_utility
-    rbtree_stack_utility
+    rbtree_stack_design
+    rbtree_stack_tests
+    rbtree_stack_printer
 )
 target_include_directories(rbtree_stack PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility
@@ -133,8 +140,9 @@ set_target_properties(rbtree_stack PROPERTIES
 
 add_library(rbtree_topdown allocator.h rbtree_topdown.c)
 target_link_libraries(rbtree_topdown PUBLIC
-    print_utility
-    rbtree_topdown_utility
+    rbtree_topdown_design
+    rbtree_topdown_tests
+    rbtree_topdown_printer
 )
 target_include_directories(rbtree_topdown PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/utility

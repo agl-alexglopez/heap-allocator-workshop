@@ -56,12 +56,10 @@
  */
 
 #include <limits.h>
-#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include "allocator.h"
-#include "rbtree_linked_utility.h"
+#include "rbtree_linked_design.h"
 #include "rbtree_linked_tests.h"
 #include "rbtree_linked_printer.h"
 

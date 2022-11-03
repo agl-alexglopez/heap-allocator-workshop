@@ -1,7 +1,7 @@
 /**
- * File: list_segregated_utility.h
+ * File: list_bestfit_design.h
  * ---------------------------------
- * This file contains the interface that defines our custom types for the list_segregated
+ * This file contains the interface that defines our custom types for the list_bestfit
  * allocator. It also contains useful methods for these types, testing functions, and printer
  * functions that make development of the allocator much easier. I seperate them out here so that
  * they do not crowd the file that contains the core logic of the heap.
@@ -15,40 +15,33 @@
  * library to define its fundamentals, without worrying about fitting in to types and methods
  * previously established by other allocators.
  */
-#ifndef LIST_SEGREGATED_UTILITY_H
-#define LIST_SEGREGATED_UTILITY_H
+#ifndef LIST_BESTFIT_DESIGN_H
+#define LIST_BESTFIT_DESIGN_H
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "print_utility.h"
 
-
-/* * * * * * * * * * * * * *           Type Definitions            * * * * * * * * * * * * * * * */
-
-
-#define SIZE_MASK ~0x7UL
-#define STATUS_CHECK 0x4UL
-#define FREE_NODE_WIDTH (unsigned short)16
-#define HEADER_AND_FREE_NODE (unsigned short)24
-#define HEADERSIZE sizeof(size_t)
-#define MIN_BLOCK_SIZE (unsigned short)32
-#define TABLE_SIZE (unsigned short)15
-#define SMALL_TABLE_SIZE (unsigned short)4
-#define SMALL_TABLE_MAX (unsigned short)56
-#define LARGE_TABLE_MIN (unsigned short)64
-#define TABLE_BYTES (15 * sizeof(seg_node))
-#define INDEX_0 (unsigned short)0
-#define INDEX_0_SIZE (unsigned short)32
-#define INDEX_1 (unsigned short)1
-#define INDEX_1_SIZE (unsigned short)40
-#define INDEX_2 (unsigned short)2
-#define INDEX_2_SIZE (unsigned short)48
-#define INDEX_3 (unsigned short)3
-#define INDEX_3_SIZE (unsigned short)56
-#define INDEX_OFFSET 2U
 
 typedef size_t header;
 typedef unsigned char byte;
+
+#define SIZE_MASK ~0x7UL
+#define STATUS_CHECK 0x4UL
+#define BYTES_PER_LINE (unsigned short)32
+#define FREE_NODE_WIDTH (unsigned short)16
+#define HEADER_AND_FREE_NODE (unsigned short)24
+#define MIN_BLOCK_SIZE (unsigned short)32
+#define HEADERSIZE sizeof(size_t)
+
+/* Size Order Best Fit Doubly Linked free_list:
+ *  - Maintain a doubly linked free_list of free nodes.
+ *  - Use a head and a tail node on the heap.
+ *  - Nodes do not include the header so head and tail waste less space.
+ */
+typedef struct free_node {
+    struct free_node *next;
+    struct free_node *prev;
+}free_node;
 
 typedef enum header_status_t {
     FREE = 0x0UL,
@@ -57,23 +50,20 @@ typedef enum header_status_t {
     LEFT_FREE = ~0x2UL
 } header_status_t;
 
-typedef struct free_node {
-    struct free_node *next;
-    struct free_node *prev;
-}free_node;
-
-typedef struct seg_node {
-    unsigned short size;
-    free_node *start;
-}seg_node;
-
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
 
 
-/* @brief get_size     given a valid header find the total size of the header and block.
- * @param *header_val  the pointer to the current header block we are on.
- * @return             the size in bytes of the header and memory block.
+/* @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
+ * @param requested_size  size given to us by the client.
+ * @param multiple        the nearest multiple to raise our number to.
+ * @return                rounded number.
+ */
+size_t roundup(size_t requested_size, size_t multiple);
+
+/* @brief get_size    given a valid header find the total size of the header and block.
+ * @param header_val  the pointer to the current header block we are on.
+ * @return            the size in bytes of the header and memory block.
  */
 size_t get_size(header header_val);
 
@@ -92,7 +82,7 @@ header *get_right_header(header *cur_header, size_t block_size);
 header *get_left_header(header *cur_header);
 
 /* @brief is_block_allocated  will determine if a block is marked as allocated.
- * @param *header_val         the valid header we will determine status for.
+ * @param header_val          the valid header we will determine status for.
  * @return                    true if the block is allocated, false if not.
  */
 bool is_block_allocated(header header_val);
@@ -110,11 +100,11 @@ free_node *get_free_node(header *cur_header);
  */
 header *get_block_header(free_node *user_mem_space);
 
-/* @brief init_header    initializes the header in the header_header field to reflect the
- *                       specified status and that the left neighbor is allocated or unavailable.
- * @param *cur_header    the header we will initialize.
- * @param block_size     the size, including the header, of the entire block.
- * @param header_status  FREE or ALLOCATED to reflect the status of the memory.
+/* @brief init_header  initializes the header in the header_header field to reflect the
+ *                     specified status and that the left neighbor is allocated or unavailable.
+ * @param *cur_header  the header we will initialize.
+ * @param block_size   the size, including the header, of the entire block.
+ * @param status       FREE or ALLOCATED to reflect the status of the memory.
  */
 void init_header(header *cur_header, size_t block_size, header_status_t header_status);
 

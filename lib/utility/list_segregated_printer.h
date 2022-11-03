@@ -11,7 +11,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include "print_utility.h"
-#include "list_segregated_utility.h"
+#include "list_segregated_design.h"
 
 
 /* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */

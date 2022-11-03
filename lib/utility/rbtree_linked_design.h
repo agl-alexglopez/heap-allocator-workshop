@@ -1,8 +1,9 @@
 /**
- * File: rbtree_unified_utility.h
+ * File: rbtree_linked_design.h
  * ---------------------------------
- * This file contains the interface that defines our custom types for the rbtree_unified
- * allocator. It also contains useful methods for these types.
+ * This file contains the interface that defines our custom types for the rbtree_linked
+ * allocator. It also contains useful methods for these types. I seperate them out here so that
+ * they do not crowd the file that contains the core logic of the heap.
  *
  * Across these heap utility libraries you may see code that appears almost identical to a utility
  * library for another allocator. While it may be tempting to think we could unite the common logic
@@ -13,19 +14,19 @@
  * library to define its fundamentals, without worrying about fitting in to types and methods
  * previously established by other allocators.
  */
-#ifndef _RBTREE_UNIFIED_UTILITY_H_
-#define _RBTREE_UNIFIED_UTILITY_H_
+#ifndef RBTREE_LINKED_DESIGN_H
+#define RBTREE_LINKED_DESIGN_H
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "print_utility.h"
 
 #define TWO_NODE_ARRAY (unsigned short)2
 #define SIZE_MASK ~0x7UL
 #define COLOR_MASK 0x4UL
-#define HEAP_NODE_WIDTH (unsigned short)32
-#define MIN_BLOCK_SIZE (unsigned short)40
+#define HEAP_NODE_WIDTH (unsigned short)40
+#define MIN_BLOCK_SIZE (unsigned short)48
 #define HEADERSIZE sizeof(size_t)
+
 
 typedef size_t header;
 typedef unsigned char byte;
@@ -36,29 +37,45 @@ typedef unsigned char byte;
  *  - No red node has a red child
  *  - New insertions are red
  *  - NULL is considered black. We use a black sentinel instead. Physically lives on the heap.
- *  - Every path from root to tree.black_nil, root not included, has same number of black nodes.
+ *  - Every path from root to free_nodes.black_nil, root not included, has same number of black nodes.
  *  - The 3rd LSB of the header holds the color: 0 for black, 1 for red.
  *  - The 1st LSB holds the allocated status and 2nd LSB holds left neighbor status for coalescing.
+ *  - Use a next pointer to a doubly linked list of duplicate nodes of the same size.
  */
 typedef struct rb_node {
-    // The header will store block size, allocation status, left neighbor status, and node color.
+    // block size, allocation status, left neighbor status, and node color.
     header header;
     struct rb_node *parent;
     struct rb_node *links[TWO_NODE_ARRAY];
-    // A footer goes at end of unused blocks. Need at least 8 bytes of user space to fit footer.
+    // Points to a list which we will use P and N to manage to distinguish from the tree.
+    struct duplicate_node *list_start;
 }rb_node;
+
+typedef struct duplicate_node {
+    header header;
+    struct rb_node *parent;
+    struct duplicate_node *links[TWO_NODE_ARRAY];
+    struct rb_node *list_start;
+}duplicate_node;
 
 typedef enum rb_color {
     BLACK = 0,
     RED = 1
 }rb_color;
 
-// NOT(!) operator will flip this enum to the opposite field. !L == R and !R == L;
+// We can unify symmetric cases with an enum because (!L == R) and (!R == L).
 typedef enum tree_link {
     // (L == LEFT), (R == RIGHT)
     L = 0,
     R = 1
 } tree_link;
+
+// When you see these, know that we are working with a doubly linked list, not a tree.
+typedef enum list_link {
+    // (P == PREVIOUS), (N == NEXT)
+    P = 0,
+    N = 1
+} list_link;
 
 typedef enum header_status {
     FREE = 0x0UL,
@@ -72,6 +89,13 @@ typedef enum header_status {
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
 
+
+/* @brief roundup         rounds up size to the nearest multiple of two to be aligned in the heap.
+ * @param requested_size  size given to us by the client.
+ * @param multiple        the nearest multiple to raise our number to.
+ * @return                rounded number.
+ */
+size_t roundup(size_t requested_size, size_t multiple);
 
 /* @brief paint_node  flips the third least significant bit to reflect the color of the node.
  * @param *node       the node we need to paint.
