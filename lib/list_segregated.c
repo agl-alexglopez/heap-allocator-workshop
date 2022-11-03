@@ -25,19 +25,28 @@
 #include <strings.h>
 #include "allocator.h"
 #include "list_segregated_utility.h"
+#include "list_segregated_tests.h"
+#include "list_segregated_printer.h"
+
+
+/* * * * * * * * * * * * * * * * * *  Static Heap Tracking  * * * * * * * * * * * * * * * * * * */
+
 
 /* Size Order Classes Maintained by an Array of segregated fits lists
  *     - Our size classes stand for the minimum size of a node in the list less than the next.
  *     - 15 Size Classes (in bytes):
-            32,        40,         48,          56,          64-127,
-            128-255,   256-511,    512-1023,    1024-2047,   2048-4095,
-            4096-8191, 8192-16383, 16384-32767, 32768-65535, 65536+,
+
+            32,         40,          48,           56,           64-127,
+            128-255,    256-511,     512-1023,     1024-2047,    2048-4095,
+            4096-8191,  8192-16383,  16384-32767,  32768-65535,  65536+,
+
  *     - A first fit search will yeild approximately the best fit.
  *     - We will have one dummy node to serve as both the head and tail of all lists.
  *     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index size.
  */
 static struct fits {
     seg_node *table;
+    // One node can serve as the head and tail of all lists to allow some invariant code patterns.
     free_node *nil;
     size_t total;
 }fits;
@@ -61,6 +70,8 @@ static const char LogTable256[256] =
     LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7), LT(7)
 };
 
+
+/* * * * * * * * * * * * * * * * *   Static Helper Functions   * * * * * * * * * * * * * * * * * */
 
 
 /* @brief find_index  finds the index in the lookup table that a given block size is stored in.
@@ -206,7 +217,7 @@ static header *coalesce(header *leftmost_header) {
 }
 
 
-/* * * * * * * * * * *   Shared Heap Functions   * * * * * * * * */
+/* * * * * * * * * * * * * * * * *   Shared Heap Functions   * * * * * * * * * * * * * * * * * * */
 
 
 /* @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
@@ -363,7 +374,8 @@ void myfree(void *ptr) {
     }
 }
 
-/* * * * * * * * * * *   Shared Debugging  * * * * * * * * * * * * * */
+
+/* * * * * * * * * * * * * * * * *     Shared Debugger       * * * * * * * * * * * * * * * * * * */
 
 
 /* @brief validate_heap  runs various checks to ensure that every block of the heap is well formed
@@ -386,7 +398,7 @@ bool validate_heap() {
 }
 
 
-/* * * * * * * * * * * *   Shared Printing Debugger   * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * *     Shared Printer        * * * * * * * * * * * * * * * * * * */
 
 
 /* @brief print_free_nodes  a shared function across allocators requesting a printout of internal
@@ -403,67 +415,6 @@ void print_free_nodes(print_style style) {
  *                   between heap blocks or corrupted headers.
  */
 void dump_heap() {
-    header *cur_header = heap.client_start;
-    printf("Heap client segment starts at address %p, ends %p. %zu total bytes currently used.\n",
-            cur_header, heap.client_end, heap.client_size);
-    printf("A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n\n");
-
-    printf("%p: FIRST ADDRESS\n", fits.table);
-    bool alternate = false;
-    for (int i = 0; i < TABLE_SIZE; i++) {
-        printf(COLOR_GRN);
-        if (i == TABLE_SIZE - 1) {
-            printf("[CLASS:%ubytes+]=>", fits.table[i].size);
-        } else if (i >= SMALL_TABLE_SIZE) {
-            printf("[CLASS:%u-%ubytes]=>", fits.table[i].size, fits.table[i + 1].size - 1U);
-        } else {
-            printf("[CLASS:%ubytes]=>", fits.table[i].size);
-        }
-        printf(COLOR_NIL);
-        if (alternate) {
-            printf(COLOR_RED);
-        } else {
-            printf(COLOR_CYN);
-        }
-        alternate = !alternate;
-        int total_nodes = 0;
-        for (free_node *cur = fits.table[i].start; cur != fits.nil; cur = cur->next) {
-            total_nodes++;
-        }
-        printf("(+%d)\n", total_nodes);
-        printf(COLOR_NIL);
-    }
-    printf("%p: START OF HEAP. HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", heap.client_start);
-    header *prev = cur_header;
-    while (cur_header != heap.client_end) {
-        size_t full_size = get_size(*cur_header);
-
-        if (full_size == 0) {
-            print_bad_jump(cur_header, prev, fits.table, fits.nil);
-            printf("Last known pointer before jump: %p", prev);
-            return;
-        }
-        if (!is_valid_header(*cur_header, full_size, heap.client_size)) {
-            print_error_block(cur_header, full_size);
-            return;
-        }
-        if (is_block_allocated(*cur_header)) {
-            print_alloc_block(cur_header);
-        } else {
-            print_free_block(cur_header);
-        }
-        prev = cur_header;
-        cur_header = get_right_header(cur_header, full_size);
-    }
-    printf("%p: END OF HEAP\n", heap.client_end);
-    printf(COLOR_RED);
-    printf("<-%pSENTINEL->\n", fits.nil);
-    printf(COLOR_NIL);
-    printf("%p: LAST ADDRESS\n", (byte *)fits.nil + FREE_NODE_WIDTH);
-    printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
-
-    printf("\nSEGREGATED LIST OF FREE NODES AND BLOCK SIZES.\n");
-    printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
-    print_fits(VERBOSE, fits.table, fits.nil);
+    print_all(heap.client_start, heap.client_end, heap.client_size, fits.table, fits.nil);
 }
 

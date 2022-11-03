@@ -55,9 +55,11 @@
 #include <string.h>
 #include "allocator.h"
 #include "rbtree_clrs_utility.h"
+#include "rbtree_clrs_tests.h"
+#include "rbtree_clrs_printer.h"
 
 
-/* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * *  Static Heap Tracking  * * * * * * * * * * * * * * * * * * */
 
 
 static struct tree {
@@ -72,6 +74,8 @@ static struct heap {
     size_t heap_size;
 }heap;
 
+
+/* * * * * * * * * * * * * * * * *   Static Helper Functions   * * * * * * * * * * * * * * * * * */
 
 
 /* @brief left_rotate  complete a left rotation to help repair a red-black tree. Assumes current is
@@ -121,7 +125,7 @@ static void right_rotate(rb_node *current) {
 }
 
 
-/* * * * * * * * * *     Static Red-Black Tree Insertion Logic     * * * * * * * * * * */
+/* * * * * * * * * * * *     Static Red-Black Tree Insertion Logic     * * * * * * * * * * * * * */
 
 
 /* @brief fix_rb_insert  implements Cormen et.al. red black fixup after the insertion of a node.
@@ -199,7 +203,7 @@ static void insert_rb_node(rb_node *current) {
 }
 
 
-/* * * * * * * * * *    Static Red-Black Tree Deletion Helper Functions   * * * * * * * * * * */
+/* * * * * * * * * * * *     Static Red-Black Tree Deletion Helper     * * * * * * * * * * * * * */
 
 
 /* @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
@@ -218,7 +222,7 @@ static void rb_transplant(const rb_node *remove, rb_node *replacement) {
 }
 
 
-/* * * * * * * * * *      Static Red-Black Tree Deletion Logic     * * * * * * * * * * */
+/* * * * * * * * * * * *     Static Red-Black Tree Deletion Logic      * * * * * * * * * * * * * */
 
 
 /* @brief fix_rb_delete  completes repairs on a red black tree to ensure rules hold and balance.
@@ -357,7 +361,7 @@ static rb_node *find_best_fit(size_t key) {
 }
 
 
-/* * * * * * * * * * * *    Static Heap Helper Functions    * * * * * * * * * */
+/* * * * * * * * * * * * * * *    Static Heap Helper Functions     * * * * * * * * * * * * * * * */
 
 
 /* @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
@@ -425,7 +429,7 @@ static rb_node *coalesce(rb_node *leftmost_node) {
 }
 
 
-/* * * * * * * * * * * *    Core Heap Functions    * * * * * * * * * */
+/* * * * * * * * * * * * * * * * *   Shared Heap Functions   * * * * * * * * * * * * * * * * * * */
 
 
 /* @brief roundup         rounds up size to the nearest multiple of two to be aligned in the heap.
@@ -542,7 +546,7 @@ void myfree(void *ptr) {
 }
 
 
-/* * * * * * * * * * *      Debugging       * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * *     Shared Debugger       * * * * * * * * * * * * * * * * * * */
 
 
 /* @brief validate_heap  runs various checks to ensure that every block of the heap is well formed
@@ -585,7 +589,7 @@ bool validate_heap() {
 }
 
 
-/* * * * * * * * * * * *   Printing Debugger   * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * *     Shared Printer        * * * * * * * * * * * * * * * * * * */
 
 
 /* @brief print_free_nodes  a shared function across allocators requesting a printout of internal
@@ -603,51 +607,6 @@ void print_free_nodes(print_style style) {
  *                   between heap blocks or corrupted headers.
  */
 void dump_heap() {
-    const rb_node *node = heap.client_start;
-    printf("Heap client segment starts at address %p, ends %p. %zu total bytes currently used.\n",
-            node, heap.client_end, heap.heap_size);
-    printf("A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
-    printf("COLOR KEY: "
-            COLOR_BLK "[BLACK NODE] " COLOR_NIL
-            COLOR_RED "[RED NODE] " COLOR_NIL
-            COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n");
-
-    printf("%p: START OF HEAP. HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", heap.client_start);
-    const rb_node *prev = node;
-    while (node != heap.client_end) {
-        size_t full_size = get_size(node->header);
-
-        if (full_size == 0) {
-            print_bad_jump(node, prev, tree.root, tree.black_nil);
-            printf("Last known pointer before jump: %p", prev);
-            return;
-        }
-        if ((void *)node > heap.client_end) {
-            print_error_block(node, full_size);
-            return;
-        }
-        if (is_block_allocated(node->header)) {
-            print_alloc_block(node);
-        } else {
-            print_free_block(node);
-        }
-        prev = node;
-        node = get_right_neighbor(node, full_size);
-    }
-    get_color(tree.black_nil->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
-    printf("%p: BLACK NULL HDR->0x%016zX\n" COLOR_NIL,
-            tree.black_nil, tree.black_nil->header);
-    printf("%p: FINAL ADDRESS", (byte *)heap.client_end + HEAP_NODE_WIDTH);
-    printf("\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n");
-    printf("COLOR KEY: "
-            COLOR_BLK "[BLACK NODE] " COLOR_NIL
-            COLOR_RED "[RED NODE] " COLOR_NIL
-            COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n");
-
-    printf("\nRED BLACK TREE OF FREE NODES AND BLOCK SIZES.\n");
-    printf("HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n");
-    printf(COLOR_CYN "(+X)" COLOR_NIL);
-    printf(" INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A NEXT NODE.\n");
-    print_free_nodes(VERBOSE);
+    print_all(heap.client_start, heap.client_end, heap.heap_size, tree.root, tree.black_nil);
 }
 

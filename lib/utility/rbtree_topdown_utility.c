@@ -12,6 +12,9 @@
 #include "debug_break.h"
 
 
+/* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
+
+
 /* @brief paint_node  flips the third least significant bit to reflect the color of the node.
  * @param *node       the node we need to paint.
  * @param color       the color the user wants to paint the node.
@@ -105,6 +108,10 @@ void *get_client_space(const rb_node *node_header) {
 rb_node *get_rb_node(const void *client_space) {
     return (rb_node *)((byte *) client_space - HEADERSIZE);
 }
+
+
+/* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */
+
 
 /* @breif check_init    checks the internal representation of our heap, especially the head and tail
  *                      nodes for any issues that would ruin our algorithms.
@@ -345,6 +352,10 @@ bool is_duplicate_storing_parent(const rb_node *parent, const rb_node *root,
     return is_duplicate_storing_parent(root, root->links[L], nil_and_tail)
              && is_duplicate_storing_parent(root, root->links[R], nil_and_tail);
 }
+
+
+/* * * * * * * * * * * * * *            Printing Functions         * * * * * * * * * * * * * * * */
+
 
 /* @brief print_node     prints an individual node in its color and status as left or right child.
  * @param *root          the root we will print with the appropriate info.

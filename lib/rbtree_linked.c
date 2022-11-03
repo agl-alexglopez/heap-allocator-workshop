@@ -65,7 +65,7 @@
 #include "rbtree_linked_utility.h"
 
 
-/* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * * *  Static Heap Tracking  * * * * * * * * * * * * * * * * * * */
 
 
 static struct free_nodes {
@@ -83,7 +83,7 @@ static struct heap {
 }heap;
 
 
-/* * * * * * * * * *    Static Red-Black Tree Helper Functions   * * * * * * * * * * */
+/* * * * * * * * * * * * * * * * *   Static Helper Functions   * * * * * * * * * * * * * * * * * */
 
 
 /* @brief rotate     a unified version of the traditional left and right rotation functions. The
@@ -112,7 +112,7 @@ static void rotate(rb_node *current, tree_link rotation) {
 }
 
 
-/* * * * * * * * * *    Static Red-Black Tree Insertion Helper Function   * * * * * * * * * * */
+/* * * * * * * * * * *     Static Red-Black Tree Insertion Helper Function   * * * * * * * * * * */
 
 
 /* @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
@@ -135,7 +135,7 @@ static void add_duplicate(rb_node *head, duplicate_node *to_add) {
 }
 
 
-/* * * * * * * * * *     Static Red-Black Tree Insertion Logic     * * * * * * * * * * */
+/* * * * * * * * * * * *      Static Red-Black Tree Insertion Logic      * * * * * * * * * * * * */
 
 
 /* @brief fix_rb_insert  implements a modified Cormen et.al. red black fixup after the insertion of
@@ -200,7 +200,7 @@ static void insert_rb_node(rb_node *current) {
 }
 
 
-/* * * * * * * * * *    Static Red-Black Tree Deletion Helper Functions   * * * * * * * * * * */
+/* * * * * * * * * *     Static Red-Black Tree Deletion Helper Functions   * * * * * * * * * * * */
 
 
 /* @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
@@ -230,7 +230,7 @@ static rb_node *delete_duplicate(rb_node *head) {
 }
 
 
-/* * * * * * * * * *      Static Red-Black Tree Deletion Logic     * * * * * * * * * * */
+/* * * * * * * * * * * * *      Static Red-Black Tree Deletion Logic     * * * * * * * * * * * * */
 
 
 /* @brief fix_rb_delete  completes a unified Cormen et.al. fixup function. Uses a direction enum
@@ -400,7 +400,7 @@ static rb_node *free_coalesced_node(void *to_coalesce) {
 }
 
 
-/* * * * * * * * * * * *    Static Heap Helper Functions    * * * * * * * * * */
+/* * * * * * * * * * * * * *    Static Heap Helper Functions     * * * * * * * * * * * * * * * * */
 
 
 /* @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
@@ -469,7 +469,7 @@ rb_node *coalesce(rb_node *leftmost_node) {
 }
 
 
-/* * * * * * * * * * * *    Core Heap Functions    * * * * * * * * * */
+/* * * * * * * * * * * * * *          Shared Heap Functions        * * * * * * * * * * * * * * * */
 
 
 /* @brief roundup         rounds up size to the nearest multiple of two to be aligned in the heap.
@@ -587,7 +587,7 @@ void myfree(void *ptr) {
 }
 
 
-/* * * * * * * * * * *      Debugging       * * * * * * * * * * * * * */
+/* * * * * * * * * * * * * * *       Shared Debugging        * * * * * * * * * * * * * * * * * * */
 
 
 /* @brief validate_heap  runs various checks to ensure that every block of the heap is well formed
@@ -631,7 +631,7 @@ bool validate_heap() {
 }
 
 
-/* * * * * * * * * * * *   Printing Debugger   * * * * * * * * * * */
+/* * * * * * * * * * * * * * * *         Shared Printer            * * * * * * * * * * * * * * * */
 
 
 /* @brief print_free_nodes  a shared function across allocators requesting a printout of internal

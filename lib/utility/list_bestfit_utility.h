@@ -55,6 +55,13 @@ typedef enum header_status_t {
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
 
 
+/* @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
+ * @param requested_size  size given to us by the client.
+ * @param multiple        the nearest multiple to raise our number to.
+ * @return                rounded number.
+ */
+size_t roundup(size_t requested_size, size_t multiple);
+
 /* @brief get_size    given a valid header find the total size of the header and block.
  * @param header_val  the pointer to the current header block we are on.
  * @return            the size in bytes of the header and memory block.
@@ -118,94 +125,5 @@ void init_footer(header *cur_header, size_t block_size);
  */
 bool is_left_space(header *cur_header);
 
-
-/* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */
-
-
-/* @brief is_header_corrupted  will determine if a block has the 3rd bit on, which is invalid.
- * @param header_val           the valid header we will determine status for.
- * @return                     true if the block has the second or third bit on.
- */
-bool is_header_corrupted(header header_val);
-
-
-/* @breif check_init     checks the internal representation of our heap, especially the head and
- *                       tail nodes for any issues that would ruin our algorithms.
- * @param *client_start  the start address of the client heap segment.
- * @param *client_end    the end address of the client heap segment.
- * @param client_size    the size in bytes of the total space available for client.
- * @param *head          the free_node head of the linked list.
- * @param *tail          the free_node tail of the linked list.
- * @return               true if everything is in order otherwise false.
- */
-bool check_init(void *client_start, void *client_end, size_t client_size,
-                free_node *head, free_node *tail);
-
-/* @brief is_valid_header  checks the header of a block of memory to make sure that is not an
- *                         unreasonable size or otherwise corrupted.
- * @param cur_header       the header to a block of memory
- * @param block_size       the reported size of this block of memory from its header.
- * @param client_size      the size of the space available for the user.
- * @return                 true if the header is valid, false otherwise.
- */
-bool is_valid_header(header cur_header, size_t block_size, size_t client_size);
-
-/* @brief get_size_used    loops through all blocks of memory to verify that the sizes
- *                         reported match the global bookeeping in our struct.
- * @param *total_free_mem  the output parameter of the total size used as another check.
- * @param *client_start    the start address of the client heap segment.
- * @param *client_end      the end address of the client heap segment.
- * @param client_size      the size in bytes of the total space available for client.
- * @param free_list_total  the total number of free nodes in our list.
- * @return                 true if our tallying is correct and our totals match.
- */
-bool is_memory_balanced(size_t *total_free_mem, void *client_start,
-                        void *client_end, size_t client_size, size_t free_list_total);
-
-/* @brief is_free_list_valid  loops through only the doubly linked list to make sure it matches
- *                            the loop we just completed by checking all blocks.
- * @param total_free_mem      the input from a previous loop that was completed by jumping block
- *                            by block over the entire heap.
- * @param *head               the free_node head of the linked list.
- * @param *tail               the free_node tail of the linked list.
- * @return                    true if the doubly linked list totals correctly, false if not.
- */
-bool is_free_list_valid(size_t total_free_mem, free_node *head, free_node *tail);
-
-
-/* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */
-
-
-/* @brief print_linked_free  prints the doubly linked free list in order to check if splicing and
- *                           adding is progressing correctly.
- * @param *head              the free_node head of the linked list.
- * @param *tail              the free_node tail of the linked list.
- */
-void print_linked_free(print_style style, free_node *head, free_node *tail);
-
-/* @brief print_alloc_block  prints the contents of an allocated block of memory.
- * @param *cur_header        a valid header to a block of allocated memory.
- */
-void print_alloc_block(header *cur_header);
-
-/* @brief print_free_block  prints the contents of a free block of heap memory.
- * @param *cur_header       a valid header to a block of allocated memory.
- */
-void print_free_block(header *cur_header);
-
-/* @brief print_error_block  prints a helpful error message if a block is corrupted.
- * @param *cur_header        a header to a block of memory.
- * @param full_size          the full size of a block of memory, not just the user block size.
- */
-void print_error_block(header *cur_header, size_t full_size);
-
-/* @brief print_bad_jump  If we overwrite data in a header, this print statement will help us
- *                        notice where we went wrong and what the addresses were.
- * @param *current        the current node that is likely garbage values that don't make sense.
- * @param *prev           the previous node that we jumped from.
- * @param *head           the free_node head of the linked list.
- * @param *tail           the free_node tail of the linked list.
- */
-void print_bad_jump(header *current, header *prev, free_node *head, free_node *tail);
 
 #endif
