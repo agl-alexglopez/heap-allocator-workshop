@@ -6,23 +6,31 @@
    - Documentation **([`README.md`](/README.md))**
 2. The CLRS Standard
    - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
+   - Design **([`rbtree_clrs_design.h`](/lib/utility/rbtree_clrs_design.h))**
    - Implementation **([`rbtree_clrs.c`](/lib/rbtree_clrs.c))**
 3. Unified Symmetry
    - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
+   - Design **([`rbtree_unified_design.h`](/lib/utility/rbtree_unified_design.h))**
    - Implementation **([`rbtree_unified.c`](/lib/rbtree_unified.c))**
 4. Doubly Linked Duplicates
    - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
+   - Design **([`rbtree_linked_design.h`](/lib/utility/rbtree_linked_design.h))**
    - Implementation **([`rbtree_linked.c`](/lib/rbtree_linked.c))**
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
+   - Design **([`rbtree_stack_design.h`](/lib/utility/rbtree_stack_design.h))**
    - Implementation **([`rbtree_stack.c`](/lib/rbtree_stack.c))**
 6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
+   - Design **([`rbtree_topdown_design.h`](/lib/utility/rbtree_topdown_design.h))**
    - Implementation **([`rbtree_topdown.c`](/lib/rbtree_topdown.c))**
 7. List Allocators
    - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
+   - Design **([`list_addressorder_design.h`](/lib/utility/list_addressorder_design.h))**
    - Implementation **([`list_addressorder.c`](/lib/list_addressorder.c))**
+   - Design **([`list_bestfit_design.h`](/lib/utility/list_bestfit_design.h))**
    - Implementation **([`list_bestfit.c`](/lib/list_bestfit.c))**
+   - Design **([`list_segregated_design.h`](/lib/utility/list_segregated_design.h))**
    - Implementation **([`list_segregated.c`](/lib/list_segregated.c))**
 8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
@@ -60,7 +68,7 @@ In order to compile programs in this repository, follow these steps.
    - This compiles all programs to the `/build/src/` folder from which you will run each allocator's version of the program. Directions on the commands to run will follow in each program's description below.
 3. Run the Programs
    - I will specify commands for each programs, but they all involve some variation on the following formula.
-     - `./build/src/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] scripts/[.SCRIPT FILE TO RUN]`
+     - `./build/bin/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] scripts/[.SCRIPT FILE TO RUN]`
    - We specify the program, the allocator version, any arguments valid for that program, and then the script file we want to run for our allocator to execute.
    - All directions assume you are running programs from the root directory of the repository but this is not required. However, be careful of current directory if you decide to run commands that follow in this document, especially script generation commands.
 4. Generate Additional Scripts
@@ -81,15 +89,15 @@ We can run this program on one or multiple `.script` files to ensure they run wi
 - All allocators have been prepended with the word `test_` and have been compiled to our `build/src/` folder.
   - `test_rbtree_clrs`, `test_rbtree_unified`, `test_rbtree_linked`, `test_rbtree_stack`, `test_rbtree_topdown`, `test_list_bestfit`, `test_list_addressorder`
 - Run an allocator on a single test script.
-  - `./build/src/test_rbtree_clrs scripts/pattern-mixed.script`
+  - `./build/bin/test_rbtree_clrs scripts/pattern-mixed.script`
 - Run an allocator on multiple scripts with the additional wildcard symbol if there are multiple files with the same name format.
-  - `./build/src/test_rbtree_clrs scripts/trace-emacs.script scripts/trace-gcc.script scripts/trace-chs.script`
+  - `./build/bin/test_rbtree_clrs scripts/trace-emacs.script scripts/trace-gcc.script scripts/trace-chs.script`
   - Is the same as...
-  - `./build/src/test_rbtree_clrs scripts/trace-*.script`
+  - `./build/bin/test_rbtree_clrs scripts/trace-*.script`
   - And then add as many scripts as you would like...
-  - `./build/src/test_rbtree_clrs scripts/trace-*.script scripts/example*.script scripts/pattern-*.script`
+  - `./build/bin/test_rbtree_clrs scripts/trace-*.script scripts/example*.script scripts/pattern-*.script`
 - Run an allocator in quiet mode which will not validate the heap after every call, speeding up our ability to check utilization.
-  - `./build/src/test_rbtree_clrs -q scripts/trace-*.script scripts/example*.script scripts/pattern-*.script`
+  - `./build/bin/test_rbtree_clrs -q scripts/trace-*.script scripts/example*.script scripts/pattern-*.script`
 - Output will include how many successful calls to the heap completed and the utilization averaged across all run scripts.
 
 ## Time Harness
@@ -105,7 +113,7 @@ Instead, we will allocate 2N blocks of memory and then call `free()` on every ot
 The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can achieve this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
 
 ```bash
- ./build/src/time_list_bestfit -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script
+ ./build/bin/time_list_bestfit -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script
 ```
 
 - The above command is for timing one-hundred thousand insertions, `free()`, and one-hundred thousand removals, `malloc()`, from our tree.
@@ -125,9 +133,9 @@ We would then get output such as the following.
 - All allocators have been prepended with the word `time_` and have been compiled to our `build/src/` folder.
   - `time_rbtree_clrs`, `time_rbtree_unified`, `time_rbtree_linked`, `time_rbtree_stack`, `time_rbtree_topdown`, `time_list_bestfit`, `time_list_addressorder`
 - Time the entire execution time of the allocator over an entire script.
-  - `./build/src/time_rbtree_clrs scripts/time-insertdelete-100k.script`
+  - `./build/bin/time_rbtree_clrs scripts/time-insertdelete-100k.script`
 - Time only sections of the script according to line number ranges.
-  - `./build/src/time_rbtree_clrs -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script`
+  - `./build/bin/time_rbtree_clrs -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script`
 
 ## Print Peaks
 
@@ -146,11 +154,11 @@ Here is the same command for a list based allocator. The list output is far less
 - All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/src/` folder.
   - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, `print_peaks_rbtree_stack`, `print_peaks_rbtree_topdown`, `print_peaks_list_bestfit`, `print_peaks_list_addressorder`
 - Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
-  - `./build/src/print_peaks_list_bestfit scripts/pattern-mixed.script`
+  - `./build/bin/print_peaks_list_bestfit scripts/pattern-mixed.script`
 - Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and black heights for the tree allocators. This is the printer I used because I needed to see memory addresses to better understand where errors were occurring. Verbose should always be the first argument if it will be included.
-  - `./build/src/print_peaks_list_bestfit -v scripts/pattern-mixed.script`
+  - `./build/bin/print_peaks_list_bestfit -v scripts/pattern-mixed.script`
 - Add breakpoints corresponding to line numbers in the script. This will show you how many free nodes existed after that line executes. You will also enter an interactive terminal session. You can decide if you want to continue to the next breakpoint, add a new future breakpoint, or continue to the end of the program execution. Be sure to follow the prompt directions.
-  - `./build/src/print_peaks_list_bestfit -v -b 100 -b 200 -b 450 scripts/pattern-mixed.script`
+  - `./build/bin/print_peaks_list_bestfit -v -b 100 -b 200 -b 450 scripts/pattern-mixed.script`
 
 ## Python Script Generation
 
