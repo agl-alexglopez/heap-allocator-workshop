@@ -14,6 +14,9 @@ add_library(print_utility print_utility.h print_utility.c)
 
 
 add_library(list_addressorder_design list_addressorder_design.h list_addressorder_design.c)
+target_link_libraries(list_addressorder_design PUBLIC
+    utility_compiler_flags
+)
 
 add_library(list_addressorder_tests list_addressorder_tests.h list_addressorder_tests.c)
 target_link_libraries(list_addressorder_tests PUBLIC
@@ -33,6 +36,9 @@ target_link_libraries(list_addressorder_printer PUBLIC
 
 
 add_library(list_bestfit_design list_bestfit_design.h list_bestfit_design.c)
+target_link_libraries(list_bestfit_design PUBLIC
+    utility_compiler_flags
+)
 
 add_library(list_bestfit_tests list_bestfit_tests.h list_bestfit_tests.c)
 target_link_libraries(list_bestfit_tests PUBLIC
@@ -53,6 +59,9 @@ target_link_libraries(list_bestfit_printer PUBLIC
 
 
 add_library(list_segregated_design list_segregated_design.h list_segregated_design.c)
+target_link_libraries(list_segregated_design PUBLIC
+    utility_compiler_flags
+)
 
 add_library(list_segregated_tests list_segregated_tests.h list_segregated_tests.c)
 target_link_libraries(list_segregated_tests PUBLIC
@@ -73,6 +82,9 @@ target_link_libraries(list_segregated_printer PUBLIC
 
 
 add_library(rbtree_clrs_design rbtree_clrs_design.h rbtree_clrs_design.c)
+target_link_libraries(rbtree_clrs_design PUBLIC
+    utility_compiler_flags
+)
 
 add_library(rbtree_clrs_tests rbtree_clrs_tests.h rbtree_clrs_tests.c)
 target_link_libraries(rbtree_clrs_tests PUBLIC
@@ -92,6 +104,9 @@ target_link_libraries(rbtree_clrs_printer PUBLIC
 
 
 add_library(rbtree_unified_design rbtree_unified_design.h rbtree_unified_design.c)
+target_link_libraries(rbtree_unified_design PUBLIC
+    utility_compiler_flags
+)
 
 add_library(rbtree_unified_tests rbtree_unified_tests.h rbtree_unified_tests.c)
 target_link_libraries(rbtree_unified_tests PUBLIC
@@ -111,6 +126,9 @@ target_link_libraries(rbtree_unified_printer PUBLIC
 
 
 add_library(rbtree_linked_design rbtree_linked_design.h rbtree_linked_design.c)
+target_link_libraries(rbtree_linked_design PUBLIC
+    utility_compiler_flags
+)
 
 add_library(rbtree_linked_tests rbtree_linked_tests.h rbtree_linked_tests.c)
 target_link_libraries(rbtree_linked_tests PUBLIC
@@ -130,6 +148,9 @@ target_link_libraries(rbtree_linked_printer PUBLIC
 
 
 add_library(rbtree_stack_design rbtree_stack_design.h rbtree_stack_design.c)
+target_link_libraries(rbtree_stack_design PUBLIC
+    utility_compiler_flags
+)
 
 add_library(rbtree_stack_tests rbtree_stack_tests.h rbtree_stack_tests.c)
 target_link_libraries(rbtree_stack_tests PUBLIC
@@ -149,6 +170,9 @@ target_link_libraries(rbtree_stack_printer PUBLIC
 
 
 add_library(rbtree_topdown_design rbtree_topdown_design.h rbtree_topdown_design.c)
+target_link_libraries(rbtree_topdown_design PUBLIC
+    utility_compiler_flags
+)
 
 add_library(rbtree_topdown_tests rbtree_topdown_tests.h rbtree_topdown_tests.c)
 target_link_libraries(rbtree_topdown_tests PUBLIC
