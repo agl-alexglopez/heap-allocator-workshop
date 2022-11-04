@@ -6,31 +6,31 @@
    - Documentation **([`README.md`](/README.md))**
 2. The CLRS Standard
    - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
-   - Design **([`rbtree_clrs_design.h`](/lib/utility/rbtree_clrs_design.h))**
+   - Design **([`rbtree_clrs_utilities.h`](/lib/rbtree_clrs_utilities.h))**
    - Implementation **([`rbtree_clrs.c`](/lib/rbtree_clrs.c))**
 3. Unified Symmetry
    - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
-   - Design **([`rbtree_unified_design.h`](/lib/utility/rbtree_unified_design.h))**
+   - Design **([`rbtree_unified_utilities.h`](/lib/rbtree_unified_utilities.h))**
    - Implementation **([`rbtree_unified.c`](/lib/rbtree_unified.c))**
 4. Doubly Linked Duplicates
    - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
-   - Design **([`rbtree_linked_design.h`](/lib/utility/rbtree_linked_design.h))**
+   - Design **([`rbtree_linked_utilities.h`](/lib/rbtree_linked_utilities.h))**
    - Implementation **([`rbtree_linked.c`](/lib/rbtree_linked.c))**
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
-   - Design **([`rbtree_stack_design.h`](/lib/utility/rbtree_stack_design.h))**
+   - Design **([`rbtree_stack_utilities.h`](/lib/rbtree_stack_utilities.h))**
    - Implementation **([`rbtree_stack.c`](/lib/rbtree_stack.c))**
 6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Design **([`rbtree_topdown_design.h`](/lib/utility/rbtree_topdown_design.h))**
+   - Design **([`rbtree_topdown_utilities.h`](/lib/rbtree_topdown_utilities.h))**
    - Implementation **([`rbtree_topdown.c`](/lib/rbtree_topdown.c))**
 7. List Allocators
    - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
-   - Design **([`list_addressorder_design.h`](/lib/utility/list_addressorder_design.h))**
+   - Design **([`list_addressorder_utilities.h`](/lib/list_addressorder_utilities.h))**
    - Implementation **([`list_addressorder.c`](/lib/list_addressorder.c))**
-   - Design **([`list_bestfit_design.h`](/lib/utility/list_bestfit_design.h))**
+   - Design **([`list_bestfit_utilities.h`](/lib/list_bestfit_utilities.h))**
    - Implementation **([`list_bestfit.c`](/lib/list_bestfit.c))**
-   - Design **([`list_segregated_design.h`](/lib/utility/list_segregated_design.h))**
+   - Design **([`list_segregated_utilities.h`](/lib/list_segregated_utilities.h))**
    - Implementation **([`list_segregated.c`](/lib/list_segregated.c))**
 8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
