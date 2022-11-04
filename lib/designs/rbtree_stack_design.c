@@ -6,7 +6,7 @@
  * to inline these short methods in the calling heap functions. Hopefully this will improve
  * efficiency in "hot-spot" functions.
  */
-#include "rbtree_stack_design.h"
+#include "../rbtree_stack_utilities.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */

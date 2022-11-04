@@ -6,7 +6,7 @@
  * inline in the header file so we declare them here and hope the compiler inlines them in "hot"
  * functions.
  */
-#include "rbtree_clrs_design.h"
+#include "../rbtree_clrs_utilities.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */

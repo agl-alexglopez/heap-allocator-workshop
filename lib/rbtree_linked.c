@@ -59,9 +59,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "allocator.h"
-#include "rbtree_linked_design.h"
-#include "rbtree_linked_tests.h"
-#include "rbtree_linked_printer.h"
+#include "rbtree_linked_utilities.h"
 
 
 /* * * * * * * * * * * * * * * * * *  Static Heap Tracking  * * * * * * * * * * * * * * * * * * */

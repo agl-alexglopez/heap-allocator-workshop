@@ -7,12 +7,55 @@
  */
 #include <limits.h>
 #include <stdio.h>
-#include "list_segregated_printer.h"
-#include "print_utility.h"
+#include "../list_segregated_utilities.h"
 
 
 /* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */
 
+
+/* @brief print_fits  prints the segregated fits free list in order to check if splicing and
+ *                    adding is progressing correctly.
+ * @param table[]     the lookup table that holds the list size ranges
+ * @param *nil        a special free_node that serves as a sentinel for logic and edgecases.
+ */
+void print_fits(print_style style, seg_node table[], free_node *nil) {
+    bool alternate = false;
+    for (int i = 0; i < TABLE_SIZE; i++, alternate = !alternate) {
+        printf(COLOR_GRN);
+        if (style == VERBOSE) {
+            printf("%p: ", &table[i]);
+        }
+        if (i == TABLE_SIZE - 1) {
+            printf("[CLASS:%ubytes+]=>", table[i].size);
+        } else if (i >= SMALL_TABLE_SIZE) {
+            printf("[CLASS:%u-%ubytes]=>", table[i].size, table[i + 1].size - 1U);
+        } else {
+            printf("[CLASS:%ubytes]=>", table[i].size);
+        }
+        printf(COLOR_NIL);
+        if (alternate) {
+            printf(COLOR_RED);
+        } else {
+            printf(COLOR_CYN);
+        }
+
+        for (free_node *cur = table[i].start; cur != nil; cur = cur->next) {
+            if (cur) {
+                header *cur_header = get_block_header(cur);
+                printf("<=>[");
+                if (style == VERBOSE) {
+                    printf("%p:", get_block_header(cur));
+                }
+                printf("(%zubytes)]", get_size(*cur_header));
+            } else {
+                printf("Something went wrong. NULL free fits node.\n");
+                break;
+            }
+        }
+        printf("<=>[%p]\n", nil);
+        printf(COLOR_NIL);
+    }
+}
 
 /* @brief print_alloc_block  prints the contents of an allocated block of memory.
  * @param *cur_header        a valid header to a block of allocated memory.
@@ -67,50 +110,6 @@ static void print_bad_jump(header *current, header *prev, seg_node table[], free
     printf("Current state of the free list:\n");
     printf(COLOR_NIL);
     print_fits(VERBOSE, table, nil);
-}
-
-/* @brief print_fits  prints the segregated fits free list in order to check if splicing and
- *                    adding is progressing correctly.
- * @param table[]     the lookup table that holds the list size ranges
- * @param *nil        a special free_node that serves as a sentinel for logic and edgecases.
- */
-void print_fits(print_style style, seg_node table[], free_node *nil) {
-    bool alternate = false;
-    for (int i = 0; i < TABLE_SIZE; i++, alternate = !alternate) {
-        printf(COLOR_GRN);
-        if (style == VERBOSE) {
-            printf("%p: ", &table[i]);
-        }
-        if (i == TABLE_SIZE - 1) {
-            printf("[CLASS:%ubytes+]=>", table[i].size);
-        } else if (i >= SMALL_TABLE_SIZE) {
-            printf("[CLASS:%u-%ubytes]=>", table[i].size, table[i + 1].size - 1U);
-        } else {
-            printf("[CLASS:%ubytes]=>", table[i].size);
-        }
-        printf(COLOR_NIL);
-        if (alternate) {
-            printf(COLOR_RED);
-        } else {
-            printf(COLOR_CYN);
-        }
-
-        for (free_node *cur = table[i].start; cur != nil; cur = cur->next) {
-            if (cur) {
-                header *cur_header = get_block_header(cur);
-                printf("<=>[");
-                if (style == VERBOSE) {
-                    printf("%p:", get_block_header(cur));
-                }
-                printf("(%zubytes)]", get_size(*cur_header));
-            } else {
-                printf("Something went wrong. NULL free fits node.\n");
-                break;
-            }
-        }
-        printf("<=>[%p]\n", nil);
-        printf(COLOR_NIL);
-    }
 }
 
 /* @brief print_all    prints our the complete status of the heap, all of its blocks, and the sizes

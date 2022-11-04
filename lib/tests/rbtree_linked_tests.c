@@ -6,7 +6,7 @@
  * gdb these functions will stop execution during the failing test in the stack frame that failed.
  */
 #include "debug_break.h"
-#include "rbtree_linked_tests.h"
+#include "../rbtree_linked_utilities.h"
 
 
 /* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */

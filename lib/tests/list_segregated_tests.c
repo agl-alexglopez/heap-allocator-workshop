@@ -6,7 +6,7 @@
  * current test to see what is going wrong.
  */
 #include <limits.h>
-#include "list_segregated_tests.h"
+#include "../list_segregated_utilities.h"
 #include "debug_break.h"
 
 

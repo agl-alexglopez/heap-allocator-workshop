@@ -8,7 +8,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "rbtree_linked_printer.h"
+#include "../rbtree_linked_utilities.h"
 
 
 /* * * * * * * * * * * * * *            Printing Functions         * * * * * * * * * * * * * * * */
@@ -19,7 +19,7 @@
  * @param *black_nil        the sentinel node at the bottom of the tree that is always black.
  * @return                  the black height from the current node as an integer.
  */
-int get_black_height(const rb_node *root, const rb_node *black_nil) {
+static int get_black_height(const rb_node *root, const rb_node *black_nil) {
     if (root == black_nil) {
         return 0;
     }
@@ -34,7 +34,7 @@ int get_black_height(const rb_node *root, const rb_node *black_nil) {
  * @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
  * @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
  */
-void print_node(const rb_node *root, void *nil_and_tail, print_style style) {
+static void print_node(const rb_node *root, void *nil_and_tail, print_style style) {
     size_t block_size = get_size(root->header);
     printf(COLOR_CYN);
     if (root->parent != nil_and_tail) {
@@ -76,8 +76,8 @@ void print_node(const rb_node *root, void *nil_and_tail, print_style style) {
  * @param node_type         the node to print can either be a leaf or internal branch.
  * @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
  */
-void print_inner_tree(const rb_node *root, void *nil_and_tail, const char *prefix,
-                      const print_link node_type, print_style style) {
+static void print_inner_tree(const rb_node *root, void *nil_and_tail, const char *prefix,
+                             const print_link node_type, print_style style) {
     if (root == nil_and_tail) {
         return;
     }
@@ -135,7 +135,7 @@ void print_rb_tree(const rb_node *root, void *nil_and_tail, print_style style) {
 /* @brief print_alloc_block  prints the contents of an allocated block of memory.
  * @param *node              a valid rb_node to a block of allocated memory.
  */
-void print_alloc_block(const rb_node *node) {
+static void print_alloc_block(const rb_node *node) {
     size_t block_size = get_size(node->header);
     // We will see from what direction our header is messed up by printing 16 digits.
     printf(COLOR_GRN "%p: HDR->0x%016zX(%zubytes)\n"
@@ -145,7 +145,7 @@ void print_alloc_block(const rb_node *node) {
 /* @brief print_free_block  prints the contents of a free block of heap memory.
  * @param *header           a valid header to a block of allocated memory.
  */
-void print_free_block(const rb_node *node) {
+static void print_free_block(const rb_node *node) {
     size_t block_size = get_size(node->header);
     header *footer = (header *)((byte *)node + block_size);
     // We should be able to see the header is the same as the footer. However, due to fixup
@@ -198,7 +198,7 @@ void print_free_block(const rb_node *node) {
  * @param *header            a header to a block of memory.
  * @param full_size          the full size of a block of memory, not just the user block size.
  */
-void print_error_block(const rb_node *node, size_t block_size) {
+static void print_error_block(const rb_node *node, size_t block_size) {
     printf("\n%p: HDR->0x%016zX->%zubyts\n",
             node, node->header, block_size);
     printf("Block size is too large and header is corrupted.\n");
@@ -211,7 +211,7 @@ void print_error_block(const rb_node *node, size_t block_size) {
  * @param *root           the root node to begin at for printing recursively.
  * @param *nil_and_tail   address of a sentinel node serving as both list tail and black nil.
  */
-void print_bad_jump(const rb_node *curr, const rb_node *prev, rb_node *root, void *nil_and_tail) {
+static void print_bad_jump(const rb_node *curr, const rb_node *prev, rb_node *root, void *nil_and_tail) {
     size_t prev_size = get_size(prev->header);
     size_t cur_size = get_size(curr->header);
     printf("A bad jump from the value of a header has occured. Bad distance to next header.\n");

@@ -53,9 +53,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "allocator.h"
-#include "rbtree_clrs_design.h"
-#include "rbtree_clrs_tests.h"
-#include "rbtree_clrs_printer.h"
+#include "rbtree_clrs_utilities.h"
 
 
 /* * * * * * * * * * * * * * * * * *  Static Heap Tracking  * * * * * * * * * * * * * * * * * * */

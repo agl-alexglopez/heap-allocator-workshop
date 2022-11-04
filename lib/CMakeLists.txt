@@ -19,18 +19,23 @@ add_library(segment segment.h segment.c)
 
 ############################# List Addressorder Allocator ########################################
 
-
-add_library(list_addressorder allocator.h list_addressorder.c)
-target_link_libraries(list_addressorder PUBLIC
-    list_addressorder_design
-    list_addressorder_tests
-    list_addressorder_printer
+add_library(list_addressorder_utilities
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs/list_addressorder_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/list_addressorder_tests.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers/list_addressorder_printer.c
+)
+target_link_libraries(list_addressorder_utilities PRIVATE
     allocator_compiler_flags
 )
-target_include_directories(list_addressorder PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/printers
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(list_addressorder_utilities BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+add_library(list_addressorder allocator.h list_addressorder.c)
+target_link_libraries(list_addressorder PRIVATE
+    list_addressorder_utilities
+    allocator_compiler_flags
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_addressorder BEFORE INTERFACE
@@ -41,17 +46,23 @@ target_compile_options(list_addressorder BEFORE INTERFACE
 ############################# List Bestfit Allocator ########################################
 
 
-add_library(list_bestfit allocator.h list_bestfit.c)
-target_link_libraries(list_bestfit PUBLIC
-    list_bestfit_design
-    list_bestfit_tests
-    list_bestfit_printer
+add_library(list_bestfit_utilities
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs/list_bestfit_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/list_bestfit_tests.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers/list_bestfit_printer.c
+)
+target_link_libraries(list_bestfit_utilities PRIVATE
     allocator_compiler_flags
 )
-target_include_directories(list_bestfit PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/printers
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(list_bestfit_utilities BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+add_library(list_bestfit allocator.h list_bestfit.c)
+target_link_libraries(list_bestfit PRIVATE
+    list_bestfit_utilities
+    allocator_compiler_flags
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_bestfit BEFORE INTERFACE
@@ -61,18 +72,23 @@ target_compile_options(list_bestfit BEFORE INTERFACE
 
 ############################# List Segregated Allocator ########################################
 
-
-add_library(list_segregated allocator.h list_segregated.c)
-target_link_libraries(list_segregated PUBLIC
-    list_segregated_design
-    list_segregated_tests
-    list_segregated_printer
+add_library(list_segregated_utilities
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs/list_segregated_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/list_segregated_tests.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers/list_segregated_printer.c
+)
+target_link_libraries(list_segregated_utilities PRIVATE
     allocator_compiler_flags
 )
-target_include_directories(list_segregated PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/printers
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(list_segregated_utilities BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+add_library(list_segregated allocator.h list_segregated.c)
+target_link_libraries(list_segregated PRIVATE
+    list_segregated_utilities
+    allocator_compiler_flags
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_segregated BEFORE INTERFACE
@@ -82,17 +98,23 @@ target_compile_options(list_segregated BEFORE INTERFACE
 ############################# RBTree CLRS Allocator ########################################
 
 
-add_library(rbtree_clrs allocator.h rbtree_clrs.c)
-target_link_libraries(rbtree_clrs PUBLIC
-    rbtree_clrs_design
-    rbtree_clrs_tests
-    rbtree_clrs_printer
+add_library(rbtree_clrs_utilities
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_clrs_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_clrs_tests.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_clrs_printer.c
+)
+target_link_libraries(rbtree_clrs_utilities PRIVATE
     allocator_compiler_flags
 )
-target_include_directories(rbtree_clrs PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/printers
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_clrs_utilities BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+add_library(rbtree_clrs allocator.h rbtree_clrs.c)
+target_link_libraries(rbtree_clrs PRIVATE
+    rbtree_clrs_utilities
+    allocator_compiler_flags
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_clrs BEFORE INTERFACE
@@ -103,17 +125,23 @@ target_compile_options(rbtree_clrs BEFORE INTERFACE
 ############################# RBTree Unified Allocator ########################################
 
 
-add_library(rbtree_unified allocator.h rbtree_unified.c)
-target_link_libraries(rbtree_unified PUBLIC
-    rbtree_unified_design
-    rbtree_unified_tests
-    rbtree_unified_printer
+add_library(rbtree_unified_utilities
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_unified_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_unified_tests.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_unified_printer.c
+)
+target_link_libraries(rbtree_unified_utilities PRIVATE
     allocator_compiler_flags
 )
-target_include_directories(rbtree_unified PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/printers
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_unified_utilities BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+add_library(rbtree_unified allocator.h rbtree_unified.c)
+target_link_libraries(rbtree_unified PRIVATE
+    rbtree_unified_utilities
+    allocator_compiler_flags
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_unified BEFORE INTERFACE
@@ -124,17 +152,23 @@ target_compile_options(rbtree_unified BEFORE INTERFACE
 ############################# RBTree Linked Allocator ########################################
 
 
-add_library(rbtree_linked allocator.h rbtree_linked.c)
-target_link_libraries(rbtree_linked PUBLIC
-    rbtree_linked_design
-    rbtree_linked_tests
-    rbtree_linked_printer
+add_library(rbtree_linked_utilities
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_linked_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_linked_tests.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_linked_printer.c
+)
+target_link_libraries(rbtree_linked_utilities PRIVATE
     allocator_compiler_flags
 )
-target_include_directories(rbtree_linked PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/printers
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_linked_utilities BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+add_library(rbtree_linked allocator.h rbtree_linked.c)
+target_link_libraries(rbtree_linked PRIVATE
+    rbtree_linked_utilities
+    allocator_compiler_flags
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_linked BEFORE INTERFACE
@@ -145,17 +179,23 @@ target_compile_options(rbtree_linked BEFORE INTERFACE
 ############################# RBTree Stack Allocator ########################################
 
 
-add_library(rbtree_stack allocator.h rbtree_stack.c)
-target_link_libraries(rbtree_stack PUBLIC
-    rbtree_stack_design
-    rbtree_stack_tests
-    rbtree_stack_printer
+add_library(rbtree_stack_utilities
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_stack_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_stack_tests.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_stack_printer.c
+)
+target_link_libraries(rbtree_stack_utilities PRIVATE
     allocator_compiler_flags
 )
-target_include_directories(rbtree_stack PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/printers
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_stack_utilities BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+add_library(rbtree_stack allocator.h rbtree_stack.c)
+target_link_libraries(rbtree_stack PRIVATE
+    rbtree_stack_utilities
+    allocator_compiler_flags
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_stack BEFORE INTERFACE
@@ -165,18 +205,23 @@ target_compile_options(rbtree_stack BEFORE INTERFACE
 
 ############################# RBTree Topdown Allocator ########################################
 
-
-add_library(rbtree_topdown allocator.h rbtree_topdown.c)
-target_link_libraries(rbtree_topdown PUBLIC
-    rbtree_topdown_design
-    rbtree_topdown_tests
-    rbtree_topdown_printer
+add_library(rbtree_topdown_utilities
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_topdown_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_topdown_tests.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_topdown_printer.c
+)
+target_link_libraries(rbtree_topdown_utilities PRIVATE
     allocator_compiler_flags
 )
-target_include_directories(rbtree_topdown PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}/tests
-    ${CMAKE_CURRENT_SOURCE_DIR}/printers
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(rbtree_topdown_utilities BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+add_library(rbtree_topdown allocator.h rbtree_topdown.c)
+target_link_libraries(rbtree_topdown PRIVATE
+    rbtree_topdown_utilities
+    allocator_compiler_flags
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_topdown BEFORE INTERFACE

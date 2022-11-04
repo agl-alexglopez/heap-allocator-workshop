@@ -5,7 +5,7 @@
  * tests grows for the tree allocators due to the risks of incorrectly rotating a Red Black Tree.
  */
 #include "debug_break.h"
-#include "rbtree_clrs_tests.h"
+#include "../rbtree_clrs_utilities.h"
 
 
 /* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */

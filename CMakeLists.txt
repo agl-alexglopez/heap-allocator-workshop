@@ -10,6 +10,5 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 add_subdirectory(src)
 add_subdirectory(lib)
-add_subdirectory(lib/designs)
 add_subdirectory(lib/tests)
 add_subdirectory(lib/printers)

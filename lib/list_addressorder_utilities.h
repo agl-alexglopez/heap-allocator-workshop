@@ -1,43 +1,33 @@
 /**
- * File: list_bestfit_design.h
- * ---------------------------------
- * This file contains the interface that defines our custom types for the list_bestfit
- * allocator. It also contains useful methods for these types, testing functions, and printer
- * functions that make development of the allocator much easier. I seperate them out here so that
- * they do not crowd the file that contains the core logic of the heap.
- *
- * Across these heap utility libraries you may see code that appears almost identical to a utility
- * library for another allocator. While it may be tempting to think we could unite the common logic
- * of these methods to one utility library, I think this is a bad idea. There are subtle
- * differences between each allocator's types and block organization that makes keeping the logic
- * seperate easier and cleaner. This way, I can come back and adjust an existing allocator
- * exactly as needed. I can also add new allocators creatively, by simply adding a new utility
- * library to define its fundamentals, without worrying about fitting in to types and methods
- * previously established by other allocators.
+ * File: list_addressorder_utilities.h
+ * -----------------------------------
+ * This file contains the interface for defining the types, methods, tests and printing functions
+ * for the list_addressorder allocator. It is helpful to seperate out these pieces of logic from
+ * the algorithmic portion of the allocator because they can crowd the allocator file making it
+ * hard to navigate. It is also convenient to refer to the design of the types for the allocator
+ * in one place and use the testing and printing functions to debug any issues.
  */
-#ifndef LIST_BESTFIT_DESIGN_H
-#define LIST_BESTFIT_DESIGN_H
+#ifndef LIST_ADDRESSORDER_UTILITIES_H
+#define LIST_ADDRESSORDER_UTILITIES_H
 
 #include <stddef.h>
 #include <stdbool.h>
+#include "printers/print_utility.h"
 
 
-typedef size_t header;
-typedef unsigned char byte;
+/* * * * * * * * * * * * * *           Type Definitions            * * * * * * * * * * * * * * * */
+
 
 #define SIZE_MASK ~0x7UL
 #define STATUS_CHECK 0x4UL
-#define BYTES_PER_LINE (unsigned short)32
 #define FREE_NODE_WIDTH (unsigned short)16
 #define HEADER_AND_FREE_NODE (unsigned short)24
 #define MIN_BLOCK_SIZE (unsigned short)32
 #define HEADERSIZE sizeof(size_t)
 
-/* Size Order Best Fit Doubly Linked free_list:
- *  - Maintain a doubly linked free_list of free nodes.
- *  - Use a head and a tail node on the heap.
- *  - Nodes do not include the header so head and tail waste less space.
- */
+typedef size_t header;
+typedef unsigned char byte;
+
 typedef struct free_node {
     struct free_node *next;
     struct free_node *prev;
@@ -51,7 +41,68 @@ typedef enum header_status_t {
 } header_status_t;
 
 
+/* * * * * * * * * * * * * *            Testing Functions          * * * * * * * * * * * * * * * */
+
+
+/* @breif check_init     checks the internal representation of our heap, especially the head and
+ *                       tail nodes for any issues that would ruin our algorithms.
+ * @param *client_start  the start address of the client heap segment.
+ * @param *client_end    the end address of the client heap segment.
+ * @param client_size    the size in bytes of the total space available for client.
+ * @param *head          the free_node head of the linked list.
+ * @param *tail          the free_node tail of the linked list.
+ * @return               true if everything is in order otherwise false.
+ */
+bool check_init(void *client_start, size_t client_size, free_node *head, free_node *tail);
+
+/* @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
+ *                            reported match the global bookeeping in our struct.
+ * @param *total_free_mem     the output parameter of the total size used as another check.
+ * @param *client_start       the start address of the client heap segment.
+ * @param *client_end         the end address of the client heap segment.
+ * @param client_size         the size in bytes of the total space available for client.
+ * @param free_list_total     the total number of free nodes in our list.
+ * @return                    true if our tallying is correct and our totals match.
+ */
+bool is_memory_balanced(size_t *total_free_mem, void *client_start,void *client_end,
+                        size_t client_size, size_t free_list_total);
+
+/* @brief is_free_list_valid  loops through only the doubly linked list to make sure it matches
+ *                            the loop we just completed by checking all blocks.
+ * @param total_free_mem      the input from a previous loop that was completed by jumping block
+ *                            by block over the entire heap.
+ * @param *head               the free_node head of the linked list.
+ * @param *tail               the free_node tail of the linked list.
+ * @return                    true if the doubly linked list totals correctly, false if not.
+ */
+bool is_free_list_valid(size_t total_free_mem, free_node *head, free_node *tail);
+
+
+/* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */
+
+
+/* @brief print_all    prints our the complete status of the heap, all of its blocks, and the sizes
+ *                     the blocks occupy. Printing should be clean with no overlap of unique id's
+ *                     between heap blocks or corrupted headers.
+ * @param client_start the starting address of the heap segment.
+ * @param client_end   the final address of the heap segment.
+ * @param client_size  the size in bytes of the heap.
+ * @param *head        the first node of the doubly linked list of nodes.
+ * @param *tail        the last node of the doubly linked list of nodes.
+ */
+void print_all(void *client_start, void *client_end, size_t client_size,
+               free_node *head, free_node *tail);
+
+/* @brief print_linked_free  prints the doubly linked free list in order to check if splicing and
+ *                           adding is progressing correctly.
+ * @param *head              the free_node head of the linked list.
+ * @param *tail              the free_node tail of the linked list.
+ */
+void print_linked_free(print_style style, free_node *head, free_node *tail);
+
+
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
+
 
 /* @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
  * @param requested_size  size given to us by the client.
@@ -62,9 +113,9 @@ inline size_t roundup(size_t requested_size, size_t multiple) {
     return (requested_size + multiple - 1) & ~(multiple - 1);
 }
 
-/* @brief get_size  given a valid header find the total size of the header and block.
- * @param *cur_header_location    the pointer to the current header block we are on.
- * @return                    the size in bytes of the header and memory block.
+/* @brief get_size    given a valid header find the total size of the header and block.
+ * @param header_val  the pointer to the current header block we are on.
+ * @return            the size in bytes of the header and memory block.
  */
 inline size_t get_size(header header_val) {
     return header_val & SIZE_MASK;
@@ -132,7 +183,7 @@ inline void init_header(header *cur_header, size_t block_size, header_status_t h
  * @param block_size   the size to use to update the footer of the block.
  */
 inline void init_footer(header *cur_header, size_t block_size) {
-    header *footer = (header*)((byte *)cur_header + block_size - HEADERSIZE);
+    header *footer = (header *)((byte *)cur_header + block_size - HEADERSIZE);
     *footer = LEFT_ALLOCATED | block_size | FREE;
 }
 

@@ -6,7 +6,7 @@
  * distract from the algorithm implementations in the actual rbtree_linked.c file so we seperate
  * them out here.
  */
-#include "rbtree_linked_design.h"
+#include "../rbtree_linked_utilities.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */

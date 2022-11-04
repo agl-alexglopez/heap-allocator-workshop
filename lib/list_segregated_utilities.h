@@ -1,24 +1,18 @@
 /**
- * File: list_segregated_utility.h
- * ---------------------------------
- * This file contains the interface that defines our custom types for the list_segregated
- * allocator. It also contains useful methods for these types. These functions are inlined so that
- * hopefully the compiler will take these one liners and insert them into "hot-spots" in code.
- *
- * Across these heap utility libraries you may see code that appears almost identical to a utility
- * library for another allocator. While it may be tempting to think we could unite the common logic
- * of these methods to one utility library, I think this is a bad idea. There are subtle
- * differences between each allocator's types and block organization that makes keeping the logic
- * seperate easier and cleaner. This way, I can come back and adjust an existing allocator
- * exactly as needed. I can also add new allocators creatively, by simply adding a new utility
- * library to define its fundamentals, without worrying about fitting in to types and methods
- * previously established by other allocators.
+ * File: list_segregated_utilities.h
+ * -----------------------------------
+ * This file contains the interface for defining the types, methods, tests and printing functions
+ * for the list_segregated allocator. It is helpful to seperate out these pieces of logic from
+ * the algorithmic portion of the allocator because they can crowd the allocator file making it
+ * hard to navigate. It is also convenient to refer to the design of the types for the allocator
+ * in one place and use the testing and printing functions to debug any issues.
  */
-#ifndef LIST_SEGREGATED_DESIGN_H
-#define LIST_SEGREGATED_DESIGN_H
+#ifndef LIST_SEGREGATED_UTILITIES_H
+#define LIST_SEGREGATED_UTILITIES_H
 
 #include <stddef.h>
 #include <stdbool.h>
+#include "printers/print_utility.h"
 
 
 /* * * * * * * * * * * * * *           Type Definitions            * * * * * * * * * * * * * * * */
@@ -64,6 +58,64 @@ typedef struct seg_node {
     unsigned short size;
     free_node *start;
 }seg_node;
+
+
+/* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */
+
+
+/* @breif check_init   checks the internal representation of our heap, especially the head and tail
+ *                     nodes for any issues that would ruin our algorithms.
+ * @param table[]      the lookup table that holds the list size ranges
+ * @param *nil         a special free_node that serves as a sentinel for logic and edgecases.
+ * @param client_size  the total space available for client.
+ * @return             true if everything is in order otherwise false.
+ */
+bool check_init(seg_node table[], free_node *nil, size_t client_size);
+
+/* @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
+ *                            reported match the global bookeeping in our struct.
+ * @param *total_free_mem     the output parameter of the total size used as another check.
+ * @param *client_start       the start address of the client heap segment.
+ * @param *client_end         the end address of the client heap segment.
+ * @param client_size         the size in bytes of the total space available for client.
+ * @param fits_total          the total number of free nodes in our table of lists.
+ * @return                    true if our tallying is correct and our totals match.
+ */
+bool is_memory_balanced(size_t *total_free_mem, void *client_start, void *client_end,
+                        size_t client_size, size_t fits_total);
+
+/* @brief are_fits_valid  loops through only the segregated fits list to make sure it matches
+ *                        the loop we just completed by checking all blocks.
+ * @param total_free_mem  the input from a previous loop that was completed by jumping block
+ *                        by block over the entire heap.
+ * @param table[]         the lookup table that holds the list size ranges
+ * @param *nil            a special free_node that serves as a sentinel for logic and edgecases.
+ * @return                true if the segregated fits list totals correctly, false if not.
+ */
+bool are_fits_valid(size_t total_free_mem, seg_node table[], free_node *nil);
+
+
+/* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */
+
+
+/* @brief print_all    prints our the complete status of the heap, all of its blocks, and the sizes
+ *                     the blocks occupy. Printing should be clean with no overlap of unique id's
+ *                     between heap blocks or corrupted headers.
+ * @param client_start the starting address of the heap segment.
+ * @param client_end   the final address of the heap segment.
+ * @param client_size  the size in bytes of the heap.
+ * @param table[]      the lookup table of segregated sizes of nodes stored in each slot.
+ * @param *nil         the free node that serves as a universal head and tail to all lists.
+ */
+void print_all(void *client_start, void *client_end, size_t client_size,
+               seg_node table[], free_node *nil);
+
+/* @brief print_fits  prints the segregated fits free list in order to check if splicing and
+ *                    adding is progressing correctly.
+ * @param table[]     the lookup table that holds the list size ranges
+ * @param *nil        a special free_node that serves as a sentinel for logic and edgecases.
+ */
+void print_fits(print_style style, seg_node table[], free_node *nil);
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */

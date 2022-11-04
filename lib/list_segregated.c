@@ -24,9 +24,7 @@
 #include <string.h>
 #include <strings.h>
 #include "allocator.h"
-#include "list_segregated_design.h"
-#include "list_segregated_tests.h"
-#include "list_segregated_printer.h"
+#include "list_segregated_utilities.h"
 
 
 /* * * * * * * * * * * * * * * * * *  Static Heap Tracking  * * * * * * * * * * * * * * * * * * */

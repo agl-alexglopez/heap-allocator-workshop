@@ -6,7 +6,7 @@
  * in the header file so must be declared here. Hopefully the compiler inlines them in "hot-spot"
  * functions.
  */
-#include "list_segregated_design.h"
+#include "../list_segregated_utilities.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */

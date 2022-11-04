@@ -5,7 +5,7 @@
  * allocator. These functions serve as basic navigation for nodes and blocks. We hope the compiler
  * inlines the simple methods defined in the header file, so declare them here.
  */
-#include "rbtree_unified_design.h"
+#include "../rbtree_unified_utilities.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */

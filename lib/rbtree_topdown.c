@@ -72,9 +72,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "allocator.h"
-#include "rbtree_topdown_design.h"
-#include "rbtree_topdown_tests.h"
-#include "rbtree_topdown_printer.h"
+#include "rbtree_topdown_utilities.h"
 
 
 /* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */

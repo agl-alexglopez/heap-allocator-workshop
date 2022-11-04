@@ -62,10 +62,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "allocator.h"
-#include "print_utility.h"
-#include "rbtree_stack_design.h"
-#include "rbtree_stack_tests.h"
-#include "rbtree_stack_printer.h"
+#include "rbtree_stack_utilities.h"
 
 
 /* * * * * * * * * * * * * * * * * *  Static Heap Tracking   * * * * * * * * * * * * * * * * * * */

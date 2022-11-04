@@ -6,7 +6,7 @@
  * compiler will inline the functions we inlined in the header file and declare here. This may
  * help with "hot-spot" functions.
  */
-#include "rbtree_topdown_design.h"
+#include "../rbtree_topdown_utilities.h"
 
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */

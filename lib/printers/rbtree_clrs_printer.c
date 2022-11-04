@@ -8,7 +8,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "rbtree_clrs_printer.h"
+#include "../rbtree_clrs_utilities.h"
 
 
 /* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */

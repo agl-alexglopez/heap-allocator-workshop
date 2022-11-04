@@ -8,8 +8,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include "print_utility.h"
-#include "rbtree_topdown_printer.h"
+#include "../rbtree_topdown_utilities.h"
 
 
 /* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */

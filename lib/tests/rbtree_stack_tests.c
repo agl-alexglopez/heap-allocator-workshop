@@ -6,7 +6,7 @@
  * automatically activate a breakpoint on the failing stackframe so we can see what went wrong.
  */
 
-#include "rbtree_stack_tests.h"
+#include "../rbtree_stack_utilities.h"
 #include "debug_break.h"
 
 

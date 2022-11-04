@@ -6,7 +6,8 @@
  * nodes in the print_peaks.c program.
  */
 #include <limits.h>
-#include "list_bestfit_printer.h"
+#include <stdio.h>
+#include "../list_bestfit_utilities.h"
 
 
 /* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */
