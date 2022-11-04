@@ -52,8 +52,7 @@ static bool is_valid_header(header cur_header, size_t block_size, size_t client_
  * @param *tail          the free_node tail of the linked list.
  * @return               true if everything is in order otherwise false.
  */
-bool check_init(void *client_start, void *client_end, size_t client_size,
-                free_node *head, free_node *tail) {
+bool check_init(void *client_start, size_t client_size, free_node *head, free_node *tail) {
     // We also need to make sure the leftmost header always says there is no space to the left.
     if (is_left_space(client_start)) {
         breakpoint();

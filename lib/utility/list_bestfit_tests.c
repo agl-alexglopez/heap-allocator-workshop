@@ -46,14 +46,12 @@ static bool is_valid_header(header header_val, size_t block_size, size_t client_
 /* @breif check_init     checks the internal representation of our heap, especially the head and
  *                       tail nodes for any issues that would ruin our algorithms.
  * @param *client_start  the start address of the client heap segment.
- * @param *client_end    the end address of the client heap segment.
  * @param client_size    the size in bytes of the total space available for client.
  * @param *head          the free_node head of the linked list.
  * @param *tail          the free_node tail of the linked list.
  * @return               true if everything is in order otherwise false.
  */
-bool check_init(void *client_start, void *client_end, size_t client_size,
-                free_node *head, free_node *tail) {
+bool check_init(void *client_start, size_t client_size, free_node *head, free_node *tail) {
     if (is_left_space(client_start)) {
         breakpoint();
         return false;

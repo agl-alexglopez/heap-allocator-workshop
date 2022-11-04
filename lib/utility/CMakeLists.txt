@@ -1,4 +1,11 @@
 
+add_library(utility_compiler_flags INTERFACE)
+target_compile_features(utility_compiler_flags INTERFACE c_std_99)
+set(gcc_like_c "$<COMPILE_LANG_AND_ID:C,ARMClang,AppleClang,Clang,GNU>")
+target_compile_options(utility_compiler_flags INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-g3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie>>"
+)
+
 add_library(debug_break debug_break.h debug_break.c)
 add_library(print_utility print_utility.h print_utility.c)
 
@@ -12,12 +19,14 @@ add_library(list_addressorder_tests list_addressorder_tests.h list_addressorder_
 target_link_libraries(list_addressorder_tests PUBLIC
     list_addressorder_design
     debug_break
+    utility_compiler_flags
 )
 
 add_library(list_addressorder_printer list_addressorder_printer.h list_addressorder_printer.c)
 target_link_libraries(list_addressorder_printer PUBLIC
     print_utility
     list_addressorder_design
+    utility_compiler_flags
 )
 
 #############################    List Bestfit Utilities    ########################################
@@ -29,12 +38,14 @@ add_library(list_bestfit_tests list_bestfit_tests.h list_bestfit_tests.c)
 target_link_libraries(list_bestfit_tests PUBLIC
     list_bestfit_design
     debug_break
+    utility_compiler_flags
 )
 
 add_library(list_bestfit_printer list_bestfit_printer.h list_bestfit_printer.c)
 target_link_libraries(list_bestfit_printer PUBLIC
     print_utility
     list_bestfit_design
+    utility_compiler_flags
 )
 
 
@@ -47,12 +58,14 @@ add_library(list_segregated_tests list_segregated_tests.h list_segregated_tests.
 target_link_libraries(list_segregated_tests PUBLIC
     list_segregated_design
     debug_break
+    utility_compiler_flags
 )
 
 add_library(list_segregated_printer list_segregated_printer.h list_segregated_printer.c)
 target_link_libraries(list_segregated_printer PUBLIC
     print_utility
     list_segregated_design
+    utility_compiler_flags
 )
 
 
@@ -65,12 +78,14 @@ add_library(rbtree_clrs_tests rbtree_clrs_tests.h rbtree_clrs_tests.c)
 target_link_libraries(rbtree_clrs_tests PUBLIC
     rbtree_clrs_design
     debug_break
+    utility_compiler_flags
 )
 
 add_library(rbtree_clrs_printer rbtree_clrs_printer.h rbtree_clrs_printer.c)
 target_link_libraries(rbtree_clrs_printer PUBLIC
     print_utility
     rbtree_clrs_design
+    utility_compiler_flags
 )
 
 #############################   RBTree Unified Utilities    #######################################
@@ -82,12 +97,14 @@ add_library(rbtree_unified_tests rbtree_unified_tests.h rbtree_unified_tests.c)
 target_link_libraries(rbtree_unified_tests PUBLIC
     rbtree_unified_design
     debug_break
+    utility_compiler_flags
 )
 
 add_library(rbtree_unified_printer rbtree_unified_printer.h rbtree_unified_printer.c)
 target_link_libraries(rbtree_unified_printer PUBLIC
     print_utility
     rbtree_unified_design
+    utility_compiler_flags
 )
 
 #############################    RBTree Linked Utilities    #######################################
@@ -99,12 +116,14 @@ add_library(rbtree_linked_tests rbtree_linked_tests.h rbtree_linked_tests.c)
 target_link_libraries(rbtree_linked_tests PUBLIC
     rbtree_linked_design
     debug_break
+    utility_compiler_flags
 )
 
 add_library(rbtree_linked_printer rbtree_linked_printer.h rbtree_linked_printer.c)
 target_link_libraries(rbtree_linked_printer PUBLIC
     print_utility
     rbtree_linked_design
+    utility_compiler_flags
 )
 
 #############################    RBTree Stack Utilities     #######################################
@@ -116,12 +135,14 @@ add_library(rbtree_stack_tests rbtree_stack_tests.h rbtree_stack_tests.c)
 target_link_libraries(rbtree_stack_tests PUBLIC
     rbtree_stack_design
     debug_break
+    utility_compiler_flags
 )
 
 add_library(rbtree_stack_printer rbtree_stack_printer.h rbtree_stack_printer.c)
 target_link_libraries(rbtree_stack_printer PUBLIC
     print_utility
     rbtree_stack_design
+    utility_compiler_flags
 )
 
 #############################   RBTree Topdown Utilities    #######################################
@@ -133,10 +154,12 @@ add_library(rbtree_topdown_tests rbtree_topdown_tests.h rbtree_topdown_tests.c)
 target_link_libraries(rbtree_topdown_tests PUBLIC
     rbtree_topdown_design
     debug_break
+    utility_compiler_flags
 )
 
 add_library(rbtree_topdown_printer rbtree_topdown_printer.h rbtree_topdown_printer.c)
 target_link_libraries(rbtree_topdown_printer PUBLIC
     print_utility
     rbtree_topdown_design
+    utility_compiler_flags
 )

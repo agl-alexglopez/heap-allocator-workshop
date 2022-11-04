@@ -38,17 +38,6 @@ static void print_free_block(header *cur_header) {
             cur_header, *cur_header, block_size, *footer);
 }
 
-/* @brief print_error_block  prints a helpful error message if a block is corrupted.
- * @param *cur_header        a header to a block of memory.
- * @param full_size          the full size of a block of memory, not just the user block size.
- */
-static void print_error_block(header *cur_header, size_t full_size) {
-    size_t block_size = full_size - HEADERSIZE;
-    printf("\n%p: HEADER->0x%016zX->%zubytes\n",
-            cur_header, *cur_header, block_size);
-    printf("Block size is too large and header is corrupted.\n");
-}
-
 /* @brief print_bad_jump  If we overwrite data in a header, this print statement will help us
  *                        notice where we went wrong and what the addresses were.
  * @param *current        the current node that is likely garbage values that don't make sense.
