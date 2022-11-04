@@ -28,7 +28,9 @@ target_link_libraries(list_addressorder PUBLIC
     allocator_compiler_flags
 )
 target_include_directories(list_addressorder PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utility
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_addressorder BEFORE INTERFACE
@@ -47,7 +49,9 @@ target_link_libraries(list_bestfit PUBLIC
     allocator_compiler_flags
 )
 target_include_directories(list_bestfit PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utility
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_bestfit BEFORE INTERFACE
@@ -66,7 +70,9 @@ target_link_libraries(list_segregated PUBLIC
     allocator_compiler_flags
 )
 target_include_directories(list_segregated PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utility
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_segregated BEFORE INTERFACE
@@ -84,7 +90,9 @@ target_link_libraries(rbtree_clrs PUBLIC
     allocator_compiler_flags
 )
 target_include_directories(rbtree_clrs PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utility
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_clrs BEFORE INTERFACE
@@ -103,7 +111,9 @@ target_link_libraries(rbtree_unified PUBLIC
     allocator_compiler_flags
 )
 target_include_directories(rbtree_unified PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utility
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_unified BEFORE INTERFACE
@@ -122,7 +132,9 @@ target_link_libraries(rbtree_linked PUBLIC
     allocator_compiler_flags
 )
 target_include_directories(rbtree_linked PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utility
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_linked BEFORE INTERFACE
@@ -141,7 +153,9 @@ target_link_libraries(rbtree_stack PUBLIC
     allocator_compiler_flags
 )
 target_include_directories(rbtree_stack PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utility
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_stack BEFORE INTERFACE
@@ -160,7 +174,9 @@ target_link_libraries(rbtree_topdown PUBLIC
     allocator_compiler_flags
 )
 target_include_directories(rbtree_topdown PUBLIC
-    ${CMAKE_CURRENT_SOURCE_DIR}/utility
+    ${CMAKE_CURRENT_SOURCE_DIR}/designs
+    ${CMAKE_CURRENT_SOURCE_DIR}/tests
+    ${CMAKE_CURRENT_SOURCE_DIR}/printers
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_topdown BEFORE INTERFACE

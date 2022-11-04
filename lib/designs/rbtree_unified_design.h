@@ -18,7 +18,6 @@
 
 #include <stddef.h>
 #include <stdbool.h>
-#include "print_utility.h"
 
 #define TWO_NODE_ARRAY (unsigned short)2
 #define SIZE_MASK ~0x7UL
