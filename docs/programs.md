@@ -68,7 +68,7 @@ In order to compile programs in this repository, follow these steps.
    - This compiles all programs to the `/build/bin/` folder from which you will run each allocator's version of the program. Directions on the commands to run will follow in each program's description below.
 3. Run the Programs
    - I will specify commands for each programs, but they all involve some variation on the following formula.
-     - `./build/bin/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] scripts/[.SCRIPT FILE TO RUN]`
+     - `./build/bin/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] scripts/[SCRIPT FILE TO RUN]`
    - We specify the program, the allocator version, any arguments valid for that program, and then the script file we want to run for our allocator to execute.
    - All directions assume you are running programs from the root directory of the repository but this is not required. However, be careful of current directory if you decide to run commands that follow in this document, especially script generation commands.
 4. Generate Additional Scripts
