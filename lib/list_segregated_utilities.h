@@ -28,7 +28,7 @@
 #define SMALL_TABLE_SIZE (unsigned short)4
 #define SMALL_TABLE_MAX (unsigned short)56
 #define LARGE_TABLE_MIN (unsigned short)64
-#define TABLE_BYTES (15 * sizeof(seg_node))
+#define TABLE_BYTES (TABLE_SIZE * sizeof(seg_node))
 #define INDEX_0 (unsigned short)0
 #define INDEX_0_SIZE (unsigned short)32
 #define INDEX_1 (unsigned short)1
