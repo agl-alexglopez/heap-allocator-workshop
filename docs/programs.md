@@ -86,7 +86,7 @@ After I submitted my work for this original list based allocator assignment and 
 
 We can run this program on one or multiple `.script` files to ensure they run without error and check their utilization.
 
-- All allocators have been prepended with the word `test_` and have been compiled to our `build/src/` folder.
+- All allocators have been prepended with the word `test_` and have been compiled to our `build/bin/` folder.
   - `test_rbtree_clrs`, `test_rbtree_unified`, `test_rbtree_linked`, `test_rbtree_stack`, `test_rbtree_topdown`, `test_list_bestfit`, `test_list_addressorder`
 - Run an allocator on a single test script.
   - `./build/bin/test_rbtree_clrs scripts/pattern-mixed.script`
@@ -130,7 +130,7 @@ We would then get output such as the following.
 
 ### How to Use the Time Harness
 
-- All allocators have been prepended with the word `time_` and have been compiled to our `build/src/` folder.
+- All allocators have been prepended with the word `time_` and have been compiled to our `build/bin/` folder.
   - `time_rbtree_clrs`, `time_rbtree_unified`, `time_rbtree_linked`, `time_rbtree_stack`, `time_rbtree_topdown`, `time_list_bestfit`, `time_list_addressorder`
 - Time the entire execution time of the allocator over an entire script.
   - `./build/bin/time_rbtree_clrs scripts/time-insertdelete-100k.script`
@@ -151,7 +151,7 @@ Here is the same command for a list based allocator. The list output is far less
 
 ### How to Use Print Peaks
 
-- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/src/` folder.
+- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/bin/` folder.
   - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, `print_peaks_rbtree_stack`, `print_peaks_rbtree_topdown`, `print_peaks_list_bestfit`, `print_peaks_list_addressorder`
 - Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
   - `./build/bin/print_peaks_list_bestfit scripts/pattern-mixed.script`
@@ -314,7 +314,7 @@ This was a program we created to test our heap allocators in a more "real" conte
 
 ### How to Use My Optional Program
 
-- All allocators have been prepended with the word `my_optional_program_` and have been compiled to our `build/src/` folder.
+- All allocators have been prepended with the word `my_optional_program_` and have been compiled to our `build/bin/` folder.
   - `my_optional_program_rbtree_clrs`, `my_optional_program_rbtree_unified`, `my_optional_program_rbtree_linked`, `my_optional_program_rbtree_stack`, `my_optional_program_rbtree_topdown`, `my_optional_program_list_bestfit`, `my_optional_program_list_addressorder`
 - The rest is up to you. Design whatever program you would like.
 
