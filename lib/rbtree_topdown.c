@@ -541,15 +541,6 @@ static rb_node *coalesce(rb_node *leftmost_node) {
 /* * * * * * * * * * * *    Shared Heap Functions    * * * * * * * * * */
 
 
-/* @brief roundup         rounds up size to the nearest multiple of two to be aligned in the heap.
- * @param requested_size  size given to us by the client.
- * @param multiple        the nearest multiple to raise our number to.
- * @return                rounded number.
- */
-size_t roundup(size_t requested_size, size_t multiple) {
-    return (requested_size + multiple - 1) & ~(multiple - 1);
-}
-
 /* @brief get_free_total  returns the total number of free nodes in the heap.
  * @return                a size_t representing the total quantity of free nodes.
  */

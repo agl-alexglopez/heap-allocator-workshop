@@ -11,6 +11,14 @@
 
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
 
+
+/* @brief roundup         rounds up size to the nearest multiple of two to be aligned in the heap.
+ * @param requested_size  size given to us by the client.
+ * @param multiple        the nearest multiple to raise our number to.
+ * @return                rounded number.
+ */
+extern size_t roundup(const size_t requested_size, size_t multiple);
+
 /* @brief paint_node  flips the third least significant bit to reflect the color of the node.
  * @param *node       the node we need to paint.
  * @param color       the color the user wants to paint the node.
