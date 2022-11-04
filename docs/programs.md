@@ -110,7 +110,7 @@ While it would have been nice to time our code with a simple `time` command and 
 
 Instead, we will allocate 2N blocks of memory and then call `free()` on every other block of allocated memory to measure the performance of N insertions into a tree. Coalescing will not occur on the two adjacent blocks because they remain allocated.
 
-The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can achieve this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
+The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can achieve this by looking at our scripts and asking the `time_harness.c` program to time only specific line numbers representing requests.
 
 ```bash
  ./build/bin/time_list_bestfit -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script
