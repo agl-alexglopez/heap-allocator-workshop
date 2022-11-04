@@ -21,7 +21,6 @@ target_link_libraries(list_addressorder_printer PUBLIC
 )
 target_include_directories(list_addressorder_printer PUBLIC
     ${PROJECT_SOURCE_DIR}/lib/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_addressorder_printer BEFORE INTERFACE
@@ -40,7 +39,6 @@ target_link_libraries(list_bestfit_printer PUBLIC
 )
 target_include_directories(list_bestfit_printer PUBLIC
     ${PROJECT_SOURCE_DIR}/lib/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_bestfit_printer BEFORE INTERFACE
@@ -59,7 +57,6 @@ target_link_libraries(list_segregated_printer PUBLIC
 )
 target_include_directories(list_segregated_printer PUBLIC
     ${PROJECT_SOURCE_DIR}/lib/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(list_segregated_printer BEFORE INTERFACE
@@ -78,7 +75,6 @@ target_link_libraries(rbtree_clrs_printer PUBLIC
 )
 target_include_directories(rbtree_clrs_printer PUBLIC
     ${PROJECT_SOURCE_DIR}/lib/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_clrs_printer BEFORE INTERFACE
@@ -97,7 +93,6 @@ target_link_libraries(rbtree_unified_printer PUBLIC
 )
 target_include_directories(rbtree_unified_printer PUBLIC
     ${PROJECT_SOURCE_DIR}/lib/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_unified_printer BEFORE INTERFACE
@@ -116,7 +111,6 @@ target_link_libraries(rbtree_linked_printer PUBLIC
 )
 target_include_directories(rbtree_linked_printer PUBLIC
     ${PROJECT_SOURCE_DIR}/lib/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_linked_printer BEFORE INTERFACE
@@ -135,7 +129,6 @@ target_link_libraries(rbtree_stack_printer PUBLIC
 )
 target_include_directories(rbtree_stack_printer PUBLIC
     ${PROJECT_SOURCE_DIR}/lib/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_stack_printer BEFORE INTERFACE
@@ -154,7 +147,6 @@ target_link_libraries(rbtree_topdown_printer PUBLIC
 )
 target_include_directories(rbtree_topdown_printer PUBLIC
     ${PROJECT_SOURCE_DIR}/lib/designs
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(rbtree_topdown_printer BEFORE INTERFACE
