@@ -65,7 +65,7 @@ In order to compile programs in this repository, follow these steps.
            - This tells CMake to treat the root directory as the project source directory and generate the necessary build files and directories to the `build/` directory. I ignore the `build/` directory in my `.gitignore` so this command will create the folder if it is not present.
         - `cmake --build build`
             - This tells CMake to build the project. If all is well, everything will build and link together. This may be where you see errors if I have been unable to verify the project on your distribution or platform.
-   - This compiles all programs to the `/build/src/` folder from which you will run each allocator's version of the program. Directions on the commands to run will follow in each program's description below.
+   - This compiles all programs to the `/build/bin/` folder from which you will run each allocator's version of the program. Directions on the commands to run will follow in each program's description below.
 3. Run the Programs
    - I will specify commands for each programs, but they all involve some variation on the following formula.
      - `./build/bin/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] scripts/[.SCRIPT FILE TO RUN]`
