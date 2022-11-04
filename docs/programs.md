@@ -222,7 +222,7 @@ Generating custom scripts for a heap allocator is more complex and allows for mo
 
 ### Allocations
 
-To allocate blocks of memory in a script file use the following commands or options as needed. These commands are run as if you are currently int the `pysrc/` directory, where the python program is located.
+To allocate blocks of memory in a script file use the following commands or options as needed. These commands are run as if you are currently in the `pysrc/` directory, where the python program is located.
 
 Create a desired number of allocation requests. The program will pick random byte sizes for the requests.
 
