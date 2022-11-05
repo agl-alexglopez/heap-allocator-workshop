@@ -42,7 +42,7 @@ target_compile_options(segment BEFORE INTERFACE
 ############################# List Addressorder Allocator ########################################
 
 add_library(list_addressorder_utilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs/list_addressorder_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utilities/list_addressorder_utilities.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/list_addressorder_tests.c
     ${CMAKE_CURRENT_SOURCE_DIR}/printers/list_addressorder_printer.c
 )
@@ -69,7 +69,7 @@ target_compile_options(list_addressorder BEFORE INTERFACE
 
 
 add_library(list_bestfit_utilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs/list_bestfit_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utilities/list_bestfit_utilities.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/list_bestfit_tests.c
     ${CMAKE_CURRENT_SOURCE_DIR}/printers/list_bestfit_printer.c
 )
@@ -95,7 +95,7 @@ target_compile_options(list_bestfit BEFORE INTERFACE
 ############################# List Segregated Allocator ########################################
 
 add_library(list_segregated_utilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs/list_segregated_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utilities/list_segregated_utilities.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/list_segregated_tests.c
     ${CMAKE_CURRENT_SOURCE_DIR}/printers/list_segregated_printer.c
 )
@@ -121,7 +121,7 @@ target_compile_options(list_segregated BEFORE INTERFACE
 
 
 add_library(rbtree_clrs_utilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_clrs_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utilities/rbtree_clrs_utilities.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_clrs_tests.c
     ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_clrs_printer.c
 )
@@ -148,7 +148,7 @@ target_compile_options(rbtree_clrs BEFORE INTERFACE
 
 
 add_library(rbtree_unified_utilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_unified_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utilities/rbtree_unified_utilities.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_unified_tests.c
     ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_unified_printer.c
 )
@@ -175,7 +175,7 @@ target_compile_options(rbtree_unified BEFORE INTERFACE
 
 
 add_library(rbtree_linked_utilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_linked_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utilities/rbtree_linked_utilities.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_linked_tests.c
     ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_linked_printer.c
 )
@@ -202,7 +202,7 @@ target_compile_options(rbtree_linked BEFORE INTERFACE
 
 
 add_library(rbtree_stack_utilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_stack_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utilities/rbtree_stack_utilities.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_stack_tests.c
     ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_stack_printer.c
 )
@@ -228,7 +228,7 @@ target_compile_options(rbtree_stack BEFORE INTERFACE
 ############################# RBTree Topdown Allocator ########################################
 
 add_library(rbtree_topdown_utilities
-    ${CMAKE_CURRENT_SOURCE_DIR}/designs/rbtree_topdown_design.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/utilities/rbtree_topdown_utilities.c
     ${CMAKE_CURRENT_SOURCE_DIR}/tests/rbtree_topdown_tests.c
     ${CMAKE_CURRENT_SOURCE_DIR}/printers/rbtree_topdown_printer.c
 )

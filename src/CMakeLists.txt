@@ -8,7 +8,7 @@ set(gcc_like_c "$<COMPILE_LANG_AND_ID:C,ARMClang,AppleClang,Clang,GNU>")
 # utility in C. I would not want the compiler moving the code between calls to clock() that might
 # interfere with consistent timing that is focussed on the allocator.
 target_compile_options(program_compiler_flags INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og;-g3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie;>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og;-g3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie>>"
 )
 
 set(libdir lib)
