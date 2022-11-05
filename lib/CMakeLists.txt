@@ -54,7 +54,7 @@ target_compile_options(list_addressorder_utilities BEFORE INTERFACE
     "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
-add_library(list_addressorder allocator.h list_addressorder.c)
+add_library(list_addressorder allocator.h list_addressorder_algorithm.c)
 target_link_libraries(list_addressorder PRIVATE
     list_addressorder_utilities
     allocator_compiler_flags
@@ -81,7 +81,7 @@ target_compile_options(list_bestfit_utilities BEFORE INTERFACE
     "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
-add_library(list_bestfit allocator.h list_bestfit.c)
+add_library(list_bestfit allocator.h list_bestfit_algorithm.c)
 target_link_libraries(list_bestfit PRIVATE
     list_bestfit_utilities
     allocator_compiler_flags
@@ -107,7 +107,7 @@ target_compile_options(list_segregated_utilities BEFORE INTERFACE
     "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
-add_library(list_segregated allocator.h list_segregated.c)
+add_library(list_segregated allocator.h list_segregated_algorithm.c)
 target_link_libraries(list_segregated PRIVATE
     list_segregated_utilities
     allocator_compiler_flags
@@ -133,7 +133,7 @@ target_compile_options(rbtree_clrs_utilities BEFORE INTERFACE
     "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
-add_library(rbtree_clrs allocator.h rbtree_clrs.c)
+add_library(rbtree_clrs allocator.h rbtree_clrs_algorithm.c)
 target_link_libraries(rbtree_clrs PRIVATE
     rbtree_clrs_utilities
     allocator_compiler_flags
@@ -160,7 +160,7 @@ target_compile_options(rbtree_unified_utilities BEFORE INTERFACE
     "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
-add_library(rbtree_unified allocator.h rbtree_unified.c)
+add_library(rbtree_unified allocator.h rbtree_unified_algorithm.c)
 target_link_libraries(rbtree_unified PRIVATE
     rbtree_unified_utilities
     allocator_compiler_flags
@@ -187,7 +187,7 @@ target_compile_options(rbtree_linked_utilities BEFORE INTERFACE
     "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
-add_library(rbtree_linked allocator.h rbtree_linked.c)
+add_library(rbtree_linked allocator.h rbtree_linked_algorithm.c)
 target_link_libraries(rbtree_linked PRIVATE
     rbtree_linked_utilities
     allocator_compiler_flags
@@ -214,7 +214,7 @@ target_compile_options(rbtree_stack_utilities BEFORE INTERFACE
     "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
-add_library(rbtree_stack allocator.h rbtree_stack.c)
+add_library(rbtree_stack allocator.h rbtree_stack_algorithm.c)
 target_link_libraries(rbtree_stack PRIVATE
     rbtree_stack_utilities
     allocator_compiler_flags
@@ -240,7 +240,7 @@ target_compile_options(rbtree_topdown_utilities BEFORE INTERFACE
     "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
 )
 
-add_library(rbtree_topdown allocator.h rbtree_topdown.c)
+add_library(rbtree_topdown allocator.h rbtree_topdown_algorithm.c)
 target_link_libraries(rbtree_topdown PRIVATE
     rbtree_topdown_utilities
     allocator_compiler_flags
