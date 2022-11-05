@@ -50,6 +50,7 @@ class Heap_Call(enum.Enum):
     realloc = 2
     free = 3
 
+
 class Print_Call():
     alloc = 'a'
     realloc = 'r'
@@ -81,11 +82,17 @@ def get_heap_address(line):
         i = open_paren + 1
         while i < len(line) and line[i].isalnum():
             i += 1
-        return int(line[open_paren + 1: i], 16)
+        try:
+            return int(line[open_paren + 1: i], 16)
+        except ValueError:
+            return None
     # Now we have a more simple search because we know ID is on the right side of equals sign.
     equals = line.find('=', call_index)
     second_half = line[equals + 1:]
-    return int(second_half, 16)
+    try:
+        return int(second_half, 16)
+    except ValueError:
+        return None
 
 
 def get_heap_call(line):
@@ -152,22 +159,28 @@ def get_heap_bytes(line):
         number_of_items = line[open_bracket + 1: comma]
         closing_bracket = line.find(')', comma)
         byte_size = line[comma + 1: closing_bracket]
-
         # There are some strange calloc(1,16<noreturn> erors that can mess up int function.
-        if not byte_size.isnumeric():
+        try:
+            return str(int(number_of_items) * int(byte_size))
+        except ValueError:
             return None
 
-        full_bytes = str(int(number_of_items) * int(byte_size))
-        return full_bytes
     elif specific_call == Heap_Strings.malloc:
         closing_bracket = line.find(')', open_bracket)
         full_bytes = line[open_bracket + 1: closing_bracket]
-        return full_bytes if full_bytes.isnumeric() else None
+        try:
+            return str(int(full_bytes))
+        except ValueError:
+            return None
+
     elif specific_call == Heap_Strings.realloc:
         comma = line.find(',', open_bracket)
         closing_bracket = line.find(')', comma)
         full_bytes = line[comma + 1: closing_bracket]
-        return full_bytes if full_bytes.isnumeric() else None
+        try:
+            return str(int(full_bytes))
+        except ValueError:
+            return None
     return None
 
 
@@ -553,4 +566,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
