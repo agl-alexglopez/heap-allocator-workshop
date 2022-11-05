@@ -75,7 +75,7 @@
 #include "rbtree_topdown_utilities.h"
 
 
-/* * * * * * * * * * * * *   Type Declarations   * * * * * * * * * * * * */
+/* * * * * * * * * *             Static Heap Tracking            * * * * * * * * * * */
 
 
 static struct free_nodes {
