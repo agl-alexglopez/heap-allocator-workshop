@@ -12,6 +12,7 @@ target_compile_options(program_compiler_flags INTERFACE
 )
 
 set(libdir lib)
+set(printdir printers)
 
 
 ################################# TEST HARNESS PROGRAM ############################################
@@ -130,12 +131,14 @@ target_include_directories(test_rbtree_topdown PUBLIC
 add_executable(time_list_addressorder time_harness.c)
 target_link_libraries(time_list_addressorder PUBLIC
                       segment
+                      print_utility
                       script
                       list_addressorder
                       program_compiler_flags
 )
 target_include_directories(time_list_addressorder PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ########## List Bestfit #############
@@ -143,12 +146,14 @@ target_include_directories(time_list_addressorder PUBLIC
 add_executable(time_list_bestfit time_harness.c)
 target_link_libraries(time_list_bestfit PUBLIC
                       segment
+                      print_utility
                       script
                       list_bestfit
                       program_compiler_flags
 )
 target_include_directories(time_list_bestfit PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ########## List Segregated #############
@@ -156,12 +161,14 @@ target_include_directories(time_list_bestfit PUBLIC
 add_executable(time_list_segregated time_harness.c)
 target_link_libraries(time_list_segregated PUBLIC
                       segment
+                      print_utility
                       script
                       list_segregated
                       program_compiler_flags
 )
 target_include_directories(time_list_segregated PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ############ RBTree ClRS ###############
@@ -169,12 +176,14 @@ target_include_directories(time_list_segregated PUBLIC
 add_executable(time_rbtree_clrs time_harness.c)
 target_link_libraries(time_rbtree_clrs PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_clrs
                       program_compiler_flags
 )
 target_include_directories(time_rbtree_clrs PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ############ RBTree Unified ###############
@@ -182,12 +191,14 @@ target_include_directories(time_rbtree_clrs PUBLIC
 add_executable(time_rbtree_unified time_harness.c)
 target_link_libraries(time_rbtree_unified PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_unified
                       program_compiler_flags
 )
 target_include_directories(time_rbtree_unified PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ############ RBTree Linked ###############
@@ -195,12 +206,14 @@ target_include_directories(time_rbtree_unified PUBLIC
 add_executable(time_rbtree_linked time_harness.c)
 target_link_libraries(time_rbtree_linked PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_linked
                       program_compiler_flags
 )
 target_include_directories(time_rbtree_linked PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ############ RBTree Stack ###############
@@ -208,12 +221,14 @@ target_include_directories(time_rbtree_linked PUBLIC
 add_executable(time_rbtree_stack time_harness.c)
 target_link_libraries(time_rbtree_stack PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_stack
                       program_compiler_flags
 )
 target_include_directories(time_rbtree_stack PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ############ RBTree Topdown ###############
@@ -221,12 +236,14 @@ target_include_directories(time_rbtree_stack PUBLIC
 add_executable(time_rbtree_topdown time_harness.c)
 target_link_libraries(time_rbtree_topdown PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_topdown
                       program_compiler_flags
 )
 target_include_directories(time_rbtree_topdown PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ################################# PRINTER PROGRAM ############################################
@@ -237,12 +254,14 @@ target_include_directories(time_rbtree_topdown PUBLIC
 add_executable(print_peaks_list_addressorder print_peaks.c)
 target_link_libraries(print_peaks_list_addressorder PUBLIC
                       segment
+                      print_utility
                       script
                       list_addressorder
                       program_compiler_flags
 )
 target_include_directories(print_peaks_list_addressorder PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ########## List Bestfit #############
@@ -250,12 +269,14 @@ target_include_directories(print_peaks_list_addressorder PUBLIC
 add_executable(print_peaks_list_bestfit print_peaks.c)
 target_link_libraries(print_peaks_list_bestfit PUBLIC
                       segment
+                      print_utility
                       script
                       list_bestfit
                       program_compiler_flags
 )
 target_include_directories(print_peaks_list_bestfit PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ####### List Segregated ############
@@ -263,12 +284,14 @@ target_include_directories(print_peaks_list_bestfit PUBLIC
 add_executable(print_peaks_list_segregated print_peaks.c)
 target_link_libraries(print_peaks_list_segregated PUBLIC
                       segment
+                      print_utility
                       script
                       list_segregated
                       program_compiler_flags
 )
 target_include_directories(print_peaks_list_segregated PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ######## RBTree CLRS ###########
@@ -276,12 +299,14 @@ target_include_directories(print_peaks_list_segregated PUBLIC
 add_executable(print_peaks_rbtree_clrs print_peaks.c)
 target_link_libraries(print_peaks_rbtree_clrs PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_clrs
                       program_compiler_flags
 )
 target_include_directories(print_peaks_rbtree_clrs PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ######## RBTree Unified ###########
@@ -289,12 +314,14 @@ target_include_directories(print_peaks_rbtree_clrs PUBLIC
 add_executable(print_peaks_rbtree_unified print_peaks.c)
 target_link_libraries(print_peaks_rbtree_unified PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_unified
                       program_compiler_flags
 )
 target_include_directories(print_peaks_rbtree_unified PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ######## RBTree Linked ###########
@@ -302,12 +329,14 @@ target_include_directories(print_peaks_rbtree_unified PUBLIC
 add_executable(print_peaks_rbtree_linked print_peaks.c)
 target_link_libraries(print_peaks_rbtree_linked PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_linked
                       program_compiler_flags
 )
 target_include_directories(print_peaks_rbtree_linked PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ######## RBTree Stack ###########
@@ -315,12 +344,14 @@ target_include_directories(print_peaks_rbtree_linked PUBLIC
 add_executable(print_peaks_rbtree_stack print_peaks.c)
 target_link_libraries(print_peaks_rbtree_stack PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_stack
                       program_compiler_flags
 )
 target_include_directories(print_peaks_rbtree_stack PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ######## RBTree Topdown ###########
@@ -328,12 +359,14 @@ target_include_directories(print_peaks_rbtree_stack PUBLIC
 add_executable(print_peaks_rbtree_topdown print_peaks.c)
 target_link_libraries(print_peaks_rbtree_topdown PUBLIC
                       segment
+                      print_utility
                       script
                       rbtree_topdown
                       program_compiler_flags
 )
 target_include_directories(print_peaks_rbtree_topdown PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
+                           ${PROJECT_SOURCE_DIR}/${libdir}/${printdir}
 )
 
 ################################# OPTIONAL PROGRAM ############################################
