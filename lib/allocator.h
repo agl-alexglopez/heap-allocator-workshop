@@ -7,7 +7,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>  // for size_t
-#include "utility/print_utility.h"
+#include "printers/print_utility.h"
 
 
 // Alignment requirement for all blocks

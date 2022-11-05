@@ -30,6 +30,7 @@
 #include "allocator.h"
 #include "script.h"
 #include "segment.h"
+#include "print_utility.h"
 
 
 /* TYPE DECLARATIONS */

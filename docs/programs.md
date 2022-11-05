@@ -6,32 +6,32 @@
    - Documentation **([`README.md`](/README.md))**
 2. The CLRS Standard
    - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
-   - Design **([`rbtree_clrs_design.h`](/lib/utility/rbtree_clrs_design.h))**
-   - Implementation **([`rbtree_clrs.c`](/lib/rbtree_clrs.c))**
+   - Design **([`rbtree_clrs_utilities.h`](/lib/rbtree_clrs_utilities.h))**
+   - Implementation **([`rbtree_clrs_algorithm.c`](/lib/rbtree_clrs_algorithm.c))**
 3. Unified Symmetry
    - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
-   - Design **([`rbtree_unified_design.h`](/lib/utility/rbtree_unified_design.h))**
-   - Implementation **([`rbtree_unified.c`](/lib/rbtree_unified.c))**
+   - Design **([`rbtree_unified_utilities.h`](/lib/rbtree_unified_utilities.h))**
+   - Implementation **([`rbtree_unified_algorithm.c`](/lib/rbtree_unified_algorithm.c))**
 4. Doubly Linked Duplicates
    - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
-   - Design **([`rbtree_linked_design.h`](/lib/utility/rbtree_linked_design.h))**
-   - Implementation **([`rbtree_linked.c`](/lib/rbtree_linked.c))**
+   - Design **([`rbtree_linked_utilities.h`](/lib/rbtree_linked_utilities.h))**
+   - Implementation **([`rbtree_linked_algorithm.c`](/lib/rbtree_linked_algorithm.c))**
 5. Stack Based
    - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
-   - Design **([`rbtree_stack_design.h`](/lib/utility/rbtree_stack_design.h))**
-   - Implementation **([`rbtree_stack.c`](/lib/rbtree_stack.c))**
+   - Design **([`rbtree_stack_utilities.h`](/lib/rbtree_stack_utilities.h))**
+   - Implementation **([`rbtree_stack_algorithm.c`](/lib/rbtree_stack_algorithm.c))**
 6. Top-down Fixups
    - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Design **([`rbtree_topdown_design.h`](/lib/utility/rbtree_topdown_design.h))**
-   - Implementation **([`rbtree_topdown.c`](/lib/rbtree_topdown.c))**
+   - Design **([`rbtree_topdown_utilities.h`](/lib/rbtree_topdown_utilities.h))**
+   - Implementation **([`rbtree_topdown_algorithm.c`](/lib/rbtree_topdown_algorithm.c))**
 7. List Allocators
    - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
-   - Design **([`list_addressorder_design.h`](/lib/utility/list_addressorder_design.h))**
-   - Implementation **([`list_addressorder.c`](/lib/list_addressorder.c))**
-   - Design **([`list_bestfit_design.h`](/lib/utility/list_bestfit_design.h))**
-   - Implementation **([`list_bestfit.c`](/lib/list_bestfit.c))**
-   - Design **([`list_segregated_design.h`](/lib/utility/list_segregated_design.h))**
-   - Implementation **([`list_segregated.c`](/lib/list_segregated.c))**
+   - Design **([`list_addressorder_utilities.h`](/lib/list_addressorder_utilities.h))**
+   - Implementation **([`list_addressorder_algorithm.c`](/lib/list_addressorder_algorithm.c))**
+   - Design **([`list_bestfit_utilities.h`](/lib/list_bestfit_utilities.h))**
+   - Implementation **([`list_bestfit_algorithm.c`](/lib/list_bestfit_algorithm.c))**
+   - Design **([`list_segregated_utilities.h`](/lib/list_segregated_utilities.h))**
+   - Implementation **([`list_segregated_algorithm.c`](/lib/list_segregated_algorithm.c))**
 8. Runtime Analysis
    - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
 9. The Programs
@@ -68,7 +68,7 @@ In order to compile programs in this repository, follow these steps.
    - This compiles all programs to the `/build/bin/` folder from which you will run each allocator's version of the program. Directions on the commands to run will follow in each program's description below.
 3. Run the Programs
    - I will specify commands for each programs, but they all involve some variation on the following formula.
-     - `./build/bin/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] scripts/[.SCRIPT FILE TO RUN]`
+     - `./build/bin/[PROGRAM]_[ALLOCATOR NAME] [PROGRAM ARGUMENTS] scripts/[SCRIPT FILE TO RUN]`
    - We specify the program, the allocator version, any arguments valid for that program, and then the script file we want to run for our allocator to execute.
    - All directions assume you are running programs from the root directory of the repository but this is not required. However, be careful of current directory if you decide to run commands that follow in this document, especially script generation commands.
 4. Generate Additional Scripts
@@ -86,7 +86,7 @@ After I submitted my work for this original list based allocator assignment and 
 
 We can run this program on one or multiple `.script` files to ensure they run without error and check their utilization.
 
-- All allocators have been prepended with the word `test_` and have been compiled to our `build/src/` folder.
+- All allocators have been prepended with the word `test_` and have been compiled to our `build/bin/` folder.
   - `test_rbtree_clrs`, `test_rbtree_unified`, `test_rbtree_linked`, `test_rbtree_stack`, `test_rbtree_topdown`, `test_list_bestfit`, `test_list_addressorder`
 - Run an allocator on a single test script.
   - `./build/bin/test_rbtree_clrs scripts/pattern-mixed.script`
@@ -110,7 +110,7 @@ While it would have been nice to time our code with a simple `time` command and 
 
 Instead, we will allocate 2N blocks of memory and then call `free()` on every other block of allocated memory to measure the performance of N insertions into a tree. Coalescing will not occur on the two adjacent blocks because they remain allocated.
 
-The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can achieve this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
+The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can achieve this by looking at our scripts and asking the `time_harness.c` program to time only specific line numbers representing requests.
 
 ```bash
  ./build/bin/time_list_bestfit -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script
@@ -130,7 +130,7 @@ We would then get output such as the following.
 
 ### How to Use the Time Harness
 
-- All allocators have been prepended with the word `time_` and have been compiled to our `build/src/` folder.
+- All allocators have been prepended with the word `time_` and have been compiled to our `build/bin/` folder.
   - `time_rbtree_clrs`, `time_rbtree_unified`, `time_rbtree_linked`, `time_rbtree_stack`, `time_rbtree_topdown`, `time_list_bestfit`, `time_list_addressorder`
 - Time the entire execution time of the allocator over an entire script.
   - `./build/bin/time_rbtree_clrs scripts/time-insertdelete-100k.script`
@@ -151,7 +151,7 @@ Here is the same command for a list based allocator. The list output is far less
 
 ### How to Use Print Peaks
 
-- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/src/` folder.
+- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/bin/` folder.
   - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, `print_peaks_rbtree_stack`, `print_peaks_rbtree_topdown`, `print_peaks_list_bestfit`, `print_peaks_list_addressorder`
 - Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
   - `./build/bin/print_peaks_list_bestfit scripts/pattern-mixed.script`
@@ -222,7 +222,7 @@ Generating custom scripts for a heap allocator is more complex and allows for mo
 
 ### Allocations
 
-To allocate blocks of memory in a script file use the following commands or options as needed. These commands are run as if you are currently int the `pysrc/` directory, where the python program is located.
+To allocate blocks of memory in a script file use the following commands or options as needed. These commands are run as if you are currently in the `pysrc/` directory, where the python program is located.
 
 Create a desired number of allocation requests. The program will pick random byte sizes for the requests.
 
@@ -314,7 +314,7 @@ This was a program we created to test our heap allocators in a more "real" conte
 
 ### How to Use My Optional Program
 
-- All allocators have been prepended with the word `my_optional_program_` and have been compiled to our `build/src/` folder.
+- All allocators have been prepended with the word `my_optional_program_` and have been compiled to our `build/bin/` folder.
   - `my_optional_program_rbtree_clrs`, `my_optional_program_rbtree_unified`, `my_optional_program_rbtree_linked`, `my_optional_program_rbtree_stack`, `my_optional_program_rbtree_topdown`, `my_optional_program_list_bestfit`, `my_optional_program_list_addressorder`
 - The rest is up to you. Design whatever program you would like.
 
