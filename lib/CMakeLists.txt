@@ -9,12 +9,34 @@ add_library(allocator_compiler_flags INTERFACE)
 target_compile_features(allocator_compiler_flags INTERFACE c_std_99)
 set(gcc_like_c "$<COMPILE_LANG_AND_ID:C,ARMClang,AppleClang,Clang,GNU>")
 target_compile_options(allocator_compiler_flags INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-g3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-g3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie;-flto>>"
 )
 
 
+##########################  Script Parsing for Heap Execution  ####################################
+
+
 add_library(script script.h script.c)
+target_link_libraries(script PRIVATE
+    allocator_compiler_flags
+)
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(script BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
+
+
+#########################  Preparing Controlled Memory Segment  ###################################
+
+
 add_library(segment segment.h segment.c)
+target_link_libraries(segment PRIVATE
+    allocator_compiler_flags
+)
+# Change -OX(X meaning 2 or 3) to -Og if debugging is required.
+target_compile_options(segment BEFORE INTERFACE
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+)
 
 
 ############################# List Addressorder Allocator ########################################

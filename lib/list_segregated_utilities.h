@@ -60,64 +60,6 @@ typedef struct seg_node {
 }seg_node;
 
 
-/* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */
-
-
-/* @breif check_init   checks the internal representation of our heap, especially the head and tail
- *                     nodes for any issues that would ruin our algorithms.
- * @param table[]      the lookup table that holds the list size ranges
- * @param *nil         a special free_node that serves as a sentinel for logic and edgecases.
- * @param client_size  the total space available for client.
- * @return             true if everything is in order otherwise false.
- */
-bool check_init(seg_node table[], free_node *nil, size_t client_size);
-
-/* @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
- *                            reported match the global bookeeping in our struct.
- * @param *total_free_mem     the output parameter of the total size used as another check.
- * @param *client_start       the start address of the client heap segment.
- * @param *client_end         the end address of the client heap segment.
- * @param client_size         the size in bytes of the total space available for client.
- * @param fits_total          the total number of free nodes in our table of lists.
- * @return                    true if our tallying is correct and our totals match.
- */
-bool is_memory_balanced(size_t *total_free_mem, void *client_start, void *client_end,
-                        size_t client_size, size_t fits_total);
-
-/* @brief are_fits_valid  loops through only the segregated fits list to make sure it matches
- *                        the loop we just completed by checking all blocks.
- * @param total_free_mem  the input from a previous loop that was completed by jumping block
- *                        by block over the entire heap.
- * @param table[]         the lookup table that holds the list size ranges
- * @param *nil            a special free_node that serves as a sentinel for logic and edgecases.
- * @return                true if the segregated fits list totals correctly, false if not.
- */
-bool are_fits_valid(size_t total_free_mem, seg_node table[], free_node *nil);
-
-
-/* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */
-
-
-/* @brief print_all    prints our the complete status of the heap, all of its blocks, and the sizes
- *                     the blocks occupy. Printing should be clean with no overlap of unique id's
- *                     between heap blocks or corrupted headers.
- * @param client_start the starting address of the heap segment.
- * @param client_end   the final address of the heap segment.
- * @param client_size  the size in bytes of the heap.
- * @param table[]      the lookup table of segregated sizes of nodes stored in each slot.
- * @param *nil         the free node that serves as a universal head and tail to all lists.
- */
-void print_all(void *client_start, void *client_end, size_t client_size,
-               seg_node table[], free_node *nil);
-
-/* @brief print_fits  prints the segregated fits free list in order to check if splicing and
- *                    adding is progressing correctly.
- * @param table[]     the lookup table that holds the list size ranges
- * @param *nil        a special free_node that serves as a sentinel for logic and edgecases.
- */
-void print_fits(print_style style, seg_node table[], free_node *nil);
-
-
 /* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
 
 
@@ -212,6 +154,64 @@ inline void init_footer(header *cur_header, size_t block_size) {
 inline bool is_left_space(header *cur_header) {
     return !(*cur_header & LEFT_ALLOCATED);
 }
+
+
+/* * * * * * * * * * * * * *     Debugging and Testing Functions   * * * * * * * * * * * * * * * */
+
+
+/* @breif check_init   checks the internal representation of our heap, especially the head and tail
+ *                     nodes for any issues that would ruin our algorithms.
+ * @param table[]      the lookup table that holds the list size ranges
+ * @param *nil         a special free_node that serves as a sentinel for logic and edgecases.
+ * @param client_size  the total space available for client.
+ * @return             true if everything is in order otherwise false.
+ */
+bool check_init(seg_node table[], free_node *nil, size_t client_size);
+
+/* @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
+ *                            reported match the global bookeeping in our struct.
+ * @param *total_free_mem     the output parameter of the total size used as another check.
+ * @param *client_start       the start address of the client heap segment.
+ * @param *client_end         the end address of the client heap segment.
+ * @param client_size         the size in bytes of the total space available for client.
+ * @param fits_total          the total number of free nodes in our table of lists.
+ * @return                    true if our tallying is correct and our totals match.
+ */
+bool is_memory_balanced(size_t *total_free_mem, void *client_start, void *client_end,
+                        size_t client_size, size_t fits_total);
+
+/* @brief are_fits_valid  loops through only the segregated fits list to make sure it matches
+ *                        the loop we just completed by checking all blocks.
+ * @param total_free_mem  the input from a previous loop that was completed by jumping block
+ *                        by block over the entire heap.
+ * @param table[]         the lookup table that holds the list size ranges
+ * @param *nil            a special free_node that serves as a sentinel for logic and edgecases.
+ * @return                true if the segregated fits list totals correctly, false if not.
+ */
+bool are_fits_valid(size_t total_free_mem, seg_node table[], free_node *nil);
+
+
+/* * * * * * * * * * * * * *         Printing Functions            * * * * * * * * * * * * * * * */
+
+
+/* @brief print_all    prints our the complete status of the heap, all of its blocks, and the sizes
+ *                     the blocks occupy. Printing should be clean with no overlap of unique id's
+ *                     between heap blocks or corrupted headers.
+ * @param client_start the starting address of the heap segment.
+ * @param client_end   the final address of the heap segment.
+ * @param client_size  the size in bytes of the heap.
+ * @param table[]      the lookup table of segregated sizes of nodes stored in each slot.
+ * @param *nil         the free node that serves as a universal head and tail to all lists.
+ */
+void print_all(void *client_start, void *client_end, size_t client_size,
+               seg_node table[], free_node *nil);
+
+/* @brief print_fits  prints the segregated fits free list in order to check if splicing and
+ *                    adding is progressing correctly.
+ * @param table[]     the lookup table that holds the list size ranges
+ * @param *nil        a special free_node that serves as a sentinel for logic and edgecases.
+ */
+void print_fits(print_style style, seg_node table[], free_node *nil);
 
 
 #endif
