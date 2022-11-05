@@ -5,7 +5,7 @@ add_library(program_compiler_flags INTERFACE)
 target_compile_features(program_compiler_flags INTERFACE c_std_99)
 set(gcc_like_c "$<COMPILE_LANG_AND_ID:C,ARMClang,AppleClang,Clang,GNU>")
 target_compile_options(program_compiler_flags INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-g3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie;-flto>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-g3;-Wall;-Wextra;-Wfloat-equal;-Wtype-limits;-Wpointer-arith;-Wshadow;-Winit-self;-fno-diagnostics-show-option;-fcf-protection=none;-fno-pic;-fpie;>>"
 )
 
 set(libdir lib)
@@ -28,7 +28,7 @@ target_include_directories(test_list_addressorder PUBLIC
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(test_list_addressorder BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## List Bestfit #############
@@ -45,7 +45,7 @@ target_include_directories(test_list_bestfit PUBLIC
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(test_list_bestfit BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## List Segregated #############
@@ -61,7 +61,7 @@ target_include_directories(test_list_segregated PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(test_list_segregated BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## RBTree CLRS #############
@@ -77,7 +77,7 @@ target_include_directories(test_rbtree_clrs PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(test_rbtree_clrs BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## RBTree Unified #############
@@ -93,7 +93,7 @@ target_include_directories(test_rbtree_unified PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(test_rbtree_unified BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## RBTree Linked #############
@@ -109,7 +109,7 @@ target_include_directories(test_rbtree_linked PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(test_rbtree_linked BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## RBTree Stack #############
@@ -125,7 +125,7 @@ target_include_directories(test_rbtree_stack PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(test_rbtree_stack BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## RBTree Topdown #############
@@ -141,7 +141,7 @@ target_include_directories(test_rbtree_topdown PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(test_rbtree_topdown BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 
@@ -161,7 +161,7 @@ target_include_directories(time_list_addressorder PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(time_list_addressorder BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## List Bestfit #############
@@ -177,7 +177,7 @@ target_include_directories(time_list_bestfit PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(time_list_bestfit BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## List Segregated #############
@@ -193,7 +193,7 @@ target_include_directories(time_list_segregated PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(time_list_segregated BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ############ RBTree ClRS ###############
@@ -209,7 +209,7 @@ target_include_directories(time_rbtree_clrs PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(time_rbtree_clrs BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ############ RBTree Unified ###############
@@ -225,7 +225,7 @@ target_include_directories(time_rbtree_unified PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(time_rbtree_unified BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ############ RBTree Linked ###############
@@ -241,7 +241,7 @@ target_include_directories(time_rbtree_linked PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(time_rbtree_linked BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ############ RBTree Stack ###############
@@ -257,7 +257,7 @@ target_include_directories(time_rbtree_stack PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(time_rbtree_stack BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ############ RBTree Topdown ###############
@@ -273,7 +273,7 @@ target_include_directories(time_rbtree_topdown PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(time_rbtree_topdown BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ################################# PRINTER PROGRAM ############################################
@@ -292,7 +292,7 @@ target_include_directories(print_peaks_list_addressorder PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(print_peaks_list_addressorder BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## List Bestfit #############
@@ -308,7 +308,7 @@ target_include_directories(print_peaks_list_bestfit PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(print_peaks_list_bestfit BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ####### List Segregated ############
@@ -324,7 +324,7 @@ target_include_directories(print_peaks_list_segregated PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(print_peaks_list_segregated BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ######## RBTree CLRS ###########
@@ -340,7 +340,7 @@ target_include_directories(print_peaks_rbtree_clrs PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(print_peaks_rbtree_clrs BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ######## RBTree Unified ###########
@@ -356,7 +356,7 @@ target_include_directories(print_peaks_rbtree_unified PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(print_peaks_rbtree_unified BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ######## RBTree Linked ###########
@@ -372,7 +372,7 @@ target_include_directories(print_peaks_rbtree_linked PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(print_peaks_rbtree_linked BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ######## RBTree Stack ###########
@@ -388,7 +388,7 @@ target_include_directories(print_peaks_rbtree_stack PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(print_peaks_rbtree_stack BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ######## RBTree Topdown ###########
@@ -404,7 +404,7 @@ target_include_directories(print_peaks_rbtree_topdown PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(print_peaks_rbtree_topdown BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ################################# OPTIONAL PROGRAM ############################################
@@ -423,7 +423,7 @@ target_include_directories(my_optional_program_list_addressorder PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(my_optional_program_list_addressorder BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ########## List Bestfit #############
@@ -439,7 +439,7 @@ target_include_directories(my_optional_program_list_bestfit PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(my_optional_program_list_bestfit BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ####### List Segregated ############
@@ -455,7 +455,7 @@ target_include_directories(my_optional_program_list_segregated PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(my_optional_program_list_segregated BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ######## RBTree CLRS ###########
@@ -471,7 +471,7 @@ target_include_directories(my_optional_program_rbtree_clrs PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(my_optional_program_rbtree_clrs BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ######## RBTree Unified ###########
@@ -487,7 +487,7 @@ target_include_directories(my_optional_program_rbtree_unified PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(my_optional_program_rbtree_unified BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 ######## RBTree Linked ###########
@@ -503,7 +503,7 @@ target_include_directories(my_optional_program_rbtree_linked PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(my_optional_program_rbtree_linked BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 #######  RBTree Stack ##########
@@ -519,7 +519,7 @@ target_include_directories(my_optional_program_rbtree_stack PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(my_optional_program_rbtree_stack BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 #######  RBTree Topdown ##########
@@ -535,6 +535,6 @@ target_include_directories(my_optional_program_rbtree_topdown PUBLIC
                            ${PROJECT_SOURCE_DIR}/${libdir}
 )
 target_compile_options(my_optional_program_rbtree_topdown BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 

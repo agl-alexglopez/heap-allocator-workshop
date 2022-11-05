@@ -22,7 +22,7 @@ target_link_libraries(script PRIVATE
 )
 # Change -OX(X meaning 2 or 3) to -Og if debugging is required.
 target_compile_options(script BEFORE INTERFACE
-    "$<${gcc_like_c}:$<BUILD_INTERFACE:-O3>>"
+    "$<${gcc_like_c}:$<BUILD_INTERFACE:-Og>>"
 )
 
 
