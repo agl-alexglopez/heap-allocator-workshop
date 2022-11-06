@@ -78,9 +78,11 @@ static const char LogTable256[256] =
  * @citation          the bit manipulation is taken from Sean Anderson's Bit Twiddling Hacks.
  *                    https://graphics.stanford.edu/~seander/bithacks.html
  */
-static unsigned int find_index(unsigned int block_size) {
-    if (block_size <= SMALL_TABLE_MAX) {
-        switch (block_size) {
+static inline unsigned int find_index(size_t any_block_size) {
+    if (any_block_size > fits.table[TABLE_SIZE - 1].size) {
+         return TABLE_SIZE - 1;
+    } else if (any_block_size <= SMALL_TABLE_MAX) {
+        switch (any_block_size) {
             case INDEX_0_SIZE:
                 return INDEX_0;
             break;
@@ -94,11 +96,13 @@ static unsigned int find_index(unsigned int block_size) {
                 return INDEX_3;
             break;
             default:
-                fprintf(stderr, "Error: Size %ubytes is out of alignment.", block_size);
+                fprintf(stderr, "Error: Size %zubytes is out of alignment.", any_block_size);
                 abort();
             break;
         }
     }
+    // I'm following the guidelines of Sean Anderson's website by converting this type. Safe now.
+    unsigned int block_size = any_block_size;
     // block_size = 32-bit word to find the log of
     unsigned int log_2;  // log_2 will be lg(block_size)
     register unsigned int temp_1, temp_2;
@@ -120,15 +124,11 @@ static unsigned int find_index(unsigned int block_size) {
 static void splice_free_node(free_node *to_splice, size_t block_size) {
     // Catch if we are the first node pointed to by the lookup table.
     if (fits.nil == to_splice->prev) {
-        int index = 0;
-        // Block size may be larger than unsigned int, so handle here before find_index function.
-        if (block_size > fits.table[TABLE_SIZE - 1].size) {
-            index = TABLE_SIZE - 1;
-        } else {
-            // We have a few optimizations possible for finding to which list we belong.
-            index = find_index(block_size);
-        }
-        fits.table[index].start = to_splice->next;
+        /* I'm not sure this optimization works or is worth it. For a table of TABLE_SIZE we could
+         * do a linear search of lookup table to find node. Call stacks and variables might
+         * increase instruction counts making bit tricks worthless. Need to profile for inlining.
+         */
+        fits.table[find_index(block_size)].start = to_splice->next;
         to_splice->next->prev = fits.nil;
     } else {
         // Because we have a sentinel we don't need to worry about middle or last node or NULL.
@@ -287,6 +287,9 @@ void *mymalloc(size_t requested_size) {
         return NULL;
     }
 
+    /* Consider using find_index() to jump to correct starting index for search. Perhaps slower to
+     * use bit hacks and so much logic for small TABLE_SIZE. Code needs to be profiled.
+     */
     size_t rounded_request = roundup(requested_size + HEADER_AND_FREE_NODE, ALIGNMENT);
     for (int i = 0; i < TABLE_SIZE; i++) {
         // All lists hold advertised size and up to one byte less than next list.

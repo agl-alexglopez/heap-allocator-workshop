@@ -39,6 +39,19 @@
 #define INDEX_3_SIZE (unsigned short)56
 #define INDEX_OFFSET 2U
 
+/* Size Order Classes Maintained by an Array of segregated fits lists
+ *     - Our size classes stand for the minimum size of a node in the list less than the next.
+ *     - 15 Size Classes (in bytes):
+
+            32,         40,          48,           56,           64-127,
+            128-255,    256-511,     512-1023,     1024-2047,    2048-4095,
+            4096-8191,  8192-16383,  16384-32767,  32768-65535,  65536+,
+
+ *     - A first fit search will yeild approximately the best fit.
+ *     - We will have one dummy node to serve as both the head and tail of all lists.
+ *     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index size.
+ */
+
 typedef size_t header;
 typedef unsigned char byte;
 
