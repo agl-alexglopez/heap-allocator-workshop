@@ -48,13 +48,11 @@ void print_gnuplots(gnuplots *graphs) {
                            "set xlabel 'Script Line Number';plot '-' pt '#' lc rgb 'cyan' notitle\n");
 
         double total_time = 0;
-        double total_util = 0;
         size_t total_free = 0;
 
         // Getting all of the pipes plotting in one O(n) loop helped speed. Still slow though.
         for (int req = 0; req < graphs->num_ops; req++) {
             total_time += graphs->request_times[req];
-            total_util += graphs->util_percents[req];
             total_free += graphs->free_nodes[req];
             fprintf(util_pipe, "%d %lf \n", req + 1, graphs->util_percents[req]);
             fprintf(free_pipe, "%d %zu \n", req + 1, graphs->free_nodes[req]);
@@ -62,12 +60,11 @@ void print_gnuplots(gnuplots *graphs) {
         }
 
         fprintf(util_pipe, "e\n");
-        fprintf(free_pipe, "e\n");
-        fprintf(time_pipe, "e\n");
         pclose(util_pipe);
-        printf("Average utilization: %.2f%%\n", total_util / graphs->num_ops);
+        fprintf(free_pipe, "e\n");
         pclose(free_pipe);
         printf("Average free nodes: %zu\n", total_free / graphs->num_ops);
+        fprintf(time_pipe, "e\n");
         pclose(time_pipe);
         printf("Average time (milliseconds) per request overall: %lfms\n", total_time / graphs->num_ops);
     }

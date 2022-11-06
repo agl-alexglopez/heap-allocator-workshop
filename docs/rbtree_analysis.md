@@ -141,7 +141,7 @@ To set up a measurement of inserting and deleting into a Red-Black Tree we start
 
 *Pictured Above: The six allocators compared on a runtime graph for insert delete requests. The time is now measured in milliseconds, while the number of requests remains the same as our previous comparison.*
 
-As you can see, the `list_segregated` allocator has strong performance, suffering from more erratic runtime speed as the size of the lists in the lookup table grows. Let's zoom in on the `rbtree` allocators. 
+As you can see, the `list_segregated` allocator has strong performance, suffering from more erratic runtime speed as the size of the lists in the lookup table grows. Let's zoom in on the `rbtree` allocators.
 
 ![insert-delete](/images/chart-insert-delete.png)
 
@@ -231,7 +231,7 @@ Here are the key details from the above graph.
 - Requests for the `tree` command consist mostly of `malloc()` and `free()` and the free tree remains small over the course of the program's lifetime.
 - The `rbtree_unified` implementation is surprisingly slow in this scenario.
 - Again, no compromises in the `rbtree_linked` implementation make it fast, even if it is not space efficient.
-- The peak number of free nodes that the `list_segregated` had to manage was `INSERT PEAK HERE`. This is a relatively small number to manage and therefore the more simple implementation is able to shine with its lower instruction counts.
+- The peak number of free nodes that the `list_segregated` had to manage was 2,381. This is a relatively small number to manage and therefore the more simple implementation is able to shine with its lower instruction counts.
 
 ### Neovim
 
@@ -243,7 +243,7 @@ Here are the key observations from the above graph.
 
 - The traditional CLRS implementation of a Red Black tree will perform well in any application where there are many calls `malloc()` and `free()` and the tree remains small.
 - The extra complexity of managing duplicates speeds up the tree slightly when the tree remains small.
-- The number of free nodes in this test was small. There were only roughly `INSERT PEAK HERE`, so the list allocators, even `list_bestfit`, can do well here.
+- The number of free nodes in this test was small. There were only roughly 708, so the list allocators, even `list_bestfit`, can do well here.
 
 ### Utilization
 
