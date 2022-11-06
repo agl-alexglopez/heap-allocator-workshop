@@ -235,7 +235,7 @@ Here are the key details from the above graph.
 
 ### Neovim
 
-Neovim is my editor of choice for this project. It is a text editor based off of Vim and we can actually trace its heap usage while we use it to edit a document. We will trace the heap usage while we edit the README.md for the project. This program usage is similar to the Linux Tree command with many `malloc()` and `free()` calls. However, among the roughly one million requests to the heap for a short editing session, there were 35,216 calls to realloc, so we have more diverse heap usage.
+Neovim is my editor of choice for this project. It is a text editor based off of Vim and we can actually trace its heap usage while we use it to edit a document. We will trace the heap usage while we edit the README.md for the project. This program usage is similar to the Linux Tree command with many `malloc()` and `free()` calls. However, among the roughly 800,000 requests to the heap for a short editing session, there were 35,216 calls to realloc, so we have more diverse heap usage.
 
 ![chart-nvim](/images/chart-rbtracenvim.png)
 
