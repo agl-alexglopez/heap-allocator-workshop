@@ -6,6 +6,43 @@
  * the algorithmic portion of the allocator because they can crowd the allocator file making it
  * hard to navigate. It is also convenient to refer to the design of the types for the allocator
  * in one place and use the testing and printing functions to debug any issues.
+ *
+ * Citations:
+ * -----------------------------------
+ *
+ *  1. I took much of the ideas for the pretty printing of the tree and the checks for a valid tree
+ *     from Seth Furman's red black tree implementation. Specifically, the tree print structure and
+ *     colors came from Furman's implementation. https://github.com/sfurman3/red-black-tree-c
+ *
+ *  2. I took my function to verify black node paths of a red black tree from kraskevich on
+ *     stackoverflow in the following answer:
+ *          https://stackoverflow.com/questions/27731072/check-whether-a-tree-satisfies-the-black-height-property-of-red-black-tree
+ *
+ *  3. I learned about the concept of unifying the left and right cases for red black trees through
+ *     this archived article on a stack overflow post. It is a great way to simplify code.
+ *          https://web.archive.org/web/20190207151651/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx
+ *
+ * The header stays as the first field of the rb_node and must remain accessible at all times.
+ * The size of the block is a multiple of eight to leave the bottom three bits accessible for info.
+ *
+ *
+ *   v--Most Significnat Bit        v--Least Significnat Bit
+ *   0...00000    0         0       0
+ *   +--------+--------+--------+--------+--------+--------+--------+--------+--------+
+ *   |        |        |        |        |        |        |        |        |        |
+ *   |        |red     |left    |free    |        |        |        |        |        |
+ *   |size_t  |or      |neighbor|or      |links[L]|links[R]|*list   |...     |footer  |
+ *   |bytes   |black   |status  |alloc   |        |        |start   |        |        |
+ *   |        |        |        |        |        |        |        |        |        |
+ *   +--------+--------+--------+--------+--------+--------+--------+--------+--------+
+ *   |___________________________________|____________________________________________|
+ *                     |                                     |
+ *               64-bit header              space available for user if allocated
+ *
+ *
+ * The rest of the rb_node remains accessible for the user, even the footer. We only need the
+ * information in the rest of the struct when it is free and either in our tree or doubly linked
+ * list.
  */
 #ifndef RBTREE_TOPDOWN_UTILITIES_H
 #define RBTREE_TOPDOWN_UTILITIES_H

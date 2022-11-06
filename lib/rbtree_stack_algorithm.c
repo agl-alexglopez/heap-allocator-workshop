@@ -23,40 +23,6 @@
  *     bottom of the tree proved useful for the tree and the linked list of duplicate memory block
  *     sizes.
  *
- *  3. I took much of the ideas for the pretty printing of the tree and the checks for a valid tree
- *     from Seth Furman's red black tree implementation. Specifically, the tree print structure and
- *     colors came from Furman's implementation. https://github.com/sfurman3/red-black-tree-c
- *
- *  4. I took my function to verify black node paths of a red black tree from kraskevich on
- *     stackoverflow in the following answer:
- *          https://stackoverflow.com/questions/27731072/check-whether-a-tree-satisfies-the-black-height-property-of-red-black-tree
- *
- *  5. I learned about the concept of unifying the left and right cases for red black trees through
- *     this archived article on a stack overflow post. It is a great way to simplify code.
- *          https://web.archive.org/web/20190207151651/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx
- *
- *
- * The header stays as the first field of the rb_node and must remain accessible at all times.
- * The size of the block is a multiple of eight to leave the bottom three bits accessible for info.
- *
- *
- *   v--Most Significnat Bit        v--Least Significnat Bit
- *   0...00000    0         0       0
- *   +--------+--------+--------+--------+--------+--------+--------+--------+--------+
- *   |        |        |        |        |        |        |        |        |        |
- *   |        |red     |left    |free    |        |        |        |        |        |
- *   |size_t  |or      |neighbor|or      |links[L]|links[R]|*list   |...     |footer  |
- *   |bytes   |black   |status  |alloc   |        |        |start   |        |        |
- *   |        |        |        |        |        |        |        |        |        |
- *   +--------+--------+--------+--------+--------+--------+--------+--------+--------+
- *   |___________________________________|____________________________________________|
- *                     |                                     |
- *               64-bit header              space available for user if allocated
- *
- *
- * The rest of the rb_node remains accessible for the user, even the footer. We only need the
- * information in the rest of the struct when it is free and either in our tree or doubly linked
- * list.
  */
 #include <limits.h>
 #include <stdio.h>
@@ -68,6 +34,18 @@
 /* * * * * * * * * * * * * * * * * *  Static Heap Tracking   * * * * * * * * * * * * * * * * * * */
 
 
+/* Red Black Free Tree:
+ *  - Maintain a red black tree of free nodes.
+ *  - Root is black
+ *  - No red node has a red child
+ *  - New insertions are red
+ *  - NULL is considered black. We use a black sentinel instead. Physically lives on the heap.
+ *  - Every path from root to free.black_nil, root not included, has same number of black nodes.
+ *  - The 3rd LSB of the header holds the color: 0 for black, 1 for red.
+ *  - The 1st LSB holds the allocated status and 2nd LSB holds left neighbor status for coalescing.
+ *  - Use a list_start pointer to a doubly linked list of duplicate nodes of the same size.
+ *  - For more details on the types see the _utilities.h file.
+ */
 static struct free_nodes {
     rb_node *tree_root;
     // These two pointers will point to the same address. Used for clarity between tree and list.
