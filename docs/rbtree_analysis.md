@@ -235,7 +235,7 @@ Here are the key details from the above graph.
 
 ### Neovim
 
-Neovim is my editor of choice for this project. It is a text editor based off of Vim and we can actually trace its heap usage while we use it to edit a document. We will trace the heap usage while we edit the README.md for the project. This program usage is similar to the Linux Tree command with many `malloc()` and `free()` calls. However, among the roughly one million requests to the heap for a short editing session, there were 35,216 calls to realloc, so we have more diverse heap usage.
+Neovim is my editor of choice for this project. It is a text editor based off of Vim and we can actually trace its heap usage while we use it to edit a document. We will trace the heap usage while we edit the README.md for the project. This program usage is similar to the Linux Tree command with many `malloc()` and `free()` calls. However, among the roughly 800,000 requests to the heap for a short editing session, there were 35,216 calls to realloc, so we have more diverse heap usage.
 
 ![chart-nvim](/images/chart-rbtracenvim.png)
 
@@ -273,7 +273,7 @@ Let's revisit the questions I was most interested in when starting the runtime a
 
 Finally, let us consider if the Red Black Tree allocators are worth all the trouble in the first place. The implementation was a challenge and it is true that their utilization may suffer due to the extra size of the nodes. However, as the runtime information suggests we are guaranteed tight bounds on our time complexity. The `list_segregated` allocator can become less consistent in terms of speed when the number of free nodes grows greatly. Any tree based allocator does not suffer this variability. Perhaps a decision to use either of these designs could boil down to profiling your needs.
 
-If you knew you would requesting a large number of uniquely sized blocks of memory from the heap, then freeing them over a long period of time a tree allocator would be helpful. It is resistant to the growth of any workload and will at worst cost some memory utilization. For large projects with long lifetimes this may be an appealing option.
+If you know you are requesting a large number of uniquely sized blocks of memory from the heap, then freeing them over a long period of time a tree allocator would be helpful. It is resistant to the growth of any workload and will at worst cost some memory utilization. For large projects with long lifetimes this may be an appealing option.
 
 The list based allocators are best for smaller scale programs or projects in which you have a good idea of the lifetime and scope of all memory you will need. With a medium to large number of heap requests and a need for memory efficiency you cannot go wrong with the `list_segregated` allocator.
 
