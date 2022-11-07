@@ -273,7 +273,7 @@ Let's revisit the questions I was most interested in when starting the runtime a
 
 Finally, let us consider if the Red Black Tree allocators are worth all the trouble in the first place. The implementation was a challenge and it is true that their utilization may suffer due to the extra size of the nodes. However, as the runtime information suggests we are guaranteed tight bounds on our time complexity. The `list_segregated` allocator can become less consistent in terms of speed when the number of free nodes grows greatly. Any tree based allocator does not suffer this variability. Perhaps a decision to use either of these designs could boil down to profiling your needs.
 
-If you knew you would requesting a large number of uniquely sized blocks of memory from the heap, then freeing them over a long period of time a tree allocator would be helpful. It is resistant to the growth of any workload and will at worst cost some memory utilization. For large projects with long lifetimes this may be an appealing option.
+If you know you are requesting a large number of uniquely sized blocks of memory from the heap, then freeing them over a long period of time a tree allocator would be helpful. It is resistant to the growth of any workload and will at worst cost some memory utilization. For large projects with long lifetimes this may be an appealing option.
 
 The list based allocators are best for smaller scale programs or projects in which you have a good idea of the lifetime and scope of all memory you will need. With a medium to large number of heap requests and a need for memory efficiency you cannot go wrong with the `list_segregated` allocator.
 
