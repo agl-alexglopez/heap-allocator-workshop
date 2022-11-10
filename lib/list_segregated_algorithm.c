@@ -125,7 +125,7 @@ static void splice_free_node(free_node *to_splice, size_t block_size) {
     if (fits.nil == to_splice->prev) {
         /* I'm not sure this optimization works or is worth it. For a table of TABLE_SIZE we could
          * do a linear search of lookup table to find node. Call stacks and variables might
-         * increase instruction counts making bit tricks worthless. Need to profile for inlining.
+         * increase instruction counts making bit tricks worthless. Need to profile.
          */
         fits.table[find_index(block_size)].start = to_splice->next;
         to_splice->next->prev = fits.nil;
