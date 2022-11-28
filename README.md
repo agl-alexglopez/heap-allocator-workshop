@@ -1,5 +1,9 @@
 # Red Black Tree Allocators
 
+![rb-tree-collage](/images/rb-tree-collage.png)
+
+*Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I visualized or interacted with them through the programs in this repository.*
+
 ## Navigation
 
 1. Home
@@ -49,10 +53,6 @@ I worked through five separate implementations of a Red-Black Tree heap allocato
 - **[`List Allocators`](/docs/list_segregated.md)**- If you would like to see the more basic allocators that inspired this project see the list based allocators. These also serve as a great point of comparison against the Red-Black tree allocators in the runtime analysis section of the repository.
 - **[`Runtime Analysis`](/docs/rbtree_analysis.md)**- See how the allocators stack up against one another in terms of performance. Explore the data of both artificial and real world tests to see if the different optimizations and design choices of these allocators create any costs or advantages.
 - **[`The Programs`](/docs/programs.md)**- Once you understand how the heap allocators operate, you can interact with them through three programs in this repository: `test_harness.c`, `time_harness.c`, and `print_peaks.c`. They will all give you information about how a heap allocator handles a script in terms of efficiency, speed, and algorithmic complexity. You can also explore how I parsed real world `ltrace` output or generated artificial scripts with the python code in this repository.
-
-![rb-tree-collage](/images/rb-tree-collage.png)
-
-*Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I visualized or interacted with them through the programs in this repository.*
 
 ## Background
 
