@@ -2,7 +2,7 @@
 
 ![rb-tree-collage](/images/rb-tree-collage.png)
 
-*Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I visualized or interacted with them through the programs in this repository.*
+*Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I interacted with them through the programs in this repository.*
 
 ## Navigation
 
