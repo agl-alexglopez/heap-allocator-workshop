@@ -141,3 +141,5 @@ fabric.properties
 # ignore exported compile commands.
 .cache/
 build/
+.gdb_history
+save
