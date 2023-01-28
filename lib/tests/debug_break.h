@@ -19,7 +19,7 @@ void dummy(int signum);
 #ifdef __APPLE__
 #define breakpoint() printf("Break. Line: %d File: %s",__LINE__,__FILE__);
 #else
-#define breakpoint()
+#define breakpoint()            \
     do {                        \
         signal(SIGTRAP, dummy); \
         __asm__("int3");        \
