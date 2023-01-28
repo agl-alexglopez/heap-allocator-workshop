@@ -14,16 +14,16 @@
 #include <signal.h>
 #include <stdio.h>
 
-void dummy(int signum) {
-    // only called if debugger hasn't installed own handler (ignore)
-    printf("Signal %d caught\n", signum);
-}
+void dummy(int signum);
 
-#define breakpoint()            \
-do {                            \
+#ifdef __APPLE__
+#define breakpoint() printf("Break. Line: %d File: %s",__LINE__,__FILE__);
+#else
+#define breakpoint()
+    do {                        \
         signal(SIGTRAP, dummy); \
         __asm__("int3");        \
-} while(0)
-
+    } while(0);
+#endif
 
 #endif
