@@ -1,3 +1,3 @@
 
-add_library(debug_break debug_break.h debug_break.c)
+add_library(debug_break INTERFACE debug_break.h)
 
