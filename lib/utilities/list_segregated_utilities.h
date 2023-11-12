@@ -14,7 +14,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-///////////////////////////// Type Definitions
+///////////////////////////// Type Definitions  ///////////////////////////////////////
 
 #define SIZE_MASK ~0x7UL
 #define STATUS_CHECK 0x4UL
@@ -76,7 +76,7 @@ typedef struct seg_node
     free_node *start;
 } seg_node;
 
-/////////////////////////////   Basic Block and Header Operations
+/////////////////////////////   Basic Block and Header Operations   ////////////////////////////
 
 /// @brief roundup         rounds up a size to the nearest multiple of two to be
 /// aligned in the heap.
