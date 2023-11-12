@@ -1,0 +1,17 @@
+---
+IndentWidth: 4
+ColumnLimit: 116
+SpacesInParentheses: true
+AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterDefinitionReturnType: None
+BreakBeforeBinaryOperators: All
+AllowShortBlocksOnASingleLine: Always
+BreakBeforeBraces: Custom
+AlignTrailingComments: Always
+BraceWrapping:
+  AfterControlStatement: Never
+  AfterFunction: true
+  AfterStruct: true
+  AfterEnum: true
+  SplitEmptyFunction: false
+...

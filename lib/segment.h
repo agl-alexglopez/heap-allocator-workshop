@@ -8,7 +8,6 @@
 #define _SEGMENT_H_
 #include <stddef.h> // for size_t
 
-
 /* Function: init_heap_segment
  * ---------------------------
  * This function is called to initialize the heap segment and allocate the
@@ -18,7 +17,7 @@
  * or NULL if the initialization failed. The base address of the heap segment
  * is always aligned to start on a page boundary (page size is 4096 bytes).
  */
-void *init_heap_segment(size_t total_size);
+void *init_heap_segment( size_t total_size );
 
 /* Functions: heap_segment_start, heap_segment_size
  * ------------------------------------------------
@@ -28,6 +27,5 @@ void *init_heap_segment(size_t total_size);
  */
 void *heap_segment_start();
 size_t heap_segment_size();
-
 
 #endif

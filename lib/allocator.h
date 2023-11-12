@@ -5,17 +5,15 @@
 #ifndef _ALLOCATOR_H
 #define _ALLOCATOR_H
 
+#include "print_utility.h"
 #include <stdbool.h>
-#include <stddef.h>  // for size_t
-#include "printers/print_utility.h"
-
+#include <stddef.h> // for size_t
 
 // Alignment requirement for all blocks
 #define ALIGNMENT 8
 
 // maximum size of block that must be accommodated
-#define MAX_REQUEST_SIZE (1 << 30)
-
+#define MAX_REQUEST_SIZE ( 1 << 30 )
 
 /* Function: myinit
  * ----------------
@@ -26,28 +24,25 @@
  * of test scripts, our test harness calls myinit before starting
  * each new script.
  */
-bool myinit(void *heap_start, size_t heap_size);
+bool myinit( void *heap_start, size_t heap_size );
 
 /* Function: mymalloc
  * ------------------
  * Custom version of malloc.
  */
-void *mymalloc(size_t requested_size);
-
+void *mymalloc( size_t requested_size );
 
 /* Function: myrealloc
  * -------------------
  * Custom version of realloc.
  */
-void *myrealloc(void *old_ptr, size_t new_size);
-
+void *myrealloc( void *old_ptr, size_t new_size );
 
 /* Function: myfree
  * ----------------
  * Custom version of free.
  */
-void myfree(void *ptr);
-
+void myfree( void *ptr );
 
 /* Function: validate_heap
  * -----------------------
@@ -60,18 +55,19 @@ bool validate_heap();
 
 /* Function: get_free_total
  * ------------------------
- * Simple function to get the size of whatever data structure the allocator is using to manage free
- * nodes in the heap. Garunteed to be an O(1) operation.
+ * Simple function to get the size of whatever data structure the allocator is
+ * using to manage free nodes in the heap. Garunteed to be an O(1) operation.
  */
 size_t get_free_total();
 
 /* Function: print_free_nodes
  * --------------------------
- * Prints a visual representation of the free nodes in the heap in the form of the data structure
- * being used to manage them. You can print the nodes in the PLAIN or VERBOSE style. Plain will
- * only show the sizes in bytes that the blocks store, while VERBOSE will show their addresses in
- * the heap and for the tree allocators, the black height of the tree as well.
+ * Prints a visual representation of the free nodes in the heap in the form of
+ * the data structure being used to manage them. You can print the nodes in the
+ * PLAIN or VERBOSE style. Plain will only show the sizes in bytes that the
+ * blocks store, while VERBOSE will show their addresses in the heap and for the
+ * tree allocators, the black height of the tree as well.
  */
-void print_free_nodes(print_style style);
+void print_free_nodes( print_style style );
 
 #endif

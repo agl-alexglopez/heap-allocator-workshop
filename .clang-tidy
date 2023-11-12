@@ -1,0 +1,7 @@
+WarningsAsErrors:
+   '*'
+
+CheckOptions:
+   hicpp-signed-bitwise.IgnorePositiveIntegerLiterals: 'true'
+   readability-identifier-naming.FunctionCase: 'lower_case'
+   readability-identifier-naming.VariableCase: 'lower_case'

@@ -15,39 +15,33 @@
  * scripts behind.
  */
 
-#include <getopt.h>
-#include <stdarg.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <string.h>
 #include "allocator.h"
 #include "script.h"
 #include "segment.h"
-
+#include <getopt.h>
+#include <stdarg.h>
+#include <stdbool.h>
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 /* TYPE DECLARATIONS */
-
 
 // Amount by which we resize ops when needed when reading in from file
 
 const long HEAP_SIZE = 1L << 32;
 
-
 /* FUNCTION PROTOTYPES */
 
-
-static int test_scripts(char *script_names[], int num_script_names, bool quiet);
-static size_t eval_correctness(script_t *script, bool quiet, bool *success);
-static void *eval_malloc(int req, size_t requested_size, script_t *script, bool *failptr);
-static void *eval_realloc(int req, size_t requested_size, script_t *script, bool *failptr);
-static bool verify_block(void *ptr, size_t size, script_t *script, int lineno);
-static bool verify_payload(void *ptr, size_t size, int id, script_t *script, int lineno, char *op);
-
+static int test_scripts( char *script_names[], int num_script_names, bool quiet );
+static size_t eval_correctness( script_t *script, bool quiet, bool *success );
+static void *eval_malloc( int req, size_t requested_size, script_t *script, bool *failptr );
+static void *eval_realloc( int req, size_t requested_size, script_t *script, bool *failptr );
+static bool verify_block( void *ptr, size_t size, script_t *script, int lineno );
+static bool verify_payload( void *ptr, size_t size, int id, script_t *script, int lineno, char *op );
 
 /* CORRECTNESS EVALUATION IMPLEMENTATION */
-
 
 /* Function: main
  * --------------
@@ -56,24 +50,25 @@ static bool verify_payload(void *ptr, size_t size, int id, script_t *script, int
  * script files.  It outputs statistics about the run of each script, such as
  * the number of successful runs, number of failures, and average utilization.
  */
-int main(int argc, char *argv[]) {
+int main( int argc, char *argv[] )
+{
     // Parse command line arguments
     char c;
     bool quiet = false;
-    while ((c = getopt(argc, argv, "q")) != EOF) {
-        if (c == 'q') {
+    while ( ( c = getopt( argc, argv, "q" ) ) != EOF ) {
+        if ( c == 'q' ) {
             quiet = true;
         }
     }
-    if (optind >= argc) {
-        printf("Missing argument. Please supply one or more script files.");
+    if ( optind >= argc ) {
+        printf( "Missing argument. Please supply one or more script files." );
         abort();
     }
 
     // disable stdout buffering, all printfs display to terminal immediately
-    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf( stdout, NULL, _IONBF, 0 );
 
-    return test_scripts(argv + optind, argc - optind, quiet);
+    return test_scripts( argv + optind, argc - optind, quiet );
 }
 
 /* Function: test_scripts
@@ -82,37 +77,38 @@ int main(int argc, char *argv[]) {
  * depending on the value of `quiet`.  Returns the number of failures during all
  * the tests.
  */
-static int test_scripts(char *script_names[], int num_script_names, bool quiet) {
+static int test_scripts( char *script_names[], int num_script_names, bool quiet )
+{
     int nsuccesses = 0;
     int nfailures = 0;
 
     // Utilization summed across all successful script runs (each is % out of 100)
     int total_util = 0;
 
-    for (int i = 0; i < num_script_names; i++) {
-        script_t script = parse_script(script_names[i]);
+    for ( int i = 0; i < num_script_names; i++ ) {
+        script_t script = parse_script( script_names[i] );
 
         // Evaluate this script and record the results
-        printf("\nEvaluating allocator on %s...", script.name);
+        printf( "\nEvaluating allocator on %s...", script.name );
         bool success;
-        size_t used_segment = eval_correctness(&script, quiet, &success);
-        if (success) {
-            printf("successfully serviced %d requests. (payload/segment = %zu/%zu)",
-                script.num_ops, script.peak_size, used_segment);
-            if (used_segment > 0) {
-                total_util += (100 * script.peak_size) / used_segment;
+        size_t used_segment = eval_correctness( &script, quiet, &success );
+        if ( success ) {
+            printf( "successfully serviced %d requests. (payload/segment = %zu/%zu)", script.num_ops,
+                    script.peak_size, used_segment );
+            if ( used_segment > 0 ) {
+                total_util += ( 100 * script.peak_size ) / used_segment;
             }
             nsuccesses++;
         } else {
             nfailures++;
         }
 
-        free(script.ops);
-        free(script.blocks);
+        free( script.ops );
+        free( script.blocks );
     }
 
-    if (nsuccesses) {
-        printf("\nUtilization averaged %d%%\n", total_util / nsuccesses);
+    if ( nsuccesses ) {
+        printf( "\nUtilization averaged %d%%\n", total_util / nsuccesses );
     }
     return nfailures;
 }
@@ -124,17 +120,18 @@ static int test_scripts(char *script_names[], int num_script_names, bool quiet) 
  * errors (returning blocks outside the heap, unaligned,
  * overlapping blocks, etc.)
  */
-static size_t eval_correctness(script_t *script, bool quiet, bool *success) {
+static size_t eval_correctness( script_t *script, bool quiet, bool *success )
+{
     *success = false;
 
-    init_heap_segment(HEAP_SIZE);
-    if (!myinit(heap_segment_start(), heap_segment_size())) {
-        allocator_error(script, 0, "myinit() returned false");
+    init_heap_segment( HEAP_SIZE );
+    if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
+        allocator_error( script, 0, "myinit() returned false" );
         return -1;
     }
 
-    if (!quiet && !validate_heap()) {
-        allocator_error(script, 0, "validate_heap() after myinit returned false");
+    if ( !quiet && !validate_heap() ) {
+        allocator_error( script, 0, "validate_heap() after myinit returned false" );
         return -1;
     }
 
@@ -145,63 +142,61 @@ static size_t eval_correctness(script_t *script, bool quiet, bool *success) {
     size_t cur_size = 0;
 
     // Send each request to the heap allocator and check the resulting behavior
-    for (int req = 0; req < script->num_ops; req++) {
+    for ( int req = 0; req < script->num_ops; req++ ) {
         int id = script->ops[req].id;
         size_t requested_size = script->ops[req].size;
 
-        if (script->ops[req].op == ALLOC) {
+        if ( script->ops[req].op == ALLOC ) {
             bool fail = false;
-            void *p = eval_malloc(req, requested_size, script, &fail);
-            if (fail) {
+            void *p = eval_malloc( req, requested_size, script, &fail );
+            if ( fail ) {
                 return -1;
             }
 
             cur_size += requested_size;
-            if ((char *)p + requested_size > (char *)heap_end) {
+            if ( (char *)p + requested_size > (char *)heap_end ) {
                 heap_end = (char *)p + requested_size;
             }
-        } else if (script->ops[req].op == REALLOC) {
+        } else if ( script->ops[req].op == REALLOC ) {
             size_t old_size = script->blocks[id].size;
             bool fail = false;
-            void *p = eval_realloc(req, requested_size, script, &fail);
-            if (fail) {
+            void *p = eval_realloc( req, requested_size, script, &fail );
+            if ( fail ) {
                 return -1;
             }
 
-            cur_size += (requested_size - old_size);
-            if ((char *)p + requested_size > (char *)heap_end) {
+            cur_size += ( requested_size - old_size );
+            if ( (char *)p + requested_size > (char *)heap_end ) {
                 heap_end = (char *)p + requested_size;
             }
-        } else if (script->ops[req].op == FREE) {
+        } else if ( script->ops[req].op == FREE ) {
             size_t old_size = script->blocks[id].size;
             void *p = script->blocks[id].ptr;
 
             // verify payload intact before free
-            if (!verify_payload(p, old_size, id, script,
-                script->ops[req].lineno, "freeing")) {
+            if ( !verify_payload( p, old_size, id, script, script->ops[req].lineno, "freeing" ) ) {
                 return -1;
             }
-            script->blocks[id] = (block_t){.ptr = NULL, .size = 0};
-            myfree(p);
+            script->blocks[id] = ( block_t ){ .ptr = NULL, .size = 0 };
+            myfree( p );
             cur_size -= old_size;
         }
 
         // check heap consistency after each request and stop if any error
-        if (!quiet && !validate_heap()) {
-            allocator_error(script, script->ops[req].lineno,
-                "validate_heap() returned false, called in-between requests");
+        if ( !quiet && !validate_heap() ) {
+            allocator_error( script, script->ops[req].lineno,
+                             "validate_heap() returned false, called in-between requests" );
             return -1;
         }
 
-        if (cur_size > script->peak_size) {
+        if ( cur_size > script->peak_size ) {
             script->peak_size = cur_size;
         }
     }
 
     // verify payload is still intact for any block still allocated
-    for (int id = 0; id < script->num_ids; id++) {
-        if (!verify_payload(script->blocks[id].ptr, script->blocks[id].size,
-            id, script, -1, "at exit")) {
+    for ( int id = 0; id < script->num_ids; id++ ) {
+        if ( !verify_payload( script->blocks[id].ptr, script->blocks[id].size, id, script, -1, "at exit" ) ) {
             return -1;
         }
     }
@@ -220,14 +215,14 @@ static size_t eval_correctness(script_t *script, bool quiet, bool *success) {
  * true this function returns NULL; otherwise, it returns what was returned
  * by mymalloc.
  */
-static void *eval_malloc(int req, size_t requested_size, script_t *script, bool *failptr) {
+static void *eval_malloc( int req, size_t requested_size, script_t *script, bool *failptr )
+{
 
     int id = script->ops[req].id;
 
     void *p;
-    if ((p = mymalloc(requested_size)) == NULL && requested_size != 0) {
-        allocator_error(script, script->ops[req].lineno,
-            "heap exhausted, malloc returned NULL");
+    if ( ( p = mymalloc( requested_size ) ) == NULL && requested_size != 0 ) {
+        allocator_error( script, script->ops[req].lineno, "heap exhausted, malloc returned NULL" );
         *failptr = true;
         return NULL;
     }
@@ -235,7 +230,7 @@ static void *eval_malloc(int req, size_t requested_size, script_t *script, bool 
     /* Test new block for correctness: must be properly aligned
      * and must not overlap any currently allocated block.
      */
-    if (!verify_block(p, requested_size, script, script->ops[req].lineno)) {
+    if ( !verify_block( p, requested_size, script, script->ops[req].lineno ) ) {
         *failptr = true;
         return NULL;
     }
@@ -243,8 +238,8 @@ static void *eval_malloc(int req, size_t requested_size, script_t *script, bool 
     /* Fill new block with the low-order byte of new id
      * can be used later to verify data copied when realloc'ing.
      */
-    memset(p, id & 0xFF, requested_size);
-    script->blocks[id] = (block_t){.ptr = p, .size = requested_size};
+    memset( p, id & 0xFF, requested_size );
+    script->blocks[id] = ( block_t ){ .ptr = p, .size = requested_size };
     *failptr = false;
     return p;
 }
@@ -259,47 +254,45 @@ static void *eval_malloc(int req, size_t requested_size, script_t *script, bool 
  * this function returns NULL; otherwise, it returns what was returned by
  * myrealloc.
  */
-static void *eval_realloc(int req, size_t requested_size, script_t *script, bool *failptr) {
+static void *eval_realloc( int req, size_t requested_size, script_t *script, bool *failptr )
+{
 
     int id = script->ops[req].id;
     size_t old_size = script->blocks[id].size;
 
     void *oldp = script->blocks[id].ptr;
-    if (!verify_payload(oldp, old_size, id, script,
-        script->ops[req].lineno, "pre-realloc-ing")) {
+    if ( !verify_payload( oldp, old_size, id, script, script->ops[req].lineno, "pre-realloc-ing" ) ) {
         *failptr = true;
         return NULL;
     }
 
     void *newp;
-    if ((newp = myrealloc(oldp, requested_size)) == NULL && requested_size != 0) {
-        allocator_error(script, script->ops[req].lineno,
-            "heap exhausted, realloc returned NULL");
+    if ( ( newp = myrealloc( oldp, requested_size ) ) == NULL && requested_size != 0 ) {
+        allocator_error( script, script->ops[req].lineno, "heap exhausted, realloc returned NULL" );
         *failptr = true;
         return NULL;
     }
 
     script->blocks[id].size = 0;
-    if (!verify_block(newp, requested_size, script, script->ops[req].lineno)) {
+    if ( !verify_block( newp, requested_size, script, script->ops[req].lineno ) ) {
         *failptr = true;
         return NULL;
     }
 
     // Verify new block contains the data from the old block
-    if (!verify_payload(newp, (old_size < requested_size ? old_size : requested_size),
-        id, script, script->ops[req].lineno, "post-realloc-ing (preserving data)")) {
+    if ( !verify_payload( newp, ( old_size < requested_size ? old_size : requested_size ), id, script,
+                          script->ops[req].lineno, "post-realloc-ing (preserving data)" ) ) {
         *failptr = true;
         return NULL;
     }
 
     // Fill new block with the low-order byte of new id
-    memset(newp, id & 0xFF, requested_size);
-    script->blocks[id] = (block_t){.ptr = newp, .size = requested_size};
+    memset( newp, id & 0xFF, requested_size );
+    script->blocks[id] = ( block_t ){ .ptr = newp, .size = requested_size };
 
     *failptr = false;
     return newp;
 }
-
 
 /* Function: verify_block
  * ----------------------
@@ -310,39 +303,39 @@ static void *eval_realloc(int req, size_t requested_size, script_t *script, bool
  *  -- verify block address is within heap segment
  *  -- verify block address + size doesn't overlap any existing allocated block
  */
-static bool verify_block(void *ptr, size_t size, script_t *script, int lineno) {
+static bool verify_block( void *ptr, size_t size, script_t *script, int lineno )
+{
     // address must be ALIGNMENT-byte aligned
-    if (((uintptr_t)ptr) % ALIGNMENT != 0) {
-        allocator_error(script, lineno, "New block (%p) not aligned to %d bytes",
-                        ptr, ALIGNMENT);
+    if ( ( (uintptr_t)ptr ) % ALIGNMENT != 0 ) {
+        allocator_error( script, lineno, "New block (%p) not aligned to %d bytes", ptr, ALIGNMENT );
         return false;
     }
 
-    if (ptr == NULL && size == 0) {
+    if ( ptr == NULL && size == 0 ) {
         return true;
     }
 
     // block must lie within the extent of the heap
     void *end = (char *)ptr + size;
     void *heap_end = (char *)heap_segment_start() + heap_segment_size();
-    if (ptr < heap_segment_start() || end > heap_end) {
-        allocator_error(script, lineno, "New block (%p:%p) not within heap segment (%p:%p)",
-                        ptr, end, heap_segment_start(), heap_end);
+    if ( ptr < heap_segment_start() || end > heap_end ) {
+        allocator_error( script, lineno, "New block (%p:%p) not within heap segment (%p:%p)", ptr, end,
+                         heap_segment_start(), heap_end );
         return false;
     }
 
     // block must not overlap any other blocks
-    for (int i = 0; i < script->num_ids; i++) {
-        if (script->blocks[i].ptr == NULL || script->blocks[i].size == 0) {
+    for ( int i = 0; i < script->num_ids; i++ ) {
+        if ( script->blocks[i].ptr == NULL || script->blocks[i].size == 0 ) {
             continue;
         }
 
         void *other_start = script->blocks[i].ptr;
         void *other_end = (char *)other_start + script->blocks[i].size;
-        if ((ptr >= other_start && ptr < other_end) || (end > other_start && end < other_end) ||
-            (ptr < other_start && end >= other_end)) {
-            allocator_error(script, lineno, "New block (%p:%p) overlaps existing block (%p:%p)",
-                            ptr, end, other_start, other_end);
+        if ( ( ptr >= other_start && ptr < other_end ) || ( end > other_start && end < other_end )
+             || ( ptr < other_start && end >= other_end ) ) {
+            allocator_error( script, lineno, "New block (%p:%p) overlaps existing block (%p:%p)", ptr, end,
+                             other_start, other_end );
             return false;
         }
     }
@@ -356,16 +349,14 @@ static bool verify_block(void *ptr, size_t size, script_t *script, int lineno) {
  * pattern based on its id.  Check the payload to verify those contents are
  * still intact, otherwise raise allocator error.
  */
-static bool verify_payload(void *ptr, size_t size, int id, script_t *script,
-    int lineno, char *op) {
+static bool verify_payload( void *ptr, size_t size, int id, script_t *script, int lineno, char *op )
+{
 
-    for (size_t i = 0; i < size; i++) {
-        if (*((unsigned char *)ptr + i) != (id & 0xFF)) {
-            allocator_error(script, lineno,
-                "invalid payload data detected when %s address %p", op, ptr);
+    for ( size_t i = 0; i < size; i++ ) {
+        if ( *( (unsigned char *)ptr + i ) != ( id & 0xFF ) ) {
+            allocator_error( script, lineno, "invalid payload data detected when %s address %p", op, ptr );
             return false;
         }
     }
     return true;
 }
-

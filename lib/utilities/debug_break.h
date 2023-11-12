@@ -16,15 +16,15 @@
 
 // void dummy(int signum);
 
-//#ifdef __APPLE__
-#define breakpoint() printf("Break. Line: %d File: %s",__LINE__,__FILE__);
-//#else
+// #ifdef __APPLE__
+#define breakpoint() printf( "Break. Line: %d File: %s", __LINE__, __FILE__ );
+// #else
 
-//#define breakpoint()
-//    do {
-//        signal(SIGTRAP, dummy);
-//        __asm__("int3");
-//    } while(0);
-//#endif
+// #define breakpoint()
+//     do {
+//         signal(SIGTRAP, dummy);
+//         __asm__("int3");
+//     } while(0);
+// #endif
 
 #endif
