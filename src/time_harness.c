@@ -1,22 +1,17 @@
-/**
- * Author: Alexander G. Lopez
- *
- * Files: time_harness.c
- * ---------------------
- * Reads and interprets text-based script files containing a sequence of
- * allocator requests. Runs the allocator on a script and times the requested
- * sequence of requests from that script. Times user requested sequences of lines in the
- * script if requested.
- *
- * When you compile using `make`, it will create different
- * compiled versions of this program, one using each type of
- * heap allocator.
- *
- * Most safety measures deleted for speed. Helps view the runtime efficiency in the correct
- * time complexity without O(N) measures clouding accurate timing between calls. Do not use this
- * unless you know your allocator is correct. Please see test_harness.c if you want to see an
- * allocator handler more focussed on correctness.
- */
+/// Author: Alexander G. Lopez
+/// Files: time_harness.c
+/// ---------------------
+/// Reads and interprets text-based script files containing a sequence of
+/// allocator requests. Runs the allocator on a script and times the requested
+/// sequence of requests from that script. Times user requested sequences of lines in the
+/// script if requested.
+/// When you compile using `make`, it will create different
+/// compiled versions of this program, one using each type of
+/// heap allocator.
+/// Most safety measures deleted for speed. Helps view the runtime efficiency in the correct
+/// time complexity without O(N) measures clouding accurate timing between calls. Do not use this
+/// unless you know your allocator is correct. Please see test_harness.c if you want to see an
+/// allocator handler more focussed on correctness.
 
 #include "allocator.h"
 #include "print_utility.h"
@@ -32,7 +27,7 @@
 #include <string.h>
 #include <time.h>
 
-/* TYPE DECLARATIONS */
+/// TYPE DECLARATION
 
 typedef unsigned char byte_t;
 // Create targeted scripts with intervals you want to time, no point in too many requests.
@@ -54,26 +49,23 @@ typedef struct
 
 const long HEAP_SIZE = 1L << 32;
 
-/* FUNCTION PROTOTYPES */
+/// FUNCTION PROTOTYPE
 
 static int time_script( char *script_name, interval_reqs *user_requests );
 static size_t time_allocator( script_t *script, interval_reqs *user_requests, gnuplots *graphs );
 static void report_interval_averages( interval_reqs *user_requests );
 static void validate_intervals( script_t *script, interval_reqs *user_requests );
 
-/* TIME EVALUATION IMPLEMENTATION */
+/// TIME EVALUATION IMPLEMENTATIO
 
-/* @brief main  parses command line arguments that request a range of lines to be timed for
- *              performance. Arguments may take the following form:
- *
- *              ../bin/time_rbtree_clrs -s 10001 -e 15000 -s 15001 scripts/time-insertdelete-5k.script
- *
- * @arg -s      the flag to start the timer on a certain line number. May be followed by -e flag.
- *              If no -e flag follows, the program will time the remainder of lines to execute.
- * @arg -e      the flag to end the timer on a certain line number. Invalid if not preceeded by -s.
- * @warning     time intervals may not overlap and with no arguments the entire program execution
- *              will be timed.
- */
+/// @brief main  parses command line arguments that request a range of lines to be timed for
+///              performance. Arguments may take the following form:
+///              ../bin/time_rbtree_clrs -s 10001 -e 15000 -s 15001 scripts/time-insertdelete-5k.script
+/// @arg -s      the flag to start the timer on a certain line number. May be followed by -e flag.
+///              If no -e flag follows, the program will time the remainder of lines to execute.
+/// @arg -e      the flag to end the timer on a certain line number. Invalid if not preceeded by -s.
+/// @warning     time intervals may not overlap and with no arguments the entire program execution
+///              will be timed.
 int main( int argc, char *argv[] )
 {
     interval_reqs user_req = { 0 };
@@ -116,11 +108,10 @@ int main( int argc, char *argv[] )
     return time_script( argv[optind], &user_req );
 }
 
-/* @brief time_script     completes a series of 1 or more time requests for a script file and
- *                        outputs the times for the lines and overall utilization.
- * @param *script_name    the script we are tasked with timing.
- * @param *user_requests  the struct containing user requests for timings and how many.
- */
+/// @brief time_script     completes a series of 1 or more time requests for a script file and
+///                        outputs the times for the lines and overall utilization.
+/// @param *script_name    the script we are tasked with timing.
+/// @param *user_requests  the struct containing user requests for timings and how many.
 static int time_script( char *script_name, interval_reqs *user_requests )
 {
     script_t script = parse_script( script_name );
@@ -154,12 +145,11 @@ static int time_script( char *script_name, interval_reqs *user_requests )
     return 0;
 }
 
-/* @brief time_allocator  times all requested interval line numbers from the script file.
- * @param *script         the script_t with all info for the script file to execute.
- * @param *user_requests  the struct containing user requested intervals and how many.
- * @param *graphs         the struct containing arrays we will fill with execution info to plot.
- * @return                the size of the heap overall.
- */
+/// @brief time_allocator  times all requested interval line numbers from the script file.
+/// @param *script         the script_t with all info for the script file to execute.
+/// @param *user_requests  the struct containing user requested intervals and how many.
+/// @param *graphs         the struct containing arrays we will fill with execution info to plot.
+/// @return                the size of the heap overall.
 static size_t time_allocator( script_t *script, interval_reqs *user_requests, gnuplots *graphs )
 {
     init_heap_segment( HEAP_SIZE );
@@ -210,10 +200,9 @@ static size_t time_allocator( script_t *script, interval_reqs *user_requests, gn
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }
 
-/* @brief report_interval_averages  prints the average time per request for a user requested
- *                                  interval of line numbers.
- * @param *user_requests            a pointer to the struct containing user interval information.
- */
+/// @brief report_interval_averages  prints the average time per request for a user requested
+///                                  interval of line numbers.
+/// @param *user_requests            a pointer to the struct containing user interval information.
 static void report_interval_averages( interval_reqs *user_requests )
 {
     for ( int i = 0; i < user_requests->num_intervals; i++ ) {
@@ -223,12 +212,11 @@ static void report_interval_averages( interval_reqs *user_requests )
     }
 }
 
-/* @brief validate_intervals  checks the array of line intervals the user wants timed for validity.
- *                            Valid intervals do not overlap and start within the file line range.
- * @param *script             the script_t passed in with information about the file we parsed.
- * @param intervals[]         the array of lines to time for the user. Check all O(N).
- * @param num_intervals       lenghth of the lines to time array.
- */
+/// @brief validate_intervals  checks the array of line intervals the user wants timed for validity.
+///                            Valid intervals do not overlap and start within the file line range.
+/// @param *script             the script_t passed in with information about the file we parsed.
+/// @param intervals[]         the array of lines to time for the user. Check all O(N).
+/// @param num_intervals       lenghth of the lines to time array.
 static void validate_intervals( script_t *script, interval_reqs *user_requests )
 {
     // We can tidy up lazy user input by making sure the end of the time interval makes sense.

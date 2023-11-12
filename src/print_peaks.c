@@ -1,19 +1,16 @@
-/* Author: Alex G Lopez
- *
- * File: print_peaks.c
- * -------------------------
- * This program prints information regarding the peak size of the free node data structure used by
- * a custom heap allocator implementation. For example, if a heap allocator uses a list to manage
- * free nodes, it will print a visual representation of a list representing the greatest size the
- * free list acheived over the course of heap execution on a dedicated script file. This will also
- * print the tree structure of my red black tree heap allocator at its greatest size over the
- * course of its lifetime.
- *
- * This program will also act as a mini version of gdb allowing you to place breakpoints in the
- * execution of desired script file, printing the state of the free node data structure at that
- * time. This is done in order to show how I was working with my printing functions to help me
- * debug while in gdb.
- */
+/// Author: Alex G Lopez
+/// File: print_peaks.c
+/// -------------------------
+/// This program prints information regarding the peak size of the free node data structure used by
+/// a custom heap allocator implementation. For example, if a heap allocator uses a list to manage
+/// free nodes, it will print a visual representation of a list representing the greatest size the
+/// free list acheived over the course of heap execution on a dedicated script file. This will also
+/// print the tree structure of my red black tree heap allocator at its greatest size over the
+/// course of its lifetime.
+/// This program will also act as a mini version of gdb allowing you to place breakpoints in the
+/// execution of desired script file, printing the state of the free node data structure at that
+/// time. This is done in order to show how I was working with my printing functions to help me
+/// debug while in gdb.
 #include "allocator.h"
 #include "print_utility.h"
 #include "script.h"
@@ -25,7 +22,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* TYPE DECLARATIONS */
+/// TYPE DECLARATION
 
 // Pick line numbers in the script to make breakpoints. Execution will stop and print there.
 typedef int breakpoint;
@@ -41,7 +38,7 @@ typedef struct
     int num_breakpoints;
 } user_breaks;
 
-/* FUNCTION PROTOTYPES */
+/// FUNCTION PROTOTYPE
 
 int print_peaks( char *script_name, user_breaks *user_reqs );
 static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplots *graphs );
@@ -52,26 +49,21 @@ static void binsert( const void *key, void *base, int *p_nelem, size_t width,
                      int ( *compar )( const void *, const void * ) );
 static int cmp_breakpoints( const void *a, const void *b );
 
-/* @brief main  this program will illustrate the peak heap size of free nodes in an allocator. It
- *              can also create breakpoints in the script file and illustrate the state of free
- *              nodes after the requested line has executed. Finally you may print in VERBOSE mode
- *              with the -v flag. This will illustrate more detailed information regarding the
- *              heap including memory addresses and black heights of the tree if the allocator uses
- *              a red black tree.
- *
- *                  - print the peak number of free nodes managed by an allocator.
- *                  .././bin/print_peaks_rbtree_clrs ../scripts/pattern-mixed.script
- *
- *                  - print the peak number of free nodes managed by an allocator, verbose.
- *                  .././bin/print_peaks_rbtree_clrs -v ../scripts/pattern-mixed.script
- *
- *                  - include breakpoints on script line numbers and examine each.
- *                  .././bin/print_peaks_rbtree_clrs -v -b 10 -b 200../scripts/pattern-mixed.script
- *
- * @arg -v    verbose print. Includes memory addresses and black height of the tree.
- * @arg -b    break on line number of a script and print the state of the free nodes. Breakpoints
- *            can be entered in any order.
- */
+/// @brief main  this program will illustrate the peak heap size of free nodes in an allocator. It
+///              can also create breakpoints in the script file and illustrate the state of free
+///              nodes after the requested line has executed. Finally you may print in VERBOSE mode
+///              with the -v flag. This will illustrate more detailed information regarding the
+///              heap including memory addresses and black heights of the tree if the allocator uses
+///              a red black tree.
+///                  - print the peak number of free nodes managed by an allocator.
+///                  .././bin/print_peaks_rbtree_clrs ../scripts/pattern-mixed.script
+///                  - print the peak number of free nodes managed by an allocator, verbose.
+///                  .././bin/print_peaks_rbtree_clrs -v ../scripts/pattern-mixed.script
+///                  - include breakpoints on script line numbers and examine each.
+///                  .././bin/print_peaks_rbtree_clrs -v -b 10 -b 200../scripts/pattern-mixed.script
+/// @arg -v    verbose print. Includes memory addresses and black height of the tree.
+/// @arg -b    break on line number of a script and print the state of the free nodes. Breakpoints
+///            can be entered in any order.
 int main( int argc, char *argv[] )
 {
     user_breaks user_reqs = { .style = PLAIN, .breakpoints = { 0 }, .num_breakpoints = 0 };
@@ -98,13 +90,12 @@ int main( int argc, char *argv[] )
     return print_peaks( argv[optind], &user_reqs );
 }
 
-/* @brief print_peaks      prints the peak number of free nodes present in a heap allocator during
- *                         execution of a script. Prints the state of free nodes breakpoints
- *                         requested by the user as well.
- * @param script_name      the pointer to the script name we will execute.
- * @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
- * @return                 0 upon successful execution 1 upon error.
- */
+/// @brief print_peaks      prints the peak number of free nodes present in a heap allocator during
+///                         execution of a script. Prints the state of free nodes breakpoints
+///                         requested by the user as well.
+/// @param script_name      the pointer to the script name we will execute.
+/// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
+/// @return                 0 upon successful execution 1 upon error.
 int print_peaks( char *script_name, user_breaks *user_reqs )
 {
     script_t script = parse_script( script_name );
@@ -136,13 +127,12 @@ int print_peaks( char *script_name, user_breaks *user_reqs )
     return 0;
 }
 
-/* @brief print_allocator  runs an allocator twice, gathering the peak number of free nodes and
- *                         printint any breakpoints the user requests from the script. The second
- *                         execution will print the peak size of the free nodes.
- * @param *script          the script_t with all info for the script file to execute.
- * @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
- * @return                 the size of the heap overall as helpful utilization info.
- */
+/// @brief print_allocator  runs an allocator twice, gathering the peak number of free nodes and
+///                         printint any breakpoints the user requests from the script. The second
+///                         execution will print the peak size of the free nodes.
+/// @param *script          the script_t with all info for the script file to execute.
+/// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
+/// @return                 the size of the heap overall as helpful utilization info.
 static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplots *graphs )
 {
     init_heap_segment( HEAP_SIZE );
@@ -191,10 +181,9 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
         }
     }
 
-    /* We could track a persistent dynamic set of the free data structure but that would be slow
-     * and I don't want to expose heap internals to this program or make copies of the nodes. Just
-     * run it twice and use the allocator's provided printer function to find max nodes.
-     */
+    /// We could track a persistent dynamic set of the free data structure but that would be slow
+    /// and I don't want to expose heap internals to this program or make copies of the nodes. Just
+    /// run it twice and use the allocator's provided printer function to find max nodes.
 
     init_heap_segment( HEAP_SIZE );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
@@ -222,13 +211,12 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }
 
-/* @brief handle_user_breakpoints  interacts with user regarding breakpoints they have requested.
- *                                 and will step with the user through requests and print nodes.
- *                                 The user may continue to next breakpoint, add another
- *                                 breakpoint, or skip remaining.
- * @param *user_reqs               pointer to the struct with user style, and possible breaks.
- * @param max                      the upper limit of user input and script range.
- */
+/// @brief handle_user_breakpoints  interacts with user regarding breakpoints they have requested.
+///                                 and will step with the user through requests and print nodes.
+///                                 The user may continue to next breakpoint, add another
+///                                 breakpoint, or skip remaining.
+/// @param *user_reqs               pointer to the struct with user style, and possible breaks.
+/// @param max                      the upper limit of user input and script range.
 static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int max )
 {
     int min = user_reqs->breakpoints[curr_break] + 1;
@@ -279,11 +267,10 @@ static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int
     }
 }
 
-/* @breif get_user_int  retreives an int from the user if they wish to add another breakpoint.
- * @param min           the lower range allowable for the int.
- * @param max           the upper range for the int.
- * @return              the valid integer entered by the user.
- */
+/// @breif get_user_int  retreives an int from the user if they wish to add another breakpoint.
+/// @param min           the lower range allowable for the int.
+/// @param max           the upper range for the int.
+/// @return              the valid integer entered by the user.
 static int get_user_int( int min, int max )
 {
     char *buff = malloc( sizeof( char ) * 9 );
@@ -321,10 +308,9 @@ static int get_user_int( int min, int max )
     return input_int;
 }
 
-/* @brief validate_breakpoints  checks any requested breakpoints to make sure they are in range.
- * @param script                the parsed script with information we need to verify ranges.
- * @param *user_reqs            struct containing user print style, and possible breaks.
- */
+/// @brief validate_breakpoints  checks any requested breakpoints to make sure they are in range.
+/// @param script                the parsed script with information we need to verify ranges.
+/// @param *user_reqs            struct containing user print style, and possible breaks.
 static void validate_breakpoints( script_t *script, user_breaks *user_reqs )
 {
     // It's easier if the breakpoints are in order and can run along with our script execution.
@@ -339,16 +325,15 @@ static void validate_breakpoints( script_t *script, user_breaks *user_reqs )
     }
 }
 
-/* @brief *binsert  performs binary insertion sort on an array, finding an element if it already
- *                  present or inserting it in sorted place if it not yet present. It will update
- *                  the size of the array if it inserts an element.
- * @param *key      the element we are searching for in the array.
- * @param *p_nelem  the number of elements present in the array.
- * @param width     the size in bytes of each entry in the array.
- * @param *compar   the comparison function used to determine if an element matches our key.
- * @warning         this function will update the array size as an output parameter and assumes the
- *                  user has provided enough space for one additional element in the array.
- */
+/// @brief *binsert  performs binary insertion sort on an array, finding an element if it already
+///                  present or inserting it in sorted place if it not yet present. It will update
+///                  the size of the array if it inserts an element.
+/// @param *key      the element we are searching for in the array.
+/// @param *p_nelem  the number of elements present in the array.
+/// @param width     the size in bytes of each entry in the array.
+/// @param *compar   the comparison function used to determine if an element matches our key.
+/// @warning         this function will update the array size as an output parameter and assumes the
+///                  user has provided enough space for one additional element in the array.
 static void binsert( const void *key, void *base, int *p_nelem, size_t width,
                      int ( *compar )( const void *, const void * ) )
 {
@@ -374,8 +359,7 @@ static void binsert( const void *key, void *base, int *p_nelem, size_t width,
     ++*p_nelem;
 }
 
-/* @brief cmp_breakpoints  the compare function for our breakpoint line numbers for qsort.
- * @param a,b              breakpoints to compare.
- * @return                 >0 if a is larger than b, <0 if b is larger than a, =0 if same.
- */
+/// @brief cmp_breakpoints  the compare function for our breakpoint line numbers for qsort.
+/// @param a,b              breakpoints to compare.
+/// @return                 >0 if a is larger than b, <0 if b is larger than a, =0 if same.
 static int cmp_breakpoints( const void *a, const void *b ) { return ( *(breakpoint *)a ) - ( *(breakpoint *)b ); }

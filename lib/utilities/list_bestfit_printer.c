@@ -1,21 +1,16 @@
-/**
- * File: list_bestfit_printer.c
- * ----------------------------
- * This file contains my implementation of the list printing functions. These
- * are helpful to view the status of the heap and pair well with gdb. One of
- * these functions is used to show the free nodes in the print_peaks.c program.
- */
+/// File: list_bestfit_printer.c
+/// ----------------------------
+/// This file contains my implementation of the list printing functions. These
+/// are helpful to view the status of the heap and pair well with gdb. One of
+/// these functions is used to show the free nodes in the print_peaks.c program.
 #include "list_bestfit_utilities.h"
 #include <limits.h>
 #include <stdio.h>
 
-/* * * * * * * * * * * * * *         Printing Functions            * * * * * * *
- * * * * * * * * * */
+/////////////////////////////        Printing Functions            //////////////////////////////////
 
-/* @brief print_alloc_block  prints the contents of an allocated block of
- * memory.
- * @param *cur_header        a valid header to a block of allocated memory.
- */
+/// @brief print_alloc_block  prints the contents of an allocated block of memory.
+/// @param *cur_header        a valid header to a block of allocated memory.
 static void print_alloc_block( header *cur_header )
 {
     size_t block_size = get_size( *cur_header ) - HEADERSIZE;
@@ -26,9 +21,8 @@ static void print_alloc_block( header *cur_header )
     printf( COLOR_NIL );
 }
 
-/* @brief print_free_block  prints the contents of a free block of heap memory.
- * @param *cur_header       a valid header to a block of allocated memory.
- */
+/// @brief print_free_block  prints the contents of a free block of heap memory.
+/// @param *cur_header       a valid header to a block of allocated memory.
 static void print_free_block( header *cur_header )
 {
     size_t full_size = get_size( *cur_header );
@@ -46,14 +40,12 @@ static void print_free_block( header *cur_header )
     printf( COLOR_NIL );
 }
 
-/* @brief print_bad_jump  If we overwrite data in a header, this print statement
- * will help us notice where we went wrong and what the addresses were.
- * @param *current        the current node that is likely garbage values that
- * don't make sense.
- * @param *prev           the previous node that we jumped from.
- * @param *head           the free_node head of the linked list.
- * @param *tail           the free_node tail of the linked list.
- */
+/// @brief print_bad_jump  If we overwrite data in a header, this print statement will help us
+///                        notice where we went wrong and what the addresses were.
+/// @param *current        the current node that is likely garbage values that don't make sense.
+/// @param *prev           the previous node that we jumped from.
+/// @param *head           the free_node head of the linked list.
+/// @param *tail           the free_node tail of the linked list.
 static void print_bad_jump( header *current, header *prev, free_node *head, free_node *tail )
 {
     size_t prev_size = get_size( *prev );
@@ -75,11 +67,10 @@ static void print_bad_jump( header *current, header *prev, free_node *head, free
     print_linked_free( VERBOSE, head, tail );
 }
 
-/* @brief print_linked_free  prints the doubly linked free list in order to
- * check if splicing and adding is progressing correctly.
- * @param *head              the free_node head of the linked list.
- * @param *tail              the free_node tail of the linked list.
- */
+/// @brief print_linked_free  prints the doubly linked free list in order to check if splicing
+///                           and adding is progressing correctly.
+/// @param *head              the free_node head of the linked list.
+/// @param *tail              the free_node tail of the linked list.
 void print_linked_free( print_style style, free_node *head, free_node *tail )
 {
     printf( COLOR_RED );
@@ -109,15 +100,14 @@ void print_linked_free( print_style style, free_node *head, free_node *tail )
     printf( COLOR_NIL );
 }
 
-/* @brief print_all    prints our the complete status of the heap, all of its
- * blocks, and the sizes the blocks occupy. Printing should be clean with no
- * overlap of unique id's between heap blocks or corrupted headers.
- * @param client_start the starting address of the heap segment.
- * @param client_end   the final address of the heap segment.
- * @param client_size  the size in bytes of the heap.
- * @param *head        the first node of the doubly linked list of nodes.
- * @param *tail        the last node of the doubly linked list of nodes.
- */
+/// @brief print_all    prints our the complete status of the heap, all of its blocks,
+///                     and the sizes the blocks occupy. Printing should be clean with no
+///                     overlap of unique id's between heap blocks or corrupted headers.
+/// @param client_start the starting address of the heap segment.
+/// @param client_end   the final address of the heap segment.
+/// @param client_size  the size in bytes of the heap.
+/// @param *head        the first node of the doubly linked list of nodes.
+/// @param *tail        the last node of the doubly linked list of nodes.
 void print_all( void *client_start, void *client_end, size_t client_size, free_node *head, free_node *tail )
 {
     header *cur_header = client_start;
@@ -125,7 +115,6 @@ void print_all( void *client_start, void *client_end, size_t client_size, free_n
             "currently used.\n",
             cur_header, client_end, client_size );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n\n" );
-
     printf( "%p: FIRST ADDRESS\n", head );
     printf( "%p: NULL<-DUMMY HEAD NODE->%p\n", head, head->next );
     printf( "%p: START OF HEAP. HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", client_start );
@@ -150,7 +139,6 @@ void print_all( void *client_start, void *client_end, size_t client_size, free_n
     printf( "%p: %p<-DUMMY TAIL NODE->NULL\n", tail, tail->prev );
     printf( "%p: LAST ADDRESS\n", (byte *)tail + FREE_NODE_WIDTH );
     printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
-
     printf( "\nDOUBLY LINKED LIST OF FREE NODES AND BLOCK SIZES.\n" );
     printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );
     print_linked_free( VERBOSE, head, tail );

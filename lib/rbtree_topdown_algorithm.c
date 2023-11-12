@@ -1,57 +1,50 @@
-/**
- * Author: Alexander Griffin Lopez
- *
- * File: rbtree_topdown.c
- * ---------------------
- *  This file contains my implementation of an explicit heap allocator. This allocator uses a tree
- *  implementation to track the free space in the heap, relying on the properties of a red-black
- *  tree to remain balanced. This implementation also uses some interesting strategies to unify
- *  left and right cases for a red black tree and maintains a doubly linked list of duplicate nodes
- *  of the same size if a node in the tree has repeats of its size. We do not use a parent field,
- *  instead opting to form a stack of nodes and pass that stack to the necessary functions. We also
- *  use a topdown approach to insertion and deletion meaning we fix the tree on the way down, not
- *  up.
- *
- *  Citations:
- *  -------------------
- *  1. Bryant and O'Hallaron, Computer Systems: A Programmer's Perspective, Chapter 9.
- *     I used the explicit free list outline from the textbook, specifically
- *     regarding how to implement left and right coalescing. I even used their suggested
- *     optimization of an extra control bit so that the footers to the left can be overwritten
- *     if the block is allocated so the user can have more space.
- *
- *  2. The text Introduction to Algorithms, by Cormen, Leiserson, Rivest, and Stein was central to
- *     my implementation of the red black tree portion of my allocator. Specifically, I took the
- *     the implementation from chapter 13. The placeholder black null node that always sits at the
- *     bottom of the tree proved useful for the tree and the linked list of duplicate memory block
- *     sizes.
- *
- *  3. I used Julienne Walker's implementation of top down insertion and deletion into a red black
- *     tree to guide my topdown implementation. Specifically, I followed Walker's insert and delete
- *     functions. However, I modified both to allow for duplicates in my tree because the heap
- *     requires duplicate nodes to be stored. I used a doubly linked list to acheive this.
- *          https://web.archive.org/web/20141129024312/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx
- */
+/// Author: Alexander Griffin Lopez
+/// File: rbtree_topdown.c
+/// ---------------------
+///  This file contains my implementation of an explicit heap allocator. This allocator uses a tree
+///  implementation to track the free space in the heap, relying on the properties of a red-black
+///  tree to remain balanced. This implementation also uses some interesting strategies to unify
+///  left and right cases for a red black tree and maintains a doubly linked list of duplicate nodes
+///  of the same size if a node in the tree has repeats of its size. We do not use a parent field,
+///  instead opting to form a stack of nodes and pass that stack to the necessary functions. We also
+///  use a topdown approach to insertion and deletion meaning we fix the tree on the way down, not
+///  up.
+///  Citations:
+///  -------------------
+///  1. Bryant and O'Hallaron, Computer Systems: A Programmer's Perspective, Chapter 9.
+///     I used the explicit free list outline from the textbook, specifically
+///     regarding how to implement left and right coalescing. I even used their suggested
+///     optimization of an extra control bit so that the footers to the left can be overwritten
+///     if the block is allocated so the user can have more space.
+///  2. The text Introduction to Algorithms, by Cormen, Leiserson, Rivest, and Stein was central to
+///     my implementation of the red black tree portion of my allocator. Specifically, I took the
+///     the implementation from chapter 13. The placeholder black null node that always sits at the
+///     bottom of the tree proved useful for the tree and the linked list of duplicate memory block
+///     sizes.
+///  3. I used Julienne Walker's implementation of top down insertion and deletion into a red black
+///     tree to guide my topdown implementation. Specifically, I followed Walker's insert and delete
+///     functions. However, I modified both to allow for duplicates in my tree because the heap
+///     requires duplicate nodes to be stored. I used a doubly linked list to acheive this.
+///          https://web.archive.org/web/20141129024312/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx
 #include "allocator.h"
 #include "rbtree_topdown_utilities.h"
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
-/* * * * * * * * * *             Static Heap Tracking            * * * * * * * * * * */
+///             Static Heap Tracking
 
-/* Red Black Free Tree:
- *  - Maintain a red black tree of free nodes.
- *  - Root is black
- *  - No red node has a red child
- *  - New insertions are red
- *  - NULL is considered black. We use a black sentinel instead. Physically lives on the heap.
- *  - Every path from root to free_nodes.black_nil, root not included, has same number of black nodes.
- *  - The 3rd LSB of the header holds the color: 0 for black, 1 for red.
- *  - The 1st LSB holds the allocated status and 2nd LSB holds left neighbor status for coalescing.
- *  - Use a *list_start pointer to a doubly linked list of duplicate nodes of the same size.
- *  - For more details on the types see the _utilities.h file.
- */
+/// Red Black Free Tree:
+///  - Maintain a red black tree of free nodes.
+///  - Root is black
+///  - No red node has a red child
+///  - New insertions are red
+///  - NULL is considered black. We use a black sentinel instead. Physically lives on the heap.
+///  - Every path from root to free_nodes.black_nil, root not included, has same number of black nodes.
+///  - The 3rd LSB of the header holds the color: 0 for black, 1 for red.
+///  - The 1st LSB holds the allocated status and 2nd LSB holds left neighbor status for coalescing.
+///  - Use a *list_start pointer to a doubly linked list of duplicate nodes of the same size.
+///  - For more details on the types see the _utilities.h file.
 static struct free_nodes
 {
     rb_node *tree_root;
@@ -67,14 +60,13 @@ static struct heap
     size_t heap_size;
 } heap;
 
-/* * * * * * * * * *    Static Red-Black Tree Helper Functions   * * * * * * * * * * */
+///    Static Red-Black Tree Helper Functions
 
-/* @brief single_rotation  performs a single rotation for a given direction and recolors the nodes
- *                         as appropriate, making the new root black and new leaf red.
- * @param *root            the root of the tree that will be rotated left or right, moving down.
- * @param rotation         the rotation direction for the operation.
- * @return                 the new root of the rotation, the lower node has moved up.
- */
+/// @brief single_rotation  performs a single rotation for a given direction and recolors the nodes
+///                         as appropriate, making the new root black and new leaf red.
+/// @param *root            the root of the tree that will be rotated left or right, moving down.
+/// @param rotation         the rotation direction for the operation.
+/// @return                 the new root of the rotation, the lower node has moved up.
 static rb_node *single_rotation( rb_node *root, rb_node *parent, tree_link rotation )
 {
     rb_node *save = root->links[!rotation];
@@ -95,26 +87,24 @@ static rb_node *single_rotation( rb_node *root, rb_node *parent, tree_link rotat
     return save;
 }
 
-/* @brief double_rotation  performs two rotations to a red-black tree, one in a direction and the
- *                         other the opposite direction. A grandchild moves into root position.
- * @param *root            the root around which we will double rotate.
- * @param rotation         the first direction for the first rotation. Its opposite is next.
- * @return                 the grandchild that has moved into the root position.
- */
+/// @brief double_rotation  performs two rotations to a red-black tree, one in a direction and the
+///                         other the opposite direction. A grandchild moves into root position.
+/// @param *root            the root around which we will double rotate.
+/// @param rotation         the first direction for the first rotation. Its opposite is next.
+/// @return                 the grandchild that has moved into the root position.
 static rb_node *double_rotation( rb_node *root, rb_node *parent, tree_link rotation )
 {
     root->links[!rotation] = single_rotation( root->links[!rotation], root, !rotation );
     return single_rotation( root, parent, rotation );
 }
 
-/* * * * * * * * * *    Static Red-Black Tree Insertion Helper Function   * * * * * * * * * * */
+///    Static Red-Black Tree Insertion Helper Function
 
-/* @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
- *                       rotation of duplicates in the tree. This adds the duplicate node to the
- *                       linked list of the node already present.
- * @param *head          the node currently organized in the tree. We will add to its list.
- * @param *to_add        the node to add to the linked list.
- */
+/// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
+///                       rotation of duplicates in the tree. This adds the duplicate node to the
+///                       linked list of the node already present.
+/// @param *head          the node currently organized in the tree. We will add to its list.
+/// @param *to_add        the node to add to the linked list.
 static void add_duplicate( rb_node *head, duplicate_node *to_add, rb_node *parent )
 {
     to_add->header = head->header;
@@ -133,13 +123,12 @@ static void add_duplicate( rb_node *head, duplicate_node *to_add, rb_node *paren
     to_add->links[P] = (duplicate_node *)head;
 }
 
-/* * * * * * * * * *     Static Red-Black Tree Insertion Logic     * * * * * * * * * * */
+///     Static Red-Black Tree Insertion Logic
 
-/* @brief insert_rb_topdown  performs a topdown insertion of a node into a redblack tree, fixing
- *                           violations that have occured on the way down. If the node is a
- *                           duplicate, it will be added to a doubly linked list for that size.
- * @param                    the heap node to insert into the tree or list.
- */
+/// @brief insert_rb_topdown  performs a topdown insertion of a node into a redblack tree, fixing
+///                           violations that have occured on the way down. If the node is a
+///                           duplicate, it will be added to a doubly linked list for that size.
+/// @param                    the heap node to insert into the tree or list.
 static void insert_rb_topdown( rb_node *current )
 {
     size_t key = get_size( current->header );
@@ -153,10 +142,9 @@ static void insert_rb_topdown( rb_node *current )
     rb_node *child = free_nodes.tree_root;
     size_t child_size = 0;
 
-    /* Unfortunate infinite loop structure due to odd nature of topdown fixups. I kept the search
-     * and pointer updates at top of loop for clarity but can't figure out how to make proper
-     * loop conditions from this logic.
-     */
+    // Unfortunate infinite loop structure due to odd nature of topdown fixups. I kept the search
+    // and pointer updates at top of loop for clarity but can't figure out how to make proper
+    // loop conditions from this logic.
     for ( ;; ancestor = gparent, gparent = parent, parent = child, prev_link = link,
              child = child->links[link = child_size < key] ) {
 
@@ -198,13 +186,12 @@ static void insert_rb_topdown( rb_node *current )
     free_nodes.total++;
 }
 
-/* * * * * * * * * *    Red-Black Tree Deletion Helper Functions   * * * * * * * * * * */
+///    Red-Black Tree Deletion Helper Functions
 
-/* @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
- * @param *parent        the parent of the node we are removing.
- * @param *remove        the node we are removing from the tree.
- * @param *replacement   the node that will fill the remove position. It can be free_nodes.black_nil.
- */
+/// @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
+/// @param *parent        the parent of the node we are removing.
+/// @param *remove        the node we are removing from the tree.
+/// @param *replacement   the node that will fill the remove position. It can be free_nodes.black_nil.
 static void rb_transplant( rb_node *parent, rb_node *remove, rb_node *replacement )
 {
     if ( parent == free_nodes.black_nil ) {
@@ -217,18 +204,16 @@ static void rb_transplant( rb_node *parent, rb_node *remove, rb_node *replacemen
     }
 }
 
-/* @brief delete_duplicate  will remove a duplicate node from the tree when the request is coming
- *                          from a call from malloc. Address of duplicate does not matter so we
- *                          remove the first node from the linked list.
- * @param *head             We know this node has a next node and it must be removed for malloc.
- * @return                  the duplicate spliced from the doubly linked list.
- */
+/// @brief delete_duplicate  will remove a duplicate node from the tree when the request is coming
+///                          from a call from malloc. Address of duplicate does not matter so we
+///                          remove the first node from the linked list.
+/// @param *head             We know this node has a next node and it must be removed for malloc.
+/// @return                  the duplicate spliced from the doubly linked list.
 static rb_node *delete_duplicate( rb_node *head )
 {
     duplicate_node *next_node = head->list_start;
-    /* Take care of the possible node to the right in the doubly linked list first. This could be
-     * another node or it could be free_nodes.black_nil, it does not matter either way.
-     */
+    // Take care of the possible node to the right in the doubly linked list first. This could be
+    // another node or it could be free_nodes.black_nil, it does not matter either way.
     next_node->links[N]->parent = next_node->parent;
     next_node->links[N]->links[P] = (duplicate_node *)head;
     head->list_start = next_node->links[N];
@@ -236,17 +221,16 @@ static rb_node *delete_duplicate( rb_node *head )
     return (rb_node *)next_node;
 }
 
-/* * * * * * * * * *      Static Red-Black Tree Deletion Logic     * * * * * * * * * * */
+///      Static Red-Black Tree Deletion Logic
 
-/* @brief remove_node         checks for conditions necessary to remove a node with its inorder
- *                            predecessor down the free_nodes. Removes a duplicate if one is
- *                            encountered.
- * @param parent              the parent of the node we will be removing.
- * @param remove              the node we will remove and return.
- * @param replacement_parent  the parent of the node we will use to replace remove.
- * @param replacement         the indorder predecessor of the node to be removed.
- * @return                    the node that has been removed from the tree or doubly linked list.
- */
+/// @brief remove_node         checks for conditions necessary to remove a node with its inorder
+///                            predecessor down the free_nodes. Removes a duplicate if one is
+///                            encountered.
+/// @param parent              the parent of the node we will be removing.
+/// @param remove              the node we will remove and return.
+/// @param replacement_parent  the parent of the node we will use to replace remove.
+/// @param replacement         the indorder predecessor of the node to be removed.
+/// @return                    the node that has been removed from the tree or doubly linked list.
 static rb_node *remove_node( rb_node *parent, rb_node *remove, rb_node *replacement_parent, rb_node *replacement )
 {
 
@@ -277,12 +261,11 @@ static rb_node *remove_node( rb_node *parent, rb_node *remove, rb_node *replacem
     return remove;
 }
 
-/* @brief delete_rb_topdown  performs a topdown deletion on a red-black tree fixing violations on
- *                           the way down. It will return the node removed from the tree or a
- *                           duplicate from a doubly linked list if a duplicate is waiting.
- * @param key                the size_t representing the node size in bytes we are in search of.
- * @return                   the node we have removed from the tree or doubly linked list.
- */
+/// @brief delete_rb_topdown  performs a topdown deletion on a red-black tree fixing violations on
+///                           the way down. It will return the node removed from the tree or a
+///                           duplicate from a doubly linked list if a duplicate is waiting.
+/// @param key                the size_t representing the node size in bytes we are in search of.
+/// @return                   the node we have removed from the tree or doubly linked list.
 static rb_node *delete_rb_topdown( size_t key )
 {
     rb_node *gparent = free_nodes.black_nil;
@@ -361,13 +344,12 @@ static rb_node *delete_rb_topdown( size_t key )
     return remove_node( best_parent, best, parent, child );
 }
 
-/* @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
- *                     red black tree. The next duplicate must become the new tree node and the
- *                     parent and children must be adjusted to track this new node.
- * @param head         the node in the tree that must now be coalesced.
- * @param lft_child    if the left child has a duplicate, it tracks the new tree node as parent.
- * @param rgt_child    if the right child has a duplicate, it tracks the new tree node as parent.
- */
+/// @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
+///                     red black tree. The next duplicate must become the new tree node and the
+///                     parent and children must be adjusted to track this new node.
+/// @param head         the node in the tree that must now be coalesced.
+/// @param lft_child    if the left child has a duplicate, it tracks the new tree node as parent.
+/// @param rgt_child    if the right child has a duplicate, it tracks the new tree node as parent.
 static void remove_head( rb_node *head, rb_node *lft_child, rb_node *rgt_child )
 {
     // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
@@ -394,12 +376,11 @@ static void remove_head( rb_node *head, rb_node *lft_child, rb_node *rgt_child )
     }
 }
 
-/* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
- *                             need to free from the tree before absorbing into our coalescing. If
- *                             this node is a duplicate we can splice it from a linked list.
- * @param *to_coalesce         the address for a node we must treat as a list or tree node.
- * @return                     the node we have now correctly freed given all cases to find it.
- */
+/// @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
+///                             need to free from the tree before absorbing into our coalescing. If
+///                             this node is a duplicate we can splice it from a linked list.
+/// @param *to_coalesce         the address for a node we must treat as a list or tree node.
+/// @return                     the node we have now correctly freed given all cases to find it.
 static void *free_coalesced_node( void *to_coalesce )
 {
     rb_node *tree_node = to_coalesce;
@@ -429,12 +410,11 @@ static void *free_coalesced_node( void *to_coalesce )
     return to_coalesce;
 }
 
-/* * * * * * * * * * * *    Static Heap Helper Function    * * * * * * * * * */
+///    Static Heap Helper Function
 
-/* @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
- * @param *to_free        the heap_node to add to the red black tree.
- * @param block_size      the size we use to initialize the node and find the right place in tree.
- */
+/// @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
+/// @param *to_free        the heap_node to add to the red black tree.
+/// @param block_size      the size we use to initialize the node and find the right place in tree.
 static void init_free_node( rb_node *to_free, size_t block_size )
 {
     to_free->header = block_size | LEFT_ALLOCATED | RED_PAINT;
@@ -444,13 +424,12 @@ static void init_free_node( rb_node *to_free, size_t block_size )
     insert_rb_topdown( to_free );
 }
 
-/* @brief *split_alloc  determines if a block should be taken entirely or split into two blocks. If
- *                      split, it will add the newly freed split block to the free red black tree.
- * @param *free_block   a pointer to the node for a free block in its entirety.
- * @param request       the user request for space.
- * @param block_space   the entire space that we have to work with.
- * @return              a void pointer to generic space that is now ready for the client.
- */
+/// @brief *split_alloc  determines if a block should be taken entirely or split into two blocks. If
+///                      split, it will add the newly freed split block to the free red black tree.
+/// @param *free_block   a pointer to the node for a free block in its entirety.
+/// @param request       the user request for space.
+/// @param block_space   the entire space that we have to work with.
+/// @return              a void pointer to generic space that is now ready for the client.
 void *split_alloc( rb_node *free_block, size_t request, size_t block_space )
 {
     rb_node *neighbor = NULL;
@@ -468,15 +447,14 @@ void *split_alloc( rb_node *free_block, size_t request, size_t block_space )
     return get_client_space( free_block );
 }
 
-/* @brief coalesce        attempts to coalesce left and right if the left and right rb_node
- *                        are free. Runs the search to free the specific free node in O(logN) + d
- *                        where d is the number of duplicate nodes of the same size.
- * @param *leftmost_node  the current node that will move left if left is free to coalesce.
- * @return                the leftmost node from attempts to coalesce left and right. The leftmost
- *                        node is initialized to reflect the correct size for the space it now has.
- * @warning               this function does not overwrite the data that may be in the middle if we
- *                        expand left and write. The user may wish to move elsewhere if reallocing.
- */
+/// @brief coalesce        attempts to coalesce left and right if the left and right rb_node
+///                        are free. Runs the search to free the specific free node in O(logN) + d
+///                        where d is the number of duplicate nodes of the same size.
+/// @param *leftmost_node  the current node that will move left if left is free to coalesce.
+/// @return                the leftmost node from attempts to coalesce left and right. The leftmost
+///                        node is initialized to reflect the correct size for the space it now has.
+/// @warning               this function does not overwrite the data that may be in the middle if we
+///                        expand left and write. The user may wish to move elsewhere if reallocing.
 static rb_node *coalesce( rb_node *leftmost_node )
 {
     size_t coalesced_space = get_size( leftmost_node->header );
@@ -499,18 +477,16 @@ static rb_node *coalesce( rb_node *leftmost_node )
     return leftmost_node;
 }
 
-/* * * * * * * * * * * *    Shared Heap Functions    * * * * * * * * * */
+///    Shared Heap Functions
 
-/* @brief get_free_total  returns the total number of free nodes in the heap.
- * @return                a size_t representing the total quantity of free nodes.
- */
+/// @brief get_free_total  returns the total number of free nodes in the heap.
+/// @return                a size_t representing the total quantity of free nodes.
 size_t get_free_total() { return free_nodes.total; }
 
-/* @brief myinit      initializes the heap space for use for the client.
- * @param *heap_start pointer to the space we will initialize as our heap.
- * @param heap_size   the desired space for the heap memory overall.
- * @return            true if the space if the space is successfully initialized false if not.
- */
+/// @brief myinit      initializes the heap space for use for the client.
+/// @param *heap_start pointer to the space we will initialize as our heap.
+/// @param heap_size   the desired space for the heap memory overall.
+/// @return            true if the space if the space is successfully initialized false if not.
 bool myinit( void *heap_start, size_t heap_size )
 {
     // Initialize the root of the tree and heap addresses.
@@ -539,11 +515,10 @@ bool myinit( void *heap_start, size_t heap_size )
     return true;
 }
 
-/* @brief *mymalloc       finds space for the client from the red black tree.
- * @param requested_size  the user desired size that we will round up and align.
- * @return                a void pointer to the space ready for the user or NULL if the request
- *                        could not be serviced because it was invalid or there is no space.
- */
+/// @brief *mymalloc       finds space for the client from the red black tree.
+/// @param requested_size  the user desired size that we will round up and align.
+/// @return                a void pointer to the space ready for the user or NULL if the request
+///                        could not be serviced because it was invalid or there is no space.
 void *mymalloc( size_t requested_size )
 {
     if ( requested_size != 0 && requested_size <= MAX_REQUEST_SIZE ) {
@@ -555,14 +530,13 @@ void *mymalloc( size_t requested_size )
     return NULL;
 }
 
-/* @brief *myrealloc  reallocates space for the client. It uses right coalescing in place
- *                    reallocation. It will free memory on a zero request and a non-Null pointer.
- *                    If reallocation fails, the memory does not move and we return NULL.
- * @param *old_ptr    the old memory the client wants resized.
- * @param new_size    the client's newly desired size. May be larger or smaller.
- * @return            new space if the pointer is null, NULL on invalid request or inability to
- *                    find space.
- */
+/// @brief *myrealloc  reallocates space for the client. It uses right coalescing in place
+///                    reallocation. It will free memory on a zero request and a non-Null pointer.
+///                    If reallocation fails, the memory does not move and we return NULL.
+/// @param *old_ptr    the old memory the client wants resized.
+/// @param new_size    the client's newly desired size. May be larger or smaller.
+/// @return            new space if the pointer is null, NULL on invalid request or inability to
+///                    find space.
 void *myrealloc( void *old_ptr, size_t new_size )
 {
     if ( new_size > MAX_REQUEST_SIZE ) {
@@ -596,9 +570,8 @@ void *myrealloc( void *old_ptr, size_t new_size )
     return client_space;
 }
 
-/* @brief myfree  frees valid user memory from the heap.
- * @param *ptr    a pointer to previously allocated heap memory.
- */
+/// @brief myfree  frees valid user memory from the heap.
+/// @param *ptr    a pointer to previously allocated heap memory.
 void myfree( void *ptr )
 {
     if ( ptr != NULL ) {
@@ -608,12 +581,11 @@ void myfree( void *ptr )
     }
 }
 
-/* * * * * * * * * * *      Shared Debugging       * * * * * * * * * * * * * */
+///      Shared Debugging
 
-/* @brief validate_heap  runs various checks to ensure that every block of the heap is well formed
- *                       with valid sizes, alignment, and initializations.
- * @return               true if the heap is valid and false if the heap is invalid.
- */
+/// @brief validate_heap  runs various checks to ensure that every block of the heap is well formed
+///                       with valid sizes, alignment, and initializations.
+/// @return               true if the heap is valid and false if the heap is invalid.
 bool validate_heap()
 {
     if ( !check_init( heap.client_start, heap.client_end, heap.heap_size ) ) {
@@ -651,13 +623,12 @@ bool validate_heap()
     return true;
 }
 
-/* * * * * * * * * * * *   Shared Printing Debugger   * * * * * * * * * * */
+///   Shared Printing Debugger
 
-/* @brief print_free_nodes  a shared function across allocators requesting a printout of internal
- *                          data structure used for free nodes of the heap.
- * @param style             VERBOSE or PLAIN. Plain only includes byte size, while VERBOSE includes
- *                          memory addresses and black heights of the tree.
- */
+/// @brief print_free_nodes  a shared function across allocators requesting a printout of internal
+///                          data structure used for free nodes of the heap.
+/// @param style             VERBOSE or PLAIN. Plain only includes byte size, while VERBOSE includes
+///                          memory addresses and black heights of the tree.
 void print_free_nodes( print_style style )
 {
     printf( COLOR_CYN "(+X)" COLOR_NIL );
@@ -665,10 +636,9 @@ void print_free_nodes( print_style style )
     print_rb_tree( free_nodes.tree_root, free_nodes.black_nil, style );
 }
 
-/* @brief dump_heap  prints out the complete status of the heap, all of its blocks, and the sizes
- *                   the blocks occupy. Printing should be clean with no overlap of unique id's
- *                   between heap blocks or corrupted headers.
- */
+/// @brief dump_heap  prints out the complete status of the heap, all of its blocks, and the sizes
+///                   the blocks occupy. Printing should be clean with no overlap of unique id's
+///                   between heap blocks or corrupted headers.
 void dump_heap()
 {
     print_all( heap.client_start, heap.client_end, heap.heap_size, free_nodes.tree_root, free_nodes.black_nil );

@@ -1,18 +1,16 @@
-/* File: segment.c
- * ---------------
- * Handles low-level storage underneath the heap allocator. It reserves
- * the large memory segment using the OS-level mmap facility.
- *
- * Written by jzelenski, updated Spring 2018
- */
+/// File: segment.c
+/// ---------------
+/// Handles low-level storage underneath the heap allocator. It reserves
+/// the large memory segment using the OS-level mmap facility.
+/// Written by jzelenski, updated Spring 2018
+///
 
 #include "segment.h"
 #include <assert.h>
 #include <sys/mman.h>
 
-/* Place segment at fixed address, as default addresses are quite high
- * and easily mistaken for stack addresses.
- */
+/// Place segment at fixed address, as default addresses are quite high
+/// and easily mistaken for stack addresses.
 #define HEAP_START_HINT (void *)0x107000000L
 
 // Static means these variables are only visible within this file

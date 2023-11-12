@@ -1,24 +1,21 @@
-/**
- * File: list_segregated_printer.c
- * -------------------------------
- * This file contains the printing implementation for the list_segregated
- * allocator. This is mostly helpful for debugging while in gdb, but one
- * function also makes an appearance in the print_peaks program to help
- * visualize the heap.
- */
+/// File: list_segregated_printer.c
+/// -------------------------------
+/// This file contains the printing implementation for the list_segregated
+/// allocator. This is mostly helpful for debugging while in gdb, but one
+/// function also makes an appearance in the print_peaks program to help
+/// visualize the heap.
 #include "list_segregated_utilities.h"
 #include <limits.h>
 #include <stdio.h>
 
-/* * * * * * * * * * * * * *         Printing Functions            * * * * * * *
- * * * * * * * * * */
+/////////////////////////////        Printing Functions
 
-/* @brief print_fits  prints the segregated fits free list in order to check if
- * splicing and adding is progressing correctly.
- * @param table[]     the lookup table that holds the list size ranges
- * @param *nil        a special free_node that serves as a sentinel for logic
- * and edgecases.
- */
+/// @brief print_fits  prints the segregated fits free list in order to check if
+/// splicing and
+///                    adding is progressing correctly.
+/// @param table[]     the lookup table that holds the list size ranges
+/// @param *nil        a special free_node that serves as a sentinel for logic
+/// and edgecases.
 void print_fits( print_style style, seg_node table[], free_node *nil )
 {
     bool alternate = false;
@@ -59,10 +56,9 @@ void print_fits( print_style style, seg_node table[], free_node *nil )
     }
 }
 
-/* @brief print_alloc_block  prints the contents of an allocated block of
- * memory.
- * @param *cur_header        a valid header to a block of allocated memory.
- */
+/// @brief print_alloc_block  prints the contents of an allocated block of
+/// memory.
+/// @param *cur_header        a valid header to a block of allocated memory.
 static void print_alloc_block( header *cur_header )
 {
     size_t block_size = get_size( *cur_header ) - HEADERSIZE;
@@ -73,17 +69,16 @@ static void print_alloc_block( header *cur_header )
     printf( COLOR_NIL );
 }
 
-/* @brief print_free_block  prints the contents of a free block of heap memory.
- * @param *cur_header       a valid header to a block of allocated memory.
- */
+/// @brief print_free_block  prints the contents of a free block of heap memory.
+/// @param *cur_header       a valid header to a block of allocated memory.
 static void print_free_block( header *cur_header )
 {
     size_t full_size = get_size( *cur_header );
     size_t block_size = full_size - HEADERSIZE;
     header *footer = (header *)( (byte *)cur_header + full_size - HEADERSIZE );
-    /* We should be able to see the header is the same as the footer. If they are
-     * not the same we will face subtle bugs that are very hard to notice.
-     */
+    // We should be able to see the header is the same as the footer. If they are
+    // not the same we will face subtle bugs that are very hard to notice.
+    //
     if ( *footer != *cur_header ) {
         *footer = ULONG_MAX;
     }
@@ -93,15 +88,16 @@ static void print_free_block( header *cur_header )
     printf( COLOR_NIL );
 }
 
-/* @brief print_bad_jump  If we overwrite data in a header, this print statement
- * will help us notice where we went wrong and what the addresses were.
- * @param *current        the current node that is likely garbage values that
- * don't make sense.
- * @param *prev           the previous node that we jumped from.
- * @param table[]         the lookup table that holds the list size ranges
- * @param *nil            a special free_node that serves as a sentinel for
- * logic and edgecases.
- */
+/// @brief print_bad_jump  If we overwrite data in a header, this print
+/// statement will help us
+///                        notice where we went wrong and what the addresses
+///                        were.
+/// @param *current        the current node that is likely garbage values that
+/// don't make sense.
+/// @param *prev           the previous node that we jumped from.
+/// @param table[]         the lookup table that holds the list size ranges
+/// @param *nil            a special free_node that serves as a sentinel for
+/// logic and edgecases.
 static void print_bad_jump( header *current, header *prev, seg_node table[], free_node *nil )
 {
     size_t prev_size = get_size( *prev );
@@ -122,17 +118,18 @@ static void print_bad_jump( header *current, header *prev, seg_node table[], fre
     print_fits( VERBOSE, table, nil );
 }
 
-/* @brief print_all    prints our the complete status of the heap, all of its
- * blocks, and the sizes the blocks occupy. Printing should be clean with no
- * overlap of unique id's between heap blocks or corrupted headers.
- * @param client_start the starting address of the heap segment.
- * @param client_end   the final address of the heap segment.
- * @param client_size  the size in bytes of the heap.
- * @param table[]      the lookup table of segregated sizes of nodes stored in
- * each slot.
- * @param *nil         the free node that serves as a universal head and tail to
- * all lists.
- */
+/// @brief print_all    prints our the complete status of the heap, all of its
+/// blocks, and
+///                     the sizes the blocks occupy. Printing should be clean
+///                     with no overlap of unique id's between heap blocks or
+///                     corrupted headers.
+/// @param client_start the starting address of the heap segment.
+/// @param client_end   the final address of the heap segment.
+/// @param client_size  the size in bytes of the heap.
+/// @param table[]      the lookup table of segregated sizes of nodes stored in
+/// each slot.
+/// @param *nil         the free node that serves as a universal head and tail
+/// to all lists.
 void print_all( void *client_start, void *client_end, size_t client_size, seg_node table[], free_node *nil )
 {
     header *cur_header = client_start;

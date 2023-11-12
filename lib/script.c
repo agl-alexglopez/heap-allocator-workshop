@@ -1,16 +1,13 @@
-/* Author: Alex G. Lopez
- *
- * File script.c
- * -------------------
- * This file contains the utility functions for processing script files and executing them on
- * custom allocators. We also implement our timing functions and plotting functions for the
- * programs that use this interface. Examine the plot_ functions for more details about how the
- * graphs are formed.
- *
- * Script parsing was written by stanford professors jzelenski and ntroccoli. For the execution
- * and timing functions I took the test_harness.c implementation and stripped out all uneccessary
- * safety and correctness checks so the functions run faster and do not introduce O(n) work.
- */
+/// Author: Alex G. Lopez
+/// File script.c
+/// -------------------
+/// This file contains the utility functions for processing script files and executing them on
+/// custom allocators. We also implement our timing functions and plotting functions for the
+/// programs that use this interface. Examine the plot_ functions for more details about how the
+/// graphs are formed.
+/// Script parsing was written by stanford professors jzelenski and ntroccoli. For the execution
+/// and timing functions I took the test_harness.c implementation and stripped out all uneccessary
+/// safety and correctness checks so the functions run faster and do not introduce O(n) work.
 #include "script.h"
 #include "allocator.h"
 #include <errno.h>
@@ -21,27 +18,26 @@
 #include <string.h>
 #include <time.h>
 
-/* TYPE DECLARATIONS */
+/// TYPE DECLARATION
 
 typedef unsigned char byte_t;
 // Amount by which we resize ops when needed when reading in from file
 const int OPS_RESIZE_AMOUNT = 500;
 const int MAX_SCRIPT_LINE_LEN = 1024;
 
-/* * * * * * * * * * * * *  Parse File and Create Script  * * * * * * * * * */
+///  Parse File and Create Script
 
-/* @brief read_script_line  reads one line from the specified file and stores at most buffer_size
- *                          characters from it in buffer, removing any trailing newline. It skips
- *                          lines that are whitespace or comments (begin with # as first
- *                          non-whitespace character).  When reading a line, it increments the
- *                          counter pointed to by `pnread` once for each line read/skipped.
- * @param buffer[]          the buffer in which we store the line from the .script line.
- * @param buffer_size       the allowable size for the buffer.
- * @param *fp               the file for which we are parsing requests.
- * @param *pnread           the pointer we use to progress past a line whether it is read or skipped.
- * @return                  true if did read a valid line eventually, or false otherwise.
- * @citation                 jzelenski and ntroccoli Stanford University.
- */
+/// @brief read_script_line  reads one line from the specified file and stores at most buffer_size
+///                          characters from it in buffer, removing any trailing newline. It skips
+///                          lines that are whitespace or comments (begin with # as first
+///                          non-whitespace character).  When reading a line, it increments the
+///                          counter pointed to by `pnread` once for each line read/skipped.
+/// @param buffer[]          the buffer in which we store the line from the .script line.
+/// @param buffer_size       the allowable size for the buffer.
+/// @param *fp               the file for which we are parsing requests.
+/// @param *pnread           the pointer we use to progress past a line whether it is read or skipped.
+/// @return                  true if did read a valid line eventually, or false otherwise.
+/// @citation                 jzelenski and ntroccoli Stanford University.
 static bool read_script_line( char buffer[], size_t buffer_size, FILE *fp, int *pnread )
 {
     while ( true ) {
@@ -56,9 +52,9 @@ static bool read_script_line( char buffer[], size_t buffer_size, FILE *fp, int *
             buffer[strlen( buffer ) - 1] = '\0';
         }
 
-        /* Stop only if this line is not a comment line (comment lines start
-         * with # as first non-whitespace character)
-         */
+        /// Stop only if this line is not a comment line (comment lines start
+        /// with # as first non-whitespace character)
+
         char ch;
         if ( sscanf( buffer, " %c", &ch ) == 1 && ch != '#' ) {
             return true;
@@ -66,16 +62,15 @@ static bool read_script_line( char buffer[], size_t buffer_size, FILE *fp, int *
     }
 }
 
-/* @brief parse_script_line  parses the provided line from the script and returns info about it
- *                           as a request_t object filled in with the type of the request, the
- *                           size, the ID, and the line number.
- * @param *buffer            the individual line we are parsing for a heap request.
- * @param lineno             the line in the file we are parsing.
- * @param *script_name       the name of the current script we can output if an error occurs.
- * @return                   the request_t for the individual line parsed.
- * @warning                  if the line is malformed, this function throws an error.
- * @citation                 jzelenski and ntroccoli Stanford University.
- */
+/// @brief parse_script_line  parses the provided line from the script and returns info about it
+///                           as a request_t object filled in with the type of the request, the
+///                           size, the ID, and the line number.
+/// @param *buffer            the individual line we are parsing for a heap request.
+/// @param lineno             the line in the file we are parsing.
+/// @param *script_name       the name of the current script we can output if an error occurs.
+/// @return                   the request_t for the individual line parsed.
+/// @warning                  if the line is malformed, this function throws an error.
+/// @citation                 jzelenski and ntroccoli Stanford University.
 static request_t parse_script_line( char *buffer, int lineno, char *script_name )
 {
     request_t request = { .lineno = lineno, .op = 0, .size = 0 };
@@ -97,15 +92,14 @@ static request_t parse_script_line( char *buffer, int lineno, char *script_name 
     return request;
 }
 
-/* @breif parse_script  parses the script file at the specified path, and returns an object with
- *                      info about it.  It expects one request per line, and adds each request's
- *                      information to the ops array within the script.  This function throws an
- *                      error if the file can't be opened, if a line is malformed, or if the file
- *                      is too long to store each request on the heap.
- * @param *path         the path to the .script file to parse.
- * @return              a pointer to the script_t with information regarding the .script requests.
- * @citation            ntroccoli and jzelenski, Stanford University.
- */
+/// @breif parse_script  parses the script file at the specified path, and returns an object with
+///                      info about it.  It expects one request per line, and adds each request's
+///                      information to the ops array within the script.  This function throws an
+///                      error if the file can't be opened, if a line is malformed, or if the file
+///                      is too long to store each request on the heap.
+/// @param *path         the path to the .script file to parse.
+/// @return              a pointer to the script_t with information regarding the .script requests.
+/// @citation            ntroccoli and jzelenski, Stanford University.
 script_t parse_script( const char *path )
 {
     FILE *fp = fopen( path, "r" );
@@ -159,14 +153,13 @@ script_t parse_script( const char *path )
     return script;
 }
 
-/* * * * * * * * * * * * *  Execute Commands in Script Struct  * * * * * * * * * */
+///  Execute Commands in Script Struct
 
-/* @breif exec_malloc     executes a call to mymalloc of the given size.
- * @param req             the request zero indexed within the script.
- * @param requested_size  the block size requested from the client.
- * @param *script         the script_t with information we track from the script file requests.
- * @return                the generic memory provided by malloc for the client. NULL on failure.
- */
+/// @breif exec_malloc     executes a call to mymalloc of the given size.
+/// @param req             the request zero indexed within the script.
+/// @param requested_size  the block size requested from the client.
+/// @param *script         the script_t with information we track from the script file requests.
+/// @return                the generic memory provided by malloc for the client. NULL on failure.
 static void *exec_malloc( int req, size_t requested_size, script_t *script )
 {
     int id = script->ops[req].id;
@@ -181,12 +174,11 @@ static void *exec_malloc( int req, size_t requested_size, script_t *script )
     return p;
 }
 
-/* @brief exec_realloc    executes a call to myrealloc of the given size.
- * @param req             the request zero indexed within the script.
- * @param requested_size  the block size requested from the client.
- * @param *script         the script_t with information we track from the script file requests.
- * @return                the generic memory provided by realloc for the client. NULL on failure.
- */
+/// @brief exec_realloc    executes a call to myrealloc of the given size.
+/// @param req             the request zero indexed within the script.
+/// @param requested_size  the block size requested from the client.
+/// @param *script         the script_t with information we track from the script file requests.
+/// @return                the generic memory provided by realloc for the client. NULL on failure.
 static void *exec_realloc( int req, size_t requested_size, script_t *script )
 {
     int id = script->ops[req].id;
@@ -203,14 +195,13 @@ static void *exec_realloc( int req, size_t requested_size, script_t *script )
     return newp;
 }
 
-/* @brief exec_request  a helper function to execute a single call to the heap allocator. It may
- *                      may call malloc(), realloc(), or free().
- * @param *script       the script_t with the information regarding the script file we execute.
- * @param req           the zero-based index of the request to the heap allocator.
- * @param *cur_size     the current size of the heap overall.
- * @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
- * @return              0 if there are no errors, -1 if there is an error.
- */
+/// @brief exec_request  a helper function to execute a single call to the heap allocator. It may
+///                      may call malloc(), realloc(), or free().
+/// @param *script       the script_t with the information regarding the script file we execute.
+/// @param req           the zero-based index of the request to the heap allocator.
+/// @param *cur_size     the current size of the heap overall.
+/// @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
+/// @return              0 if there are no errors, -1 if there is an error.
 int exec_request( script_t *script, int req, size_t *cur_size, void **heap_end )
 {
 
@@ -246,14 +237,13 @@ int exec_request( script_t *script, int req, size_t *cur_size, void **heap_end )
     return 0;
 }
 
-/* * * * * * * * * * * * *  Time Commands in Script Struct  * * * * * * * * * */
+///  Time Commands in Script Struct
 
-/* @brief time_malloc     a function that times the speed of one request to malloc on my heap.
- * @param req             the current request we are operating on in the script.
- * @param requested_size  the size in bytes from the script line.
- * @param *script         the script object we are working through for our requests.
- * @param **p             the generic pointer we will use to determine a successfull malloc.
- */
+/// @brief time_malloc     a function that times the speed of one request to malloc on my heap.
+/// @param req             the current request we are operating on in the script.
+/// @param requested_size  the size in bytes from the script line.
+/// @param *script         the script object we are working through for our requests.
+/// @param **p             the generic pointer we will use to determine a successfull malloc.
 static double time_malloc( int req, size_t requested_size, script_t *script, void **p )
 {
     int id = script->ops[req].id;
@@ -275,12 +265,11 @@ static double time_malloc( int req, size_t requested_size, script_t *script, voi
     return ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * 1000;
 }
 
-/* @brief time_realloc    a function that times the speed of one request to realloc on my heap.
- * @param req             the current request we are operating on in the script.
- * @param requested_size  the size in bytes from the script line.
- * @param *script         the script object we are working through for our requests.
- * @param **newp          the generic pointer we will use to determine a successfull realloc
- */
+/// @brief time_realloc    a function that times the speed of one request to realloc on my heap.
+/// @param req             the current request we are operating on in the script.
+/// @param requested_size  the size in bytes from the script line.
+/// @param *script         the script object we are working through for our requests.
+/// @param **newp          the generic pointer we will use to determine a successfull realloc
 static double time_realloc( int req, size_t requested_size, script_t *script, void **newp )
 {
     int id = script->ops[req].id;
@@ -304,14 +293,13 @@ static double time_realloc( int req, size_t requested_size, script_t *script, vo
     return ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * 1000;
 }
 
-/* @brief time_request  a wrapper function for timer functions that allows us to time a request to
- *                      the heap. Returns the cpu time of the request in milliseconds.
- * @param *script       the script object that holds data about our script we need to execute.
- * @param req           the current request to the heap we execute.
- * @param *cur_size     the current size of the heap.
- * @param **heap_end    the address of the end of our range of heap memory.
- * @return              the double representing the time to complete one request.
- */
+/// @brief time_request  a wrapper function for timer functions that allows us to time a request to
+///                      the heap. Returns the cpu time of the request in milliseconds.
+/// @param *script       the script object that holds data about our script we need to execute.
+/// @param req           the current request to the heap we execute.
+/// @param *cur_size     the current size of the heap.
+/// @param **heap_end    the address of the end of our range of heap memory.
+/// @return              the double representing the time to complete one request.
 double time_request( script_t *script, int req, size_t *cur_size, void **heap_end )
 {
     int id = script->ops[req].id;
@@ -347,7 +335,6 @@ double time_request( script_t *script, int req, size_t *cur_size, void **heap_en
         myfree( p );
         request_end = clock();
         cpu_time = ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * 1000;
-
         *cur_size -= old_size;
     }
 
@@ -357,11 +344,10 @@ double time_request( script_t *script, int req, size_t *cur_size, void **heap_en
     return cpu_time;
 }
 
-/* @brief allocator_error  reports an error while running an allocator script.
- * @param *script          the script_t with information we track form the script file requests.
- * @param lineno           the line number where the error occured.
- * @param *format          the specified format string.
- */
+/// @brief allocator_error  reports an error while running an allocator script.
+/// @param *script          the script_t with information we track form the script file requests.
+/// @param lineno           the line number where the error occured.
+/// @param *format          the specified format string.
 void allocator_error( script_t *script, int lineno, char *format, ... )
 {
     va_list args;

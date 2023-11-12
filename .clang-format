@@ -7,7 +7,6 @@ AlwaysBreakAfterDefinitionReturnType: None
 BreakBeforeBinaryOperators: All
 AllowShortBlocksOnASingleLine: Always
 BreakBeforeBraces: Custom
-AlignTrailingComments: Always
 BraceWrapping:
   AfterControlStatement: Never
   AfterFunction: true

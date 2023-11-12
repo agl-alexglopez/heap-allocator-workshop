@@ -1,20 +1,15 @@
-/*
- * Files: test_harness.c
- * ---------------------
- * Reads and interprets text-based script files containing a sequence of
- * allocator requests. Runs the allocator on a script and validates
- * results for correctness.
- *
- * When you compile using `make`, it will create different
- * compiled versions of this program, one using each type of
- * heap allocator.
- *
- * Written by jzelenski, updated by Nick Troccoli Winter 18-19. Modified by Alexander G. Lopez to
- * only include the heap testing logic. Previously, script parsing was included here as well. I
- * decomposed the script parsing to the script.h library and left only the logic for testing the
- * scripts behind.
- */
-
+/// Files: test_harness.c
+/// ---------------------
+/// Reads and interprets text-based script files containing a sequence of
+/// allocator requests. Runs the allocator on a script and validates
+/// results for correctness.
+/// When you compile using `make`, it will create different
+/// compiled versions of this program, one using each type of
+/// heap allocator.
+/// Written by jzelenski, updated by Nick Troccoli Winter 18-19. Modified by Alexander G. Lopez to
+/// only include the heap testing logic. Previously, script parsing was included here as well. I
+/// decomposed the script parsing to the script.h library and left only the logic for testing the
+/// scripts behind.
 #include "allocator.h"
 #include "script.h"
 #include "segment.h"
@@ -26,13 +21,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-/* TYPE DECLARATIONS */
+/// TYPE DECLARATIONS
 
 // Amount by which we resize ops when needed when reading in from file
-
 const long HEAP_SIZE = 1L << 32;
 
-/* FUNCTION PROTOTYPES */
+/// FUNCTION PROTOTYPES
 
 static int test_scripts( char *script_names[], int num_script_names, bool quiet );
 static size_t eval_correctness( script_t *script, bool quiet, bool *success );
@@ -41,15 +35,14 @@ static void *eval_realloc( int req, size_t requested_size, script_t *script, boo
 static bool verify_block( void *ptr, size_t size, script_t *script, int lineno );
 static bool verify_payload( void *ptr, size_t size, int id, script_t *script, int lineno, char *op );
 
-/* CORRECTNESS EVALUATION IMPLEMENTATION */
+/// CORRECTNESS EVALUATION IMPLEMENTATION
 
-/* Function: main
- * --------------
- * The main function parses command-line arguments (currently only -q for quiet)
- * and any script files that follow and runs the heap allocator on the specified
- * script files.  It outputs statistics about the run of each script, such as
- * the number of successful runs, number of failures, and average utilization.
- */
+/// @brief main
+/// --------------
+/// The main function parses command-line arguments (currently only -q for quiet)
+/// and any script files that follow and runs the heap allocator on the specified
+/// script files.  It outputs statistics about the run of each script, such as
+/// the number of successful runs, number of failures, and average utilization.
 int main( int argc, char *argv[] )
 {
     // Parse command line arguments
@@ -71,12 +64,11 @@ int main( int argc, char *argv[] )
     return test_scripts( argv + optind, argc - optind, quiet );
 }
 
-/* Function: test_scripts
- * ----------------------
- * Runs the scripts with names in the specified array, with more or less output
- * depending on the value of `quiet`.  Returns the number of failures during all
- * the tests.
- */
+/// @brief test_scripts
+/// ----------------------
+/// Runs the scripts with names in the specified array, with more or less output
+/// depending on the value of `quiet`.  Returns the number of failures during all
+/// the tests.
 static int test_scripts( char *script_names[], int num_script_names, bool quiet )
 {
     int nsuccesses = 0;
@@ -113,13 +105,12 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
     return nfailures;
 }
 
-/* Function: eval_correctness
- * --------------------------
- * Check the allocator for correctness on given script. Interprets the
- * script operation-by-operation and reports if it detects any "obvious"
- * errors (returning blocks outside the heap, unaligned,
- * overlapping blocks, etc.)
- */
+/// @brief eval_correctness
+/// --------------------------
+/// Check the allocator for correctness on given script. Interprets the
+/// script operation-by-operation and reports if it detects any "obvious"
+/// errors (returning blocks outside the heap, unaligned,
+/// overlapping blocks, etc.)
 static size_t eval_correctness( script_t *script, bool quiet, bool *success )
 {
     *success = false;
@@ -205,16 +196,15 @@ static size_t eval_correctness( script_t *script, bool quiet, bool *success )
     return (char *)heap_end - (char *)heap_segment_start();
 }
 
-/* Function: eval_malloc
- * ---------------------
- * Performs a test of a call to mymalloc of the given size.  The req number
- * specifies the operation's index within the script.  This function verifies
- * the entire malloc'ed block and fills in the payload with a low-order byte
- * of the request id.  If the request fails, the boolean pointed to by
- * failptr is set to true - otherwise, it is set to false.  If it is set to
- * true this function returns NULL; otherwise, it returns what was returned
- * by mymalloc.
- */
+/// @brief eval_malloc
+/// ---------------------
+/// Performs a test of a call to mymalloc of the given size.  The req number
+/// specifies the operation's index within the script.  This function verifies
+/// the entire malloc'ed block and fills in the payload with a low-order byte
+/// of the request id.  If the request fails, the boolean pointed to by
+/// failptr is set to true - otherwise, it is set to false.  If it is set to
+/// true this function returns NULL; otherwise, it returns what was returned
+/// by mymalloc.
 static void *eval_malloc( int req, size_t requested_size, script_t *script, bool *failptr )
 {
 
@@ -227,33 +217,32 @@ static void *eval_malloc( int req, size_t requested_size, script_t *script, bool
         return NULL;
     }
 
-    /* Test new block for correctness: must be properly aligned
-     * and must not overlap any currently allocated block.
-     */
+    /// Test new block for correctness: must be properly aligned
+    /// and must not overlap any currently allocated block.
+
     if ( !verify_block( p, requested_size, script, script->ops[req].lineno ) ) {
         *failptr = true;
         return NULL;
     }
 
-    /* Fill new block with the low-order byte of new id
-     * can be used later to verify data copied when realloc'ing.
-     */
+    /// Fill new block with the low-order byte of new id
+    /// can be used later to verify data copied when realloc'ing.
+
     memset( p, id & 0xFF, requested_size );
     script->blocks[id] = ( block_t ){ .ptr = p, .size = requested_size };
     *failptr = false;
     return p;
 }
 
-/* Function: eval_realloc
- * ---------------------
- * Performs a test of a call to myrealloc of the given size.  The req number
- * specifies the operation's index within the script.  This function verifies
- * the entire realloc'ed block and fills in the payload with a low-order byte
- * of the request id.  If the request fails, the boolean pointed to by
- * failptr is set to true - otherwise, it is set to false.  If it is set to true
- * this function returns NULL; otherwise, it returns what was returned by
- * myrealloc.
- */
+/// @brief eval_realloc
+/// ---------------------
+/// Performs a test of a call to myrealloc of the given size.  The req number
+/// specifies the operation's index within the script.  This function verifies
+/// the entire realloc'ed block and fills in the payload with a low-order byte
+/// of the request id.  If the request fails, the boolean pointed to by
+/// failptr is set to true - otherwise, it is set to false.  If it is set to true
+/// this function returns NULL; otherwise, it returns what was returned by
+/// myrealloc.
 static void *eval_realloc( int req, size_t requested_size, script_t *script, bool *failptr )
 {
 
@@ -294,15 +283,14 @@ static void *eval_realloc( int req, size_t requested_size, script_t *script, boo
     return newp;
 }
 
-/* Function: verify_block
- * ----------------------
- * Does some checks on the block returned by allocator to try to
- * verify correctness.  If any problem shows up, reports an allocator error
- * with details and line from script file. The checks it performs are:
- *  -- verify block address is correctly aligned
- *  -- verify block address is within heap segment
- *  -- verify block address + size doesn't overlap any existing allocated block
- */
+/// @brief verify_block
+/// ----------------------
+/// Does some checks on the block returned by allocator to try to
+/// verify correctness.  If any problem shows up, reports an allocator error
+/// with details and line from script file. The checks it performs are:
+///  -- verify block address is correctly aligned
+///  -- verify block address is within heap segment
+///  -- verify block address + size doesn't overlap any existing allocated block
 static bool verify_block( void *ptr, size_t size, script_t *script, int lineno )
 {
     // address must be ALIGNMENT-byte aligned
@@ -343,12 +331,11 @@ static bool verify_block( void *ptr, size_t size, script_t *script, int lineno )
     return true;
 }
 
-/* Function: verify_payload
- * ------------------------
- * When a block is allocated, the payload is filled with a simple repeating
- * pattern based on its id.  Check the payload to verify those contents are
- * still intact, otherwise raise allocator error.
- */
+/// @brief verify_payload
+/// ------------------------
+/// When a block is allocated, the payload is filled with a simple repeating
+/// pattern based on its id.  Check the payload to verify those contents are
+/// still intact, otherwise raise allocator error.
 static bool verify_payload( void *ptr, size_t size, int id, script_t *script, int lineno, char *op )
 {
 
