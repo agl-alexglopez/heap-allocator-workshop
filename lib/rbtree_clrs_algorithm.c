@@ -507,11 +507,12 @@ void myfree( void *ptr )
 /// @return               true if the heap is valid and false if the heap is invalid.
 bool validate_heap()
 {
-    if ( !check_init( heap.client_start, heap.client_end, heap.heap_size ) ) {
+    if ( !check_init( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
         return false;
     }
     size_t total_free_mem = 0;
-    if ( !is_memory_balanced( &total_free_mem, heap.client_start, heap.client_end, heap.heap_size, tree.total ) ) {
+    if ( !is_memory_balanced( &total_free_mem, ( heap_range ){ heap.client_start, heap.client_end },
+                              ( size_total ){ heap.heap_size, tree.total } ) ) {
         return false;
     }
     // Does a tree search for all memory match the linear heap search for totals?
@@ -555,4 +556,7 @@ void print_free_nodes( print_style style )
 /// @brief dump_heap  prints out the complete status of the heap, all of its blocks, and the sizes
 ///                   the blocks occupy. Printing should be clean with no overlap of unique id's
 ///                   between heap blocks or corrupted headers.
-void dump_heap() { print_all( heap.client_start, heap.client_end, heap.heap_size, tree.root, tree.black_nil ); }
+void dump_heap()
+{
+    print_all( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, tree.root, tree.black_nil );
+}
