@@ -16,8 +16,11 @@
 ///     the implementation from chapter 13. The placeholder black null node that always sits at the
 ///     bottom of the tree proved useful for simplicity.
 #include "allocator.h"
+#include "print_utility.h"
 #include "rbtree_clrs_utilities.h"
 #include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -380,7 +383,7 @@ static rb_node *coalesce( rb_node *leftmost_node )
     // The black_nil is the right boundary. We set it to always be allocated with size 0.
     if ( !is_block_allocated( rightmost_node->header ) ) {
         coalesced_space += get_size( rightmost_node->header ) + HEADERSIZE;
-        rightmost_node = delete_rb_node( rightmost_node );
+        (void)delete_rb_node( rightmost_node );
     }
     // We use our static struct for convenience here to tell where our segment start is.
     if ( leftmost_node != heap.client_start && is_left_space( leftmost_node ) ) {
@@ -476,13 +479,13 @@ void *myrealloc( void *old_ptr, size_t new_size )
 
     if ( coalesced_space >= request ) {
         if ( leftmost_node != old_node ) {
-            memmove( client_space, old_ptr, old_size );
+            memmove( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
         }
         client_space = split_alloc( leftmost_node, request, coalesced_space );
     } else {
         client_space = mymalloc( request );
         if ( client_space ) {
-            memcpy( client_space, old_ptr, old_size );
+            memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
             init_free_node( leftmost_node, coalesced_space );
         }
     }

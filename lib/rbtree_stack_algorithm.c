@@ -20,9 +20,13 @@
 ///     bottom of the tree proved useful for the tree and the linked list of duplicate memory block
 ///     sizes.
 #include "allocator.h"
+#include "print_utility.h"
 #include "rbtree_stack_utilities.h"
 #include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 ///  Static Heap Tracking
@@ -69,18 +73,19 @@ static struct heap
 /// @warning         this function modifies the stack.
 static void rotate( tree_link rotation, rb_node *current, rb_node *path[], int path_len )
 {
+    if ( path_len < 2 ) {
+        printf( "Path length is %d but request for path len %d - 2 was made.", path_len, path_len );
+        abort();
+    }
+    rb_node *parent = path[path_len - 2];
     rb_node *child = current->links[!rotation];
     current->links[!rotation] = child->links[rotation];
-
     if ( child->links[rotation] != free_nodes.black_nil ) {
         child->links[rotation]->list_start->parent = current;
     }
-
-    rb_node *parent = path[path_len - 2];
     if ( child != free_nodes.black_nil ) {
         child->list_start->parent = parent;
     }
-
     if ( parent == free_nodes.black_nil ) {
         free_nodes.tree_root = child;
     } else {
@@ -128,7 +133,7 @@ static void add_duplicate( rb_node *head, duplicate_node *add, rb_node *parent )
 static void fix_rb_insert( rb_node *path[], int path_len )
 {
     // We always place the black_nil at 0th index in the stack as root's parent so this is safe.
-    while ( get_color( path[path_len - 2]->header ) == RED ) {
+    while ( path_len >= 3 && get_color( path[path_len - 2]->header ) == RED ) {
         rb_node *current = path[path_len - 1];
         rb_node *parent = path[path_len - 2];
         rb_node *grandparent = path[path_len - 3];
@@ -140,7 +145,6 @@ static void fix_rb_insert( rb_node *path[], int path_len )
             paint_node( aunt, BLACK );
             paint_node( parent, BLACK );
             paint_node( grandparent, RED );
-            current = grandparent;
             path_len -= 2;
         } else {
             if ( current == parent->links[!symmetric_case] ) {
@@ -170,11 +174,10 @@ static void insert_rb_node( rb_node *current )
     path[0] = free_nodes.black_nil;
     int path_len = 1;
     rb_node *seeker = free_nodes.tree_root;
-    size_t parent_size = 0;
     while ( seeker != free_nodes.black_nil ) {
         path[path_len++] = seeker;
 
-        parent_size = get_size( seeker->header );
+        size_t parent_size = get_size( seeker->header );
         // Ability to add duplicates to linked list means no fixups necessary if duplicate.
         if ( current_key == parent_size ) {
             add_duplicate( seeker, (duplicate_node *)current, path[path_len - 2] );
@@ -187,7 +190,7 @@ static void insert_rb_node( rb_node *current )
     if ( parent == free_nodes.black_nil ) {
         free_nodes.tree_root = current;
     } else {
-        parent->links[parent_size < current_key] = current;
+        parent->links[get_size( parent->header ) < current_key] = current;
     }
     current->links[L] = free_nodes.black_nil;
     current->links[R] = free_nodes.black_nil;
@@ -247,7 +250,7 @@ static rb_node *delete_duplicate( rb_node *head )
 static void fix_rb_delete( rb_node *extra_black, rb_node *path[], int path_len )
 {
     // The extra_black is "doubly black" if we enter the loop, requiring repairs.
-    while ( extra_black != free_nodes.tree_root && get_color( extra_black->header ) == BLACK ) {
+    while ( path_len >= 2 && extra_black != free_nodes.tree_root && get_color( extra_black->header ) == BLACK ) {
         rb_node *parent = path[path_len - 2];
 
         // We can cover left and right cases in one with simple directional link and its opposite.
@@ -291,6 +294,10 @@ static void fix_rb_delete( rb_node *extra_black, rb_node *path[], int path_len )
 /// @param path_len        the length of the path.
 static rb_node *delete_rb_node( rb_node *remove, rb_node *path[], int path_len )
 {
+    if ( path_len < 2 ) {
+        printf( "Path length is %d but request for path len %d - 2 was made.", path_len, path_len );
+        abort();
+    }
     rb_color fixup_color_check = get_color( remove->header );
 
     rb_node *parent = path[path_len - 2];
@@ -487,7 +494,7 @@ static rb_node *coalesce( rb_node *leftmost_node )
     // The black_nil is the right boundary. We set it to always be allocated with size 0.
     if ( !is_block_allocated( rightmost_node->header ) ) {
         coalesced_space += get_size( rightmost_node->header ) + HEADERSIZE;
-        rightmost_node = free_coalesced_node( rightmost_node );
+        (void)free_coalesced_node( rightmost_node );
     }
     // We use our static struct for convenience here to tell where our segment start is.
     if ( leftmost_node != heap.client_start && is_left_space( leftmost_node ) ) {
@@ -583,13 +590,13 @@ void *myrealloc( void *old_ptr, size_t new_size )
 
     if ( coalesced_space >= request ) {
         if ( leftmost_node != old_node ) {
-            memmove( client_space, old_ptr, old_size );
+            memmove( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
         }
         client_space = split_alloc( leftmost_node, request, coalesced_space );
     } else {
         client_space = mymalloc( request );
         if ( client_space ) {
-            memcpy( client_space, old_ptr, old_size );
+            memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
             init_free_node( leftmost_node, coalesced_space );
         }
     }

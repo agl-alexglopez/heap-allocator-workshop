@@ -1,18 +1,20 @@
 /// File: allocator.h
 /// -----------------
 /// Interface file for the custom heap allocator.
-#ifndef _ALLOCATOR_H
-#define _ALLOCATOR_H
+#ifndef ALLOCATOR_H
+#define ALLOCATOR_H
 
 #include "print_utility.h"
 #include <stdbool.h>
 #include <stddef.h> // for size_t
 
-// Alignment requirement for all blocks
-#define ALIGNMENT 8
-
-// maximum size of block that must be accommodated
-#define MAX_REQUEST_SIZE ( 1 << 30 )
+enum
+{
+    // Alignment requirement for all blocks
+    ALIGNMENT = 8,
+    // maximum size of block that must be accommodated
+    MAX_REQUEST_SIZE = ( 1 << 30 )
+};
 
 /// @brief myinit
 /// ----------------

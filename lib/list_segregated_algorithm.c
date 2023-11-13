@@ -17,7 +17,10 @@
 ///
 #include "allocator.h"
 #include "list_segregated_utilities.h"
+#include "print_utility.h"
 #include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -330,13 +333,13 @@ void *myrealloc( void *old_ptr, size_t new_size )
         // to the free list, update all headers, then come back to left coalesce the space we left
         // behind. This is fewer operations and I did not measure a significant time cost.
         if ( leftmost_header != old_header ) {
-            memmove( client_block, old_ptr, old_space );
+            memmove( client_block, old_ptr, old_space ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
         }
         client_block = split_alloc( leftmost_header, size_needed, coalesced_total );
     } else {
         client_block = mymalloc( size_needed );
         if ( client_block ) {
-            memcpy( client_block, old_ptr, old_space );
+            memcpy( client_block, old_ptr, old_space ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
             init_free_node( leftmost_header, coalesced_total );
         }
     }
@@ -366,8 +369,8 @@ bool validate_heap()
         return false;
     }
     size_t total_free_mem = 0;
-    if ( !is_memory_balanced( &total_free_mem, heap.client_start, heap.client_end, heap.client_size,
-                              fits.total ) ) {
+    if ( !is_memory_balanced( &total_free_mem, ( heap_range ){ heap.client_start, heap.client_end },
+                              ( size_total ){ heap.client_size, fits.total } ) ) {
         return false;
     }
     if ( !are_fits_valid( total_free_mem, fits.table, fits.nil ) ) {
@@ -387,4 +390,7 @@ void print_free_nodes( print_style style ) { print_fits( style, fits.table, fits
 /// @brief dump_heap  prints our the complete status of the heap, all of its blocks, and the sizes
 ///                   the blocks occupy. Printing should be clean with no overlap of unique id's
 ///                   between heap blocks or corrupted headers.
-void dump_heap() { print_all( heap.client_start, heap.client_end, heap.client_size, fits.table, fits.nil ); }
+void dump_heap()
+{
+    print_all( ( heap_range ){ heap.client_start, heap.client_end }, heap.client_size, fits.table, fits.nil );
+}

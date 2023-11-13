@@ -20,15 +20,15 @@
 // height of tree.
 typedef enum print_style
 {
-    plain = 0,
-    verbose = 1
+    PLAIN = 0,
+    VERBOSE = 1
 } print_style;
 
 // Printing enum for printing red black tree structure.
 typedef enum print_link
 {
-    branch = 0, // ├──
-    leaf = 1    // └──
+    BRANCH = 0, // ├──
+    LEAF = 1    // └──
 } print_link;
 
 // A struct for plotting helpful data about a heap run on a script.

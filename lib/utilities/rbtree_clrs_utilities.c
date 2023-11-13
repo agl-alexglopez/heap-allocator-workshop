@@ -6,7 +6,10 @@
 /// them here and hope the compiler inlines them in "hot" functions.
 #include "rbtree_clrs_utilities.h"
 #include "debug_break.h"
+#include "print_utility.h"
 #include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -260,12 +263,12 @@ static void print_node( const rb_node *root, const rb_node *black_nil, print_sty
     }
     printf( COLOR_NIL );
     get_color( root->header ) == BLACK ? printf( COLOR_BLK ) : printf( COLOR_RED );
-    if ( style == verbose ) {
+    if ( style == VERBOSE ) {
         printf( "%p:", root );
     }
     printf( "(%zubytes)", block_size );
     printf( COLOR_NIL );
-    if ( style == verbose ) {
+    if ( style == VERBOSE ) {
         // print the black-height
         printf( "(bh: %d)", get_black_height( root, black_nil ) );
     }
@@ -286,23 +289,23 @@ static void print_inner_tree( const rb_node *root, const rb_node *black_nil, con
         return;
     }
     printf( "%s", prefix );
-    printf( "%s", node_type == leaf ? " └──" : " ├──" );
+    printf( "%s", node_type == LEAF ? " └──" : " ├──" );
     print_node( root, black_nil, style );
 
     char *str = NULL;
-    int string_length = snprintf( NULL, 0, "%s%s", prefix, node_type == leaf ? "     " : " │   " );
+    int string_length = snprintf( NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        (void)snprintf( str, string_length, "%s%s", prefix, node_type == leaf ? "     " : " │   " );
+        (void)snprintf( str, string_length, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
     }
     if ( str != NULL ) {
         if ( root->right == black_nil ) {
-            print_inner_tree( root->left, black_nil, str, leaf, style );
+            print_inner_tree( root->left, black_nil, str, LEAF, style );
         } else if ( root->left == black_nil ) {
-            print_inner_tree( root->right, black_nil, str, leaf, style );
+            print_inner_tree( root->right, black_nil, str, LEAF, style );
         } else {
-            print_inner_tree( root->right, black_nil, str, branch, style );
-            print_inner_tree( root->left, black_nil, str, leaf, style );
+            print_inner_tree( root->right, black_nil, str, BRANCH, style );
+            print_inner_tree( root->left, black_nil, str, LEAF, style );
         }
     } else {
         printf( COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL );
@@ -402,7 +405,7 @@ static void print_bad_jump( const rb_node *current, const bad_jump j, const rb_n
     printf( "\tBlock Byte Value: %zubytes:\n", cur_size );
     printf( "\nJump by %zubytes...\n", cur_size );
     printf( "Current state of the free tree:\n" );
-    print_rb_tree( j.root, black_nil, verbose );
+    print_rb_tree( j.root, black_nil, VERBOSE );
 }
 
 /// @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
@@ -418,12 +421,12 @@ void print_rb_tree( const rb_node *root, const rb_node *black_nil, print_style s
     print_node( root, black_nil, style );
 
     if ( root->right == black_nil ) {
-        print_inner_tree( root->left, black_nil, "", leaf, style );
+        print_inner_tree( root->left, black_nil, "", LEAF, style );
     } else if ( root->left == black_nil ) {
-        print_inner_tree( root->right, black_nil, "", leaf, style );
+        print_inner_tree( root->right, black_nil, "", LEAF, style );
     } else {
-        print_inner_tree( root->right, black_nil, "", branch, style );
-        print_inner_tree( root->left, black_nil, "", leaf, style );
+        print_inner_tree( root->right, black_nil, "", BRANCH, style );
+        print_inner_tree( root->left, black_nil, "", LEAF, style );
     }
 }
 
@@ -478,7 +481,7 @@ void print_all( heap_range r, size_t heap_size, rb_node *root, rb_node *black_ni
     printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );
     printf( COLOR_CYN "(+X)" COLOR_NIL );
     printf( " INDICATES DUPLICATE NODES IN THE  THEY HAVE A NEXT NODE.\n" );
-    print_rb_tree( root, black_nil, verbose );
+    print_rb_tree( root, black_nil, VERBOSE );
 }
 
 // NOLINTEND(misc-no-recursion)

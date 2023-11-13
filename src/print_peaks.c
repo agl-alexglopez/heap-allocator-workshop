@@ -17,8 +17,10 @@
 #include "segment.h"
 #include <assert.h>
 #include <errno.h>
+// NOLINTNEXTLINE(*include-cleaner)
 #include <getopt.h>
 #include <limits.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,7 +29,7 @@
 
 // Pick line numbers in the script to make breakpoints. Execution will stop and print there.
 typedef int breakpoint;
-typedef unsigned char byte_t;
+typedef unsigned char byte;
 
 #define MAX_BREAKPOINTS (unsigned short)100
 const long heap_size = 1L << 32;
@@ -42,13 +44,15 @@ typedef struct
 /// FUNCTION PROTOTYPE
 
 int print_peaks( char *script_name, user_breaks *user_reqs );
-static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplots *graphs );
+static size_t print_allocator( script *s, user_breaks *user_reqs, gnuplots *graphs );
 static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int max );
 static int get_user_int( int min, int max );
-static void validate_breakpoints( script_t *script, user_breaks *user_reqs );
+static void validate_breakpoints( script *s, user_breaks *user_reqs );
 static void binsert( const void *key, void *base, int *p_nelem, size_t width,
                      int ( *compar )( const void *, const void * ) );
 static int cmp_breakpoints( const void *a, const void *b );
+
+// NOLINTBEGIN(*include-cleaner)
 
 /// @brief main  this program will illustrate the peak heap size of free nodes in an allocator. It
 ///              can also create breakpoints in the script file and illustrate the state of free
@@ -67,13 +71,13 @@ static int cmp_breakpoints( const void *a, const void *b );
 ///            can be entered in any order.
 int main( int argc, char *argv[] )
 {
-    user_breaks user_reqs = { .style = plain, .breakpoints = { 0 }, .num_breakpoints = 0 };
+    user_breaks user_reqs = { .style = PLAIN, .breakpoints = { 0 }, .num_breakpoints = 0 };
     int check = 0;
     char c = 0;
     while ( ( check = getopt( argc, argv, "vb:" ) ) != -1 ) {
         c = (char)check;
         if ( c == 'v' ) {
-            user_reqs.style = verbose;
+            user_reqs.style = VERBOSE;
         }
         if ( c == 'b' ) {
             char *ptr = NULL;
@@ -98,6 +102,8 @@ int main( int argc, char *argv[] )
     return print_peaks( argv[optind], &user_reqs );
 }
 
+// NOLINTEND(*include-cleaner)
+
 /// @brief print_peaks      prints the peak number of free nodes present in a heap allocator during
 ///                         execution of a script. Prints the state of free nodes breakpoints
 ///                         requested by the user as well.
@@ -106,31 +112,30 @@ int main( int argc, char *argv[] )
 /// @return                 0 upon successful execution 1 upon error.
 int print_peaks( char *script_name, user_breaks *user_reqs )
 {
-    script_t script = parse_script( script_name );
-    validate_breakpoints( &script, user_reqs );
+    script s = parse_script( script_name );
+    validate_breakpoints( &s, user_reqs );
 
-    gnuplots graphs
-        = { .util_percents = NULL, .free_nodes = NULL, .request_times = NULL, .num_ops = script.num_ops };
-    graphs.free_nodes = malloc( sizeof( size_t ) * script.num_ops );
+    gnuplots graphs = { .util_percents = NULL, .free_nodes = NULL, .request_times = NULL, .num_ops = s.num_ops };
+    graphs.free_nodes = malloc( sizeof( size_t ) * s.num_ops );
     assert( graphs.free_nodes );
-    graphs.util_percents = malloc( sizeof( double ) * script.num_ops );
+    graphs.util_percents = malloc( sizeof( double ) * s.num_ops );
     assert( graphs.util_percents );
-    graphs.request_times = malloc( sizeof( double ) * script.num_ops );
+    graphs.request_times = malloc( sizeof( double ) * s.num_ops );
     assert( graphs.request_times );
 
     // Evaluate this script and record the results
-    printf( "\nEvaluating allocator on %s...\n", script.name );
-    size_t used_segment = print_allocator( &script, user_reqs, &graphs );
-    printf( "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", script.num_ops, script.peak_size,
+    printf( "\nEvaluating allocator on %s...\n", s.name );
+    size_t used_segment = print_allocator( &s, user_reqs, &graphs );
+    printf( "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", s.num_ops, s.peak_size,
             used_segment );
-    printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)script.peak_size ) / (double)used_segment );
+    printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)s.peak_size ) / (double)used_segment );
 
     print_gnuplots( &graphs );
     free( graphs.free_nodes );
     free( graphs.request_times );
     free( graphs.util_percents );
-    free( script.ops );
-    free( script.blocks );
+    free( s.ops );
+    free( s.blocks );
     printf( "^^^Scroll up to see the free nodes organized in their data structure at peak size.^^^\n" );
     return 0;
 }
@@ -141,11 +146,11 @@ int print_peaks( char *script_name, user_breaks *user_reqs )
 /// @param *script          the script_t with all info for the script file to execute.
 /// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
 /// @return                 the size of the heap overall as helpful utilization info.
-static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplots *graphs )
+static size_t print_allocator( script *s, user_breaks *user_reqs, gnuplots *graphs )
 {
     init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
-        allocator_error( script, 0, "myinit() returned false" );
+        allocator_error( s, 0, "myinit() returned false" );
         return -1;
     }
 
@@ -158,9 +163,9 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
     int peak_free_nodes_request = 0;
     size_t peak_free_node_count = 0;
     int curr_break = 0;
-    for ( int req = 0; req < script->num_ops; req++ ) {
+    for ( int req = 0; req < s->num_ops; req++ ) {
 
-        graphs->request_times[req] = time_request( script, req, &cur_size, &heap_end );
+        graphs->request_times[req] = time_request( s, req, &cur_size, &heap_end );
 
         // I added this as an allocator.h function so all allocators can report free nodes.
         size_t total_free_nodes = get_free_total();
@@ -168,8 +173,8 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
         // We will plot this at the end of program execution.
         graphs->free_nodes[req] = total_free_nodes;
         // Avoid a loss of precision while tracking the utilization over heap lifetime.
-        double peak_size = 100.0 * (double)script->peak_size;
-        graphs->util_percents[req] = peak_size / (double)( (byte_t *)heap_end - (byte_t *)heap_segment_start() );
+        double peak_size = 100.0 * (double)s->peak_size;
+        graphs->util_percents[req] = peak_size / (double)( (byte *)heap_end - (byte *)heap_segment_start() );
 
         if ( curr_break < user_reqs->num_breakpoints && user_reqs->breakpoints[curr_break] == req ) {
             printf( "There are %zu free nodes after executing command on line %d :\n", total_free_nodes, req + 1 );
@@ -179,7 +184,7 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
             printf( "There are %zu free nodes after executing command on line %d :\n", get_free_total(), req + 1 );
 
             // The user may enter more breakpoints.
-            handle_user_breakpoints( user_reqs, curr_break, script->num_ops - 1 );
+            handle_user_breakpoints( user_reqs, curr_break, s->num_ops - 1 );
             curr_break++;
         }
 
@@ -195,15 +200,15 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
 
     init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
-        allocator_error( script, 0, "myinit() returned false" );
+        allocator_error( s, 0, "myinit() returned false" );
         return -1;
     }
     heap_end = heap_segment_start();
     cur_size = 0;
 
-    for ( int req = 0; req < script->num_ops; req++ ) {
+    for ( int req = 0; req < s->num_ops; req++ ) {
         // execute the request
-        if ( exec_request( script, req, &cur_size, &heap_end ) == -1 ) {
+        if ( exec_request( s, req, &cur_size, &heap_end ) == -1 ) {
             return -1;
         }
         if ( req == peak_free_nodes_request ) {
@@ -216,7 +221,7 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
             printf( "There were %zu free blocks of memory.\n", peak_free_node_count );
         }
     }
-    return (byte_t *)heap_end - (byte_t *)heap_segment_start();
+    return (byte *)heap_end - (byte *)heap_segment_start();
 }
 
 static void consume_remaining_input( int *c )
@@ -286,7 +291,7 @@ static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int
 static int get_user_int( int min, int max )
 {
     char *buff = malloc( sizeof( char ) * 9 );
-    memset( buff, 0, 9 );
+    memset( buff, 0, 9 ); // NOLINT
     char *input = NULL;
     int input_int = 0;
     while ( input == NULL ) {
@@ -327,15 +332,15 @@ static int get_user_int( int min, int max )
 /// @brief validate_breakpoints  checks any requested breakpoints to make sure they are in range.
 /// @param script                the parsed script with information we need to verify ranges.
 /// @param *user_reqs            struct containing user print style, and possible breaks.
-static void validate_breakpoints( script_t *script, user_breaks *user_reqs )
+static void validate_breakpoints( script *s, user_breaks *user_reqs )
 {
     // It's easier if the breakpoints are in order and can run along with our script execution.
     for ( int brk = 0; brk < user_reqs->num_breakpoints; brk++ ) {
         // If the start is too large, the user may have mistaken the file they wish to time.
-        if ( script->num_ops - 1 < user_reqs->breakpoints[brk] || user_reqs->breakpoints[brk] <= 0 ) {
+        if ( s->num_ops - 1 < user_reqs->breakpoints[brk] || user_reqs->breakpoints[brk] <= 0 ) {
             printf( "Breakpoint is outside of script range:\n" );
             printf( "Breakpoint line number: %d\n", user_reqs->breakpoints[brk] );
-            printf( "Script range: %d-%d\n", 1, script->num_ops );
+            printf( "Script range: %d-%d\n", 1, s->num_ops );
             abort();
         }
     }
@@ -354,24 +359,24 @@ static void binsert( const void *key, void *base, int *p_nelem, size_t width,
                      int ( *compar )( const void *, const void * ) )
 {
     // We will use the address at the end of the array to help move bytes if we don't find elem.
-    void *end = (byte_t *)base + ( *p_nelem * width );
+    void *end = (byte *)base + ( *p_nelem * width );
     for ( size_t nremain = *p_nelem; nremain != 0; nremain >>= 1 ) {
-        void *elem = (byte_t *)base + ( nremain >> 1 ) * width;
+        void *elem = (byte *)base + ( nremain >> 1 ) * width;
         int sign = compar( key, elem );
         if ( sign == 0 ) {
             return;
         }
         if ( sign > 0 ) { // key > elem
             // base settles where key belongs if we cannot find it. Steps right in this case.
-            base = (byte_t *)elem + width;
+            base = (byte *)elem + width;
             nremain--;
         }
         // key < elem and the base does not move in this case.
     }
     // First move does nothing, 0bytes, if we are adding first elem or new greatest value.
-    memmove( (byte_t *)base + width, base, (byte_t *)end - (byte_t *)base );
+    memmove( (byte *)base + width, base, (byte *)end - (byte *)base ); // NOLINT
     // Now, wherever the base settled is where our key belongs.
-    memcpy( base, key, width );
+    memcpy( base, key, width ); // NOLINT
     ++*p_nelem;
 }
 

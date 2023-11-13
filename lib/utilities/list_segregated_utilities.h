@@ -47,6 +47,18 @@ typedef struct seg_node
     free_node *start;
 } seg_node;
 
+typedef struct heap_range
+{
+    void *start;
+    void *end;
+} heap_range;
+
+typedef struct size_total
+{
+    size_t size;
+    size_t total;
+} size_total;
+
 #define INDEX_0 0UL
 #define INDEX_0_SIZE 32UL
 #define INDEX_1 1UL
@@ -70,11 +82,9 @@ typedef struct seg_node
 #define FREED 0x0UL
 #define ALLOCATED 0x1UL
 #define LEFT_ALLOCATED 0x2UL
-#define LEFT_FREE ~0x2U
+#define LEFT_FREE ~0x2UL
 
 /////////////////////////////   Basic Block and Header Operations   ////////////////////////////
-
-// NOLINTBEGIN(*-swappable-parameters)
 
 /// @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
 /// @param requested_size  size given to us by the client.
@@ -204,8 +214,7 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size );
 /// lists.
 /// @return                    true if our tallying is correct and our totals
 /// match.
-bool is_memory_balanced( size_t *total_free_mem, void *client_start, void *client_end, size_t client_size,
-                         size_t fits_total );
+bool is_memory_balanced( size_t *total_free_mem, heap_range hr, size_total st );
 
 /// @brief are_fits_valid  loops through only the segregated fits list to make
 /// sure it matches
@@ -234,7 +243,7 @@ bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil );
 /// each slot.
 /// @param *nil         the free node that serves as a universal head and tail
 /// to all lists.
-void print_all( void *client_start, void *client_end, size_t client_size, seg_node table[], free_node *nil );
+void print_all( heap_range hr, size_t client_size, seg_node table[], free_node *nil );
 
 /// @brief print_fits  prints the segregated fits free list in order to check if
 /// splicing and
@@ -243,7 +252,5 @@ void print_all( void *client_start, void *client_end, size_t client_size, seg_no
 /// @param *nil        a special free_node that serves as a sentinel for logic
 /// and edgecases.
 void print_fits( print_style style, seg_node table[], free_node *nil );
-
-// NOLINTEND(*-swappable-parameters)
 
 #endif

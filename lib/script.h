@@ -14,44 +14,44 @@
 /// If you would like to change the output of plotted graphs to an output window, explore the
 /// implementations of the plot_ functions. However, I will not provide an interface for that
 /// change because the pop up windows are slow and the in-terminal graphs serve their purpose well.
-#ifndef _SCRIPT_H_
-#define _SCRIPT_H_
+#ifndef SCRIPT_H
+#define SCRIPT_H
 #include "print_utility.h"
 #include <stddef.h> // for size_t
 
 // enum and struct for a single allocator request
-enum request_type
+enum request_category
 {
-    alloc_req = 1,
-    free_req,
-    realloc_req
+    ALLOC = 1,
+    FREE,
+    REALLOC
 };
 
 typedef struct
 {
-    enum request_type op; // type of request
-    size_t id;            // id for free() to use later
-    size_t size;          // num bytes for alloc/realloc request
-    int lineno;           // which line in file
-} request_t;
+    enum request_category op; // type of request
+    size_t id;                // id for free() to use later
+    size_t size;              // num bytes for alloc/realloc request
+    int lineno;               // which line in file
+} request;
 
 // struct for facts about a single malloc'ed block
 typedef struct
 {
     void *ptr;
     size_t size;
-} block_t;
+} block;
 
 // struct for info for one script file
 typedef struct
 {
     char name[128];   // short name of script
-    request_t *ops;   // array of requests read from script
+    request *ops;     // array of requests read from script
     int num_ops;      // number of requests
     size_t num_ids;   // number of distinct block ids
-    block_t *blocks;  // array of memory blocks malloc returns when executing
+    block *blocks;    // array of memory blocks malloc returns when executing
     size_t peak_size; // total payload bytes at peak in-use
-} script_t;
+} script;
 
 /// @brief exec_request  a wrapper function to execute a single call to the heap allocator. It may
 ///                      may call malloc(), realloc(), or free().
@@ -60,7 +60,7 @@ typedef struct
 /// @param *cur_size     the current size of the heap overall.
 /// @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
 /// @return              0 if there are no errors, -1 if there is an error.
-int exec_request( script_t *script, int req, size_t *cur_size, void **heap_end );
+int exec_request( script *script, int req, size_t *cur_size, void **heap_end );
 
 /// @brief time_request  a wrapper function for timer functions that allows us to time a request to
 ///                      the heap. Returns the cpu time of the request in milliseconds.
@@ -69,7 +69,7 @@ int exec_request( script_t *script, int req, size_t *cur_size, void **heap_end )
 /// @param *cur_size     the current size of the heap.
 /// @param **heap_end    the address of the end of our range of heap memory.
 /// @return              the double representing the time to complete one request.
-double time_request( script_t *script, int req, size_t *cur_size, void **heap_end );
+double time_request( script *script, int req, size_t *cur_size, void **heap_end );
 
 /// @breif parse_script  parses the script file at the specified path, and returns an object with
 ///                      info about it.  It expects one request per line, and adds each request's
@@ -78,12 +78,12 @@ double time_request( script_t *script, int req, size_t *cur_size, void **heap_en
 ///                      is too long to store each request on the heap.
 /// @param *path         the path to the .script file to parse.
 /// @return              a pointer to the script_t with information regarding the .script requests.
-script_t parse_script( const char *path );
+script parse_script( const char *path );
 
 /// @brief allocator_error  reports an error while running an allocator script.
 /// @param *script          the script_t with information we track form the script file requests.
 /// @param lineno           the line number where the error occured.
 /// @param *format          the specified format string.
-void allocator_error( script_t *script, int lineno, char *format, ... );
+void allocator_error( script *script, int lineno, char *format, ... );
 
 #endif

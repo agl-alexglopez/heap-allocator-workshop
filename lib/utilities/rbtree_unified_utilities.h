@@ -58,7 +58,7 @@
 #define FREED 0x0UL
 #define ALLOCATED 0x1UL
 #define LEFT_ALLOCATED 0x2UL
-#define LEFT_FREE ~0x2U
+#define LEFT_FREE ~0x2UL
 #define COLOR_MASK 0x4UL
 #define HEAP_NODE_WIDTH 32UL
 #define RED_PAINT 0x4UL

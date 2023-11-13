@@ -7,12 +7,25 @@
 /// here. Hopefully the compiler inlines them in "hot-spot" functions.
 #include "list_segregated_utilities.h"
 #include "debug_break.h"
+#include "print_utility.h"
 #include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 
-/////////////////////////////    Debugging and Testing Functions    /////////////////////////
+typedef struct header_size
+{
+    header header;
+    size_t size;
+} header_size;
 
-// NOLINTBEGIN(*-swappable-parameters)
+typedef struct bad_jump
+{
+    header *current;
+    header *prev;
+} bad_jump;
+
+/////////////////////////////    Debugging and Testing Functions    /////////////////////////
 
 /// @brief is_header_corrupted   will determine if a block has the 3rd bit on,
 /// which is invalid.
@@ -79,17 +92,17 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
 /// header.
 /// @client_size            the entire space available to the user.
 /// @return                 true if the header is valid, false otherwise.
-bool is_valid_header( header cur_header, size_t block_size, size_t client_size )
+bool is_valid_header( header_size hs, size_t client_size )
 {
     // Most definitely impossible and our header is corrupted. Pointer arithmetic
     // would fail.
-    if ( block_size > client_size ) {
+    if ( hs.size > client_size ) {
         return false;
     }
-    if ( is_header_corrupted( cur_header ) ) {
+    if ( is_header_corrupted( hs.header ) ) {
         return false;
     }
-    if ( block_size % HEADERSIZE != 0 ) {
+    if ( hs.size % HEADERSIZE != 0 ) {
         return false;
     }
     return true;
@@ -109,22 +122,21 @@ bool is_valid_header( header cur_header, size_t block_size, size_t client_size )
 /// lists.
 /// @return                    true if our tallying is correct and our totals
 /// match.
-bool is_memory_balanced( size_t *total_free_mem, void *client_start, void *client_end, size_t client_size,
-                         size_t fits_total )
+bool is_memory_balanced( size_t *total_free_mem, heap_range hr, size_total st )
 {
     // Check that after checking all headers we end on size 0 tail and then end of
     // address space.
-    header *cur_header = client_start;
+    header *cur_header = hr.start;
     size_t size_used = FREE_NODE_WIDTH + TABLE_BYTES;
     size_t total_free_nodes = 0;
-    while ( cur_header != client_end ) {
+    while ( cur_header != hr.end ) {
         size_t block_size_check = get_size( *cur_header );
         if ( block_size_check == 0 ) {
             breakpoint();
             return false;
         }
 
-        if ( !is_valid_header( *cur_header, block_size_check, client_size ) ) {
+        if ( !is_valid_header( ( header_size ){ *cur_header, block_size_check }, st.size ) ) {
             breakpoint();
             return false;
         }
@@ -136,11 +148,11 @@ bool is_memory_balanced( size_t *total_free_mem, void *client_start, void *clien
         }
         cur_header = get_right_header( cur_header, block_size_check );
     }
-    if ( size_used + *total_free_mem != client_size ) {
+    if ( size_used + *total_free_mem != st.size ) {
         breakpoint();
         return false;
     }
-    if ( total_free_nodes != fits_total ) {
+    if ( total_free_nodes != st.total ) {
         breakpoint();
         return false;
     }
@@ -202,7 +214,7 @@ void print_fits( print_style style, seg_node table[], free_node *nil )
     bool alternate = false;
     for ( size_t i = 0; i < TABLE_SIZE; i++, alternate = !alternate ) {
         printf( COLOR_GRN );
-        if ( style == verbose ) {
+        if ( style == VERBOSE ) {
             printf( "%p: ", &table[i] );
         }
         if ( i == TABLE_SIZE - 1 ) {
@@ -223,7 +235,7 @@ void print_fits( print_style style, seg_node table[], free_node *nil )
             if ( cur ) {
                 header *cur_header = get_block_header( cur );
                 printf( "<=>[" );
-                if ( style == verbose ) {
+                if ( style == VERBOSE ) {
                     printf( "%p:", get_block_header( cur ) );
                 }
                 printf( "(%zubytes)]", get_size( *cur_header ) );
@@ -279,24 +291,24 @@ static void print_free_block( header *cur_header )
 /// @param table[]         the lookup table that holds the list size ranges
 /// @param *nil            a special free_node that serves as a sentinel for
 /// logic and edgecases.
-static void print_bad_jump( header *current, header *prev, seg_node table[], free_node *nil )
+static void print_bad_jump( bad_jump j, seg_node table[], free_node *nil )
 {
-    size_t prev_size = get_size( *prev );
-    size_t cur_size = get_size( *current );
+    size_t prev_size = get_size( *j.prev );
+    size_t cur_size = get_size( *j.current );
     printf( COLOR_CYN );
     printf( "A bad jump from the value of a header has occured. Bad distance to "
             "next header.\n" );
-    printf( "The previous address: %p:\n", prev );
-    printf( "\tHeader Hex Value: %016zX:\n", *prev );
+    printf( "The previous address: %p:\n", j.prev );
+    printf( "\tHeader Hex Value: %016zX:\n", *j.prev );
     printf( "\tBlock Byte Value: %zubytes:\n", prev_size );
     printf( "\nJump by %zubytes...\n", prev_size );
-    printf( "The current address: %p:\n", current );
-    printf( "\tHeader Hex Value: %016zX:\n", *current );
+    printf( "The current address: %p:\n", j.current );
+    printf( "\tHeader Hex Value: %016zX:\n", *j.current );
     printf( "\tBlock Byte Value: %zubytes:\n", cur_size );
     printf( "\nJump by %zubytes...\n", cur_size );
     printf( "Current state of the free list:\n" );
     printf( COLOR_NIL );
-    print_fits( verbose, table, nil );
+    print_fits( VERBOSE, table, nil );
 }
 
 /// @brief print_all    prints our the complete status of the heap, all of its
@@ -311,27 +323,27 @@ static void print_bad_jump( header *current, header *prev, seg_node table[], fre
 /// each slot.
 /// @param *nil         the free node that serves as a universal head and tail
 /// to all lists.
-void print_all( void *client_start, void *client_end, size_t client_size, seg_node table[], free_node *nil )
+void print_all( heap_range hr, size_t client_size, seg_node table[], free_node *nil )
 {
-    header *cur_header = client_start;
+    header *cur_header = hr.start;
     printf( "Heap client segment starts at address %p, ends %p. %zu total bytes "
             "currently used.\n",
-            cur_header, client_end, client_size );
+            cur_header, hr.end, client_size );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n\n" );
 
     printf( "%p: FIRST ADDRESS\n", table );
 
     // This will create large amount of output but realistically table is before
     // the rest of heap.
-    print_fits( verbose, table, nil );
+    print_fits( VERBOSE, table, nil );
     printf( "--END OF LOOKUP TABLE, START OF HEAP--\n" );
 
     header *prev = cur_header;
-    while ( cur_header != client_end ) {
+    while ( cur_header != hr.end ) {
         size_t full_size = get_size( *cur_header );
 
         if ( full_size == 0 ) {
-            print_bad_jump( cur_header, prev, table, nil );
+            print_bad_jump( ( bad_jump ){ cur_header, prev }, table, nil );
             printf( "Last known pointer before jump: %p", prev );
             return;
         }
@@ -344,7 +356,7 @@ void print_all( void *client_start, void *client_end, size_t client_size, seg_no
         prev = cur_header;
         cur_header = get_right_header( cur_header, full_size );
     }
-    printf( "%p: END OF HEAP\n", client_end );
+    printf( "%p: END OF HEAP\n", hr.end );
     printf( COLOR_RED );
     printf( "<-%p:SENTINEL->\n", nil );
     printf( COLOR_NIL );
@@ -354,7 +366,5 @@ void print_all( void *client_start, void *client_end, size_t client_size, seg_no
     printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );
     // For large heaps we wouldn't be able to scroll to the table location so
     // print again here.
-    print_fits( verbose, table, nil );
+    print_fits( VERBOSE, table, nil );
 }
-
-// NOLINTEND(*-swappable-parameters)

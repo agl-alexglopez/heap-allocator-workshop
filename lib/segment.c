@@ -7,6 +7,7 @@
 
 #include "segment.h"
 #include <assert.h>
+#include <stddef.h>
 #include <sys/mman.h>
 
 /// Place segment at fixed address, as default addresses are quite high
@@ -14,8 +15,8 @@
 #define HEAP_START_HINT (void *)0x107000000L
 
 // Static means these variables are only visible within this file
-static void *segment_start = NULL;
-static size_t segment_size = 0;
+static void *segment_start = NULL; // NOLINT(*-non-const-global-variables)
+static size_t segment_size = 0;    // NOLINT(*-non-const-global-variables)
 
 void *heap_segment_start() { return segment_start; }
 
@@ -25,8 +26,9 @@ void *init_heap_segment( size_t total_size )
 {
     // Discard any previous segment via munmap
     if ( segment_start != NULL ) {
-        if ( munmap( segment_start, total_size ) == -1 )
+        if ( munmap( segment_start, total_size ) == -1 ) {
             return NULL;
+        }
         segment_start = NULL;
         segment_size = 0;
     }

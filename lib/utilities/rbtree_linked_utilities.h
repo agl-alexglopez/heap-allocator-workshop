@@ -138,7 +138,7 @@ typedef enum list_link
 #define HEAP_NODE_WIDTH 40UL
 #define RED_PAINT 0x4UL
 #define BLK_PAINT ~0x4UL
-#define LEFT_FREE ~0x2U
+#define LEFT_FREE ~0x2UL
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
 

@@ -27,8 +27,11 @@
 ///     requires duplicate nodes to be stored. I used a doubly linked list to acheive this.
 ///          https://web.archive.org/web/20141129024312/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx
 #include "allocator.h"
+#include "print_utility.h"
 #include "rbtree_topdown_utilities.h"
 #include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -288,9 +291,9 @@ static rb_node *remove_node( rb_node *parent, replacement r )
 /// @return                   the node we have removed from the tree or doubly linked list.
 static rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-complexity)
 {
-    rb_node *gparent = free_nodes.black_nil;
-    rb_node *parent = free_nodes.black_nil;
     rb_node *child = free_nodes.black_nil;
+    rb_node *parent = free_nodes.black_nil;
+    rb_node *gparent = NULL;
     rb_node *best = free_nodes.black_nil;
     rb_node *best_parent = free_nodes.black_nil;
     size_t best_fit_size = ULLONG_MAX;
@@ -328,28 +331,24 @@ static rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-complexity)
                 if ( child == best ) {
                     best_parent = gparent;
                 }
-                // Our black height will be altered. Recolor.
             } else if ( sibling != free_nodes.black_nil && get_color( nxt_sibling->header ) == BLACK
                         && get_color( sibling->links[!prev_link]->header ) == BLACK
                         && get_color( sibling->links[prev_link]->header ) == BLACK ) {
+                // Our black height will be altered. Recolor.
                 paint_node( parent, BLACK );
                 paint_node( sibling, RED );
                 paint_node( child, RED );
-                // Another black is waiting down the tree. Red violations and path violations possible.
             } else if ( sibling != free_nodes.black_nil && get_color( nxt_sibling->header ) == BLACK ) {
+                // Another black is waiting down the tree. Red violations and path violations possible.
                 tree_link to_parent = gparent->links[R] == parent;
-                rb_node *new_gparent = free_nodes.black_nil;
-
                 // These two cases may ruin lineage of node to be removed. Repair if necessary.
                 if ( get_color( sibling->links[prev_link]->header ) == RED ) {
-                    new_gparent = gparent->links[to_parent]
-                        = double_rotation( ( rotation ){ parent, gparent }, prev_link );
+                    gparent->links[to_parent] = double_rotation( ( rotation ){ parent, gparent }, prev_link );
                     if ( best == parent ) {
-                        best_parent = new_gparent;
+                        best_parent = gparent->links[to_parent];
                     }
                 } else if ( get_color( sibling->links[!prev_link]->header ) == RED ) {
-                    new_gparent = gparent->links[to_parent]
-                        = single_rotation( ( rotation ){ parent, gparent }, prev_link );
+                    gparent->links[to_parent] = single_rotation( ( rotation ){ parent, gparent }, prev_link );
                     if ( best == parent ) {
                         best_parent = sibling;
                     }
@@ -358,8 +357,6 @@ static rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-complexity)
                 paint_node( gparent->links[to_parent], RED );
                 paint_node( gparent->links[to_parent]->links[L], BLACK );
                 paint_node( gparent->links[to_parent]->links[R], BLACK );
-                // Either single or double rotation has adjusted grandparent position.
-                gparent = new_gparent;
             }
         }
     }
@@ -485,7 +482,7 @@ static rb_node *coalesce( rb_node *leftmost_node )
     // The black_nil is the right boundary. We set it to always be allocated with size 0.
     if ( !is_block_allocated( rightmost_node->header ) ) {
         coalesced_space += get_size( rightmost_node->header ) + HEADERSIZE;
-        rightmost_node = free_coalesced_node( rightmost_node );
+        (void)free_coalesced_node( rightmost_node );
     }
     // We use our static struct for convenience here to tell where our segment start is.
     if ( leftmost_node != heap.client_start && is_left_space( leftmost_node ) ) {
@@ -582,13 +579,13 @@ void *myrealloc( void *old_ptr, size_t new_size )
     if ( coalesced_space >= request ) {
         // Better to memmove than not coalesce left, give up, and leave possible space behind.
         if ( leftmost_node != old_node ) {
-            memmove( client_space, old_ptr, old_size );
+            memmove( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
         }
         client_space = split_alloc( leftmost_node, request, coalesced_space );
     } else {
         client_space = mymalloc( request );
         if ( client_space ) {
-            memcpy( client_space, old_ptr, old_size );
+            memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
             init_free_node( leftmost_node, coalesced_space );
         }
     }

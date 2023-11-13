@@ -3,8 +3,8 @@
 /// An interface to the OS low-level allocator. Used to reserve a large
 /// segment of memory to be used by a custom heap allocator.
 
-#ifndef _SEGMENT_H_
-#define _SEGMENT_H_
+#ifndef SEGMENT_H
+#define SEGMENT_H
 #include <stddef.h> // for size_t
 
 /// @brief init_heap_segment This function is called to initialize the heap

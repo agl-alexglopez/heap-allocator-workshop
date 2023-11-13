@@ -6,20 +6,25 @@
 #include "segment.h"
 #include <assert.h>
 #include <signal.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 /// initial allocation will be for min size, if not big enough, doubles
 /// to 64, then 128, then 256, etc. as needed to accommodate the entire line
 /// resize-as-you-go, doubling each time.
-#define MINIMUM_SIZE 32
+enum
+{
+    MINIMUM_SIZE = 32,
+    NEW_LINE = '\n',
+    NULL_TERMINATOR = '\0',
+    /// initial estimate of number of uniq lines
+    /// resize-as-you-go, add in increments of 100
+    ESTIMATE = 100,
+};
 
-#define NEW_LINE '\n'
-#define NULL_TERMINATOR '\0'
 #define HEAP_SIZE 1L << 32
-/// initial estimate of number of uniq lines
-/// resize-as-you-go, add in increments of 100
-#define ESTIMATE 100
 
 // "freq" abbreviation used throughout means frequency of occurences of the associated text line.
 typedef struct freq_cell
@@ -52,15 +57,15 @@ int main( int argc, char *argv[] )
         // User types or hits <Enter> to create multiple lines of text input. <Ctrl-d> stops input.
         file_pointer = stdin;
     } else {
-        file_pointer = fopen( argv[1], "r" );
+        file_pointer = fopen( argv[1], "re" );
         if ( file_pointer == NULL ) {
             printf( "cannot access '%s'", argv[1] );
-            raise( SIGABRT );
+            (void)raise( SIGABRT );
         }
     }
 
     print_uniq_lines( file_pointer );
-    fclose( file_pointer );
+    (void)fclose( file_pointer );
     return 0;
 }
 
@@ -169,7 +174,7 @@ char *read_line( FILE *file_pointer )
 
     // We need another pointer to our heap in case fgets returns NULL. Otherwise, heap is lost.
     char *more_space = heap_string;
-    more_space = fgets( more_space, heap_size, file_pointer );
+    more_space = fgets( more_space, (int)heap_size, file_pointer );
     if ( more_space == NULL ) {
         myfree( heap_string );
         return NULL;
@@ -179,17 +184,16 @@ char *read_line( FILE *file_pointer )
     size_t newline_char = strlen( heap_string ) - 1;
     while ( heap_string[newline_char] != NEW_LINE ) {
         heap_size <<= 1;
-        more_space = myrealloc( heap_string, heap_size );
-        assert( more_space );
-        heap_string = more_space;
+        char *check = myrealloc( heap_string, heap_size );
+        assert( check );
+        heap_string = check;
 
         // Now we need to put more of our string into the buffer.
         more_space = heap_string + newline_char + 1;
-        more_space = fgets( more_space, heap_size >> 1, file_pointer );
+        more_space = fgets( more_space, (int)( heap_size >> 1 ), file_pointer );
         if ( more_space == NULL ) {
             // We can be nice and clean up our doubled memory as that could be quite large.
-            more_space = myrealloc( heap_string, heap_size >> 1 );
-            assert( more_space );
+            assert( myrealloc( heap_string, heap_size >> 1 ) );
             return heap_string;
         }
         newline_char += strlen( more_space );

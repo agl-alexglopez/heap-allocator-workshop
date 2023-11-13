@@ -7,7 +7,10 @@
 /// here.
 #include "rbtree_linked_utilities.h"
 #include "debug_break.h"
+#include "print_utility.h"
 #include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -268,14 +271,14 @@ static void print_node( const rb_node *root, void *nil_and_tail, print_style sty
     printf( COLOR_NIL );
     get_color( root->header ) == BLACK ? printf( COLOR_BLK ) : printf( COLOR_RED );
 
-    if ( style == verbose ) {
+    if ( style == VERBOSE ) {
         printf( "%p:", root );
     }
 
     printf( "(%zubytes)", block_size );
     printf( COLOR_NIL );
 
-    if ( style == verbose ) {
+    if ( style == VERBOSE ) {
         // print the black-height
         printf( "(bh: %d)", get_black_height( root, nil_and_tail ) );
     }
@@ -308,24 +311,24 @@ static void print_inner_tree( const rb_node *root, void *nil_and_tail, const cha
     }
     // Print the root node
     printf( "%s", prefix );
-    printf( "%s", node_type == leaf ? " └──" : " ├──" );
+    printf( "%s", node_type == LEAF ? " └──" : " ├──" );
     print_node( root, nil_and_tail, style );
 
     // Print any subtrees
     char *str = NULL;
-    int string_length = snprintf( NULL, 0, "%s%s", prefix, node_type == leaf ? "     " : " │   " );
+    int string_length = snprintf( NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        (void)snprintf( str, string_length, "%s%s", prefix, node_type == leaf ? "     " : " │   " );
+        (void)snprintf( str, string_length, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
     }
     if ( str != NULL ) {
         if ( root->links[R] == nil_and_tail ) {
-            print_inner_tree( root->links[L], nil_and_tail, str, leaf, style );
+            print_inner_tree( root->links[L], nil_and_tail, str, LEAF, style );
         } else if ( root->links[L] == nil_and_tail ) {
-            print_inner_tree( root->links[R], nil_and_tail, str, leaf, style );
+            print_inner_tree( root->links[R], nil_and_tail, str, LEAF, style );
         } else {
-            print_inner_tree( root->links[R], nil_and_tail, str, branch, style );
-            print_inner_tree( root->links[L], nil_and_tail, str, leaf, style );
+            print_inner_tree( root->links[R], nil_and_tail, str, BRANCH, style );
+            print_inner_tree( root->links[L], nil_and_tail, str, LEAF, style );
         }
     } else {
         printf( COLOR_ERR "memory exceeded. Cannot display " COLOR_NIL );
@@ -348,12 +351,12 @@ void print_rb_tree( const rb_node *root, void *nil_and_tail, print_style style )
 
     // Print any subtrees
     if ( root->links[R] == nil_and_tail ) {
-        print_inner_tree( root->links[L], nil_and_tail, "", leaf, style );
+        print_inner_tree( root->links[L], nil_and_tail, "", LEAF, style );
     } else if ( root->links[L] == nil_and_tail ) {
-        print_inner_tree( root->links[R], nil_and_tail, "", leaf, style );
+        print_inner_tree( root->links[R], nil_and_tail, "", LEAF, style );
     } else {
-        print_inner_tree( root->links[R], nil_and_tail, "", branch, style );
-        print_inner_tree( root->links[L], nil_and_tail, "", leaf, style );
+        print_inner_tree( root->links[R], nil_and_tail, "", BRANCH, style );
+        print_inner_tree( root->links[L], nil_and_tail, "", LEAF, style );
     }
 }
 
@@ -451,7 +454,7 @@ static void print_bad_jump( const rb_node *curr, const rb_node *prev, rb_node *r
     printf( "\tBlock Byte Value: %zubytes:\n", cur_size );
     printf( "\nJump by %zubytes...\n", cur_size );
     printf( "Current state of the free tree:\n" );
-    print_rb_tree( root, nil_and_tail, verbose );
+    print_rb_tree( root, nil_and_tail, VERBOSE );
 }
 
 /// @brief print_all    prints our the complete status of the heap, all of its blocks, and
@@ -505,7 +508,7 @@ void print_all( heap_range r, size_t heap_size, rb_node *tree_root, rb_node *bla
     printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );
     printf( COLOR_CYN "(+X)" COLOR_NIL );
     printf( " INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A N NODE.\n" );
-    print_rb_tree( tree_root, black_nil, verbose );
+    print_rb_tree( tree_root, black_nil, VERBOSE );
 }
 
 // NOLINTEND(misc-no-recursion, *-swappable-parameters)
