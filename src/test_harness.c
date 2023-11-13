@@ -24,7 +24,7 @@
 /// TYPE DECLARATIONS
 
 // Amount by which we resize ops when needed when reading in from file
-const long HEAP_SIZE = 1L << 32;
+const long heap_size = 1L << 32;
 
 /// FUNCTION PROTOTYPES
 
@@ -33,7 +33,7 @@ static size_t eval_correctness( script_t *script, bool quiet, bool *success );
 static void *eval_malloc( int req, size_t requested_size, script_t *script, bool *failptr );
 static void *eval_realloc( int req, size_t requested_size, script_t *script, bool *failptr );
 static bool verify_block( void *ptr, size_t size, script_t *script, int lineno );
-static bool verify_payload( void *ptr, size_t size, int id, script_t *script, int lineno, char *op );
+static bool verify_payload( void *ptr, size_t size, size_t id, script_t *script, int lineno, char *op );
 
 /// CORRECTNESS EVALUATION IMPLEMENTATION
 
@@ -46,7 +46,7 @@ static bool verify_payload( void *ptr, size_t size, int id, script_t *script, in
 int main( int argc, char *argv[] )
 {
     // Parse command line arguments
-    char c;
+    int c = 0;
     bool quiet = false;
     while ( ( c = getopt( argc, argv, "q" ) ) != EOF ) {
         if ( c == 'q' ) {
@@ -59,7 +59,7 @@ int main( int argc, char *argv[] )
     }
 
     // disable stdout buffering, all printfs display to terminal immediately
-    setvbuf( stdout, NULL, _IONBF, 0 );
+    (void)setvbuf( stdout, NULL, _IONBF, 0 );
 
     return test_scripts( argv + optind, argc - optind, quiet );
 }
@@ -75,14 +75,14 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
     int nfailures = 0;
 
     // Utilization summed across all successful script runs (each is % out of 100)
-    int total_util = 0;
+    size_t total_util = 0;
 
     for ( int i = 0; i < num_script_names; i++ ) {
         script_t script = parse_script( script_names[i] );
 
         // Evaluate this script and record the results
         printf( "\nEvaluating allocator on %s...", script.name );
-        bool success;
+        bool success = false;
         size_t used_segment = eval_correctness( &script, quiet, &success );
         if ( success ) {
             printf( "successfully serviced %d requests. (payload/segment = %zu/%zu)", script.num_ops,
@@ -100,7 +100,7 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
     }
 
     if ( nsuccesses ) {
-        printf( "\nUtilization averaged %d%%\n", total_util / nsuccesses );
+        printf( "\nUtilization averaged %zu%%\n", total_util / nsuccesses );
     }
     return nfailures;
 }
@@ -111,11 +111,11 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
 /// script operation-by-operation and reports if it detects any "obvious"
 /// errors (returning blocks outside the heap, unaligned,
 /// overlapping blocks, etc.)
-static size_t eval_correctness( script_t *script, bool quiet, bool *success )
+static size_t eval_correctness( script_t *script, bool quiet, bool *success ) // NOLINT(*-cognitive-complexity)
 {
     *success = false;
 
-    init_heap_segment( HEAP_SIZE );
+    init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
         allocator_error( script, 0, "myinit() returned false" );
         return -1;
@@ -134,10 +134,10 @@ static size_t eval_correctness( script_t *script, bool quiet, bool *success )
 
     // Send each request to the heap allocator and check the resulting behavior
     for ( int req = 0; req < script->num_ops; req++ ) {
-        int id = script->ops[req].id;
+        size_t id = script->ops[req].id;
         size_t requested_size = script->ops[req].size;
 
-        if ( script->ops[req].op == ALLOC ) {
+        if ( script->ops[req].op == alloc_req ) {
             bool fail = false;
             void *p = eval_malloc( req, requested_size, script, &fail );
             if ( fail ) {
@@ -148,7 +148,7 @@ static size_t eval_correctness( script_t *script, bool quiet, bool *success )
             if ( (char *)p + requested_size > (char *)heap_end ) {
                 heap_end = (char *)p + requested_size;
             }
-        } else if ( script->ops[req].op == REALLOC ) {
+        } else if ( script->ops[req].op == realloc_req ) {
             size_t old_size = script->blocks[id].size;
             bool fail = false;
             void *p = eval_realloc( req, requested_size, script, &fail );
@@ -160,7 +160,7 @@ static size_t eval_correctness( script_t *script, bool quiet, bool *success )
             if ( (char *)p + requested_size > (char *)heap_end ) {
                 heap_end = (char *)p + requested_size;
             }
-        } else if ( script->ops[req].op == FREE ) {
+        } else if ( script->ops[req].op == free_req ) {
             size_t old_size = script->blocks[id].size;
             void *p = script->blocks[id].ptr;
 
@@ -186,7 +186,7 @@ static size_t eval_correctness( script_t *script, bool quiet, bool *success )
     }
 
     // verify payload is still intact for any block still allocated
-    for ( int id = 0; id < script->num_ids; id++ ) {
+    for ( size_t id = 0; id < script->num_ids; id++ ) {
         if ( !verify_payload( script->blocks[id].ptr, script->blocks[id].size, id, script, -1, "at exit" ) ) {
             return -1;
         }
@@ -208,10 +208,10 @@ static size_t eval_correctness( script_t *script, bool quiet, bool *success )
 static void *eval_malloc( int req, size_t requested_size, script_t *script, bool *failptr )
 {
 
-    int id = script->ops[req].id;
+    size_t id = script->ops[req].id;
 
-    void *p;
-    if ( ( p = mymalloc( requested_size ) ) == NULL && requested_size != 0 ) {
+    void *p = mymalloc( requested_size );
+    if ( NULL == p && requested_size != 0 ) {
         allocator_error( script, script->ops[req].lineno, "heap exhausted, malloc returned NULL" );
         *failptr = true;
         return NULL;
@@ -228,7 +228,7 @@ static void *eval_malloc( int req, size_t requested_size, script_t *script, bool
     /// Fill new block with the low-order byte of new id
     /// can be used later to verify data copied when realloc'ing.
 
-    memset( p, id & 0xFF, requested_size );
+    memset( p, (int)( id & 0xFFUL ), requested_size );
     script->blocks[id] = ( block_t ){ .ptr = p, .size = requested_size };
     *failptr = false;
     return p;
@@ -246,7 +246,7 @@ static void *eval_malloc( int req, size_t requested_size, script_t *script, bool
 static void *eval_realloc( int req, size_t requested_size, script_t *script, bool *failptr )
 {
 
-    int id = script->ops[req].id;
+    size_t id = script->ops[req].id;
     size_t old_size = script->blocks[id].size;
 
     void *oldp = script->blocks[id].ptr;
@@ -255,8 +255,8 @@ static void *eval_realloc( int req, size_t requested_size, script_t *script, boo
         return NULL;
     }
 
-    void *newp;
-    if ( ( newp = myrealloc( oldp, requested_size ) ) == NULL && requested_size != 0 ) {
+    void *newp = myrealloc( oldp, requested_size );
+    if ( NULL == newp && requested_size != 0 ) {
         allocator_error( script, script->ops[req].lineno, "heap exhausted, realloc returned NULL" );
         *failptr = true;
         return NULL;
@@ -276,7 +276,7 @@ static void *eval_realloc( int req, size_t requested_size, script_t *script, boo
     }
 
     // Fill new block with the low-order byte of new id
-    memset( newp, id & 0xFF, requested_size );
+    memset( newp, (int)( id & 0xFFUL ), requested_size );
     script->blocks[id] = ( block_t ){ .ptr = newp, .size = requested_size };
 
     *failptr = false;
@@ -313,7 +313,7 @@ static bool verify_block( void *ptr, size_t size, script_t *script, int lineno )
     }
 
     // block must not overlap any other blocks
-    for ( int i = 0; i < script->num_ids; i++ ) {
+    for ( size_t i = 0; i < script->num_ids; i++ ) {
         if ( script->blocks[i].ptr == NULL || script->blocks[i].size == 0 ) {
             continue;
         }
@@ -336,11 +336,12 @@ static bool verify_block( void *ptr, size_t size, script_t *script, int lineno )
 /// When a block is allocated, the payload is filled with a simple repeating
 /// pattern based on its id.  Check the payload to verify those contents are
 /// still intact, otherwise raise allocator error.
-static bool verify_payload( void *ptr, size_t size, int id, script_t *script, int lineno, char *op )
+// NOLINTNEXTLINE (*-swappable-parameters)
+static bool verify_payload( void *ptr, size_t size, size_t id, script_t *script, int lineno, char *op )
 {
 
     for ( size_t i = 0; i < size; i++ ) {
-        if ( *( (unsigned char *)ptr + i ) != ( id & 0xFF ) ) {
+        if ( *( (unsigned char *)ptr + i ) != ( id & 0xFFUL ) ) {
             allocator_error( script, lineno, "invalid payload data detected when %s address %p", op, ptr );
             return false;
         }

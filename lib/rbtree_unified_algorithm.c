@@ -22,6 +22,8 @@
 
 ///  Static Heap Tracking
 
+// NOLINTBEGIN(*-avoid-non-const-global-variables)
+
 /// Red Black Free Tree:
 ///  - Maintain a red black tree of free nodes.
 ///  - Root is black
@@ -45,6 +47,8 @@ static struct heap
     void *client_end;
     size_t heap_size;
 } heap;
+
+// NOLINTEND(*-avoid-non-const-global-variables)
 
 ///   Static Helper Functions
 
@@ -271,7 +275,7 @@ static void init_free_node( rb_node *to_free, size_t block_size )
 static void *split_alloc( rb_node *free_block, size_t request, size_t block_space )
 {
     rb_node *neighbor = NULL;
-    if ( block_space >= request + MIN_BLOCK_SIZE ) {
+    if ( block_space >= request + BLOCK_SIZE ) {
         neighbor = get_right_neighbor( free_block, request );
         // This takes care of the neighbor and ITS neighbor with appropriate updates.
         init_free_node( neighbor, block_space - request - HEADERSIZE );
@@ -329,7 +333,7 @@ bool myinit( void *heap_start, size_t heap_size )
 {
     // Initialize the root of the tree and heap addresses.
     size_t client_request = roundup( heap_size, ALIGNMENT );
-    if ( client_request < MIN_BLOCK_SIZE ) {
+    if ( client_request < BLOCK_SIZE ) {
         return false;
     }
     heap.client_start = heap_start;
@@ -400,9 +404,12 @@ void *myrealloc( void *old_ptr, size_t new_size )
             memmove( client_space, old_ptr, old_size );
         }
         client_space = split_alloc( leftmost_node, request, coalesced_space );
-    } else if ( ( client_space = mymalloc( request ) ) ) {
-        memcpy( client_space, old_ptr, old_size );
-        init_free_node( leftmost_node, coalesced_space );
+    } else {
+        client_space = mymalloc( request );
+        if ( client_space ) {
+            memcpy( client_space, old_ptr, old_size );
+            init_free_node( leftmost_node, coalesced_space );
+        }
     }
     return client_space;
 }
@@ -425,11 +432,12 @@ void myfree( void *ptr )
 /// @return               true if the heap is valid and false if the heap is invalid.
 bool validate_heap()
 {
-    if ( !check_init( heap.client_start, heap.client_end, heap.heap_size ) ) {
+    if ( !check_init( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
         return false;
     }
     size_t total_free_mem = 0;
-    if ( !is_memory_balanced( &total_free_mem, heap.client_start, heap.client_end, heap.heap_size, tree.total ) ) {
+    if ( !is_memory_balanced( &total_free_mem, ( heap_range ){ heap.client_start, heap.client_end },
+                              ( size_total ){ heap.heap_size, tree.total } ) ) {
         return false;
     }
     // Does a tree search for all memory match the linear heap search for totals?
@@ -449,7 +457,7 @@ bool validate_heap()
         return false;
     }
     // This comes from a more official write up on red black trees so I included it.
-    if ( !is_bheight_valid_V2( tree.root, tree.black_nil ) ) {
+    if ( !is_bheight_valid_v2( tree.root, tree.black_nil ) ) {
         return false;
     }
     if ( !is_binary_tree( tree.root, tree.black_nil ) ) {
@@ -469,4 +477,7 @@ void print_free_nodes( print_style style ) { print_rb_tree( tree.root, tree.blac
 /// @brief dump_heap  prints out the complete status of the heap, all of its blocks, and the sizes
 ///                   the blocks occupy. Printing should be clean with no overlap of unique id's
 ///                   between heap blocks or corrupted headers.
-void dump_heap() { print_all( heap.client_start, heap.client_end, heap.heap_size, tree.root, tree.black_nil ); }
+void dump_heap()
+{
+    print_all( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, tree.root, tree.black_nil );
+}

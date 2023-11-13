@@ -21,6 +21,8 @@
 #include <stdio.h>
 #include <string.h>
 
+// NOLINTBEGIN(*-avoid-non-const-global-variables)
+
 ///  Static Heap Tracking
 /// Red Black Free Tree:
 ///  - Maintain a red black tree of free nodes.
@@ -46,7 +48,10 @@ static struct heap
     size_t heap_size;
 } heap;
 
-///   Static Helper Functions
+// NOLINTEND(*-avoid-non-const-global-variables)
+
+////////////////////////   Static Helper Functions   /////////////////////////////
+
 /// @brief left_rotate  complete a left rotation to help repair a red-black tree. Assumes current is
 ///                     not the tree.black_nil and that the right child is not black sentinel.
 /// @param *current     current will move down the tree, it's right child will move up to replace.
@@ -168,7 +173,8 @@ static void insert_rb_node( rb_node *current )
     tree.total++;
 }
 
-///     Static Red-Black Tree Deletion Helper
+////////////////////     Static Red-Black Tree Deletion Helper     ///////////////////////////
+
 /// @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
 /// @param *remove        the node we are removing from the tree.
 /// @param *replacement   the node that will fill the remove position. It can be tree.black_nil.
@@ -184,7 +190,8 @@ static void rb_transplant( const rb_node *remove, rb_node *replacement )
     replacement->parent = remove->parent;
 }
 
-///     Static Red-Black Tree Deletion Logic
+////////////////////     Static Red-Black Tree Deletion Logic     ////////////////////////////
+
 /// @brief fix_rb_delete  completes repairs on a red black tree to ensure rules hold and balance.
 /// @param *extra_black   the current node that was moved into place from the previous delete. It
 ///                       holds an extra "black" it must get rid of by either pointing to a red node
@@ -219,34 +226,34 @@ static void fix_rb_delete( rb_node *extra_black )
                 left_rotate( extra_black->parent );
                 extra_black = tree.root;
             }
-        } else {
-            // This is a symmetric case, so it is identical with left and right switched.
-            rb_node *left_sibling = extra_black->parent->left;
-            if ( get_color( left_sibling->header ) == RED ) {
-                paint_node( left_sibling, BLACK );
-                paint_node( extra_black->parent, RED );
-                right_rotate( extra_black->parent );
-                left_sibling = extra_black->parent->left;
-            }
-            // The previous left rotation may have made the right sibling black null.
-            if ( get_color( left_sibling->right->header ) == BLACK
-                 && get_color( left_sibling->left->header ) == BLACK ) {
-                paint_node( left_sibling, RED );
-                extra_black = extra_black->parent;
-            } else {
-                if ( get_color( left_sibling->left->header ) == BLACK ) {
-                    paint_node( left_sibling->right, BLACK );
-                    paint_node( left_sibling, RED );
-                    left_rotate( left_sibling );
-                    left_sibling = extra_black->parent->left;
-                }
-                paint_node( left_sibling, get_color( extra_black->parent->header ) );
-                paint_node( extra_black->parent, BLACK );
-                paint_node( left_sibling->left, BLACK );
-                right_rotate( extra_black->parent );
-                extra_black = tree.root;
-            }
+            continue;
         }
+        // This is a symmetric case, so it is identical with left and right switched.
+        rb_node *left_sibling = extra_black->parent->left;
+        if ( get_color( left_sibling->header ) == RED ) {
+            paint_node( left_sibling, BLACK );
+            paint_node( extra_black->parent, RED );
+            right_rotate( extra_black->parent );
+            left_sibling = extra_black->parent->left;
+        }
+        // The previous left rotation may have made the right sibling black null.
+        if ( get_color( left_sibling->right->header ) == BLACK
+             && get_color( left_sibling->left->header ) == BLACK ) {
+            paint_node( left_sibling, RED );
+            extra_black = extra_black->parent;
+            continue;
+        }
+        if ( get_color( left_sibling->left->header ) == BLACK ) {
+            paint_node( left_sibling->right, BLACK );
+            paint_node( left_sibling, RED );
+            left_rotate( left_sibling );
+            left_sibling = extra_black->parent->left;
+        }
+        paint_node( left_sibling, get_color( extra_black->parent->header ) );
+        paint_node( extra_black->parent, BLACK );
+        paint_node( left_sibling->left, BLACK );
+        right_rotate( extra_black->parent );
+        extra_black = tree.root;
     }
     // Node has either become "red-and-black" by pointing to a red node or is root. Paint black.
     paint_node( extra_black, BLACK );
@@ -306,7 +313,8 @@ static rb_node *find_best_fit( size_t key )
         if ( key == seeker_size ) {
             remove = seeker;
             break;
-        } else if ( key < seeker_size ) {
+        }
+        if ( key < seeker_size ) {
             if ( seeker_size < best_fit_size ) {
                 remove = seeker;
                 best_fit_size = seeker_size;
@@ -320,7 +328,8 @@ static rb_node *find_best_fit( size_t key )
     return delete_rb_node( remove );
 }
 
-///    Static Heap Helper Functions
+///////////////////////    Static Heap Helper Functions   /////////////////////////////////
+
 /// @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
 /// @param *to_free        the heap_node to add to the red black tree.
 /// @param block_size      the size we use to initialize the node and find the right place in tree.
@@ -385,7 +394,8 @@ static rb_node *coalesce( rb_node *leftmost_node )
     return leftmost_node;
 }
 
-///   Shared Heap Functions
+/////////////////////////////   Shared Heap Functions    ///////////////////////////////////////
+
 /// @brief get_free_total  returns the total number of free nodes in the heap.
 /// @return                a size_t representing the total quantity of free nodes.
 size_t get_free_total() { return tree.total; }
@@ -469,9 +479,12 @@ void *myrealloc( void *old_ptr, size_t new_size )
             memmove( client_space, old_ptr, old_size );
         }
         client_space = split_alloc( leftmost_node, request, coalesced_space );
-    } else if ( ( client_space = mymalloc( request ) ) ) {
-        memcpy( client_space, old_ptr, old_size );
-        init_free_node( leftmost_node, coalesced_space );
+    } else {
+        client_space = mymalloc( request );
+        if ( client_space ) {
+            memcpy( client_space, old_ptr, old_size );
+            init_free_node( leftmost_node, coalesced_space );
+        }
     }
     return client_space;
 }
@@ -487,7 +500,8 @@ void myfree( void *ptr )
     }
 }
 
-///     Shared Debugger
+/////////////////////////     Shared Debugger       //////////////////////////////////////////
+
 /// @brief validate_heap  runs various checks to ensure that every block of the heap is well formed
 ///                       with valid sizes, alignment, and initializations.
 /// @return               true if the heap is valid and false if the heap is invalid.
@@ -517,7 +531,7 @@ bool validate_heap()
         return false;
     }
     // This comes from a more official write up on red black trees so I included it.
-    if ( !is_bheight_valid_V2( tree.root, tree.black_nil ) ) {
+    if ( !is_bheight_valid_v2( tree.root, tree.black_nil ) ) {
         return false;
     }
     if ( !is_binary_tree( tree.root, tree.black_nil ) ) {
@@ -526,7 +540,8 @@ bool validate_heap()
     return true;
 }
 
-///     Shared Printer
+/////////////////////////     Shared Printer    /////////////////////////////////////////
+
 /// @brief print_free_nodes  a shared function across allocators requesting a printout of internal
 ///                          data structure used for free nodes of the heap.
 /// @param style             VERBOSE or PLAIN. Plain only includes byte size, while VERBOSE includes

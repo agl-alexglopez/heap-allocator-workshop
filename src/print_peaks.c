@@ -18,6 +18,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <getopt.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,7 +30,7 @@ typedef int breakpoint;
 typedef unsigned char byte_t;
 
 #define MAX_BREAKPOINTS (unsigned short)100
-const long HEAP_SIZE = 1L << 32;
+const long heap_size = 1L << 32;
 
 typedef struct
 {
@@ -42,7 +43,7 @@ typedef struct
 
 int print_peaks( char *script_name, user_breaks *user_reqs );
 static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplots *graphs );
-static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int script_end );
+static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int max );
 static int get_user_int( int min, int max );
 static void validate_breakpoints( script_t *script, user_breaks *user_reqs );
 static void binsert( const void *key, void *base, int *p_nelem, size_t width,
@@ -66,15 +67,22 @@ static int cmp_breakpoints( const void *a, const void *b );
 ///            can be entered in any order.
 int main( int argc, char *argv[] )
 {
-    user_breaks user_reqs = { .style = PLAIN, .breakpoints = { 0 }, .num_breakpoints = 0 };
-    char c;
-    while ( ( c = getopt( argc, argv, "vb:" ) ) != -1 ) {
+    user_breaks user_reqs = { .style = plain, .breakpoints = { 0 }, .num_breakpoints = 0 };
+    int check = 0;
+    char c = 0;
+    while ( ( check = getopt( argc, argv, "vb:" ) ) != -1 ) {
+        c = (char)check;
         if ( c == 'v' ) {
-            user_reqs.style = VERBOSE;
+            user_reqs.style = verbose;
         }
         if ( c == 'b' ) {
-            char *ptr;
-            breakpoint line = strtol( optarg, &ptr, 10 ) - 1;
+            char *ptr = NULL;
+            size_t req = strtol( optarg, &ptr, 10 ) - 1;
+            if ( req > INT_MAX ) {
+                printf( "Request exceeding INT_MAX not possible for this program." );
+                abort();
+            }
+            breakpoint line = (int)req;
             binsert( &line, &user_reqs.breakpoints, &user_reqs.num_breakpoints, sizeof( breakpoint ),
                      cmp_breakpoints );
         }
@@ -85,7 +93,7 @@ int main( int argc, char *argv[] )
     }
 
     // disable stdout buffering, all printfs display to terminal immediately
-    setvbuf( stdout, NULL, _IONBF, 0 );
+    (void)setvbuf( stdout, NULL, _IONBF, 0 );
 
     return print_peaks( argv[optind], &user_reqs );
 }
@@ -115,7 +123,7 @@ int print_peaks( char *script_name, user_breaks *user_reqs )
     size_t used_segment = print_allocator( &script, user_reqs, &graphs );
     printf( "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", script.num_ops, script.peak_size,
             used_segment );
-    printf( "Utilization averaged %.2lf%%\n", ( 100.0 * script.peak_size ) / used_segment );
+    printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)script.peak_size ) / (double)used_segment );
 
     print_gnuplots( &graphs );
     free( graphs.free_nodes );
@@ -135,7 +143,7 @@ int print_peaks( char *script_name, user_breaks *user_reqs )
 /// @return                 the size of the heap overall as helpful utilization info.
 static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplots *graphs )
 {
-    init_heap_segment( HEAP_SIZE );
+    init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
         allocator_error( script, 0, "myinit() returned false" );
         return -1;
@@ -160,8 +168,8 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
         // We will plot this at the end of program execution.
         graphs->free_nodes[req] = total_free_nodes;
         // Avoid a loss of precision while tracking the utilization over heap lifetime.
-        double peak_size = 100 * script->peak_size;
-        graphs->util_percents[req] = peak_size / ( (byte_t *)heap_end - (byte_t *)heap_segment_start() );
+        double peak_size = 100.0 * (double)script->peak_size;
+        graphs->util_percents[req] = peak_size / (double)( (byte_t *)heap_end - (byte_t *)heap_segment_start() );
 
         if ( curr_break < user_reqs->num_breakpoints && user_reqs->breakpoints[curr_break] == req ) {
             printf( "There are %zu free nodes after executing command on line %d :\n", total_free_nodes, req + 1 );
@@ -185,7 +193,7 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
     /// and I don't want to expose heap internals to this program or make copies of the nodes. Just
     /// run it twice and use the allocator's provided printer function to find max nodes.
 
-    init_heap_segment( HEAP_SIZE );
+    init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
         allocator_error( script, 0, "myinit() returned false" );
         return -1;
@@ -211,6 +219,11 @@ static size_t print_allocator( script_t *script, user_breaks *user_reqs, gnuplot
     return (byte_t *)heap_end - (byte_t *)heap_segment_start();
 }
 
+static void consume_remaining_input( int *c )
+{
+    while ( ( *c = getchar() ) != '\n' && *c != EOF ) {}
+}
+
 /// @brief handle_user_breakpoints  interacts with user regarding breakpoints they have requested.
 ///                                 and will step with the user through requests and print nodes.
 ///                                 The user may continue to next breakpoint, add another
@@ -221,49 +234,48 @@ static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int
 {
     int min = user_reqs->breakpoints[curr_break] + 1;
     while ( true ) {
-        int c;
+        int c = 0;
         if ( user_reqs->breakpoints[curr_break] == max ) {
-            fputs( "Script complete.\n"
-                   "Enter <ENTER> to exit: ",
-                   stdout );
-            while ( ( c = getchar() ) != '\n' && c != EOF ) {}
-            break;
-        } else if ( curr_break < user_reqs->num_breakpoints ) {
-            fputs( "Enter the character <C> to continue to next breakpoint.\n"
-                   "Enter the character <B> to add a new breakpoints.\n"
-                   "Enter <ENTER> to exit: ",
-                   stdout );
+            (void)fputs( "Script complete.\n"
+                         "Enter <ENTER> to exit: ",
+                         stdout );
+            consume_remaining_input( &c );
+            return;
+        }
+        if ( curr_break < user_reqs->num_breakpoints ) {
+            (void)fputs( "Enter the character <C> to continue to next breakpoint.\n"
+                         "Enter the character <B> to add a new breakpoints.\n"
+                         "Enter <ENTER> to exit: ",
+                         stdout );
         } else {
-            fputs( "No breakpoints remain.\n"
-                   "Enter the character <B> to add a new breakpoints.\n"
-                   "Enter <ENTER> to exit: ",
-                   stdout );
+            (void)fputs( "No breakpoints remain.\n"
+                         "Enter the character <B> to add a new breakpoints.\n"
+                         "Enter <ENTER> to exit: ",
+                         stdout );
         }
         c = getchar();
-
         // User generated end of file or hit ENTER. We won't look at anymore breakpoints.
         if ( c == EOF || c == '\n' ) {
             user_reqs->num_breakpoints = 0;
-            break;
+            return;
         }
-
         if ( c < 'B' || c > 'C' ) {
-            fprintf( stderr, "  ERROR: You entered: '%c'\n", c );
+            (void)fprintf( stderr, "  ERROR: You entered: '%c'\n", c );
             // Clear out the input so they can try again.
-            while ( ( c = getchar() ) != '\n' && c != EOF ) {}
-        } else if ( c == 'B' ) {
-            while ( ( c = getchar() ) != '\n' && c != EOF ) {}
-
+            consume_remaining_input( &c );
+            continue;
+        }
+        if ( c == 'B' ) {
+            consume_remaining_input( &c );
             int new_breakpoint = get_user_int( min, max );
-
             // We will insert the new breakpoint but also do nothing if it is already there.
             binsert( &new_breakpoint, user_reqs->breakpoints, &user_reqs->num_breakpoints, sizeof( breakpoint ),
                      cmp_breakpoints );
-        } else {
-            // We have the right input but we will double check for extra chars to be safe.
-            while ( ( c = getchar() ) != '\n' && c != EOF ) {}
-            break;
+            continue;
         }
+        // We have the right input but we will double check for extra chars to be safe.
+        consume_remaining_input( &c );
+        return;
     }
 }
 
@@ -278,29 +290,33 @@ static int get_user_int( int min, int max )
     char *input = NULL;
     int input_int = 0;
     while ( input == NULL ) {
-        fputs( "Enter the new script line breakpoint: ", stdout );
+        (void)fputs( "Enter the new script line breakpoint: ", stdout );
         input = fgets( buff, 9, stdin );
 
         if ( buff[strlen( input ) - 1] != '\n' ) {
-            fprintf( stderr, " ERROR: Breakpoint out of script range %d-%d.\n", min + 1, max + 1 );
-            for ( char c = 0; ( c = getchar() ) != '\n' && c != EOF; ) {}
+            (void)fprintf( stderr, " ERROR: Breakpoint out of script range %d-%d.\n", min + 1, max + 1 );
+            for ( int c = 0; ( c = getchar() ) != '\n' && c != EOF; ) {}
             input = NULL;
             continue;
         }
 
         errno = 0;
         char *endptr = NULL;
-        input_int = strtol( input, &endptr, 10 ) - 1;
+        size_t entered = strtol( input, &endptr, 10 ) - 1;
+        input_int = (int)entered;
 
-        if ( input == endptr ) {
+        if ( entered > INT_MAX ) {
+            (void)fprintf( stderr, " ERROR: Breakpoint request too large %zu.\n", entered );
+            input = NULL;
+        } else if ( input == endptr ) {
             input[strcspn( input, "\n" )] = 0;
             printf( " ERROR: Invalid integer input: %s\n", input );
             input = NULL;
         } else if ( errno != 0 ) {
-            fprintf( stderr, " ERROR: Not and integer.\n" );
+            (void)fprintf( stderr, " ERROR: Not and integer.\n" );
             input = NULL;
         } else if ( input_int < min || input_int > max ) {
-            fprintf( stderr, " ERROR: Breakpoint out of script range %d-%d.\n", min + 1, max + 1 );
+            (void)fprintf( stderr, " ERROR: Breakpoint out of script range %d-%d.\n", min + 1, max + 1 );
             input = NULL;
         }
     }

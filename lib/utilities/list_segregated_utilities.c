@@ -12,6 +12,8 @@
 
 /////////////////////////////    Debugging and Testing Functions    /////////////////////////
 
+// NOLINTBEGIN(*-swappable-parameters)
+
 /// @brief is_header_corrupted   will determine if a block has the 3rd bit on,
 /// which is invalid.
 /// @param *cur_header_location  the valid header we will determine status for.
@@ -39,7 +41,7 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
     // Check our lookup table. Sizes should never be altered and pointers should
     // never be NULL.
     unsigned short size = MIN_BLOCK_SIZE;
-    for ( int i = 0; i < SMALL_TABLE_SIZE; i++, size += HEADERSIZE ) {
+    for ( size_t i = 0; i < SMALL_TABLE_SIZE; i++, size += HEADERSIZE ) {
         if ( table[i].size != size ) {
             breakpoint();
             return false;
@@ -51,7 +53,7 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
         }
     }
     size = LARGE_TABLE_MIN;
-    for ( int i = SMALL_TABLE_SIZE; i < TABLE_SIZE - 1; i++, size *= 2 ) {
+    for ( size_t i = SMALL_TABLE_SIZE; i < TABLE_SIZE - 1; i++, size *= 2 ) {
         if ( table[i].size != size ) {
             breakpoint();
             return false;
@@ -159,7 +161,7 @@ bool is_memory_balanced( size_t *total_free_mem, void *client_start, void *clien
 bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil )
 {
     size_t linked_free_mem = 0;
-    for ( int i = 0; i < TABLE_SIZE; i++ ) {
+    for ( size_t i = 0; i < TABLE_SIZE; i++ ) {
         for ( free_node *cur = table[i].start; cur != nil; cur = cur->next ) {
             header *cur_header = get_block_header( cur );
             size_t cur_size = get_size( *cur_header );
@@ -198,9 +200,9 @@ bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil )
 void print_fits( print_style style, seg_node table[], free_node *nil )
 {
     bool alternate = false;
-    for ( int i = 0; i < TABLE_SIZE; i++, alternate = !alternate ) {
+    for ( size_t i = 0; i < TABLE_SIZE; i++, alternate = !alternate ) {
         printf( COLOR_GRN );
-        if ( style == VERBOSE ) {
+        if ( style == verbose ) {
             printf( "%p: ", &table[i] );
         }
         if ( i == TABLE_SIZE - 1 ) {
@@ -221,7 +223,7 @@ void print_fits( print_style style, seg_node table[], free_node *nil )
             if ( cur ) {
                 header *cur_header = get_block_header( cur );
                 printf( "<=>[" );
-                if ( style == VERBOSE ) {
+                if ( style == verbose ) {
                     printf( "%p:", get_block_header( cur ) );
                 }
                 printf( "(%zubytes)]", get_size( *cur_header ) );
@@ -294,7 +296,7 @@ static void print_bad_jump( header *current, header *prev, seg_node table[], fre
     printf( "\nJump by %zubytes...\n", cur_size );
     printf( "Current state of the free list:\n" );
     printf( COLOR_NIL );
-    print_fits( VERBOSE, table, nil );
+    print_fits( verbose, table, nil );
 }
 
 /// @brief print_all    prints our the complete status of the heap, all of its
@@ -321,7 +323,7 @@ void print_all( void *client_start, void *client_end, size_t client_size, seg_no
 
     // This will create large amount of output but realistically table is before
     // the rest of heap.
-    print_fits( VERBOSE, table, nil );
+    print_fits( verbose, table, nil );
     printf( "--END OF LOOKUP TABLE, START OF HEAP--\n" );
 
     header *prev = cur_header;
@@ -352,27 +354,7 @@ void print_all( void *client_start, void *client_end, size_t client_size, seg_no
     printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );
     // For large heaps we wouldn't be able to scroll to the table location so
     // print again here.
-    print_fits( VERBOSE, table, nil );
+    print_fits( verbose, table, nil );
 }
 
-///////////////////////      Inlined Block Helpers    ////////////////////////////////
-
-extern size_t roundup( size_t requested_size, size_t multiple );
-
-extern size_t get_size( header header_val );
-
-extern header *get_right_header( header *cur_header, size_t block_size );
-
-extern header *get_left_header( header *cur_header );
-
-extern bool is_block_allocated( header header_val );
-
-extern free_node *get_free_node( header *cur_header );
-
-extern header *get_block_header( free_node *user_mem_space );
-
-extern void init_header( header *cur_header, size_t block_size, header_status_t header_status );
-
-extern void init_footer( header *cur_header, size_t block_size );
-
-extern bool is_left_space( header *cur_header );
+// NOLINTEND(*-swappable-parameters)

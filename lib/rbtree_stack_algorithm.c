@@ -27,6 +27,8 @@
 
 ///  Static Heap Tracking
 
+// NOLINTBEGIN(*-non-const-global-variables)
+
 /// Red Black Free Tree:
 ///  - Maintain a red black tree of free nodes.
 ///  - Root is black
@@ -53,6 +55,8 @@ static struct heap
     void *client_end;
     size_t heap_size;
 } heap;
+
+// NOLINTEND(*-non-const-global-variables)
 
 ///   Static Helper Functions
 
@@ -453,7 +457,7 @@ static void init_free_node( rb_node *to_free, size_t block_size )
 static void *split_alloc( rb_node *free_block, size_t request, size_t block_space )
 {
     rb_node *neighbor = NULL;
-    if ( block_space >= request + MIN_BLOCK_SIZE ) {
+    if ( block_space >= request + BLOCK_SIZE ) {
         neighbor = get_right_neighbor( free_block, request );
         // This takes care of the neighbor and ITS neighbor with appropriate updates.
         init_free_node( neighbor, block_space - request - HEADERSIZE );
@@ -511,7 +515,7 @@ bool myinit( void *heap_start, size_t heap_size )
 {
     // Initialize the root of the tree and heap addresses.
     size_t client_request = roundup( heap_size, ALIGNMENT );
-    if ( client_request < MIN_BLOCK_SIZE ) {
+    if ( client_request < BLOCK_SIZE ) {
         return false;
     }
     heap.client_start = heap_start;
@@ -582,9 +586,12 @@ void *myrealloc( void *old_ptr, size_t new_size )
             memmove( client_space, old_ptr, old_size );
         }
         client_space = split_alloc( leftmost_node, request, coalesced_space );
-    } else if ( ( client_space = mymalloc( request ) ) ) {
-        memcpy( client_space, old_ptr, old_size );
-        init_free_node( leftmost_node, coalesced_space );
+    } else {
+        client_space = mymalloc( request );
+        if ( client_space ) {
+            memcpy( client_space, old_ptr, old_size );
+            init_free_node( leftmost_node, coalesced_space );
+        }
     }
     return client_space;
 }
@@ -630,7 +637,7 @@ bool validate_heap()
     }
 
     // This comes from a more official write up on red black trees so I included it.
-    if ( !is_bheight_valid_V2( free_nodes.tree_root, free_nodes.black_nil ) ) {
+    if ( !is_bheight_valid_v2( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }
     if ( !is_binary_tree( free_nodes.tree_root, free_nodes.black_nil ) ) {

@@ -16,27 +16,6 @@
 
 ///////////////////////////// Type Definitions  ///////////////////////////////////////
 
-#define SIZE_MASK ~0x7UL
-#define STATUS_CHECK 0x4UL
-#define FREE_NODE_WIDTH (unsigned short)16
-#define HEADER_AND_FREE_NODE (unsigned short)24
-#define HEADERSIZE sizeof( size_t )
-#define MIN_BLOCK_SIZE (unsigned short)32
-#define TABLE_SIZE (unsigned short)15
-#define SMALL_TABLE_SIZE (unsigned short)4
-#define SMALL_TABLE_MAX (unsigned short)56
-#define LARGE_TABLE_MIN (unsigned short)64
-#define TABLE_BYTES ( TABLE_SIZE * sizeof( seg_node ) )
-#define INDEX_0 (unsigned short)0
-#define INDEX_0_SIZE (unsigned short)32
-#define INDEX_1 (unsigned short)1
-#define INDEX_1_SIZE (unsigned short)40
-#define INDEX_2 (unsigned short)2
-#define INDEX_2_SIZE (unsigned short)48
-#define INDEX_3 (unsigned short)3
-#define INDEX_3_SIZE (unsigned short)56
-#define INDEX_OFFSET 2U
-
 /// Size Order Classes Maintained by an Array of segregated fits lists
 ///     - Our size classes stand for the minimum size of a node in the list less
 ///     than the next.
@@ -56,14 +35,6 @@
 typedef size_t header;
 typedef unsigned char byte;
 
-typedef enum header_status_t
-{
-    FREE = 0x0UL,
-    ALLOCATED = 0x1UL,
-    LEFT_ALLOCATED = 0x2UL,
-    LEFT_FREE = ~0x2UL
-} header_status_t;
-
 typedef struct free_node
 {
     struct free_node *next;
@@ -76,14 +47,40 @@ typedef struct seg_node
     free_node *start;
 } seg_node;
 
+#define INDEX_0 0UL
+#define INDEX_0_SIZE 32UL
+#define INDEX_1 1UL
+#define INDEX_1_SIZE 40UL
+#define INDEX_2 2UL
+#define INDEX_2_SIZE 48UL
+#define INDEX_3 3UL
+#define INDEX_3_SIZE 56UL
+#define INDEX_OFFSET 2UL
+#define SIZE_MASK ~0x7UL
+#define STATUS_CHECK 0x4UL
+#define FREE_NODE_WIDTH (unsigned short)16
+#define HEADER_AND_FREE_NODE (unsigned short)24
+#define HEADERSIZE sizeof( size_t )
+#define MIN_BLOCK_SIZE (unsigned short)32
+#define TABLE_SIZE (unsigned short)15
+#define SMALL_TABLE_SIZE (unsigned short)4
+#define SMALL_TABLE_MAX (unsigned short)56
+#define LARGE_TABLE_MIN (unsigned short)64
+#define TABLE_BYTES ( TABLE_SIZE * sizeof( seg_node ) )
+#define FREED 0x0UL
+#define ALLOCATED 0x1UL
+#define LEFT_ALLOCATED 0x2UL
+#define LEFT_FREE ~0x2U
+
 /////////////////////////////   Basic Block and Header Operations   ////////////////////////////
 
-/// @brief roundup         rounds up a size to the nearest multiple of two to be
-/// aligned in the heap.
+// NOLINTBEGIN(*-swappable-parameters)
+
+/// @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
 /// @param requested_size  size given to us by the client.
 /// @param multiple        the nearest multiple to raise our number to.
 /// @return                rounded number.
-inline size_t roundup( size_t requested_size, size_t multiple )
+static inline size_t roundup( size_t requested_size, size_t multiple )
 {
     return ( requested_size + multiple - 1 ) & ~( multiple - 1 );
 }
@@ -92,7 +89,7 @@ inline size_t roundup( size_t requested_size, size_t multiple )
 /// and block.
 /// @param *header_val  the pointer to the current header block we are on.
 /// @return             the size in bytes of the header and memory block.
-inline size_t get_size( header header_val ) { return header_val & SIZE_MASK; }
+static inline size_t get_size( header header_val ) { return header_val & SIZE_MASK; }
 
 /// @brief *get_right_header  advances the header pointer to the next header in
 /// the heap.
@@ -100,7 +97,7 @@ inline size_t get_size( header header_val ) { return header_val & SIZE_MASK; }
 /// memory range.
 /// @param block_size         the size of the current block.
 /// @return                   a header pointer to the next block in the heap.
-inline header *get_right_header( header *cur_header, size_t block_size )
+static inline header *get_right_header( header *cur_header, size_t block_size )
 {
     return (header *)( (byte *)cur_header + block_size );
 }
@@ -112,7 +109,7 @@ inline header *get_right_header( header *cur_header, size_t block_size )
 /// footer.
 /// @return                  a header pointer to the header for the block to the
 /// left.
-inline header *get_left_header( header *cur_header )
+static inline header *get_left_header( header *cur_header )
 {
     header *left_footer = (header *)( (byte *)cur_header - HEADERSIZE );
     return (header *)( (byte *)cur_header - ( *left_footer & SIZE_MASK ) );
@@ -121,7 +118,7 @@ inline header *get_left_header( header *cur_header )
 /// @brief is_block_allocated  will determine if a block is marked as allocated.
 /// @param *header_val         the valid header we will determine status for.
 /// @return                    true if the block is allocated, false if not.
-inline bool is_block_allocated( header header_val ) { return header_val & ALLOCATED; }
+static inline bool is_block_allocated( header header_val ) { return header_val & ALLOCATED; }
 
 /// @brief *get_client_space  get the pointer to the start of the client
 /// available memory.
@@ -129,7 +126,10 @@ inline bool is_block_allocated( header header_val ) { return header_val & ALLOCA
 /// memory.
 /// @return                   a pointer to the first available byte of client
 /// heap memory.
-inline free_node *get_free_node( header *cur_header ) { return (free_node *)( (byte *)cur_header + HEADERSIZE ); }
+static inline free_node *get_free_node( header *cur_header )
+{
+    return (free_node *)( (byte *)cur_header + HEADERSIZE );
+}
 
 /// @brief *get_block_header  steps to the left from the user-available space to
 ///                           get the pointer to the header header.
@@ -137,7 +137,7 @@ inline free_node *get_free_node( header *cur_header ) { return (free_node *)( (b
 /// user.
 /// @return                   the header immediately to the left associated with
 /// memory block.
-inline header *get_block_header( free_node *user_mem_space )
+static inline header *get_block_header( free_node *user_mem_space )
 {
     return (header *)( (byte *)user_mem_space - HEADERSIZE );
 }
@@ -149,7 +149,7 @@ inline header *get_block_header( free_node *user_mem_space )
 /// @param *cur_header    the header we will initialize.
 /// @param block_size     the size, including the header, of the entire block.
 /// @param header_status  FREE or ALLOCATED to reflect the status of the memory.
-inline void init_header( header *cur_header, size_t block_size, header_status_t header_status )
+static inline void init_header( header *cur_header, size_t block_size, header header_status )
 {
     *cur_header = LEFT_ALLOCATED | block_size | header_status;
 }
@@ -163,10 +163,10 @@ inline void init_header( header *cur_header, size_t block_size, header_status_t 
 /// @param *cur_header  a pointer to the header that is now free and will have a
 /// footer.
 /// @param block_size   the size to use to update the footer of the block.
-inline void init_footer( header *cur_header, size_t block_size )
+static inline void init_footer( header *cur_header, size_t block_size )
 {
     header *footer = (header *)( (byte *)cur_header + block_size - HEADERSIZE );
-    *footer = LEFT_ALLOCATED | block_size | FREE;
+    *footer = LEFT_ALLOCATED | block_size | FREED;
 }
 
 /// @brief is_left_space  checks the control bit in the second position to see
@@ -175,7 +175,7 @@ inline void init_footer( header *cur_header, size_t block_size )
 /// @param *cur_header    the current block for which we are checking the left
 /// neighbor.
 /// @return               true if there is space to the left, false if not.
-inline bool is_left_space( header *cur_header ) { return !( *cur_header & LEFT_ALLOCATED ); }
+static inline bool is_left_space( const header *cur_header ) { return !( *cur_header & LEFT_ALLOCATED ); }
 
 /////////////////////////////    Debugging and Testing Functions
 
@@ -243,5 +243,7 @@ void print_all( void *client_start, void *client_end, size_t client_size, seg_no
 /// @param *nil        a special free_node that serves as a sentinel for logic
 /// and edgecases.
 void print_fits( print_style style, seg_node table[], free_node *nil );
+
+// NOLINTEND(*-swappable-parameters)
 
 #endif

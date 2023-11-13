@@ -44,10 +44,10 @@ typedef struct
 {
     interval_t intervals[MAX_TIMER_REQUESTS];
     double interval_averages[MAX_TIMER_REQUESTS];
-    int num_intervals;
+    size_t num_intervals;
 } interval_reqs;
 
-const long HEAP_SIZE = 1L << 32;
+const long heap_size = 1L << 32;
 
 /// FUNCTION PROTOTYPE
 
@@ -73,10 +73,10 @@ int main( int argc, char *argv[] )
     int opt = getopt( argc, argv, "s:" );
     while ( opt != -1 ) {
         interval_t interval = { 0 };
-        char *ptr;
+        char *ptr = NULL;
 
         // It's easier for the user to enter line numbers. We will convert to zero indexed request.
-        interval.start_req = strtol( optarg, &ptr, 10 ) - 1;
+        interval.start_req = (int)strtol( optarg, &ptr, 10 ) - 1;
         if ( user_req.num_intervals
              && user_req.intervals[user_req.num_intervals - 1].end_req >= interval.start_req ) {
             printf( "Timing intervals can't overlap. Revisit script line ranges.\n" );
@@ -87,7 +87,7 @@ int main( int argc, char *argv[] )
         // Hide the end argument behind the start case to prevent ill formed args.
         opt = getopt( argc, argv, "e:" );
         if ( opt != -1 ) {
-            interval.end_req = strtol( optarg, &ptr, 10 ) - 1;
+            interval.end_req = (int)strtol( optarg, &ptr, 10 ) - 1;
         }
         user_req.intervals[user_req.num_intervals++] = interval;
         opt = getopt( argc, argv, "s:" );
@@ -103,7 +103,7 @@ int main( int argc, char *argv[] )
     }
 
     // disable stdout buffering, all printfs display to terminal immediately
-    setvbuf( stdout, NULL, _IONBF, 0 );
+    (void)setvbuf( stdout, NULL, _IONBF, 0 );
 
     return time_script( argv[optind], &user_req );
 }
@@ -133,7 +133,7 @@ static int time_script( char *script_name, interval_reqs *user_requests )
     size_t used_segment = time_allocator( &script, user_requests, &graphs );
     printf( "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", script.num_ops, script.peak_size,
             used_segment );
-    printf( "Utilization averaged %.2lf%%\n", ( 100.0 * script.peak_size ) / used_segment );
+    printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)script.peak_size ) / (double)used_segment );
 
     print_gnuplots( &graphs );
     report_interval_averages( user_requests );
@@ -152,7 +152,7 @@ static int time_script( char *script_name, interval_reqs *user_requests )
 /// @return                the size of the heap overall.
 static size_t time_allocator( script_t *script, interval_reqs *user_requests, gnuplots *graphs )
 {
-    init_heap_segment( HEAP_SIZE );
+    init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
         allocator_error( script, 0, "myinit() returned false" );
         return -1;
@@ -163,7 +163,7 @@ static size_t time_allocator( script_t *script, interval_reqs *user_requests, gn
     // Track the current amount of memory allocated on the heap
     size_t cur_size = 0;
     int req = 0;
-    int current_interval = 0;
+    size_t current_interval = 0;
     while ( req < script->num_ops ) {
         if ( current_interval < user_requests->num_intervals
              && user_requests->intervals[current_interval].start_req == req ) {
@@ -178,22 +178,22 @@ static size_t time_allocator( script_t *script, interval_reqs *user_requests, gn
 
                 graphs->request_times[req] = request_time;
                 graphs->free_nodes[req] = get_free_total();
-                graphs->util_percents[req]
-                    = ( 100.0 * script->peak_size ) / ( (byte_t *)heap_end - (byte_t *)heap_segment_start() );
+                graphs->util_percents[req] = ( 100.0 * (double)script->peak_size )
+                                             / (double)( (byte_t *)heap_end - (byte_t *)heap_segment_start() );
             }
             printf( "Execution time for script lines %d-%d (milliseconds): %f\n", sect.start_req + 1,
                     sect.end_req + 1, total_request_time );
 
             user_requests->interval_averages[current_interval]
-                = total_request_time / ( sect.end_req - sect.start_req );
+                = total_request_time / (double)( sect.end_req - sect.start_req );
             current_interval++;
         } else {
             double request_time = time_request( script, req, &cur_size, &heap_end );
 
             graphs->request_times[req] = request_time;
             graphs->free_nodes[req] = get_free_total();
-            graphs->util_percents[req]
-                = ( 100.0 * script->peak_size ) / ( (byte_t *)heap_end - (byte_t *)heap_segment_start() );
+            graphs->util_percents[req] = ( 100.0 * (double)script->peak_size )
+                                         / (double)( (byte_t *)heap_end - (byte_t *)heap_segment_start() );
             req++;
         }
     }
@@ -205,7 +205,7 @@ static size_t time_allocator( script_t *script, interval_reqs *user_requests, gn
 /// @param *user_requests            a pointer to the struct containing user interval information.
 static void report_interval_averages( interval_reqs *user_requests )
 {
-    for ( int i = 0; i < user_requests->num_intervals; i++ ) {
+    for ( size_t i = 0; i < user_requests->num_intervals; i++ ) {
         printf( "Average time (milliseconds) per request lines %d-%d: %lf\n",
                 user_requests->intervals[i].start_req + 1, user_requests->intervals[i].end_req + 1,
                 user_requests->interval_averages[i] );
@@ -220,7 +220,7 @@ static void report_interval_averages( interval_reqs *user_requests )
 static void validate_intervals( script_t *script, interval_reqs *user_requests )
 {
     // We can tidy up lazy user input by making sure the end of the time interval makes sense.
-    for ( int req = 0; req < user_requests->num_intervals; req++ ) {
+    for ( size_t req = 0; req < user_requests->num_intervals; req++ ) {
         // If the start is too large, the user may have mistaken the file they wish to time.
         if ( script->num_ops - 1 < user_requests->intervals[req].start_req ) {
             printf( "Interval start is outside of script range:\n" );

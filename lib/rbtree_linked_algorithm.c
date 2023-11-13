@@ -26,6 +26,8 @@
 
 ///  Static Heap Tracking
 
+// NOLINTBEGIN(*-non-const-global-variables)
+
 /// Red Black Free Tree:
 ///  - Maintain a red black tree of free nodes.
 ///  - Root is black
@@ -53,7 +55,11 @@ static struct heap
     size_t heap_size;
 } heap;
 
+// NOLINTEND(*-non-const-global-variables)
+
 ///   Static Helper Functions
+
+// NOLINTBEGIN(*-swappable-parameters, *suspicious-call-argument)
 
 /// @brief rotate     a unified version of the traditional left and right rotation functions. The
 ///                   rotation is either left or right and opposite is its opposite direction. We
@@ -510,9 +516,12 @@ void *myrealloc( void *old_ptr, size_t new_size )
             memmove( client_space, old_ptr, old_size );
         }
         client_space = split_alloc( leftmost_node, request, coalesced_space );
-    } else if ( ( client_space = mymalloc( request ) ) ) {
-        memcpy( client_space, old_ptr, old_size );
-        init_free_node( leftmost_node, coalesced_space );
+    } else {
+        client_space = mymalloc( request );
+        if ( client_space ) {
+            memcpy( client_space, old_ptr, old_size );
+            init_free_node( leftmost_node, coalesced_space );
+        }
     }
     return client_space;
 }
@@ -557,7 +566,7 @@ bool validate_heap()
         return false;
     }
     // This comes from a more official write up on red black trees so I included it.
-    if ( !is_bheight_valid_V2( free_nodes.tree_root, free_nodes.black_nil ) ) {
+    if ( !is_bheight_valid_v2( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }
     // Check that the parents and children are updated correctly if duplicates are deleted.
@@ -590,3 +599,5 @@ void dump_heap()
 {
     print_all( heap.client_start, heap.client_end, heap.heap_size, free_nodes.tree_root, free_nodes.black_nil );
 }
+
+// NOLINTEND(*-swappable-parameters, *suspicious-call-argument)

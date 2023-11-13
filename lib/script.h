@@ -22,15 +22,15 @@
 // enum and struct for a single allocator request
 enum request_type
 {
-    ALLOC = 1,
-    FREE,
-    REALLOC
+    alloc_req = 1,
+    free_req,
+    realloc_req
 };
 
 typedef struct
 {
     enum request_type op; // type of request
-    int id;               // id for free() to use later
+    size_t id;            // id for free() to use later
     size_t size;          // num bytes for alloc/realloc request
     int lineno;           // which line in file
 } request_t;
@@ -48,7 +48,7 @@ typedef struct
     char name[128];   // short name of script
     request_t *ops;   // array of requests read from script
     int num_ops;      // number of requests
-    int num_ids;      // number of distinct block ids
+    size_t num_ids;   // number of distinct block ids
     block_t *blocks;  // array of memory blocks malloc returns when executing
     size_t peak_size; // total payload bytes at peak in-use
 } script_t;
@@ -78,12 +78,7 @@ double time_request( script_t *script, int req, size_t *cur_size, void **heap_en
 ///                      is too long to store each request on the heap.
 /// @param *path         the path to the .script file to parse.
 /// @return              a pointer to the script_t with information regarding the .script requests.
-script_t parse_script( const char *filename );
-
-/// @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information in
-///                        case someone is waiting for large data. It can take time.
-/// @brief *graphs         the gnuplots struct containing all the graphs to print.
-void print_gnuplots( gnuplots *graphs );
+script_t parse_script( const char *path );
 
 /// @brief allocator_error  reports an error while running an allocator script.
 /// @param *script          the script_t with information we track form the script file requests.

@@ -12,19 +12,21 @@
 
 /////////////////////////////    Debugging and Testing Functions   //////////////////////////////////
 
+// NOLINTBEGIN(misc-no-recursion)
+
 /// @breif check_init    checks the internal representation of our heap, especially the
 ///                      head and tail nodes for any issues that would ruin our algorithms.
 /// @param client_start  the start of logically available space for user.
 /// @param client_end    the end of logically available space for user.
 /// @param heap_size     the total size in bytes of the heap.
 /// @return              true if everything is in order otherwise false.
-bool check_init( void *client_start, void *client_end, size_t heap_size )
+bool check_init( heap_range r, size_t heap_size )
 {
-    if ( is_left_space( client_start ) ) {
+    if ( is_left_space( r.start ) ) {
         breakpoint();
         return false;
     }
-    if ( (byte *)client_end - (byte *)client_start + (size_t)HEAP_NODE_WIDTH != heap_size ) {
+    if ( (byte *)r.end - (byte *)r.start + HEAP_NODE_WIDTH != heap_size ) {
         breakpoint();
         return false;
     }
@@ -39,15 +41,14 @@ bool check_init( void *client_start, void *client_end, size_t heap_size )
 /// @param heap_size           the total size in bytes of the heap.
 /// @param tree_total          the total nodes in the red-black tree.
 /// @return                    true if our tallying is correct and our totals match.
-bool is_memory_balanced( size_t *total_free_mem, void *client_start, void *client_end, size_t heap_size,
-                         size_t tree_total )
+bool is_memory_balanced( size_t *total_free_mem, heap_range r, size_total s )
 {
     // Check that after checking all headers we end on size 0 tail and then end of
     // address space.
-    rb_node *cur_node = client_start;
+    rb_node *cur_node = r.start;
     size_t size_used = HEAP_NODE_WIDTH;
     size_t total_free_nodes = 0;
-    while ( cur_node != client_end ) {
+    while ( cur_node != r.end ) {
         size_t block_size_check = get_size( cur_node->header );
         if ( block_size_check == 0 ) {
             breakpoint();
@@ -62,11 +63,11 @@ bool is_memory_balanced( size_t *total_free_mem, void *client_start, void *clien
         }
         cur_node = get_right_neighbor( cur_node, block_size_check );
     }
-    if ( size_used + *total_free_mem != heap_size ) {
+    if ( size_used + *total_free_mem != s.size ) {
         breakpoint();
         return false;
     }
-    if ( total_free_nodes != tree_total ) {
+    if ( total_free_nodes != s.total ) {
         breakpoint();
         return false;
     }
@@ -180,13 +181,13 @@ bool is_parent_valid( const rb_node *root, const rb_node *black_nil )
 /// @param *black_nil            the sentinel node at the bottom of the tree that is always black.
 /// @citation                    Julienne Walker's writeup on topdown Red-Black trees has a helpful
 ///                              function for verifying black heights.
-static int calculate_bheight_V2( const rb_node *root, const rb_node *black_nil )
+static int calculate_bheight_v2( const rb_node *root, const rb_node *black_nil )
 {
     if ( root == black_nil ) {
         return 1;
     }
-    int left_height = calculate_bheight_V2( root->links[L], black_nil );
-    int right_height = calculate_bheight_V2( root->links[R], black_nil );
+    int left_height = calculate_bheight_v2( root->links[L], black_nil );
+    int right_height = calculate_bheight_v2( root->links[R], black_nil );
     if ( left_height != 0 && right_height != 0 && left_height != right_height ) {
         breakpoint();
         return 0;
@@ -204,9 +205,9 @@ static int calculate_bheight_V2( const rb_node *root, const rb_node *black_nil )
 /// @param *black_nil            the sentinel node at the bottom of the tree that is always black.
 /// @citation                    Julienne Walker's writeup on topdown Red-Black trees has a helpful
 ///                              function for verifying black heights.
-bool is_bheight_valid_V2( const rb_node *root, const rb_node *black_nil )
+bool is_bheight_valid_v2( const rb_node *root, const rb_node *black_nil )
 {
-    return calculate_bheight_V2( root, black_nil ) != 0;
+    return calculate_bheight_v2( root, black_nil ) != 0;
 }
 
 /// @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left
@@ -261,12 +262,12 @@ static void print_node( const rb_node *root, const rb_node *black_nil, print_sty
     }
     printf( COLOR_NIL );
     get_color( root->header ) == BLACK ? printf( COLOR_BLK ) : printf( COLOR_RED );
-    if ( style == VERBOSE ) {
+    if ( style == verbose ) {
         printf( "%p:", root );
     }
     printf( "(%zubytes)", block_size );
     printf( COLOR_NIL );
-    if ( style == VERBOSE ) {
+    if ( style == verbose ) {
         // print the black-height
         printf( "(bh: %d)", get_black_height( root, black_nil ) );
     }
@@ -287,23 +288,23 @@ static void print_inner_tree( const rb_node *root, const rb_node *black_nil, con
         return;
     }
     printf( "%s", prefix );
-    printf( "%s", node_type == LEAF ? " └──" : " ├──" );
+    printf( "%s", node_type == leaf ? " └──" : " ├──" );
     print_node( root, black_nil, style );
 
     char *str = NULL;
-    int string_length = snprintf( NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   " );
+    int string_length = snprintf( NULL, 0, "%s%s", prefix, node_type == leaf ? "     " : " │   " );
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        snprintf( str, string_length, "%s%s", prefix, node_type == LEAF ? "     " : " │   " );
+        (void)snprintf( str, string_length, "%s%s", prefix, node_type == leaf ? "     " : " │   " );
     }
     if ( str != NULL ) {
         if ( root->links[R] == black_nil ) {
-            print_inner_tree( root->links[L], black_nil, str, LEAF, style );
+            print_inner_tree( root->links[L], black_nil, str, leaf, style );
         } else if ( root->links[L] == black_nil ) {
-            print_inner_tree( root->links[R], black_nil, str, LEAF, style );
+            print_inner_tree( root->links[R], black_nil, str, leaf, style );
         } else {
-            print_inner_tree( root->links[R], black_nil, str, BRANCH, style );
-            print_inner_tree( root->links[L], black_nil, str, LEAF, style );
+            print_inner_tree( root->links[R], black_nil, str, branch, style );
+            print_inner_tree( root->links[L], black_nil, str, leaf, style );
         }
     } else {
         printf( COLOR_ERR "memory exceeded. Cannot display " COLOR_NIL );
@@ -324,12 +325,12 @@ void print_rb_tree( const rb_node *root, const rb_node *black_nil, print_style s
     print_node( root, black_nil, style );
 
     if ( root->links[R] == black_nil ) {
-        print_inner_tree( root->links[L], black_nil, "", LEAF, style );
+        print_inner_tree( root->links[L], black_nil, "", leaf, style );
     } else if ( root->links[L] == black_nil ) {
-        print_inner_tree( root->links[R], black_nil, "", LEAF, style );
+        print_inner_tree( root->links[R], black_nil, "", leaf, style );
     } else {
-        print_inner_tree( root->links[R], black_nil, "", BRANCH, style );
-        print_inner_tree( root->links[L], black_nil, "", LEAF, style );
+        print_inner_tree( root->links[R], black_nil, "", branch, style );
+        print_inner_tree( root->links[L], black_nil, "", leaf, style );
     }
 }
 
@@ -408,15 +409,14 @@ static void print_error_block( const rb_node *node, size_t block_size )
 /// @param *prev           the previous node that we jumped from.
 /// @param *root           the root node of the tree to start at for an overall heap check.
 /// @param *black_nil      the sentinel node at the bottom of the tree that is always black.
-static void print_bad_jump( const rb_node *current, const rb_node *prev, const rb_node *root,
-                            const rb_node *black_nil )
+static void print_bad_jump( const rb_node *current, const bad_jump j, const rb_node *black_nil )
 {
-    size_t prev_size = get_size( prev->header );
+    size_t prev_size = get_size( j.prev->header );
     size_t cur_size = get_size( current->header );
     printf( "A bad jump from the value of a header has occured. Bad distance to "
             "next header.\n" );
-    printf( "The previous address: %p:\n", prev );
-    printf( "\tHeader Hex Value: %016zX:\n", prev->header );
+    printf( "The previous address: %p:\n", j.prev );
+    printf( "\tHeader Hex Value: %016zX:\n", j.prev->header );
     printf( "\tBlock Byte Value: %zubytes:\n", prev_size );
     printf( "\nJump by %zubytes...\n", prev_size );
     printf( "The current address: %p:\n", current );
@@ -424,7 +424,7 @@ static void print_bad_jump( const rb_node *current, const rb_node *prev, const r
     printf( "\tBlock Byte Value: %zubytes:\n", cur_size );
     printf( "\nJump by %zubytes...\n", cur_size );
     printf( "Current state of the free tree:\n" );
-    print_rb_tree( root, black_nil, VERBOSE );
+    print_rb_tree( j.root, black_nil, verbose );
 }
 
 /// @brief print_all    prints our the complete status of the heap, all of its blocks,
@@ -435,27 +435,27 @@ static void print_bad_jump( const rb_node *current, const rb_node *prev, const r
 /// @param heap_size    the size in bytes of the
 /// @param *root        the root of the tree we start at for printing.
 /// @param *black_nil   the sentinel node that waits at the bottom of the tree for all leaves.
-void print_all( void *client_start, void *client_end, size_t heap_size, rb_node *root, rb_node *black_nil )
+void print_all( heap_range r, size_t heap_size, rb_node *root, rb_node *black_nil )
 {
-    rb_node *node = client_start;
+    rb_node *node = r.start;
     printf( "Heap client segment starts at address %p, ends %p. %zu total bytes "
             "currently used.\n",
-            node, client_end, heap_size );
+            node, r.end, heap_size );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
-    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[RED NODE] " COLOR_NIL COLOR_GRN
+    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[rED NODE] " COLOR_NIL COLOR_GRN
             "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
 
-    printf( "%p: START OF  HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", client_start );
+    printf( "%p: START OF  HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", r.start );
     rb_node *prev = node;
-    while ( node != client_end ) {
+    while ( node != r.end ) {
         size_t full_size = get_size( node->header );
 
         if ( full_size == 0 ) {
-            print_bad_jump( node, prev, root, black_nil );
+            print_bad_jump( node, ( bad_jump ){ prev, root }, black_nil );
             printf( "Last known pointer before jump: %p", prev );
             return;
         }
-        if ( (void *)node > client_end ) {
+        if ( (void *)node > r.end ) {
             print_error_block( node, full_size );
             return;
         }
@@ -469,42 +469,16 @@ void print_all( void *client_start, void *client_end, size_t heap_size, rb_node 
     }
     get_color( black_nil->header ) == BLACK ? printf( COLOR_BLK ) : printf( COLOR_RED );
     printf( "%p: BLACK NULL HDR->0x%016zX\n" COLOR_NIL, black_nil, black_nil->header );
-    printf( "%p: FINAL ADDRESS", (byte *)client_end + HEAP_NODE_WIDTH );
+    printf( "%p: FINAL ADDRESS", (byte *)r.end + HEAP_NODE_WIDTH );
     printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
-    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[RED NODE] " COLOR_NIL COLOR_GRN
+    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[rED NODE] " COLOR_NIL COLOR_GRN
             "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
 
     printf( "\nRED BLACK TREE OF FREE NODES AND BLOCK SIZES.\n" );
     printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );
     printf( COLOR_CYN "(+X)" COLOR_NIL );
     printf( " INDICATES DUPLICATE NODES IN THE  THEY HAVE A NEXT NODE.\n" );
-    print_rb_tree( root, black_nil, VERBOSE );
+    print_rb_tree( root, black_nil, verbose );
 }
 
-/////////////////////////////        Block Helpers Functions            //////////////////////////////////
-
-extern size_t roundup( size_t requested_size, size_t multiple );
-
-extern void paint_node( rb_node *node, rb_color color );
-
-extern rb_color get_color( header header_val );
-
-extern size_t get_size( header header_val );
-
-extern rb_node *get_min( rb_node *root, rb_node *black_nil );
-
-extern bool is_block_allocated( const header block_header );
-
-extern bool is_left_space( const rb_node *node );
-
-extern void init_header_size( rb_node *node, size_t payload );
-
-extern void init_footer( rb_node *node, size_t payload );
-
-extern rb_node *get_right_neighbor( const rb_node *current, size_t payload );
-
-extern rb_node *get_left_neighbor( const rb_node *node );
-
-extern void *get_client_space( const rb_node *node_header );
-
-extern rb_node *get_rb_node( const void *client_space );
+// NOLINTEND(misc-no-recursion)

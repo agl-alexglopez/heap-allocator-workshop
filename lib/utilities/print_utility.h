@@ -20,15 +20,15 @@
 // height of tree.
 typedef enum print_style
 {
-    PLAIN = 0,
-    VERBOSE = 1
+    plain = 0,
+    verbose = 1
 } print_style;
 
 // Printing enum for printing red black tree structure.
 typedef enum print_link
 {
-    BRANCH = 0, // ├──
-    LEAF = 1    // └──
+    branch = 0, // ├──
+    leaf = 1    // └──
 } print_link;
 
 // A struct for plotting helpful data about a heap run on a script.
@@ -40,7 +40,7 @@ typedef struct
     size_t *free_nodes;    // Running count of free nodes.
     double *request_times; // Running count of time per request.
     // All arrays will have the same size as the number of script operations.
-    int num_ops;
+    size_t num_ops;
 } gnuplots;
 
 /* * * * * * * * * * * * * *  Plot Desired Information about Allocator  * * * *

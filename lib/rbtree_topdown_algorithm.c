@@ -34,6 +34,21 @@
 
 ///             Static Heap Tracking
 
+typedef struct rotation
+{
+    rb_node *root;
+    rb_node *parent;
+} rotation;
+
+typedef struct replacement
+{
+    rb_node *remove;
+    rb_node *replacement_parent;
+    rb_node *replacement;
+} replacement;
+
+// NOLINTBEGIN(*non-const-global-variables)
+
 /// Red Black Free Tree:
 ///  - Maintain a red black tree of free nodes.
 ///  - Root is black
@@ -60,6 +75,8 @@ static struct heap
     size_t heap_size;
 } heap;
 
+// NOLINTEND(*non-const-global-variables)
+
 ///    Static Red-Black Tree Helper Functions
 
 /// @brief single_rotation  performs a single rotation for a given direction and recolors the nodes
@@ -67,22 +84,22 @@ static struct heap
 /// @param *root            the root of the tree that will be rotated left or right, moving down.
 /// @param rotation         the rotation direction for the operation.
 /// @return                 the new root of the rotation, the lower node has moved up.
-static rb_node *single_rotation( rb_node *root, rb_node *parent, tree_link rotation )
+static rb_node *single_rotation( rotation root_parent, tree_link dir )
 {
-    rb_node *save = root->links[!rotation];
-    root->links[!rotation] = save->links[rotation];
-    if ( save->links[rotation] != free_nodes.black_nil ) {
-        save->links[rotation]->list_start->parent = root;
+    rb_node *save = root_parent.root->links[!dir];
+    root_parent.root->links[!dir] = save->links[dir];
+    if ( save->links[dir] != free_nodes.black_nil ) {
+        save->links[dir]->list_start->parent = root_parent.root;
     }
     if ( save != free_nodes.black_nil ) {
-        save->list_start->parent = parent;
+        save->list_start->parent = root_parent.parent;
     }
-    if ( root == free_nodes.tree_root ) {
+    if ( root_parent.root == free_nodes.tree_root ) {
         free_nodes.tree_root = save;
     }
-    save->links[rotation] = root;
-    root->list_start->parent = save;
-    paint_node( root, RED );
+    save->links[dir] = root_parent.root;
+    root_parent.root->list_start->parent = save;
+    paint_node( root_parent.root, RED );
     paint_node( save, BLACK );
     return save;
 }
@@ -92,10 +109,11 @@ static rb_node *single_rotation( rb_node *root, rb_node *parent, tree_link rotat
 /// @param *root            the root around which we will double rotate.
 /// @param rotation         the first direction for the first rotation. Its opposite is next.
 /// @return                 the grandchild that has moved into the root position.
-static rb_node *double_rotation( rb_node *root, rb_node *parent, tree_link rotation )
+static rb_node *double_rotation( rotation root_parent, tree_link dir )
 {
-    root->links[!rotation] = single_rotation( root->links[!rotation], root, !rotation );
-    return single_rotation( root, parent, rotation );
+    root_parent.root->links[!dir] = single_rotation(
+        ( struct rotation ){ .root = root_parent.root->links[!dir], .parent = root_parent.root }, !dir );
+    return single_rotation( root_parent, dir );
 }
 
 ///    Static Red-Black Tree Insertion Helper Function
@@ -135,7 +153,7 @@ static void insert_rb_topdown( rb_node *current )
     paint_node( current, RED );
 
     tree_link prev_link = L;
-    tree_link link = L;
+    tree_link link = R;
     rb_node *ancestor = free_nodes.black_nil;
     rb_node *gparent = free_nodes.black_nil;
     rb_node *parent = free_nodes.black_nil;
@@ -169,9 +187,11 @@ static void insert_rb_topdown( rb_node *current )
         if ( get_color( parent->header ) == RED && get_color( child->header ) == RED ) {
             tree_link ancestor_link = ancestor->links[R] == gparent;
             if ( child == parent->links[prev_link] ) {
-                ancestor->links[ancestor_link] = single_rotation( gparent, ancestor, !prev_link );
+                ancestor->links[ancestor_link]
+                    = single_rotation( ( rotation ){ .root = gparent, .parent = ancestor }, !prev_link );
             } else {
-                ancestor->links[ancestor_link] = double_rotation( gparent, ancestor, !prev_link );
+                ancestor->links[ancestor_link]
+                    = double_rotation( ( rotation ){ .root = gparent, .parent = ancestor }, !prev_link );
             }
         }
         if ( child_size == key ) {
@@ -192,15 +212,15 @@ static void insert_rb_topdown( rb_node *current )
 /// @param *parent        the parent of the node we are removing.
 /// @param *remove        the node we are removing from the tree.
 /// @param *replacement   the node that will fill the remove position. It can be free_nodes.black_nil.
-static void rb_transplant( rb_node *parent, rb_node *remove, rb_node *replacement )
+static void rb_transplant( rb_node *parent, rb_node *remove, rb_node *replace )
 {
     if ( parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = replacement;
+        free_nodes.tree_root = replace;
     } else {
-        parent->links[parent->links[R] == remove] = replacement;
+        parent->links[parent->links[R] == remove] = replace;
     }
-    if ( replacement != free_nodes.black_nil ) {
-        replacement->list_start->parent = parent;
+    if ( replace != free_nodes.black_nil ) {
+        replace->list_start->parent = parent;
     }
 }
 
@@ -231,34 +251,34 @@ static rb_node *delete_duplicate( rb_node *head )
 /// @param replacement_parent  the parent of the node we will use to replace remove.
 /// @param replacement         the indorder predecessor of the node to be removed.
 /// @return                    the node that has been removed from the tree or doubly linked list.
-static rb_node *remove_node( rb_node *parent, rb_node *remove, rb_node *replacement_parent, rb_node *replacement )
+static rb_node *remove_node( rb_node *parent, replacement r )
 {
 
     // Quick return, node waiting in the linked list will replace if we found duplicate.
-    if ( remove->list_start != free_nodes.list_tail ) {
-        return delete_duplicate( remove );
-
-    } else if ( remove->links[L] == free_nodes.black_nil || remove->links[R] == free_nodes.black_nil ) {
-        tree_link nil_link = remove->links[L] != free_nodes.black_nil;
-        rb_transplant( parent, remove, remove->links[!nil_link] );
-    } else {
-        if ( replacement != remove->links[R] ) {
-            rb_transplant( replacement_parent, replacement, replacement->links[R] );
-            replacement->links[R] = remove->links[R];
-            replacement->links[R]->list_start->parent = replacement;
-        }
-        rb_transplant( parent, remove, replacement );
-        replacement->links[L] = remove->links[L];
-        if ( replacement->links[L] != free_nodes.black_nil ) {
-            replacement->links[L]->list_start->parent = replacement;
-        }
-        replacement->list_start->parent = parent;
+    if ( r.remove->list_start != free_nodes.list_tail ) {
+        return delete_duplicate( r.remove );
     }
-    paint_node( replacement, get_color( remove->header ) );
+    if ( r.remove->links[L] == free_nodes.black_nil || r.remove->links[R] == free_nodes.black_nil ) {
+        tree_link nil_link = r.remove->links[L] != free_nodes.black_nil;
+        rb_transplant( parent, r.remove, r.remove->links[!nil_link] );
+    } else {
+        if ( r.replacement != r.remove->links[R] ) {
+            rb_transplant( r.replacement_parent, r.replacement, r.replacement->links[R] );
+            r.replacement->links[R] = r.remove->links[R];
+            r.replacement->links[R]->list_start->parent = r.replacement;
+        }
+        rb_transplant( parent, r.remove, r.replacement );
+        r.replacement->links[L] = r.remove->links[L];
+        if ( r.replacement->links[L] != free_nodes.black_nil ) {
+            r.replacement->links[L]->list_start->parent = r.replacement;
+        }
+        r.replacement->list_start->parent = parent;
+    }
+    paint_node( r.replacement, get_color( r.remove->header ) );
     paint_node( free_nodes.black_nil, BLACK );
     paint_node( free_nodes.tree_root, BLACK );
     free_nodes.total--;
-    return remove;
+    return r.remove;
 }
 
 /// @brief delete_rb_topdown  performs a topdown deletion on a red-black tree fixing violations on
@@ -266,7 +286,7 @@ static rb_node *remove_node( rb_node *parent, rb_node *remove, rb_node *replacem
 ///                           duplicate from a doubly linked list if a duplicate is waiting.
 /// @param key                the size_t representing the node size in bytes we are in search of.
 /// @return                   the node we have removed from the tree or doubly linked list.
-static rb_node *delete_rb_topdown( size_t key )
+static rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-complexity)
 {
     rb_node *gparent = free_nodes.black_nil;
     rb_node *parent = free_nodes.black_nil;
@@ -304,7 +324,7 @@ static rb_node *delete_rb_topdown( size_t key )
             rb_node *sibling = parent->links[!prev_link];
             if ( get_color( nxt_sibling->header ) == RED ) {
                 gparent = nxt_sibling;
-                parent = parent->links[prev_link] = single_rotation( child, parent, link );
+                parent = parent->links[prev_link] = single_rotation( ( rotation ){ child, parent }, link );
                 if ( child == best ) {
                     best_parent = gparent;
                 }
@@ -322,12 +342,14 @@ static rb_node *delete_rb_topdown( size_t key )
 
                 // These two cases may ruin lineage of node to be removed. Repair if necessary.
                 if ( get_color( sibling->links[prev_link]->header ) == RED ) {
-                    new_gparent = gparent->links[to_parent] = double_rotation( parent, gparent, prev_link );
+                    new_gparent = gparent->links[to_parent]
+                        = double_rotation( ( rotation ){ parent, gparent }, prev_link );
                     if ( best == parent ) {
                         best_parent = new_gparent;
                     }
                 } else if ( get_color( sibling->links[!prev_link]->header ) == RED ) {
-                    new_gparent = gparent->links[to_parent] = single_rotation( parent, gparent, prev_link );
+                    new_gparent = gparent->links[to_parent]
+                        = single_rotation( ( rotation ){ parent, gparent }, prev_link );
                     if ( best == parent ) {
                         best_parent = sibling;
                     }
@@ -341,7 +363,7 @@ static rb_node *delete_rb_topdown( size_t key )
             }
         }
     }
-    return remove_node( best_parent, best, parent, child );
+    return remove_node( best_parent, ( replacement ){ best, parent, child } );
 }
 
 /// @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
@@ -563,9 +585,12 @@ void *myrealloc( void *old_ptr, size_t new_size )
             memmove( client_space, old_ptr, old_size );
         }
         client_space = split_alloc( leftmost_node, request, coalesced_space );
-    } else if ( ( client_space = mymalloc( request ) ) ) {
-        memcpy( client_space, old_ptr, old_size );
-        init_free_node( leftmost_node, coalesced_space );
+    } else {
+        client_space = mymalloc( request );
+        if ( client_space ) {
+            memcpy( client_space, old_ptr, old_size );
+            init_free_node( leftmost_node, coalesced_space );
+        }
     }
     return client_space;
 }
@@ -611,7 +636,7 @@ bool validate_heap()
     }
 
     // This comes from a more official write up on red black trees so I included it.
-    if ( !is_bheight_valid_V2( free_nodes.tree_root, free_nodes.black_nil ) ) {
+    if ( !is_bheight_valid_v2( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }
     if ( !is_binary_tree( free_nodes.tree_root, free_nodes.black_nil ) ) {

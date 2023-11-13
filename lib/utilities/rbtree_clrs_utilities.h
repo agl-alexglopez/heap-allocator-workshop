@@ -51,12 +51,6 @@
 
 /////////////////////////////          Type Definitions            //////////////////////////////////
 
-#define SIZE_MASK ~0x7UL
-#define COLOR_MASK 0x4UL
-#define HEAP_NODE_WIDTH (unsigned short)32
-#define MIN_BLOCK_SIZE (unsigned short)40
-#define HEADERSIZE sizeof( size_t )
-
 typedef size_t header;
 typedef unsigned char byte;
 
@@ -82,21 +76,23 @@ typedef struct rb_node
     // to fit footer.
 } rb_node;
 
-typedef enum header_status
-{
-    FREE = 0x0UL,
-    ALLOCATED = 0x1UL,
-    LEFT_ALLOCATED = 0x2UL,
-    RED_PAINT = 0x4UL,
-    BLK_PAINT = ~0x4UL,
-    LEFT_FREE = ~0x2UL
-} header_status;
-
 typedef enum rb_color
 {
     BLACK = 0,
     RED = 1
 } rb_color;
+
+#define SIZE_MASK ~0x7UL
+#define MIN_BLOCK_SIZE (unsigned short)40
+#define HEADERSIZE sizeof( size_t )
+#define FREED 0x0UL
+#define ALLOCATED 0x1UL
+#define LEFT_ALLOCATED 0x2UL
+#define LEFT_FREE ~0x2UL
+#define COLOR_MASK 0x4UL
+#define HEAP_NODE_WIDTH 32UL
+#define RED_PAINT 0x4UL
+#define BLK_PAINT ~0x4UL
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
 
@@ -104,7 +100,7 @@ typedef enum rb_color
 /// @param requested_size  size given to us by the client.
 /// @param multiple        the nearest multiple to raise our number to.
 /// @return                rounded number.
-inline size_t roundup( const size_t requested_size, size_t multiple )
+static inline size_t roundup( const size_t requested_size, size_t multiple )
 {
     return ( requested_size + multiple - 1 ) & ~( multiple - 1 );
 }
@@ -112,7 +108,7 @@ inline size_t roundup( const size_t requested_size, size_t multiple )
 /// @brief paint_node  flips the third least significant bit to reflect the color of the node.
 /// @param *node       the node we need to paint.
 /// @param color       the color the user wants to paint the node.
-inline void paint_node( rb_node *node, rb_color color )
+static inline void paint_node( rb_node *node, rb_color color )
 {
     color == RED ? ( node->header |= RED_PAINT ) : ( node->header &= BLK_PAINT );
 }
@@ -120,18 +116,18 @@ inline void paint_node( rb_node *node, rb_color color )
 /// @brief get_color   returns the color of a node from the value of its header.
 /// @param header_val  the value of the node in question passed by value.
 /// @return            RED or BLACK
-inline rb_color get_color( header header_val ) { return ( header_val & COLOR_MASK ) == RED_PAINT; }
+static inline rb_color get_color( header header_val ) { return ( header_val & COLOR_MASK ) == RED_PAINT; }
 
 /// @brief get_size    returns size in bytes as a size_t from the value of node's header.
 /// @param header_val  the value of the node in question passed by value.
 /// @return            the size in bytes as a size_t of the node.
-inline size_t get_size( header header_val ) { return SIZE_MASK & header_val; }
+static inline size_t get_size( header header_val ) { return SIZE_MASK & header_val; }
 
 /// @brief get_min     returns the smallest node in a valid binary search tree.
 /// @param *root       the root of any valid binary search tree.
 /// @param *black_nil  the sentinel node at the bottom of the tree that is always black.
 /// @return            a pointer to the minimum node in a valid binary search tree.
-inline rb_node *get_min( rb_node *root, rb_node *black_nil )
+static inline rb_node *get_min( rb_node *root, rb_node *black_nil )
 {
     for ( ; root->left != black_nil; root = root->left ) {}
     return root;
@@ -140,23 +136,23 @@ inline rb_node *get_min( rb_node *root, rb_node *black_nil )
 /// @brief is_block_allocated  determines if a node is allocated or free.
 /// @param block_header        the header value of a node passed by value.
 /// @return                    true if allocated false if not.
-inline bool is_block_allocated( const header block_header ) { return block_header & ALLOCATED; }
+static inline bool is_block_allocated( const header block_header ) { return block_header & ALLOCATED; }
 
 /// @brief is_left_space  determines if the left neighbor of a block is free or allocated.
 /// @param *node          the node to check.
 /// @return               true if left is free false if left is allocated.
-inline bool is_left_space( const rb_node *node ) { return !( node->header & LEFT_ALLOCATED ); }
+static inline bool is_left_space( const rb_node *node ) { return !( node->header & LEFT_ALLOCATED ); }
 
 /// @brief init_header_size  initializes any node as the size and indicating left is allocated.
 ///                          Left is allocated because we always coalesce left and right.
 /// @param *node             the region of possibly uninitialized heap we must initialize.
 /// @param payload           the payload in bytes as a size_t of the current block we initialize
-inline void init_header_size( rb_node *node, size_t payload ) { node->header = LEFT_ALLOCATED | payload; }
+static inline void init_header_size( rb_node *node, size_t payload ) { node->header = LEFT_ALLOCATED | payload; }
 
 /// @brief init_footer  initializes footer at end of the heap block to matcht the current header.
 /// @param *node        the current node with a header field we will use to set the footer.
 /// @param payload      the size of the current nodes free memory.
-inline void init_footer( rb_node *node, size_t payload )
+static inline void init_footer( rb_node *node, size_t payload )
 {
     header *footer = (header *)( (byte *)node + payload );
     *footer = node->header;
@@ -166,7 +162,7 @@ inline void init_footer( rb_node *node, size_t payload )
 /// @param *current            the rb_node we start at to then jump to the right.
 /// @param payload             the size in bytes as a size_t of the current rb_node block.
 /// @return                    the rb_node to the right of the current.
-inline rb_node *get_right_neighbor( const rb_node *current, size_t payload )
+static inline rb_node *get_right_neighbor( const rb_node *current, size_t payload )
 {
     return (rb_node *)( (byte *)current + HEADERSIZE + payload );
 }
@@ -174,7 +170,7 @@ inline rb_node *get_right_neighbor( const rb_node *current, size_t payload )
 /// @brief *get_left_neighbor  uses the left block size gained from the footer to move to the header.
 /// @param *node               the current header at which we reside.
 /// @return                    a header pointer to the header for the block to the left.
-inline rb_node *get_left_neighbor( const rb_node *node )
+static inline rb_node *get_left_neighbor( const rb_node *node )
 {
     header *left_footer = (header *)( (byte *)node - HEADERSIZE );
     return (rb_node *)( (byte *)node - ( *left_footer & SIZE_MASK ) - HEADERSIZE );
@@ -183,12 +179,15 @@ inline rb_node *get_left_neighbor( const rb_node *node )
 /// @brief get_client_space  steps into the client space just after the header of a rb_node.
 /// @param *node_header      the rb_node we start at before retreiving the client space.
 /// @return                  the voi/// address of the client space they are now free to use.
-inline void *get_client_space( const rb_node *node_header ) { return (byte *)node_header + HEADERSIZE; }
+static inline void *get_client_space( const rb_node *node_header ) { return (byte *)node_header + HEADERSIZE; }
 
 /// @brief get_rb_node    steps to the rb_node header from the space the client was using.
 /// @param *client_space  the voi/// the client was using for their type. We step to the left.
 /// @return               a pointer to the rb_node of our heap block.
-inline rb_node *get_rb_node( const void *client_space ) { return (rb_node *)( (byte *)client_space - HEADERSIZE ); }
+static inline rb_node *get_rb_node( const void *client_space )
+{
+    return (rb_node *)( (byte *)client_space - HEADERSIZE );
+}
 
 /////////////////////////////    Debugging and Testing Functions   //////////////////////////////////
 
@@ -250,7 +249,7 @@ bool is_parent_valid( const rb_node *root, const rb_node *black_nil );
 /// @param *root                the starting node of the red black tree to check.
 /// @param *black_nil            the sentinel node at the bottom of the tree that is always black.
 /// @return                     true if the paths are valid, false if not.
-bool is_bheight_valid_V2( const rb_node *root, const rb_node *black_nil );
+bool is_bheight_valid_v2( const rb_node *root, const rb_node *black_nil );
 
 /// @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left
 ///                        should be less than the root and nodes to the right should be greater.
