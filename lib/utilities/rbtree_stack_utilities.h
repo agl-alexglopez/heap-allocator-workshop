@@ -87,6 +87,24 @@ typedef struct duplicate_node
     struct rb_node *parent;
 } duplicate_node;
 
+typedef struct heap_range
+{
+    void *start;
+    void *end;
+} heap_range;
+
+typedef struct bad_jump
+{
+    rb_node *prev;
+    rb_node *root;
+} bad_jump;
+
+typedef struct size_total
+{
+    size_t size;
+    size_t total;
+} size_total;
+
 typedef enum rb_color
 {
     BLACK = 0,
@@ -231,7 +249,7 @@ static inline rb_node *get_rb_node( const void *client_space )
 /// @param client_end    the end of logically available space for user.
 /// @param heap_size     the total size in bytes of the heap.
 /// @return              true if everything is in order otherwise false.
-bool check_init( void *client_start, void *client_end, size_t heap_size );
+bool check_init( heap_range r, size_t heap_size );
 
 /// @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
 ///                            reported match the global bookeeping in our struct.
@@ -241,8 +259,7 @@ bool check_init( void *client_start, void *client_end, size_t heap_size );
 /// @param heap_size           the total size in bytes of the heap.
 /// @param tree_total          the total nodes in the red-black tree.
 /// @return                    true if our tallying is correct and our totals match.
-bool is_memory_balanced( size_t *total_free_mem, void *client_start, void *client_end, size_t heap_size,
-                         size_t tree_total );
+bool is_memory_balanced( size_t *total_free_mem, heap_range r, size_total s );
 
 /// @brief is_red_red  determines if a red red violation of a red black tree has occured.
 /// @param *root       the current root of the tree to begin at for checking all subtrees.
@@ -309,6 +326,6 @@ void print_rb_tree( const rb_node *root, const void *nil_and_tail, print_style s
 /// @param heap_size    the size in bytes of the
 /// @param *root        the root of the tree we start at for printing.
 /// @param *black_nil   the sentinel node that waits at the bottom of the tree for all leaves.
-void print_all( void *client_start, void *client_end, size_t heap_size, rb_node *tree_root, rb_node *black_nil );
+void print_all( heap_range r, size_t heap_size, rb_node *tree_root, rb_node *black_nil );
 
 #endif

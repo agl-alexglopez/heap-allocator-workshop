@@ -26,6 +26,12 @@
 
 ///  Static Heap Tracking
 
+typedef struct swap
+{
+    rb_node *remove;
+    rb_node *replacement;
+} swap;
+
 // NOLINTBEGIN(*-non-const-global-variables)
 
 /// Red Black Free Tree:
@@ -58,8 +64,6 @@ static struct heap
 // NOLINTEND(*-non-const-global-variables)
 
 ///   Static Helper Functions
-
-// NOLINTBEGIN(*-swappable-parameters, *suspicious-call-argument)
 
 /// @brief rotate     a unified version of the traditional left and right rotation functions. The
 ///                   rotation is either left or right and opposite is its opposite direction. We
@@ -175,14 +179,14 @@ static void insert_rb_node( rb_node *current )
 /// @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
 /// @param *remove        the node we are removing from the tree.
 /// @param *replacement   the node that will fill the remove position. It can be black_nil.
-static void rb_transplant( const rb_node *remove, rb_node *replacement )
+static void rb_transplant( swap nodes )
 {
-    if ( remove->parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = replacement;
+    if ( nodes.remove->parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = nodes.replacement;
     } else {
-        remove->parent->links[remove->parent->links[R] == remove] = replacement;
+        nodes.remove->parent->links[nodes.remove->parent->links[R] == nodes.remove] = nodes.replacement;
     }
-    replacement->parent = remove->parent;
+    nodes.replacement->parent = nodes.remove->parent;
 }
 
 /// @brief delete_duplicate  will remove a duplicate node from the tree when the request is coming
@@ -250,19 +254,19 @@ static rb_node *delete_rb_node( rb_node *remove )
     rb_node *extra_black = NULL;
     if ( remove->links[L] == free_nodes.black_nil || remove->links[R] == free_nodes.black_nil ) {
         tree_link nil_link = remove->links[L] != free_nodes.black_nil;
-        rb_transplant( remove, extra_black = remove->links[!nil_link] );
+        rb_transplant( ( swap ){ remove, extra_black = remove->links[!nil_link] } );
     } else {
         rb_node *replacement = get_min( remove->links[R], free_nodes.black_nil );
         fixup_color_check = get_color( replacement->header );
         extra_black = replacement->links[R];
         if ( replacement != remove->links[R] ) {
-            rb_transplant( replacement, extra_black );
+            rb_transplant( ( swap ){ replacement, extra_black } );
             replacement->links[R] = remove->links[R];
             replacement->links[R]->parent = replacement;
         } else {
             extra_black->parent = replacement;
         }
-        rb_transplant( remove, replacement );
+        rb_transplant( ( swap ){ remove, replacement } );
         replacement->links[L] = remove->links[L];
         replacement->links[L]->parent = replacement;
         paint_node( replacement, get_color( remove->header ) );
@@ -544,13 +548,13 @@ void myfree( void *ptr )
 /// @return               true if the heap is valid and false if the heap is invalid.
 bool validate_heap()
 {
-    if ( !check_init( heap.client_start, heap.client_end, heap.heap_size ) ) {
+    if ( !check_init( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
         return false;
     }
     // Check that after checking all headers we end on size 0 tail and then end of address space.
     size_t total_free_mem = 0;
-    if ( !is_memory_balanced( &total_free_mem, heap.client_start, heap.client_end, heap.heap_size,
-                              free_nodes.total ) ) {
+    if ( !is_memory_balanced( &total_free_mem, ( heap_range ){ heap.client_start, heap.client_end },
+                              ( size_total ){ heap.heap_size, free_nodes.total } ) ) {
         return false;
     }
     // Does a tree search for all memory match the linear heap search for totals?
@@ -597,7 +601,6 @@ void print_free_nodes( print_style style )
 ///                   between heap blocks or corrupted headers.
 void dump_heap()
 {
-    print_all( heap.client_start, heap.client_end, heap.heap_size, free_nodes.tree_root, free_nodes.black_nil );
+    print_all( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, free_nodes.tree_root,
+               free_nodes.black_nil );
 }
-
-// NOLINTEND(*-swappable-parameters, *suspicious-call-argument)
