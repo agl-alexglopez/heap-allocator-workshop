@@ -11,20 +11,6 @@
 #ifndef DEBUG_BREAK_H
 #define DEBUG_BREAK_H
 
-#include <signal.h>
-#include <stdio.h>
-
-// void dummy(int signum);
-
-//#ifdef __APPLE__
-#define breakpoint() printf("Break. Line: %d File: %s",__LINE__,__FILE__);
-//#else
-
-//#define breakpoint()
-//    do {
-//        signal(SIGTRAP, dummy);
-//        __asm__("int3");
-//    } while(0);
-//#endif
+#define breakpoint() printf( "Break. Line: %d File: %s", __LINE__, __FILE__ );
 
 #endif

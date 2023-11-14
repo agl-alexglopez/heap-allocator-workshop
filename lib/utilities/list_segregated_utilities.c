@@ -1,83 +1,299 @@
-/**
- * File list_segregated_design.c
- * ---------------------------------
- * This file contains the implementation of utility functions for the list_segregated heap
- * allocator. These functions serve as basic navigation for nodes and blocks. They are inlined
- * in the header file so must be declared here. Hopefully the compiler inlines them in "hot-spot"
- * functions.
- */
-#include "../list_segregated_utilities.h"
+///
+/// File list_segregated_design.c
+/// ---------------------------------
+/// This file contains the implementation of utility functions for the
+/// list_segregated heap allocator. These functions serve as basic navigation for
+/// nodes and blocks. They are inlined in the header file so must be declared
+/// here. Hopefully the compiler inlines them in "hot-spot" functions.
+#include "list_segregated_utilities.h"
+#include "debug_break.h"
+#include "print_utility.h"
+#include <limits.h>
+#include <stdbool.h>
+#include <stddef.h>
+#include <stdio.h>
 
+typedef struct header_size
+{
+    header header;
+    size_t size;
+} header_size;
 
-/* * * * * * * * * * * * * *    Basic Block and Header Operations  * * * * * * * * * * * * * * * */
+typedef struct bad_jump
+{
+    header *current;
+    header *prev;
+} bad_jump;
 
-/* @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
- * @param requested_size  size given to us by the client.
- * @param multiple        the nearest multiple to raise our number to.
- * @return                rounded number.
- */
-extern size_t roundup(size_t requested_size, size_t multiple);
+/////////////////////////////    Debugging and Testing Functions    /////////////////////////
 
-/* @brief get_size     given a valid header find the total size of the header and block.
- * @param *header_val  the pointer to the current header block we are on.
- * @return             the size in bytes of the header and memory block.
- */
-extern size_t get_size(header header_val);
+bool is_header_corrupted( header header_val ) { return header_val & STATUS_CHECK; }
 
-/* @brief *get_right_header  advances the header pointer to the next header in the heap.
- * @param *cur_header        the valid pointer to a heap header within the memory range.
- * @param block_size         the size of the current block.
- * @return                   a header pointer to the next block in the heap.
- */
-extern header *get_right_header(header *cur_header, size_t block_size);
+bool check_init( seg_node table[], free_node *nil, size_t client_size )
+{
+    void *first_address = table;
+    void *last_address = (byte *)nil + FREE_NODE_WIDTH;
+    if ( (size_t)( (byte *)last_address - (byte *)first_address ) != client_size ) {
+        breakpoint();
+        return false;
+    }
+    // Check our lookup table. Sizes should never be altered and pointers should
+    // never be NULL.
+    unsigned short size = MIN_BLOCK_SIZE;
+    for ( size_t i = 0; i < SMALL_TABLE_SIZE; i++, size += HEADERSIZE ) {
+        if ( table[i].size != size ) {
+            breakpoint();
+            return false;
+        }
+        // This should either be a valid node or the sentinel.
+        if ( NULL == table[i].start ) {
+            breakpoint();
+            return false;
+        }
+    }
+    size = LARGE_TABLE_MIN;
+    for ( size_t i = SMALL_TABLE_SIZE; i < TABLE_SIZE - 1; i++, size *= 2 ) {
+        if ( table[i].size != size ) {
+            breakpoint();
+            return false;
+        }
+        // This should either be a valid node or the nil.
+        if ( NULL == table[i].start ) {
+            breakpoint();
+            return false;
+        }
+    }
+    if ( table[TABLE_SIZE - 1].size != USHRT_MAX ) {
+        breakpoint();
+        return false;
+    }
+    return true;
+}
 
-/* @brief *get_left_header  uses the left block size gained from the footer to move to the header.
- * @param *cur_header       the current header at which we reside.
- * @param left_block_size   the space of the left block as reported by its footer.
- * @return                  a header pointer to the header for the block to the left.
- */
-extern header *get_left_header(header *cur_header);
+bool is_valid_header( header_size hs, size_t client_size )
+{
+    // Most definitely impossible and our header is corrupted. Pointer arithmetic
+    // would fail.
+    if ( hs.size > client_size ) {
+        return false;
+    }
+    if ( is_header_corrupted( hs.header ) ) {
+        return false;
+    }
+    if ( hs.size % HEADERSIZE != 0 ) {
+        return false;
+    }
+    return true;
+}
 
-/* @brief is_block_allocated  will determine if a block is marked as allocated.
- * @param *header_val         the valid header we will determine status for.
- * @return                    true if the block is allocated, false if not.
- */
-extern bool is_block_allocated(header header_val);
+bool is_memory_balanced( size_t *total_free_mem, heap_range hr, size_total st )
+{
+    // Check that after checking all headers we end on size 0 tail and then end of
+    // address space.
+    header *cur_header = hr.start;
+    size_t size_used = FREE_NODE_WIDTH + TABLE_BYTES;
+    size_t total_free_nodes = 0;
+    while ( cur_header != hr.end ) {
+        size_t block_size_check = get_size( *cur_header );
+        if ( block_size_check == 0 ) {
+            breakpoint();
+            return false;
+        }
 
-/* @brief *get_client_space  get the pointer to the start of the client available memory.
- * @param *cur_header        the valid header to the current block of heap memory.
- * @return                   a pointer to the first available byte of client heap memory.
- */
-extern free_node *get_free_node(header *cur_header);
+        if ( !is_valid_header( ( header_size ){ *cur_header, block_size_check }, st.size ) ) {
+            breakpoint();
+            return false;
+        }
+        if ( is_block_allocated( *cur_header ) ) {
+            size_used += block_size_check;
+        } else {
+            total_free_nodes++;
+            *total_free_mem += block_size_check;
+        }
+        cur_header = get_right_header( cur_header, block_size_check );
+    }
+    if ( size_used + *total_free_mem != st.size ) {
+        breakpoint();
+        return false;
+    }
+    if ( total_free_nodes != st.total ) {
+        breakpoint();
+        return false;
+    }
+    return true;
+}
 
-/* @brief *get_block_header  steps to the left from the user-available space to get the pointer
- *                           to the header header.
- * @param *user_mem_space    the void pointer to the space available for the user.
- * @return                   the header immediately to the left associated with memory block.
- */
-extern header *get_block_header(free_node *user_mem_space);
+bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil )
+{
+    size_t linked_free_mem = 0;
+    for ( size_t i = 0; i < TABLE_SIZE; i++ ) {
+        for ( free_node *cur = table[i].start; cur != nil; cur = cur->next ) {
+            header *cur_header = get_block_header( cur );
+            size_t cur_size = get_size( *cur_header );
+            if ( i != TABLE_SIZE - 1 && cur_size >= table[i + 1].size ) {
+                breakpoint();
+                return false;
+            }
+            if ( is_block_allocated( *cur_header ) ) {
+                breakpoint();
+                return false;
+            }
+            // This algorithm does not allow two free blocks to remain next to one
+            // another.
+            if ( is_left_space( get_block_header( cur ) ) ) {
+                breakpoint();
+                return false;
+            }
+            linked_free_mem += cur_size;
+        }
+    }
+    if ( total_free_mem != linked_free_mem ) {
+        breakpoint();
+        return false;
+    }
+    return true;
+}
 
-/* @brief init_header    initializes the header in the header_header field to reflect the
- *                       specified status and that the left neighbor is allocated or unavailable.
- * @param *cur_header    the header we will initialize.
- * @param block_size     the size, including the header, of the entire block.
- * @param header_status  FREE or ALLOCATED to reflect the status of the memory.
- */
-extern void init_header(header *cur_header, size_t block_size, header_status_t header_status);
+/////////////////////////////        Printing Functions     //////////////////////////////////
 
-/* @brief init_footer  initializes the footer to reflect that the associated block is now free. We
- *                     will only initialize footers on free blocks. We use the the control bits
- *                     in the right neighbor if the block is allocated and allow the user to have
- *                     the footer space.
- * @param *cur_header  a pointer to the header that is now free and will have a footer.
- * @param block_size   the size to use to update the footer of the block.
- */
-extern void init_footer(header *cur_header, size_t block_size);
+void print_fits( print_style style, seg_node table[], free_node *nil )
+{
+    bool alternate = false;
+    for ( size_t i = 0; i < TABLE_SIZE; i++, alternate = !alternate ) {
+        printf( COLOR_GRN );
+        if ( style == VERBOSE ) {
+            printf( "%p: ", &table[i] );
+        }
+        if ( i == TABLE_SIZE - 1 ) {
+            printf( "[CLASS:%ubytes+]=>", table[i].size );
+        } else if ( i >= SMALL_TABLE_SIZE ) {
+            printf( "[CLASS:%u-%ubytes]=>", table[i].size, table[i + 1].size - 1U );
+        } else {
+            printf( "[CLASS:%ubytes]=>", table[i].size );
+        }
+        printf( COLOR_NIL );
+        if ( alternate ) {
+            printf( COLOR_RED );
+        } else {
+            printf( COLOR_CYN );
+        }
 
-/* @brief is_left_space  checks the control bit in the second position to see if the left neighbor
- *                       is allocated or free to use for coalescing.
- * @param *cur_header    the current block for which we are checking the left neighbor.
- * @return               true if there is space to the left, false if not.
- */
-extern bool is_left_space(header *cur_header);
+        for ( free_node *cur = table[i].start; cur != nil; cur = cur->next ) {
+            if ( cur ) {
+                header *cur_header = get_block_header( cur );
+                printf( "<=>[" );
+                if ( style == VERBOSE ) {
+                    printf( "%p:", get_block_header( cur ) );
+                }
+                printf( "(%zubytes)]", get_size( *cur_header ) );
+            } else {
+                printf( "Something went wrong. NULL free fits node.\n" );
+                break;
+            }
+        }
+        printf( "<=>[%p]\n", nil );
+        printf( COLOR_NIL );
+    }
+}
 
+/// @brief print_alloc_block  prints the contents of an allocated block of memory.
+/// @param *cur_header        a valid header to a block of allocated memory.
+static void print_alloc_block( header *cur_header )
+{
+    size_t block_size = get_size( *cur_header ) - HEADERSIZE;
+    printf( COLOR_GRN );
+    // We will see from what direction our header is messed up by printing 16
+    // digits.
+    printf( "%p: HEADER->0x%016zX->[ALOC-%zubytes]\n", cur_header, *cur_header, block_size );
+    printf( COLOR_NIL );
+}
+
+/// @brief print_free_block  prints the contents of a free block of heap memory.
+/// @param *cur_header       a valid header to a block of allocated memory.
+static void print_free_block( header *cur_header )
+{
+    size_t full_size = get_size( *cur_header );
+    size_t block_size = full_size - HEADERSIZE;
+    header *footer = (header *)( (byte *)cur_header + full_size - HEADERSIZE );
+    // We should be able to see the header is the same as the footer. If they are
+    // not the same we will face subtle bugs that are very hard to notice.
+    //
+    if ( *footer != *cur_header ) {
+        *footer = ULONG_MAX;
+    }
+    printf( COLOR_RED );
+    printf( "%p: HEADER->0x%016zX->[FREE-%zubytes->FOOTER->%016zX]\n", cur_header, *cur_header, block_size,
+            *footer );
+    printf( COLOR_NIL );
+}
+
+/// @brief print_bad_jump  If we overwrite data in a header, this print statement will help us
+///                        notice where we went wrong and what the addresses were.
+/// @param bad_jump        two nodes with a bad jump from one to the other
+/// @param table[]         the lookup table that holds the list size ranges
+/// @param *nil            a special free_node that serves as a sentinel for logic and edgecases.
+static void print_bad_jump( bad_jump j, seg_node table[], free_node *nil )
+{
+    size_t prev_size = get_size( *j.prev );
+    size_t cur_size = get_size( *j.current );
+    printf( COLOR_CYN );
+    printf( "A bad jump from the value of a header has occured. Bad distance to "
+            "next header.\n" );
+    printf( "The previous address: %p:\n", j.prev );
+    printf( "\tHeader Hex Value: %016zX:\n", *j.prev );
+    printf( "\tBlock Byte Value: %zubytes:\n", prev_size );
+    printf( "\nJump by %zubytes...\n", prev_size );
+    printf( "The current address: %p:\n", j.current );
+    printf( "\tHeader Hex Value: %016zX:\n", *j.current );
+    printf( "\tBlock Byte Value: %zubytes:\n", cur_size );
+    printf( "\nJump by %zubytes...\n", cur_size );
+    printf( "Current state of the free list:\n" );
+    printf( COLOR_NIL );
+    print_fits( VERBOSE, table, nil );
+}
+
+void print_all( heap_range hr, size_t client_size, seg_node table[], free_node *nil )
+{
+    header *cur_header = hr.start;
+    printf( "Heap client segment starts at address %p, ends %p. %zu total bytes "
+            "currently used.\n",
+            cur_header, hr.end, client_size );
+    printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n\n" );
+
+    printf( "%p: FIRST ADDRESS\n", table );
+
+    // This will create large amount of output but realistically table is before
+    // the rest of heap.
+    print_fits( VERBOSE, table, nil );
+    printf( "--END OF LOOKUP TABLE, START OF HEAP--\n" );
+
+    header *prev = cur_header;
+    while ( cur_header != hr.end ) {
+        size_t full_size = get_size( *cur_header );
+
+        if ( full_size == 0 ) {
+            print_bad_jump( ( bad_jump ){ cur_header, prev }, table, nil );
+            printf( "Last known pointer before jump: %p", prev );
+            return;
+        }
+
+        if ( is_block_allocated( *cur_header ) ) {
+            print_alloc_block( cur_header );
+        } else {
+            print_free_block( cur_header );
+        }
+        prev = cur_header;
+        cur_header = get_right_header( cur_header, full_size );
+    }
+    printf( "%p: END OF HEAP\n", hr.end );
+    printf( COLOR_RED );
+    printf( "<-%p:SENTINEL->\n", nil );
+    printf( COLOR_NIL );
+    printf( "%p: LAST ADDRESS\n", (byte *)nil + FREE_NODE_WIDTH );
+    printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
+    printf( "\nSEGREGATED LIST OF FREE NODES AND BLOCK SIZES.\n" );
+    printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );
+    // For large heaps we wouldn't be able to scroll to the table location so
+    // print again here.
+    print_fits( VERBOSE, table, nil );
+}
