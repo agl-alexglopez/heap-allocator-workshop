@@ -12,6 +12,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+/// @brief print_gnuplots  returns the file descriptor for a pipe write end we can send to a gnuplot process.
 int gnuplot_process()
 {
     int fds[2];

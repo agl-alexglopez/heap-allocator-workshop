@@ -449,7 +449,7 @@ static void init_free_node( rb_node *to_free, size_t block_size )
 /// @param request       the user request for space.
 /// @param block_space   the entire space that we have to work with.
 /// @return              a void pointer to generic space that is now ready for the client.
-void *split_alloc( rb_node *free_block, size_t request, size_t block_space )
+static void *split_alloc( rb_node *free_block, size_t request, size_t block_space )
 {
     rb_node *neighbor = NULL;
     if ( block_space >= request + MIN_BLOCK_SIZE ) {
@@ -498,14 +498,8 @@ static rb_node *coalesce( rb_node *leftmost_node )
 
 ///    Shared Heap Functions
 
-/// @brief get_free_total  returns the total number of free nodes in the heap.
-/// @return                a size_t representing the total quantity of free nodes.
 size_t get_free_total() { return free_nodes.total; }
 
-/// @brief myinit      initializes the heap space for use for the client.
-/// @param *heap_start pointer to the space we will initialize as our heap.
-/// @param heap_size   the desired space for the heap memory overall.
-/// @return            true if the space if the space is successfully initialized false if not.
 bool myinit( void *heap_start, size_t heap_size )
 {
     // Initialize the root of the tree and heap addresses.
@@ -534,10 +528,6 @@ bool myinit( void *heap_start, size_t heap_size )
     return true;
 }
 
-/// @brief *mymalloc       finds space for the client from the red black tree.
-/// @param requested_size  the user desired size that we will round up and align.
-/// @return                a void pointer to the space ready for the user or NULL if the request
-///                        could not be serviced because it was invalid or there is no space.
 void *mymalloc( size_t requested_size )
 {
     if ( requested_size != 0 && requested_size <= MAX_REQUEST_SIZE ) {
@@ -549,13 +539,6 @@ void *mymalloc( size_t requested_size )
     return NULL;
 }
 
-/// @brief *myrealloc  reallocates space for the client. It uses right coalescing in place
-///                    reallocation. It will free memory on a zero request and a non-Null pointer.
-///                    If reallocation fails, the memory does not move and we return NULL.
-/// @param *old_ptr    the old memory the client wants resized.
-/// @param new_size    the client's newly desired size. May be larger or smaller.
-/// @return            new space if the pointer is null, NULL on invalid request or inability to
-///                    find space.
 void *myrealloc( void *old_ptr, size_t new_size )
 {
     if ( new_size > MAX_REQUEST_SIZE ) {
@@ -592,8 +575,6 @@ void *myrealloc( void *old_ptr, size_t new_size )
     return client_space;
 }
 
-/// @brief myfree  frees valid user memory from the heap.
-/// @param *ptr    a pointer to previously allocated heap memory.
 void myfree( void *ptr )
 {
     if ( ptr != NULL ) {
@@ -605,9 +586,6 @@ void myfree( void *ptr )
 
 ///      Shared Debugging
 
-/// @brief validate_heap  runs various checks to ensure that every block of the heap is well formed
-///                       with valid sizes, alignment, and initializations.
-/// @return               true if the heap is valid and false if the heap is invalid.
 bool validate_heap()
 {
     if ( !check_init( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
@@ -647,10 +625,6 @@ bool validate_heap()
 
 ///   Shared Printing Debugger
 
-/// @brief print_free_nodes  a shared function across allocators requesting a printout of internal
-///                          data structure used for free nodes of the heap.
-/// @param style             VERBOSE or PLAIN. Plain only includes byte size, while VERBOSE includes
-///                          memory addresses and black heights of the tree.
 void print_free_nodes( print_style style )
 {
     printf( COLOR_CYN "(+X)" COLOR_NIL );
@@ -658,9 +632,6 @@ void print_free_nodes( print_style style )
     print_rb_tree( free_nodes.tree_root, free_nodes.black_nil, style );
 }
 
-/// @brief dump_heap  prints out the complete status of the heap, all of its blocks, and the sizes
-///                   the blocks occupy. Printing should be clean with no overlap of unique id's
-///                   between heap blocks or corrupted headers.
 void dump_heap()
 {
     print_all( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, free_nodes.tree_root,

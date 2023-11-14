@@ -20,6 +20,7 @@ void *init_heap_segment( size_t total_size );
 /// (NULL if no segment has been initialized).
 /// heap_segment_size returns the current segment size in bytes.
 void *heap_segment_start();
+
 /// @brief heap_segment_start, heap_segment_size heap_segment_start
 /// returns the base address of the current heap segment
 /// (NULL if no segment has been initialized).

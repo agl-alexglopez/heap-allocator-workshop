@@ -94,14 +94,6 @@ static request parse_script_line( char *buffer, int lineno, char *script_name )
     return r;
 }
 
-/// @breif parse_script  parses the script file at the specified path, and returns an object with
-///                      info about it.  It expects one request per line, and adds each request's
-///                      information to the ops array within the script.  This function throws an
-///                      error if the file can't be opened, if a line is malformed, or if the file
-///                      is too long to store each request on the heap.
-/// @param *path         the path to the .script file to parse.
-/// @return              a pointer to the script_t with information regarding the .script requests.
-/// @citation            ntroccoli and jzelenski, Stanford University.
 script parse_script( const char *path )
 {
     FILE *fp = fopen( path, "re" );
@@ -197,13 +189,6 @@ static void *exec_realloc( int req, size_t requested_size, script *s )
     return newp;
 }
 
-/// @brief exec_request  a helper function to execute a single call to the heap allocator. It may
-///                      may call malloc(), realloc(), or free().
-/// @param *script       the script_t with the information regarding the script file we execute.
-/// @param req           the zero-based index of the request to the heap allocator.
-/// @param *cur_size     the current size of the heap overall.
-/// @param **heap_end    the pointer to the end of the heap, we will adjust if heap grows.
-/// @return              0 if there are no errors, -1 if there is an error.
 int exec_request( script *s, int req, size_t *cur_size, void **heap_end )
 {
     size_t id = s->ops[req].id;
@@ -294,13 +279,6 @@ static double time_realloc( size_t req, size_t requested_size, script *s, void *
     return ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * 1000;
 }
 
-/// @brief time_request  a wrapper function for timer functions that allows us to time a request to
-///                      the heap. Returns the cpu time of the request in milliseconds.
-/// @param *script       the script object that holds data about our script we need to execute.
-/// @param req           the current request to the heap we execute.
-/// @param *cur_size     the current size of the heap.
-/// @param **heap_end    the address of the end of our range of heap memory.
-/// @return              the double representing the time to complete one request.
 double time_request( script *s, int req, size_t *cur_size, void **heap_end )
 {
     size_t id = s->ops[req].id;
@@ -345,10 +323,6 @@ double time_request( script *s, int req, size_t *cur_size, void **heap_end )
     return cpu_time;
 }
 
-/// @brief allocator_error  reports an error while running an allocator script.
-/// @param *script          the script_t with information we track form the script file requests.
-/// @param lineno           the line number where the error occured.
-/// @param *format          the specified format string.
 void allocator_error( script *s, int lineno, char *format, ... )
 {
     va_list args;

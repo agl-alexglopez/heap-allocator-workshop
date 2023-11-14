@@ -218,18 +218,15 @@ static inline rb_node *get_rb_node( const void *client_space )
 
 /// @breif check_init    checks the internal representation of our heap, especially the head
 ///                      and tail nodes for any issues that would ruin our algorithms.
-/// @param client_start  the start of logically available space for user.
-/// @param client_end    the end of logically available space for user.
+/// @param hr            start and end of the heap
 /// @param heap_size     the total size in bytes of the heap.
 /// @return              true if everything is in order otherwise false.
 bool check_init( heap_range r, size_t heap_size );
 /// @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
 ///                            reported match the global bookeeping in our struct.
 /// @param *total_free_mem     the output parameter of the total size used as another check.
-/// @param client_start        the start of logically available space for user.
-/// @param client_end          the end of logically available space for user.
-/// @param heap_size           the total size in bytes of the heap.
-/// @param tree_total          the total nodes in the red-black tree.
+/// @param hr                  start and end of the heap
+/// @param s                   size of the heap memory and total free nodes.
 /// @return                    true if our tallying is correct and our totals match.
 bool is_memory_balanced( size_t *total_free_mem, heap_range r, size_total s );
 
@@ -292,8 +289,7 @@ void print_rb_tree( const rb_node *root, const rb_node *black_nil, print_style s
 /// @brief print_all    prints our the complete status of the heap, all of its blocks,
 ///                     and the sizes the blocks occupy. Printing should be clean with no
 ///                     overlap of unique id's between heap blocks or corrupted headers.
-/// @param client_start the starting address of the heap segment.
-/// @param client_end   the final address of the heap segment.
+/// @param hr           start and end of the heap
 /// @param heap_size    the size in bytes of the heap.
 /// @param *root        the root of the tree we start at for printing.
 /// @param *black_nil   the sentinel node that waits at the bottom of the tree for all leaves.

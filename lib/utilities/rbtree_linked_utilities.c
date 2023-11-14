@@ -16,14 +16,8 @@
 
 /////////////////////////////    Debugging and Testing Functions   //////////////////////////////////
 
-// NOLINTBEGIN(misc-no-recursion, *-swappable-parameters)
+// NOLINTBEGIN(misc-no-recursion)
 
-/// @brief check_init    checks the internal representation of our heap, especially the head and
-///                      tail nodes for any issues that would ruin our algorithms.
-/// @param client_start  the start of logically available space for user.
-/// @param client_end    the end of logically available space for user.
-/// @param heap_size     the total size in bytes of the heap.
-/// @return              true if everything is in order otherwise false.
 bool check_init( heap_range r, size_t heap_size )
 {
     if ( is_left_space( r.start ) ) {
@@ -37,14 +31,6 @@ bool check_init( heap_range r, size_t heap_size )
     return true;
 }
 
-/// @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes reported
-///                            match the global bookeeping in our struct.
-/// @param *total_free_mem     the output parameter of the total size used as another check.
-/// @param client_start        the start of logically available space for user.
-/// @param client_end          the end of logically available space for user.
-/// @param heap_size           the total size in bytes of the heap.
-/// @param tree_total          the total nodes in the red-black tree.
-/// @return                    true if our tallying is correct and our totals match.
 bool is_memory_balanced( size_t *total_free_mem, heap_range r, size_total s )
 {
     // Check that after checking all headers we end on size 0 tail and then end of
@@ -78,10 +64,6 @@ bool is_memory_balanced( size_t *total_free_mem, heap_range r, size_total s )
     return true;
 }
 
-/// @brief is_red_red  determines if a red red violation of a red black tree has occured.
-/// @param *root       the current root of the tree to begin at for checking all subtrees.
-/// @param *black_nil  the sentinel node at the bottom of the tree that is always black.
-/// @return            true if there is a red-red violation, false if we pass.
 bool is_red_red( const rb_node *root, const rb_node *black_nil )
 {
     if ( root == black_nil || ( root->links[R] == black_nil && root->links[L] == black_nil ) ) {
@@ -96,11 +78,6 @@ bool is_red_red( const rb_node *root, const rb_node *black_nil )
     return is_red_red( root->links[R], black_nil ) || is_red_red( root->links[L], black_nil );
 }
 
-/// @brief calculate_bheight  determines if every path from a node to the tree.black_nil
-///                           has the same number of black nodes.
-/// @param *root              the root of the tree to begin searching.
-/// @param *black_nil         the sentinel node at the bottom of the tree that is always black.
-/// @return                   -1 if the rule was not upheld, the black height if the rule is held.
 int calculate_bheight( const rb_node *root, const rb_node *black_nil )
 {
     if ( root == black_nil ) {
@@ -116,58 +93,31 @@ int calculate_bheight( const rb_node *root, const rb_node *black_nil )
     return lf_bheight + add;
 }
 
-/// @brief is_bheight_valid  the wrapper for calculate_bheight that verifies that the black
-///                          height property is upheld.
-/// @param *root             the starting node of the red black tree to check.
-/// @param *black_nil        the sentinel node at the bottom of the tree that is always black.
-/// @return                  true if proper black height is consistently maintained throughout tree.
 bool is_bheight_valid( const rb_node *root, const rb_node *black_nil )
 {
     return calculate_bheight( root, black_nil ) != -1;
 }
 
-/// @brief extract_tree_mem  sums the total memory in the red black tree to see if it matches
-///                          the total memory we got from traversing blocks of the heap.
-/// @param *root             the root to start at for the summing recursive search.
-/// @param *nil_and_tail     the address of a sentinel node serving as both list tail and black nil.
-/// @return                  the total memory in bytes as a size_t in the red black tree.
 size_t extract_tree_mem( const rb_node *root, const void *nil_and_tail )
 {
     if ( root == nil_and_tail ) {
         return 0UL;
     }
-    size_t total_mem
-        = extract_tree_mem( root->links[R], nil_and_tail ) + extract_tree_mem( root->links[L], nil_and_tail );
     // We may have repeats so make sure to add the linked list values.
-    size_t node_size = get_size( root->header ) + HEADERSIZE;
-    total_mem += node_size;
-    duplicate_node *tally_list = root->list_start;
-    if ( tally_list != nil_and_tail ) {
-        // We have now entered a doubly linked list that uses left(prev) and
-        // right(next).
-        while ( tally_list != nil_and_tail ) {
-            total_mem += node_size;
-            tally_list = tally_list->links[N];
-        }
+    size_t total_mem = get_size( root->header ) + HEADERSIZE;
+    for ( duplicate_node *tally_list = root->list_start; tally_list != nil_and_tail;
+          tally_list = tally_list->links[N] ) {
+        total_mem += get_size( tally_list->header ) + HEADERSIZE;
     }
-    return total_mem;
+    return total_mem + extract_tree_mem( root->links[R], nil_and_tail )
+           + extract_tree_mem( root->links[L], nil_and_tail );
 }
 
-/// @brief is_rbtree_mem_valid  a wrapper for tree memory sum function used to check correctness.
-/// @param *root                the root node to begin at for the recursive summing search.
-/// @param *nil_and_tail        address of a sentinel node serving as both list tail and black nil.
-/// @param total_free_mem       the total free memory collected from a linear heap search.
-/// @return                     true if the totals match false if they do not.
 bool is_rbtree_mem_valid( const rb_node *root, const void *nil_and_tail, size_t total_free_mem )
 {
     return extract_tree_mem( root, nil_and_tail ) == total_free_mem;
 }
 
-/// @brief is_parent_valid  for duplicate node operations it is important to check the parents
-///                         and fields are updated corectly so we can continue using the tree.
-/// @param *root            the root to start at for the recursive search.
-/// @param *black_nil       the sentinel node at the bottom of the tree that is always black.
-/// @return                 true if all parent child relationships are correct.
 bool is_parent_valid( const rb_node *root, const rb_node *black_nil )
 {
     if ( root == black_nil ) {
@@ -184,13 +134,6 @@ bool is_parent_valid( const rb_node *root, const rb_node *black_nil )
     return is_parent_valid( root->links[L], black_nil ) && is_parent_valid( root->links[R], black_nil );
 }
 
-/// @brief calculate_bheight_v2  verifies that the height of a red-black tree is valid. This is a
-///                              similar function to calculate_bheight but comes from a more
-///                              reliable source, because I saw results that made me doubt V1.
-/// @param *root                 the starting node of the red black tree to check.
-/// @param *black_nil            the sentinel node at the bottom of the tree that is always black.
-/// @citation                    Julienne Walker's writeup on topdown Red-Black trees has a
-///                              helpful function for verifying black heights.
 int calculate_bheight_v2( const rb_node *root, const rb_node *black_nil )
 {
     if ( root == black_nil ) {
@@ -208,21 +151,11 @@ int calculate_bheight_v2( const rb_node *root, const rb_node *black_nil )
     return 0;
 }
 
-/// @brief is_bheight_valid_v2  the wrapper for calculate_bheight_v2 that verifies that the
-///                             black height property is upheld.
-/// @param *root                the starting node of the red black tree to check.
-/// @param *black_nil           the sentinel node at the bottom of the tree that is always black.
-/// @return                     true if the paths are valid, false if not.
 bool is_bheight_valid_v2( const rb_node *root, const rb_node *black_nil )
 {
     return calculate_bheight_v2( root, black_nil ) != 0;
 }
 
-/// @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left
-///                        should be less than the root and nodes to the right should be greater.
-/// @param *root           the root of the tree from which we examine children.
-/// @param *black_nil      the sentinel node at the bottom of the tree that is always black.
-/// @return                true if the tree is valid, false if not.
 bool is_binary_tree( const rb_node *root, const rb_node *black_nil )
 {
     if ( root == black_nil ) {
@@ -336,10 +269,6 @@ static void print_inner_tree( const rb_node *root, void *nil_and_tail, const cha
     free( str );
 }
 
-/// @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
-/// @param *root          the root node to begin at for printing recursively.
-/// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
-/// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
 void print_rb_tree( const rb_node *root, void *nil_and_tail, print_style style )
 {
     if ( root == nil_and_tail ) {
@@ -457,14 +386,6 @@ static void print_bad_jump( const rb_node *curr, const rb_node *prev, rb_node *r
     print_rb_tree( root, nil_and_tail, VERBOSE );
 }
 
-/// @brief print_all    prints our the complete status of the heap, all of its blocks, and
-///                     the sizes the blocks occupy. Printing should be clean with no overlap
-///                     of unique id's between heap blocks or corrupted headers.
-/// @param client_start the starting address of the heap segment.
-/// @param client_end   the final address of the heap segment.
-/// @param heap_size    the size in bytes of the
-/// @param *root        the root of the tree we start at for printing.
-/// @param *black_nil   the sentinel node that waits at the bottom of the tree for all leaves.
 void print_all( heap_range r, size_t heap_size, rb_node *tree_root, rb_node *black_nil )
 {
     rb_node *node = r.start;
@@ -511,4 +432,4 @@ void print_all( heap_range r, size_t heap_size, rb_node *tree_root, rb_node *bla
     print_rb_tree( tree_root, black_nil, VERBOSE );
 }
 
-// NOLINTEND(misc-no-recursion, *-swappable-parameters)
+// NOLINTEND(misc-no-recursion)

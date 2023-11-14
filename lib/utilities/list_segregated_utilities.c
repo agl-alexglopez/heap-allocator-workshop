@@ -27,22 +27,8 @@ typedef struct bad_jump
 
 /////////////////////////////    Debugging and Testing Functions    /////////////////////////
 
-/// @brief is_header_corrupted   will determine if a block has the 3rd bit on,
-/// which is invalid.
-/// @param *cur_header_location  the valid header we will determine status for.
-/// @return                      true if the block has the second or third bit
-/// on.
 bool is_header_corrupted( header header_val ) { return header_val & STATUS_CHECK; }
 
-/// @breif check_init   checks the internal representation of our heap,
-/// especially the
-///                     head and tail nodes for any issues that would ruin our
-///                     algorithms.
-/// @param table[]      the lookup table that holds the list size ranges
-/// @param *nil         a special free_node that serves as a sentinel for logic
-/// and edgecases.
-/// @param client_size  the total space available for client.
-/// @return             true if everything is in order otherwise false.
 bool check_init( seg_node table[], free_node *nil, size_t client_size )
 {
     void *first_address = table;
@@ -84,14 +70,6 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
     return true;
 }
 
-/// @brief is_valid_header  checks the header of a block of memory to make sure
-/// that is
-///                         not an unreasonable size or otherwise corrupted.
-/// @param *cur_header      the header to a block of memory
-/// @param block_size       the reported size of this block of memory from its
-/// header.
-/// @client_size            the entire space available to the user.
-/// @return                 true if the header is valid, false otherwise.
 bool is_valid_header( header_size hs, size_t client_size )
 {
     // Most definitely impossible and our header is corrupted. Pointer arithmetic
@@ -108,20 +86,6 @@ bool is_valid_header( header_size hs, size_t client_size )
     return true;
 }
 
-/// @brief is_memory_balanced  loops through all blocks of memory to verify that
-/// the sizes
-///                            reported match the global bookeeping in our
-///                            struct.
-/// @param *total_free_mem     the output parameter of the total size used as
-/// another check.
-/// @param *client_start       the start address of the client heap segment.
-/// @param *client_end         the end address of the client heap segment.
-/// @param client_size         the size in bytes of the total space available
-/// for client.
-/// @param fits_total          the total number of free nodes in our table of
-/// lists.
-/// @return                    true if our tallying is correct and our totals
-/// match.
 bool is_memory_balanced( size_t *total_free_mem, heap_range hr, size_total st )
 {
     // Check that after checking all headers we end on size 0 tail and then end of
@@ -159,17 +123,6 @@ bool is_memory_balanced( size_t *total_free_mem, heap_range hr, size_total st )
     return true;
 }
 
-/// @brief are_fits_valid  loops through only the segregated fits list to make
-/// sure it
-///                        matches the loop we just completed by checking all
-///                        blocks.
-/// @param total_free_mem  the input from a previous loop that was completed by
-///                        jumping block by block over the entire heap.
-/// @param table[]         the lookup table that holds the list size ranges
-/// @param *nil            a special free_node that serves as a sentinel for
-/// logic and edgecases.
-/// @return                true if the segregated fits list totals correctly,
-/// false if not.
 bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil )
 {
     size_t linked_free_mem = 0;
@@ -203,12 +156,6 @@ bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil )
 
 /////////////////////////////        Printing Functions     //////////////////////////////////
 
-/// @brief print_fits  prints the segregated fits free list in order to check if
-/// splicing and
-///                    adding is progressing correctly.
-/// @param table[]     the lookup table that holds the list size ranges
-/// @param *nil        a special free_node that serves as a sentinel for logic
-/// and edgecases.
 void print_fits( print_style style, seg_node table[], free_node *nil )
 {
     bool alternate = false;
@@ -249,8 +196,7 @@ void print_fits( print_style style, seg_node table[], free_node *nil )
     }
 }
 
-/// @brief print_alloc_block  prints the contents of an allocated block of
-/// memory.
+/// @brief print_alloc_block  prints the contents of an allocated block of memory.
 /// @param *cur_header        a valid header to a block of allocated memory.
 static void print_alloc_block( header *cur_header )
 {
@@ -281,16 +227,11 @@ static void print_free_block( header *cur_header )
     printf( COLOR_NIL );
 }
 
-/// @brief print_bad_jump  If we overwrite data in a header, this print
-/// statement will help us
-///                        notice where we went wrong and what the addresses
-///                        were.
-/// @param *current        the current node that is likely garbage values that
-/// don't make sense.
-/// @param *prev           the previous node that we jumped from.
+/// @brief print_bad_jump  If we overwrite data in a header, this print statement will help us
+///                        notice where we went wrong and what the addresses were.
+/// @param bad_jump        two nodes with a bad jump from one to the other
 /// @param table[]         the lookup table that holds the list size ranges
-/// @param *nil            a special free_node that serves as a sentinel for
-/// logic and edgecases.
+/// @param *nil            a special free_node that serves as a sentinel for logic and edgecases.
 static void print_bad_jump( bad_jump j, seg_node table[], free_node *nil )
 {
     size_t prev_size = get_size( *j.prev );
@@ -311,18 +252,6 @@ static void print_bad_jump( bad_jump j, seg_node table[], free_node *nil )
     print_fits( VERBOSE, table, nil );
 }
 
-/// @brief print_all    prints our the complete status of the heap, all of its
-/// blocks, and
-///                     the sizes the blocks occupy. Printing should be clean
-///                     with no overlap of unique id's between heap blocks or
-///                     corrupted headers.
-/// @param client_start the starting address of the heap segment.
-/// @param client_end   the final address of the heap segment.
-/// @param client_size  the size in bytes of the heap.
-/// @param table[]      the lookup table of segregated sizes of nodes stored in
-/// each slot.
-/// @param *nil         the free node that serves as a universal head and tail
-/// to all lists.
 void print_all( heap_range hr, size_t client_size, seg_node table[], free_node *nil )
 {
     header *cur_header = hr.start;

@@ -3,11 +3,10 @@
 
 #include <stddef.h>
 
-/* Text coloring macros (ANSI character escapes) for printing function colorful
- * output. Consider changing to a more portable library like ncurses.h. However,
- * I don't want others to install ncurses just to explore the project. They
- * already must install gnuplot. Hope this works.
- */
+/// Text coloring macros (ANSI character escapes) for printing function colorful
+/// output. Consider changing to a more portable library like ncurses.h. However,
+/// I don't want others to install ncurses just to explore the project. They
+/// already must install gnuplot. Hope this works.
 #define COLOR_BLK "\033[34;1m"
 #define COLOR_RED "\033[31;1m"
 #define COLOR_CYN "\033[36;1m"
@@ -16,26 +15,24 @@
 #define COLOR_ERR COLOR_RED "Error: " COLOR_NIL
 #define PRINTER_INDENT (short)13
 
-// PLAIN prints free block sizes, VERBOSE shows address in the heap and black
-// height of tree.
+/// PLAIN prints free block sizes, VERBOSE shows address in the heap and black height of tree.
 typedef enum print_style
 {
     PLAIN = 0,
     VERBOSE = 1
 } print_style;
 
-// Printing enum for printing red black tree structure.
+/// Printing enum for printing red black tree structure.
 typedef enum print_link
 {
     BRANCH = 0, // ├──
     LEAF = 1    // └──
 } print_link;
 
-// A struct for plotting helpful data about a heap run on a script.
+/// A struct for plotting helpful data about a heap run on a script.
 typedef struct
 {
-    // Arrays that should be malloc'd due to possible large scripts. Think
-    // 1million+ requests.
+    // Arrays that should be malloc'd due to possible large scripts. Think 1million+ requests.
     double *util_percents; // Running utilization average.
     size_t *free_nodes;    // Running count of free nodes.
     double *request_times; // Running count of time per request.
@@ -43,14 +40,11 @@ typedef struct
     size_t num_ops;
 } gnuplots;
 
-/* * * * * * * * * * * * * *  Plot Desired Information about Allocator  * * * *
- * * * * * */
+///////////////////////////// Plot Desired Information about Allocator  ////////////////////
 
-/* @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful
- * information in case someone is waiting for large data. It can take time.
- * @brief *graphs         the gnuplots struct containing all the graphs to
- * print.
- */
+/// @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information
+///                        in case someone is waiting for large data. It can take time.
+/// @brief *graphs         the gnuplots struct containing all the graphs to print.
 void print_gnuplots( gnuplots *graphs );
 
 #endif
