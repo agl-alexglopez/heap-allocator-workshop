@@ -119,7 +119,11 @@ size_t extract_tree_mem( const rb_node *root, const void *nil_and_tail )
 
 bool is_rbtree_mem_valid( const rb_node *root, const void *nil_and_tail, size_t total_free_mem )
 {
-    return total_free_mem == extract_tree_mem( root, nil_and_tail );
+    if ( total_free_mem != extract_tree_mem( root, nil_and_tail ) ) {
+        breakpoint();
+        return false;
+    }
+    return true;
 }
 
 /// @brief calculate_bheight_v2  verifies that the height of a red-black tree is valid. This is a

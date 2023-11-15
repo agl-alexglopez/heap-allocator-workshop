@@ -29,16 +29,9 @@ typedef struct bad_jump
 
 bool is_header_corrupted( header header_val ) { return header_val & STATUS_CHECK; }
 
-bool check_init( seg_node table[], free_node *nil, size_t client_size )
+static bool is_small_table_valid( seg_node table[] )
 {
-    void *first_address = table;
-    void *last_address = (byte *)nil + FREE_NODE_WIDTH;
-    if ( (size_t)( (byte *)last_address - (byte *)first_address ) != client_size ) {
-        breakpoint();
-        return false;
-    }
-    // Check our lookup table. Sizes should never be altered and pointers should
-    // never be NULL.
+    // Check our lookup table. Sizes should never be altered and pointers should never be NULL.
     unsigned short size = MIN_BLOCK_SIZE;
     for ( size_t i = 0; i < SMALL_TABLE_SIZE; i++, size += HEADERSIZE ) {
         if ( table[i].size != size ) {
@@ -51,7 +44,22 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
             return false;
         }
     }
-    size = LARGE_TABLE_MIN;
+    return true;
+}
+
+bool check_init( seg_node table[], free_node *nil, size_t client_size )
+{
+    void *first_address = table;
+    void *last_address = (byte *)nil + FREE_NODE_WIDTH;
+    if ( (size_t)( (byte *)last_address - (byte *)first_address ) != client_size ) {
+        breakpoint();
+        return false;
+    }
+    if ( !is_small_table_valid( table ) ) {
+        breakpoint();
+        return false;
+    }
+    unsigned short size = LARGE_TABLE_MIN;
     for ( size_t i = SMALL_TABLE_SIZE; i < TABLE_SIZE - 1; i++, size *= 2 ) {
         if ( table[i].size != size ) {
             breakpoint();
@@ -123,29 +131,34 @@ bool is_memory_balanced( size_t *total_free_mem, heap_range hr, size_total st )
     return true;
 }
 
+static size_t are_links_valid( seg_node table[], size_t table_index, free_node *nil, size_t free_mem )
+{
+    for ( free_node *cur = table[table_index].start; cur != nil; cur = cur->next ) {
+        header *cur_header = get_block_header( cur );
+        size_t cur_size = get_size( *cur_header );
+        if ( table_index != TABLE_SIZE - 1 && cur_size >= table[table_index + 1].size ) {
+            breakpoint();
+            return false;
+        }
+        if ( is_block_allocated( *cur_header ) ) {
+            breakpoint();
+            return false;
+        }
+        // This algorithm does not allow two free blocks to remain next to one another.
+        if ( is_left_space( get_block_header( cur ) ) ) {
+            breakpoint();
+            return false;
+        }
+        free_mem += cur_size;
+    }
+    return free_mem;
+}
+
 bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil )
 {
     size_t linked_free_mem = 0;
     for ( size_t i = 0; i < TABLE_SIZE; i++ ) {
-        for ( free_node *cur = table[i].start; cur != nil; cur = cur->next ) {
-            header *cur_header = get_block_header( cur );
-            size_t cur_size = get_size( *cur_header );
-            if ( i != TABLE_SIZE - 1 && cur_size >= table[i + 1].size ) {
-                breakpoint();
-                return false;
-            }
-            if ( is_block_allocated( *cur_header ) ) {
-                breakpoint();
-                return false;
-            }
-            // This algorithm does not allow two free blocks to remain next to one
-            // another.
-            if ( is_left_space( get_block_header( cur ) ) ) {
-                breakpoint();
-                return false;
-            }
-            linked_free_mem += cur_size;
-        }
+        linked_free_mem = are_links_valid( table, i, nil, linked_free_mem );
     }
     if ( total_free_mem != linked_free_mem ) {
         breakpoint();

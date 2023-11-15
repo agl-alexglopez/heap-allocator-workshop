@@ -117,7 +117,11 @@ size_t extract_tree_mem( const rb_node *root, const rb_node *black_nil )
 
 bool is_rbtree_mem_valid( const rb_node *root, const rb_node *black_nil, size_t total_free_mem )
 {
-    return total_free_mem == extract_tree_mem( root, black_nil );
+    if ( total_free_mem != extract_tree_mem( root, black_nil ) ) {
+        breakpoint();
+        return false;
+    }
+    return true;
 }
 
 bool is_parent_valid( const rb_node *root, const rb_node *black_nil )
