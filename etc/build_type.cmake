@@ -1,4 +1,4 @@
-set(default_build_type "Release")
+set(default_build_type "Debug")
 
 if (NOT (CMAKE_BUILD_TYPE_SHADOW STREQUAL CMAKE_BUILD_TYPE))
     if (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
