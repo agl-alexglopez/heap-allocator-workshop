@@ -18,10 +18,10 @@ build:
 	@$(MAKE) --no-print-directory -C build/ -j$(JOBS)
 
 format:
-	@$(MAKE) --no-print-directory -C build/ format -j$(JOBS)
+	@$(MAKE) --no-print-directory -C build/ format
 
 tidy:
-	@$(MAKE) --no-print-directory -C build/ tidy -j$(JOBS)
+	@$(MAKE) --no-print-directory -C build/ tidy
 
 clean:
 	rm -rf build/
