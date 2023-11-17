@@ -7,11 +7,11 @@ JOBS ?= $(shell (command -v nproc > /dev/null 2>&1 && nproc) || echo 1)
 default: build
 
 release:
-	@cmake -S . -B build/ -DCMAKE_BUILD_TYPE=Release
+	@cmake --preset=gcc-release
 	@$(MAKE) --no-print-directory -C build/ -j$(JOBS)
 
 debug:
-	@cmake -S . -B build/ -DCMAKE_BUILD_TYPE=Debug
+	@cmake --preset=gcc-debug
 	@$(MAKE) --no-print-directory -C build/ -j$(JOBS)
 
 build:
