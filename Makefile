@@ -2,34 +2,34 @@
 
 MAKE := $(MAKE)
 # Adjust parallel build jobs based on your available cores.
-JOBS ?= $(shell (command -v nproc > /dev/null 2>&1 && nproc) || echo 1)
+JOBS ?= $(shell (command -v nproc > /dev/null 2>&1 && echo "-j$$(nproc)") || echo "")
 
 default: build
 
 gcc-release:
-	@cmake --preset=gcc-release
-	@$(MAKE) --no-print-directory -C build/ -j$(JOBS)
+	cmake --preset=gcc-release
+	$(MAKE) --no-print-directory -C build/ $(JOBS)
 
 gcc-debug:
-	@cmake --preset=gcc-debug
-	@$(MAKE) --no-print-directory -C build/ -j$(JOBS)
+	cmake --preset=gcc-debug
+	$(MAKE) --no-print-directory -C build/ $(JOBS)
 
 clang-release:
-	@cmake --preset=clang-release
-	@$(MAKE) --no-print-directory -C build/ -j$(JOBS)
+	cmake --preset=clang-release
+	$(MAKE) --no-print-directory -C build/ $(JOBS)
 
 clang-debug:
-	@cmake --preset=clang-debug
-	@$(MAKE) --no-print-directory -C build/ -j$(JOBS)
+	cmake --preset=clang-debug
+	$(MAKE) --no-print-directory -C build/ $(JOBS)
 
 build:
-	@$(MAKE) --no-print-directory -C build/ -j$(JOBS)
+	$(MAKE) --no-print-directory -C build/ $(JOBS)
 
 format:
-	@$(MAKE) --no-print-directory -C build/ format
+	$(MAKE) --no-print-directory -C build/ format
 
 tidy:
-	@$(MAKE) --no-print-directory -C build/ tidy
+	$(MAKE) --no-print-directory -C build/ tidy
 
 clean:
 	rm -rf build/
