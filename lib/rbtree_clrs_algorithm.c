@@ -102,6 +102,7 @@ static void right_rotate( rb_node *current )
 }
 
 ///     Static Red-Black Tree Insertion Logic
+
 /// @brief fix_rb_insert  implements Cormen et.al. red black fixup after the insertion of a node.
 ///                       Ensures that the rules of a red-black tree are upheld after insertion.
 /// @param *current       the current node that has just been added to the red black tree.
