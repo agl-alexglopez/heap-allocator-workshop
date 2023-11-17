@@ -399,7 +399,7 @@ static rb_node *coalesce( rb_node *leftmost_node )
 
 /////////////////////////////   Shared Heap Functions    ///////////////////////////////////////
 
-size_t get_free_total() { return tree.total; }
+size_t get_free_total( void ) { return tree.total; }
 
 bool myinit( void *heap_start, size_t heap_size )
 {
@@ -486,7 +486,7 @@ void myfree( void *ptr )
 
 /////////////////////////     Shared Debugger       //////////////////////////////////////////
 
-bool validate_heap()
+bool validate_heap( void )
 {
     if ( !check_init( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
         return false;
@@ -530,7 +530,7 @@ void print_free_nodes( print_style style )
     print_rb_tree( tree.root, tree.black_nil, style );
 }
 
-void dump_heap()
+void dump_heap( void )
 {
     print_all( ( heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, tree.root, tree.black_nil );
 }

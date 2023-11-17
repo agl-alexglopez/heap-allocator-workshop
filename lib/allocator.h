@@ -47,13 +47,13 @@ void myfree( void *ptr );
 /// if all is well, or false on any problem.  This function is
 /// called periodically by the test harness to check the state of
 /// the heap allocator.
-bool validate_heap();
+bool validate_heap( void );
 
 /// @brief get_free_total
 /// ------------------------
 /// Simple function to get the size of whatever data structure the allocator is
 /// using to manage free nodes in the heap. Garunteed to be an O(1) operation.
-size_t get_free_total();
+size_t get_free_total( void );
 
 /// @brief print_free_nodes
 /// --------------------------

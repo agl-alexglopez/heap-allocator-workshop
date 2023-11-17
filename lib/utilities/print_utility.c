@@ -13,7 +13,7 @@
 #include <unistd.h>
 
 /// @brief print_gnuplots  returns the file descriptor for a pipe write end we can send to a gnuplot process.
-int gnuplot_process()
+static int gnuplot_process( void )
 {
     int fds[2];
     if ( pipe2( fds, O_CLOEXEC ) < 0 ) {

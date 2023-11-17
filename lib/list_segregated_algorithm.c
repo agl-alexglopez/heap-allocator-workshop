@@ -213,7 +213,7 @@ static header *coalesce( header *leftmost_header )
 
 ///   Shared Heap Functions  ///
 
-size_t get_free_total() { return fits.total; }
+size_t get_free_total( void ) { return fits.total; }
 
 bool myinit( void *heap_start, size_t heap_size )
 {
@@ -341,7 +341,7 @@ void myfree( void *ptr )
 
 ///     Shared Debugger      ///
 
-bool validate_heap()
+bool validate_heap( void )
 {
     if ( !check_init( fits.table, fits.nil, heap.client_size ) ) {
         return false;
@@ -361,7 +361,7 @@ bool validate_heap()
 
 void print_free_nodes( print_style style ) { print_fits( style, fits.table, fits.nil ); }
 
-void dump_heap()
+void dump_heap( void )
 {
     print_all( ( heap_range ){ heap.client_start, heap.client_end }, heap.client_size, fits.table, fits.nil );
 }
