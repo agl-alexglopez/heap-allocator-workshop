@@ -1,4 +1,4 @@
-# Heap Workshop
+# Heap Allocator Workshop
 
 ![rb-tree-collage](/images/rb-tree-collage.png)
 
