@@ -11,6 +11,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 typedef struct header_size
@@ -32,8 +33,8 @@ bool is_header_corrupted( header header_val ) { return header_val & STATUS_CHECK
 static bool is_small_table_valid( seg_node table[] )
 {
     // Check our lookup table. Sizes should never be altered and pointers should never be NULL.
-    unsigned short size = MIN_BLOCK_SIZE;
-    for ( size_t i = 0; i < SMALL_TABLE_SIZE; i++, size += HEADERSIZE ) {
+    uint16_t size = MIN_BLOCK_SIZE;
+    for ( size_t i = 0; i < NUM_SMALL_BUCKETS; i++, size += HEADERSIZE ) {
         if ( table[i].size != size ) {
             breakpoint();
             return false;
@@ -59,8 +60,8 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
         breakpoint();
         return false;
     }
-    unsigned short size = LARGE_TABLE_MIN;
-    for ( size_t i = SMALL_TABLE_SIZE; i < TABLE_SIZE - 1; i++, size *= 2 ) {
+    uint16_t size = LARGE_TABLE_MIN_BYTES;
+    for ( size_t i = NUM_SMALL_BUCKETS; i < NUM_BUCKETS - 1; i++, size *= 2 ) {
         if ( table[i].size != size ) {
             breakpoint();
             return false;
@@ -71,7 +72,7 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
             return false;
         }
     }
-    if ( table[TABLE_SIZE - 1].size != USHRT_MAX ) {
+    if ( table[NUM_BUCKETS - 1].size != USHRT_MAX ) {
         breakpoint();
         return false;
     }
@@ -80,8 +81,7 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
 
 bool is_valid_header( header_size hs, size_t client_size )
 {
-    // Most definitely impossible and our header is corrupted. Pointer arithmetic
-    // would fail.
+    // Most definitely impossible and our header is corrupted. Pointer arithmetic would fail.
     if ( hs.size > client_size ) {
         return false;
     }
@@ -96,8 +96,7 @@ bool is_valid_header( header_size hs, size_t client_size )
 
 bool is_memory_balanced( size_t *total_free_mem, heap_range hr, size_total st )
 {
-    // Check that after checking all headers we end on size 0 tail and then end of
-    // address space.
+    // Check that after checking all headers we end on size 0 tail and then end of address space.
     header *cur_header = hr.start;
     size_t size_used = FREE_NODE_WIDTH + TABLE_BYTES;
     size_t total_free_nodes = 0;
@@ -136,7 +135,11 @@ static size_t are_links_valid( seg_node table[], size_t table_index, free_node *
     for ( free_node *cur = table[table_index].start; cur != nil; cur = cur->next ) {
         header *cur_header = get_block_header( cur );
         size_t cur_size = get_size( *cur_header );
-        if ( table_index != TABLE_SIZE - 1 && cur_size >= table[table_index + 1].size ) {
+        if ( table_index != NUM_BUCKETS - 1 && cur_size >= table[table_index + 1].size ) {
+            breakpoint();
+            return false;
+        }
+        if ( cur_size < table[table_index].size ) {
             breakpoint();
             return false;
         }
@@ -157,7 +160,7 @@ static size_t are_links_valid( seg_node table[], size_t table_index, free_node *
 bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil )
 {
     size_t linked_free_mem = 0;
-    for ( size_t i = 0; i < TABLE_SIZE; i++ ) {
+    for ( size_t i = 0; i < NUM_BUCKETS; i++ ) {
         linked_free_mem = are_links_valid( table, i, nil, linked_free_mem );
     }
     if ( total_free_mem != linked_free_mem ) {
@@ -172,14 +175,14 @@ bool are_fits_valid( size_t total_free_mem, seg_node table[], free_node *nil )
 void print_fits( print_style style, seg_node table[], free_node *nil )
 {
     bool alternate = false;
-    for ( size_t i = 0; i < TABLE_SIZE; i++, alternate = !alternate ) {
+    for ( size_t i = 0; i < NUM_BUCKETS; i++, alternate = !alternate ) {
         printf( COLOR_GRN );
         if ( style == VERBOSE ) {
             printf( "%p: ", &table[i] );
         }
-        if ( i == TABLE_SIZE - 1 ) {
+        if ( i == NUM_BUCKETS - 1 ) {
             printf( "[CLASS:%ubytes+]=>", table[i].size );
-        } else if ( i >= SMALL_TABLE_SIZE ) {
+        } else if ( i >= NUM_SMALL_BUCKETS ) {
             printf( "[CLASS:%u-%ubytes]=>", table[i].size, table[i + 1].size - 1U );
         } else {
             printf( "[CLASS:%ubytes]=>", table[i].size );
@@ -215,8 +218,7 @@ static void print_alloc_block( header *cur_header )
 {
     size_t block_size = get_size( *cur_header ) - HEADERSIZE;
     printf( COLOR_GRN );
-    // We will see from what direction our header is messed up by printing 16
-    // digits.
+    // We will see from what direction our header is messed up by printing 16 digits.
     printf( "%p: HEADER->0x%016zX->[ALOC-%zubytes]\n", cur_header, *cur_header, block_size );
     printf( COLOR_NIL );
 }
@@ -230,7 +232,6 @@ static void print_free_block( header *cur_header )
     header *footer = (header *)( (byte *)cur_header + full_size - HEADERSIZE );
     // We should be able to see the header is the same as the footer. If they are
     // not the same we will face subtle bugs that are very hard to notice.
-    //
     if ( *footer != *cur_header ) {
         *footer = ULONG_MAX;
     }

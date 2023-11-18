@@ -21,6 +21,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -30,15 +31,20 @@
 // NOLINTBEGIN(*-non-const-global-variables)
 
 /// Size Order Classes Maintained by an Array of segregated fits lists
-///     - Our size classes stand for the minimum size of a node in the list less than the next.
+///     - Our size classes stand for the minimum size of a node in the list less
+///     than the next.
 ///     - 15 Size Classes (in bytes):
-///           32,         40,          48,           56,           64-127,
-///           128-255,    256-511,     512-1023,     1024-2047,    2048-4095,
-///           4096-8191,  8192-16383,  16384-32767,  32768-65535,  65536+,
-///     - A first fit search will yeild approximately the best fit.
-///     - We will have one dummy node to serve as both the head and tail of all lists.
-///     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index size.
 ///
+///          32,         40,          48,           56,           64,
+///          72,         80,          128-255,      256-511,      512-1023,
+///          1024-2047,    2048-4095, 4096-8191,    8192-16383,   16384-32767,
+///          32768-65535,  65536+, last bucket carries the rest.
+///
+///     - A first fit search will yeild approximately the best fit.
+///     - We will have one dummy node to serve as both the head and tail of all
+///     lists.
+///     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index
+///     size.
 static struct fits
 {
     seg_node *table;
@@ -54,18 +60,11 @@ static struct heap
     size_t client_size;
 } heap;
 
-// NOLINTEND(*-non-const-global-variables)
+/// Count leading zeros of the input LEADING_ZEROS( x )
+/// Credit https://github.com/pavel-kirienko/o1heap/tree/master.
+#define LEADING_ZEROS __builtin_clzl
 
-/// This is taken from Sean Eron Anderson's Bit Twiddling Hacks. See the find_index() function for
-/// how it helps our implementation find the index of a node in a given list that is a base2 power
-/// of 2. We want to jump straight to the index by finding the log2(block_size).
-/// https://graphics.stanford.edu/~seander/bithacks.html
-///
-static const char log_table_256[256] = {
-#define LT( n ) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-    -1,      0,       1,       1,       2,       2,       2,       2,       3,       3,       3,
-    3,       3,       3,       3,       3,       LT( 4 ), LT( 5 ), LT( 5 ), LT( 6 ), LT( 6 ), LT( 6 ),
-    LT( 6 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ) };
+// NOLINTEND(*-non-const-global-variables)
 
 ///   Static Helper Functions  ///
 
@@ -74,46 +73,35 @@ static const char log_table_256[256] = {
 /// @return            the index in the lookup table.
 /// @citation          the bit manipulation is taken from Sean Anderson's Bit Twiddling Hacks.
 ///                    https://graphics.stanford.edu/~seander/bithacks.html
-static inline unsigned int find_index( size_t any_block_size )
+static inline size_t find_index( size_t any_block_size )
 {
-    if ( any_block_size > fits.table[TABLE_SIZE - 1].size ) {
-        return TABLE_SIZE - 1;
-    }
-    if ( any_block_size <= SMALL_TABLE_MAX ) {
+    // These are not powers of two so log2 tricks will not work and 0 is undefined! But they are
+    // garuanteed to be rounded to the nearest HEADERSIZE/ALIGNMENT with a required min size.
+    if ( any_block_size <= SMALL_TABLE_MAX_BYTES ) {
         switch ( any_block_size ) {
-        case INDEX_0_SIZE:
-            return INDEX_0;
-            break;
-        case INDEX_1_SIZE:
-            return INDEX_1;
-            break;
-        case INDEX_2_SIZE:
-            return INDEX_2;
-            break;
-        case INDEX_3_SIZE:
-            return INDEX_3;
-            break;
+        case INDEX_0_BYTES:
+            return 0;
+        case INDEX_1_BYTES:
+            return 1;
+        case INDEX_2_BYTES:
+            return 2;
+        case INDEX_3_BYTES:
+            return 3;
+        case INDEX_4_BYTES:
+            return 4;
+        case INDEX_5_BYTES:
+            return 5;
+        case INDEX_6_BYTES:
+            return 6;
         default:
             (void)fprintf( stderr, "Error: Size %zubytes is out of alignment.", any_block_size );
             abort();
-            break;
         }
     }
-    // I'm following the guidelines of Sean Anderson's website by converting this type. Safe now.
-    unsigned int block_size = any_block_size;
-    // block_size = 32-bit word to find the log of
-    unsigned int log_2 = 0; // log_2 will be lg(block_size)
-    register unsigned int temp_1 = 0;
-    register unsigned int temp_2 = 0;
-    temp_2 = block_size >> 16;
-    if ( temp_2 ) {
-        log_2 = ( temp_1 = temp_2 >> 8 ) ? 24 + log_table_256[temp_1] : 16 + log_table_256[temp_2];
-    } else {
-        log_2 = ( temp_1 = block_size >> 8 ) ? 8 + log_table_256[temp_1] : log_table_256[block_size];
-    }
-    // After small sizes we double in base2 powers of 2 so we can predictably find our index
-    // with a fixed offset. The log_2 of each size class increments linearly by 1.
-    return log_2 - INDEX_OFFSET;
+    // Really cool way to get log2 from intrinsics. See https://github.com/pavel-kirienko/o1heap/tree/master.
+    const size_t index_from_floored_log2 = ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
+                                             - ( (uint_fast8_t)LEADING_ZEROS( any_block_size ) ) );
+    return index_from_floored_log2 > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : index_from_floored_log2;
 }
 
 /// @brief splice_free_node  removes a free node out of the free node list.
@@ -123,9 +111,6 @@ static void splice_free_node( free_node *to_splice, size_t block_size )
 {
     // Catch if we are the first node pointed to by the lookup table.
     if ( fits.nil == to_splice->prev ) {
-        // I'm not sure this optimization works or is worth it. For a table of table_size we could
-        // do a linear search of lookup table to find node. Call stacks and variables might
-        // increase instruction counts making bit tricks worthless. Need to profile.
         fits.table[find_index( block_size )].start = to_splice->next;
         to_splice->next->prev = fits.nil;
     } else {
@@ -150,7 +135,7 @@ static void init_free_node( header *to_add, size_t block_size )
     free_node *free_add = get_free_node( to_add );
 
     size_t index = 0;
-    for ( ; index < TABLE_SIZE - 1 && block_size >= fits.table[index + 1].size; index++ ) {}
+    for ( ; index < NUM_BUCKETS - 1 && block_size >= fits.table[index + 1].size; ++index ) {}
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
     free_node *cur = fits.table[index].start;
     fits.table[index].start = free_add;
@@ -168,17 +153,14 @@ static void init_free_node( header *to_add, size_t block_size )
 /// @return              a void poiter to generic space that is now ready for the client.
 static void *split_alloc( header *free_block, size_t request, size_t block_space )
 {
-    header *neighbor = NULL;
     if ( block_space >= request + MIN_BLOCK_SIZE ) {
-        neighbor = get_right_header( free_block, request );
         // This takes care of the neighbor and ITS neighbor with appropriate updates.
-        init_free_node( neighbor, block_space - request );
-    } else {
-        request = block_space;
-        neighbor = get_right_header( free_block, block_space );
-        *neighbor |= LEFT_ALLOCATED;
+        init_free_node( get_right_header( free_block, request ), block_space - request );
+        init_header( free_block, request, ALLOCATED );
+        return get_free_node( free_block );
     }
-    init_header( free_block, request, ALLOCATED );
+    *get_right_header( free_block, block_space ) |= LEFT_ALLOCATED;
+    init_header( free_block, block_space, ALLOCATED );
     return get_free_node( free_block );
 }
 
@@ -228,23 +210,23 @@ bool myinit( void *heap_start, size_t heap_size )
     fits.nil->next = NULL;
 
     // Initialize array of free list sizes.
-    heap_start = (seg_node( * )[TABLE_SIZE])heap_start;
+    heap_start = (seg_node( * )[NUM_BUCKETS])heap_start;
     fits.table = heap_start;
     // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
-    unsigned short size = MIN_BLOCK_SIZE;
-    for ( size_t index = 0; index < SMALL_TABLE_SIZE; index++, size += ALIGNMENT ) {
+    size_t size = MIN_BLOCK_SIZE;
+    for ( size_t index = 0; index < NUM_SMALL_BUCKETS; index++, size += ALIGNMENT ) {
         fits.table[index].size = size;
         fits.table[index].start = fits.nil;
     }
     // Large sizes double until end of array except last index needs special attention.
-    size = LARGE_TABLE_MIN;
-    for ( size_t index = SMALL_TABLE_SIZE; index < TABLE_SIZE - 1; index++, size *= 2 ) {
+    size = LARGE_TABLE_MIN_BYTES;
+    for ( size_t index = NUM_SMALL_BUCKETS; index < NUM_BUCKETS - 1; index++, size *= 2 ) {
         fits.table[index].size = size;
         fits.table[index].start = fits.nil;
     }
     // Be careful here. We can't double to get 14th index. USHRT_MAX=65535 not 65536.
-    fits.table[TABLE_SIZE - 1].size = USHRT_MAX;
-    fits.table[TABLE_SIZE - 1].start = fits.nil;
+    fits.table[NUM_BUCKETS - 1].size = USHRT_MAX;
+    fits.table[NUM_BUCKETS - 1].start = fits.nil;
 
     header *first_block = (header *)( (byte *)heap_start + TABLE_BYTES );
     init_header( first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH, FREED );
@@ -267,25 +249,24 @@ void *mymalloc( size_t requested_size )
     if ( requested_size == 0 || requested_size > MAX_REQUEST_SIZE ) {
         return NULL;
     }
-
-    // Consider using find_index() to jump to correct starting index for search. Perhaps slower to
-    // use bit hacks and so much logic for small table_size. Code needs to be profiled.
     size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
-    for ( size_t i = 0; i < TABLE_SIZE; i++ ) {
-        // All lists hold advertised size and up to one byte less than next list.
-        if ( i == TABLE_SIZE - 1 || rounded_request < fits.table[i + 1].size ) {
-            for ( free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
-
-                header *cur_header = get_block_header( node );
-                size_t free_space = get_size( *cur_header );
-                if ( free_space >= rounded_request ) {
-                    splice_free_node( node, free_space );
-                    // Handoff decision to split or not to our helper, takes care of all details.
-                    return split_alloc( cur_header, rounded_request, free_space );
-                }
+    // We use some logarithm properties of powers of 2 to find what should be the closest fitting range.
+    for ( size_t i = find_index( rounded_request ); i < NUM_BUCKETS; ++i ) {
+        // All lists hold advertised size and up to one byte less than next list. Last is catch all.
+        if ( i != NUM_BUCKETS - 1 && rounded_request >= fits.table[i + 1].size ) {
+            continue;
+        }
+        for ( free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
+            header *cur_header = get_block_header( node );
+            size_t free_space = get_size( *cur_header );
+            if ( free_space >= rounded_request ) {
+                splice_free_node( node, free_space );
+                return split_alloc( cur_header, rounded_request, free_space );
             }
         }
+        // Whoops the best fitting estimate list was empty or didn't have our size! We'll try the next range up.
     }
+    // This should be strange. The heap would be exhausted.
     return NULL;
 }
 
@@ -318,13 +299,12 @@ void *myrealloc( void *old_ptr, size_t new_size )
         if ( leftmost_header != old_header ) {
             memmove( client_block, old_ptr, old_space ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
         }
-        client_block = split_alloc( leftmost_header, size_needed, coalesced_total );
-    } else {
-        client_block = mymalloc( size_needed );
-        if ( client_block ) {
-            memcpy( client_block, old_ptr, old_space ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
-            init_free_node( leftmost_header, coalesced_total );
-        }
+        return split_alloc( leftmost_header, size_needed, coalesced_total );
+    }
+    client_block = mymalloc( size_needed );
+    if ( client_block ) {
+        memcpy( client_block, old_ptr, old_space ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
+        init_free_node( leftmost_header, coalesced_total );
     }
     // NULL or the space we found from in-place or malloc.
     return client_block;
