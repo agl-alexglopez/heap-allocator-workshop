@@ -18,7 +18,6 @@
 ///////////////////////////// Type Definitions  ///////////////////////////////////////
 
 typedef size_t header;
-typedef uint8_t byte;
 
 typedef struct free_node
 {
@@ -105,7 +104,7 @@ static inline size_t get_size( header header_val ) { return header_val & SIZE_MA
 /// @return                   a header pointer to the next block in the heap.
 static inline header *get_right_header( header *cur_header, size_t block_size )
 {
-    return (header *)( (byte *)cur_header + block_size );
+    return (header *)( (uint8_t *)cur_header + block_size );
 }
 
 /// @brief *get_left_header  uses the left block size gained from the footer to move to the header.
@@ -114,8 +113,8 @@ static inline header *get_right_header( header *cur_header, size_t block_size )
 /// @return                  a header pointer to the header for the block to the left.
 static inline header *get_left_header( header *cur_header )
 {
-    header *left_footer = (header *)( (byte *)cur_header - HEADERSIZE );
-    return (header *)( (byte *)cur_header - ( *left_footer & SIZE_MASK ) );
+    header *left_footer = (header *)( (uint8_t *)cur_header - HEADERSIZE );
+    return (header *)( (uint8_t *)cur_header - ( *left_footer & SIZE_MASK ) );
 }
 
 /// @brief is_block_allocated  will determine if a block is marked as allocated.
@@ -128,7 +127,7 @@ static inline bool is_block_allocated( header header_val ) { return header_val &
 /// @return                   a pointer to the first available byte of client heap memory.
 static inline free_node *get_free_node( header *cur_header )
 {
-    return (free_node *)( (byte *)cur_header + HEADERSIZE );
+    return (free_node *)( (uint8_t *)cur_header + HEADERSIZE );
 }
 
 /// @brief *get_block_header  steps to the left from the user-available space to
@@ -137,7 +136,7 @@ static inline free_node *get_free_node( header *cur_header )
 /// @return                   the header immediately to the left associated with memory block.
 static inline header *get_block_header( free_node *user_mem_space )
 {
-    return (header *)( (byte *)user_mem_space - HEADERSIZE );
+    return (header *)( (uint8_t *)user_mem_space - HEADERSIZE );
 }
 
 /// @brief init_header    initializes the header in the header_header field to reflect the
@@ -158,7 +157,7 @@ static inline void init_header( header *cur_header, size_t block_size, header he
 /// @param block_size   the size to use to update the footer of the block.
 static inline void init_footer( header *cur_header, size_t block_size )
 {
-    header *footer = (header *)( (byte *)cur_header + block_size - HEADERSIZE );
+    header *footer = (header *)( (uint8_t *)cur_header + block_size - HEADERSIZE );
     *footer = LEFT_ALLOCATED | block_size | FREED;
 }
 

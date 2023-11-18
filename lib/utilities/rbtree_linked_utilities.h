@@ -49,11 +49,11 @@
 #include "print_utility.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 /////////////////////////////         Type Definitions             //////////////////////////////////
 
 typedef size_t header;
-typedef unsigned char byte;
 
 /// Red Black Free Tree:
 ///  - Maintain a red black tree of free nodes.
@@ -200,7 +200,7 @@ static inline void init_header_size( rb_node *node, size_t payload ) { node->hea
 /// @param payload      the size of the current nodes free memory.
 static inline void init_footer( rb_node *node, size_t payload )
 {
-    header *footer = (header *)( (byte *)node + payload );
+    header *footer = (header *)( (uint8_t *)node + payload );
     *footer = node->header;
 }
 
@@ -210,7 +210,7 @@ static inline void init_footer( rb_node *node, size_t payload )
 /// @return                    the rb_node to the right of the current.
 static inline rb_node *get_right_neighbor( const rb_node *current, size_t payload )
 {
-    return (rb_node *)( (byte *)current + HEADERSIZE + payload );
+    return (rb_node *)( (uint8_t *)current + HEADERSIZE + payload );
 }
 
 /// @brief *get_left_neighbor  uses the left block size gained from the footer to move to the header.
@@ -218,21 +218,21 @@ static inline rb_node *get_right_neighbor( const rb_node *current, size_t payloa
 /// @return                    a header pointer to the header for the block to the left.
 static inline rb_node *get_left_neighbor( const rb_node *node )
 {
-    header *left_footer = (header *)( (byte *)node - HEADERSIZE );
-    return (rb_node *)( (byte *)node - ( *left_footer & SIZE_MASK ) - HEADERSIZE );
+    header *left_footer = (header *)( (uint8_t *)node - HEADERSIZE );
+    return (rb_node *)( (uint8_t *)node - ( *left_footer & SIZE_MASK ) - HEADERSIZE );
 }
 
 /// @brief get_client_space  steps into the client space just after the header of a rb_node.
 /// @param *node_header      the rb_node we start at before retreiving the client space.
 /// @return                  the void address of the client space they are now free to use.
-static inline void *get_client_space( const rb_node *node_header ) { return (byte *)node_header + HEADERSIZE; }
+static inline void *get_client_space( const rb_node *node_header ) { return (uint8_t *)node_header + HEADERSIZE; }
 
 /// @brief get_rb_node    steps to the rb_node header from the space the client was using.
 /// @param *client_space  the voi/// the client was using for their type. We step to the left.
 /// @return               a pointer to the rb_node of our heap block.
 static inline rb_node *get_rb_node( const void *client_space )
 {
-    return (rb_node *)( (byte *)client_space - HEADERSIZE );
+    return (rb_node *)( (uint8_t *)client_space - HEADERSIZE );
 }
 
 /////////////////////////////    Debugging and Testing Functions   //////////////////////////////////

@@ -51,8 +51,8 @@ static bool is_small_table_valid( seg_node table[] )
 bool check_init( seg_node table[], free_node *nil, size_t client_size )
 {
     void *first_address = table;
-    void *last_address = (byte *)nil + FREE_NODE_WIDTH;
-    if ( (size_t)( (byte *)last_address - (byte *)first_address ) != client_size ) {
+    void *last_address = (uint8_t *)nil + FREE_NODE_WIDTH;
+    if ( (size_t)( (uint8_t *)last_address - (uint8_t *)first_address ) != client_size ) {
         breakpoint();
         return false;
     }
@@ -229,7 +229,7 @@ static void print_free_block( header *cur_header )
 {
     size_t full_size = get_size( *cur_header );
     size_t block_size = full_size - HEADERSIZE;
-    header *footer = (header *)( (byte *)cur_header + full_size - HEADERSIZE );
+    header *footer = (header *)( (uint8_t *)cur_header + full_size - HEADERSIZE );
     // We should be able to see the header is the same as the footer. If they are
     // not the same we will face subtle bugs that are very hard to notice.
     if ( *footer != *cur_header ) {
@@ -303,7 +303,7 @@ void print_all( heap_range hr, size_t client_size, seg_node table[], free_node *
     printf( COLOR_RED );
     printf( "<-%p:SENTINEL->\n", nil );
     printf( COLOR_NIL );
-    printf( "%p: LAST ADDRESS\n", (byte *)nil + FREE_NODE_WIDTH );
+    printf( "%p: LAST ADDRESS\n", (uint8_t *)nil + FREE_NODE_WIDTH );
     printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
     printf( "\nSEGREGATED LIST OF FREE NODES AND BLOCK SIZES.\n" );
     printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );

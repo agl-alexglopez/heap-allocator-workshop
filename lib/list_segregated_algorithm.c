@@ -125,7 +125,7 @@ static void splice_free_node( free_node *to_splice, size_t block_size )
 static void init_free_node( header *to_add, size_t block_size )
 {
     *to_add = LEFT_ALLOCATED | block_size;
-    header *footer = (header *)( (byte *)to_add + block_size - ALIGNMENT );
+    header *footer = (header *)( (uint8_t *)to_add + block_size - ALIGNMENT );
     *footer = *to_add;
     header *neighbor = get_right_header( to_add, block_size );
     *neighbor &= LEFT_FREE;
@@ -202,7 +202,7 @@ bool myinit( void *heap_start, size_t heap_size )
 
     heap.client_size = roundup( heap_size, ALIGNMENT );
     // This costs some memory in exchange for ease of use and low instruction counts.
-    fits.nil = (free_node *)( (byte *)heap_start + ( heap.client_size - FREE_NODE_WIDTH ) );
+    fits.nil = (free_node *)( (uint8_t *)heap_start + ( heap.client_size - FREE_NODE_WIDTH ) );
     fits.nil->prev = NULL;
     fits.nil->next = NULL;
 
@@ -225,11 +225,11 @@ bool myinit( void *heap_start, size_t heap_size )
     fits.table[NUM_BUCKETS - 1].size = USHRT_MAX;
     fits.table[NUM_BUCKETS - 1].start = fits.nil;
 
-    header *first_block = (header *)( (byte *)heap_start + TABLE_BYTES );
+    header *first_block = (header *)( (uint8_t *)heap_start + TABLE_BYTES );
     init_header( first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH, FREED );
     init_footer( first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH );
 
-    free_node *first_free = (free_node *)( (byte *)first_block + ALIGNMENT );
+    free_node *first_free = (free_node *)( (uint8_t *)first_block + ALIGNMENT );
     first_free->next = fits.nil;
     first_free->prev = fits.nil;
     // Insert this first free into the appropriately sized list.

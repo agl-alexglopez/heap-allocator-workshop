@@ -24,6 +24,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -448,7 +449,7 @@ bool myinit( void *heap_start, size_t heap_size )
     }
     heap.client_start = heap_start;
     heap.heap_size = client_request;
-    heap.client_end = (byte *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
+    heap.client_end = (uint8_t *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
     // Set up the dummy base of the tree to which all leaves will point.
     free_nodes.black_nil = heap.client_end;
     free_nodes.list_tail = heap.client_end;

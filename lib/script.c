@@ -13,6 +13,7 @@
 #include <stdarg.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -198,16 +199,16 @@ int exec_request( script *s, int req, size_t *cur_size, void **heap_end )
         void *p = exec_malloc( req, requested_size, s );
 
         *cur_size += requested_size;
-        if ( (byte *)p + requested_size > (byte *)( *heap_end ) ) {
-            *heap_end = (byte *)p + requested_size;
+        if ( (uint8_t *)p + requested_size > (uint8_t *)( *heap_end ) ) {
+            *heap_end = (uint8_t *)p + requested_size;
         }
     } else if ( s->ops[req].op == REALLOC ) {
         size_t old_size = s->blocks[id].size;
         void *p = exec_realloc( req, requested_size, s );
 
         *cur_size += ( requested_size - old_size );
-        if ( (byte *)p + requested_size > (byte *)( *heap_end ) ) {
-            *heap_end = (byte *)p + requested_size;
+        if ( (uint8_t *)p + requested_size > (uint8_t *)( *heap_end ) ) {
+            *heap_end = (uint8_t *)p + requested_size;
         }
     } else if ( s->ops[req].op == FREE ) {
         size_t old_size = s->blocks[id].size;
@@ -290,8 +291,8 @@ double time_request( script *s, int req, size_t *cur_size, void **heap_end )
         cpu_time = time_malloc( req, requested_size, s, &p );
 
         *cur_size += requested_size;
-        if ( (byte *)p + requested_size > (byte *)( *heap_end ) ) {
-            *heap_end = (byte *)p + requested_size;
+        if ( (uint8_t *)p + requested_size > (uint8_t *)( *heap_end ) ) {
+            *heap_end = (uint8_t *)p + requested_size;
         }
     } else if ( s->ops[req].op == REALLOC ) {
         size_t old_size = s->blocks[id].size;
@@ -299,8 +300,8 @@ double time_request( script *s, int req, size_t *cur_size, void **heap_end )
         cpu_time = time_realloc( req, requested_size, s, &p );
 
         *cur_size += ( requested_size - old_size );
-        if ( (byte *)p + requested_size > (byte *)( *heap_end ) ) {
-            *heap_end = (byte *)p + requested_size;
+        if ( (uint8_t *)p + requested_size > (uint8_t *)( *heap_end ) ) {
+            *heap_end = (uint8_t *)p + requested_size;
         }
     } else if ( s->ops[req].op == FREE ) {
         size_t old_size = s->blocks[id].size;

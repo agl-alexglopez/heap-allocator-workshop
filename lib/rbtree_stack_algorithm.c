@@ -25,6 +25,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -519,7 +520,7 @@ bool myinit( void *heap_start, size_t heap_size )
     }
     heap.client_start = heap_start;
     heap.heap_size = client_request;
-    heap.client_end = (byte *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
+    heap.client_end = (uint8_t *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
 
     // This helps us clarify if we are referring to tree or duplicates in a list. Use same address.
     free_nodes.list_tail = heap.client_end;

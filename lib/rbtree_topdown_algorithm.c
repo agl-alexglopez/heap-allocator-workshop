@@ -32,6 +32,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -507,7 +508,7 @@ bool myinit( void *heap_start, size_t heap_size )
     }
     heap.client_start = heap_start;
     heap.heap_size = client_request;
-    heap.client_end = (byte *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
+    heap.client_end = (uint8_t *)heap.client_start + heap.heap_size - HEAP_NODE_WIDTH;
 
     // Two sentinels will point to same address. Makes it clear which we refer to and saves space.
     free_nodes.black_nil = heap.client_end;

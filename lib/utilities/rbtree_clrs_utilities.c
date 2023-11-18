@@ -10,6 +10,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -23,7 +24,7 @@ bool check_init( heap_range r, size_t heap_size )
         breakpoint();
         return false;
     }
-    if ( (byte *)r.end - (byte *)r.start + HEAP_NODE_WIDTH != heap_size ) {
+    if ( (uint8_t *)r.end - (uint8_t *)r.start + HEAP_NODE_WIDTH != heap_size ) {
         breakpoint();
         return false;
     }
@@ -266,7 +267,7 @@ static void print_alloc_block( const rb_node *node )
 static void print_free_block( const rb_node *node )
 {
     size_t block_size = get_size( node->header );
-    header *footer = (header *)( (byte *)node + block_size );
+    header *footer = (header *)( (uint8_t *)node + block_size );
     /* We should be able to see the header is the same as the footer. However, due
      * to fixup functions, the color may change for nodes and color is irrelevant
      * to footers.
@@ -396,7 +397,7 @@ void print_all( heap_range r, size_t heap_size, rb_node *root, rb_node *black_ni
     }
     get_color( black_nil->header ) == BLACK ? printf( COLOR_BLK ) : printf( COLOR_RED );
     printf( "%p: BLACK NULL HDR->0x%016zX\n" COLOR_NIL, black_nil, black_nil->header );
-    printf( "%p: FINAL ADDRESS", (byte *)r.end + HEAP_NODE_WIDTH );
+    printf( "%p: FINAL ADDRESS", (uint8_t *)r.end + HEAP_NODE_WIDTH );
     printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
     printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[RED NODE] " COLOR_NIL COLOR_GRN
             "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
