@@ -51,26 +51,27 @@ typedef struct size_total
 
 enum table_sizes
 {
-    TABLE_SIZE = 17,
-    SMALL_TABLE_SIZE = 7,
+    NUM_BUCKETS = 17,
+    NUM_SMALL_BUCKETS = 7,
 };
 
 enum table_bytes
 {
-    INDEX_0_SIZE = 32,
-    INDEX_1_SIZE = 40,
-    INDEX_2_SIZE = 48,
-    INDEX_3_SIZE = 56,
-    INDEX_4_SIZE = 64,
-    INDEX_5_SIZE = 72,
-    INDEX_6_SIZE = 80,
-    SMALL_TABLE_MAX = INDEX_6_SIZE,
+    INDEX_0_BYTES = 32,
+    INDEX_1_BYTES = 40,
+    INDEX_2_BYTES = 48,
+    INDEX_3_BYTES = 56,
+    INDEX_4_BYTES = 64,
+    INDEX_5_BYTES = 72,
+    INDEX_6_BYTES = 80,
+    SMALL_TABLE_MAX_BYTES = INDEX_6_BYTES,
     /// This means our first log2 bucket index calculation yeilds 7 for the 0b1000_0000 bit.
-    /// We then start doubling from here. 128, 256, 512, etc.
-    LARGE_TABLE_MIN = 128,
-    TABLE_BYTES = ( TABLE_SIZE * sizeof( seg_node ) ),
+    /// We then start doubling from here. 128, 256, 512, etc. Probably should profile to pick sizes.
+    LARGE_TABLE_MIN_BYTES = 128,
+    TABLE_BYTES = ( NUM_BUCKETS * sizeof( seg_node ) ),
 };
 
+/// Unsigned bitwise helpers we can't put into enums.
 #define SIZE_MASK ~0x7UL
 #define STATUS_CHECK 0x4UL
 #define FREE_NODE_WIDTH (uint16_t)16

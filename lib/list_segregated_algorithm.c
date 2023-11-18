@@ -77,21 +77,21 @@ static inline size_t find_index( size_t any_block_size )
 {
     // These are not powers of two so log2 tricks will not work and 0 is undefined! But they are
     // garuanteed to be rounded to the nearest HEADERSIZE/ALIGNMENT with a required min size.
-    if ( any_block_size <= SMALL_TABLE_MAX ) {
+    if ( any_block_size <= SMALL_TABLE_MAX_BYTES ) {
         switch ( any_block_size ) {
-        case INDEX_0_SIZE:
+        case INDEX_0_BYTES:
             return 0;
-        case INDEX_1_SIZE:
+        case INDEX_1_BYTES:
             return 1;
-        case INDEX_2_SIZE:
+        case INDEX_2_BYTES:
             return 2;
-        case INDEX_3_SIZE:
+        case INDEX_3_BYTES:
             return 3;
-        case INDEX_4_SIZE:
+        case INDEX_4_BYTES:
             return 4;
-        case INDEX_5_SIZE:
+        case INDEX_5_BYTES:
             return 5;
-        case INDEX_6_SIZE:
+        case INDEX_6_BYTES:
             return 6;
         default:
             (void)fprintf( stderr, "Error: Size %zubytes is out of alignment.", any_block_size );
@@ -101,7 +101,7 @@ static inline size_t find_index( size_t any_block_size )
     // Really cool way to get log2 from intrinsics. See https://github.com/pavel-kirienko/o1heap/tree/master.
     const size_t index_from_floored_log2 = ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
                                              - ( (uint_fast8_t)LEADING_ZEROS( any_block_size ) ) );
-    return index_from_floored_log2 > TABLE_SIZE - 1 ? TABLE_SIZE - 1 : index_from_floored_log2;
+    return index_from_floored_log2 > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : index_from_floored_log2;
 }
 
 /// @brief splice_free_node  removes a free node out of the free node list.
@@ -135,7 +135,7 @@ static void init_free_node( header *to_add, size_t block_size )
     free_node *free_add = get_free_node( to_add );
 
     size_t index = 0;
-    for ( ; index < TABLE_SIZE - 1 && block_size >= fits.table[index + 1].size; index++ ) {}
+    for ( ; index < NUM_BUCKETS - 1 && block_size >= fits.table[index + 1].size; ++index ) {}
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
     free_node *cur = fits.table[index].start;
     fits.table[index].start = free_add;
@@ -210,23 +210,23 @@ bool myinit( void *heap_start, size_t heap_size )
     fits.nil->next = NULL;
 
     // Initialize array of free list sizes.
-    heap_start = (seg_node( * )[TABLE_SIZE])heap_start;
+    heap_start = (seg_node( * )[NUM_BUCKETS])heap_start;
     fits.table = heap_start;
     // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
     size_t size = MIN_BLOCK_SIZE;
-    for ( size_t index = 0; index < SMALL_TABLE_SIZE; index++, size += ALIGNMENT ) {
+    for ( size_t index = 0; index < NUM_SMALL_BUCKETS; index++, size += ALIGNMENT ) {
         fits.table[index].size = size;
         fits.table[index].start = fits.nil;
     }
     // Large sizes double until end of array except last index needs special attention.
-    size = LARGE_TABLE_MIN;
-    for ( size_t index = SMALL_TABLE_SIZE; index < TABLE_SIZE - 1; index++, size *= 2 ) {
+    size = LARGE_TABLE_MIN_BYTES;
+    for ( size_t index = NUM_SMALL_BUCKETS; index < NUM_BUCKETS - 1; index++, size *= 2 ) {
         fits.table[index].size = size;
         fits.table[index].start = fits.nil;
     }
     // Be careful here. We can't double to get 14th index. USHRT_MAX=65535 not 65536.
-    fits.table[TABLE_SIZE - 1].size = USHRT_MAX;
-    fits.table[TABLE_SIZE - 1].start = fits.nil;
+    fits.table[NUM_BUCKETS - 1].size = USHRT_MAX;
+    fits.table[NUM_BUCKETS - 1].start = fits.nil;
 
     header *first_block = (header *)( (byte *)heap_start + TABLE_BYTES );
     init_header( first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH, FREED );
@@ -251,9 +251,9 @@ void *mymalloc( size_t requested_size )
     }
     size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
     // We use some logarithm properties of powers of 2 to find what should be the closest fitting range.
-    for ( size_t i = find_index( rounded_request ); i < TABLE_SIZE; ++i ) {
+    for ( size_t i = find_index( rounded_request ); i < NUM_BUCKETS; ++i ) {
         // All lists hold advertised size and up to one byte less than next list. Last is catch all.
-        if ( i != TABLE_SIZE - 1 && rounded_request >= fits.table[i + 1].size ) {
+        if ( i != NUM_BUCKETS - 1 && rounded_request >= fits.table[i + 1].size ) {
             continue;
         }
         for ( free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
