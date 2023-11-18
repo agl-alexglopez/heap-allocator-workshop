@@ -21,6 +21,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -56,17 +57,6 @@ static struct heap
 
 // NOLINTEND(*-non-const-global-variables)
 
-/// This is taken from Sean Eron Anderson's Bit Twiddling Hacks. See the find_index() function for
-/// how it helps our implementation find the index of a node in a given list that is a base2 power
-/// of 2. We want to jump straight to the index by finding the log2(block_size).
-/// https://graphics.stanford.edu/~seander/bithacks.html
-///
-static const char log_table_256[256] = {
-#define LT( n ) n, n, n, n, n, n, n, n, n, n, n, n, n, n, n, n
-    -1,      0,       1,       1,       2,       2,       2,       2,       3,       3,       3,
-    3,       3,       3,       3,       3,       LT( 4 ), LT( 5 ), LT( 5 ), LT( 6 ), LT( 6 ), LT( 6 ),
-    LT( 6 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ), LT( 7 ) };
-
 ///   Static Helper Functions  ///
 
 /// @brief find_index  finds the index in the lookup table that a given block size is stored in.
@@ -79,6 +69,7 @@ static inline unsigned int find_index( size_t any_block_size )
     if ( any_block_size > fits.table[TABLE_SIZE - 1].size ) {
         return TABLE_SIZE - 1;
     }
+    // These are not powers of two so log2 tricks will not work.
     if ( any_block_size <= SMALL_TABLE_MAX ) {
         switch ( any_block_size ) {
         case INDEX_0_SIZE:
@@ -99,21 +90,10 @@ static inline unsigned int find_index( size_t any_block_size )
             break;
         }
     }
-    // I'm following the guidelines of Sean Anderson's website by converting this type. Safe now.
-    unsigned int block_size = any_block_size;
-    // block_size = 32-bit word to find the log of
-    unsigned int log_2 = 0; // log_2 will be lg(block_size)
-    register unsigned int temp_1 = 0;
-    register unsigned int temp_2 = 0;
-    temp_2 = block_size >> 16;
-    if ( temp_2 ) {
-        log_2 = ( temp_1 = temp_2 >> 8 ) ? 24 + log_table_256[temp_1] : 16 + log_table_256[temp_2];
-    } else {
-        log_2 = ( temp_1 = block_size >> 8 ) ? 8 + log_table_256[temp_1] : log_table_256[block_size];
-    }
-    // After small sizes we double in base2 powers of 2 so we can predictably find our index
-    // with a fixed offset. The log_2 of each size class increments linearly by 1.
-    return log_2 - INDEX_OFFSET;
+    // Really cool way to get log2 from intrinsics. See https://github.com/pavel-kirienko/o1heap/tree/master.
+    return ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
+             - (uint_fast8_t)__builtin_clzl( any_block_size ) )
+           - INDEX_OFFSET;
 }
 
 /// @brief splice_free_node  removes a free node out of the free node list.
