@@ -247,12 +247,9 @@ void *mymalloc( size_t requested_size )
         return NULL;
     }
     size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
-    // We use some logarithm properties of powers of 2 to find what should be the closest fitting range.
+    // We are starting with a pretty good guess thanks to log2 properties but we might not find anything.
     for ( size_t i = find_index( rounded_request ); i < NUM_BUCKETS; ++i ) {
         // All lists hold advertised size and up to one byte less than next list. Last is catch all.
-        if ( i != NUM_BUCKETS - 1 && rounded_request >= fits.table[i + 1].size ) {
-            continue;
-        }
         for ( free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
             header *cur_header = get_block_header( node );
             size_t free_space = get_size( *cur_header );
