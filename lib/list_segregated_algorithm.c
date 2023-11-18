@@ -249,7 +249,6 @@ void *mymalloc( size_t requested_size )
     size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
     // We are starting with a pretty good guess thanks to log2 properties but we might not find anything.
     for ( size_t i = find_index( rounded_request ); i < NUM_BUCKETS; ++i ) {
-        // All lists hold advertised size and up to one byte less than next list. Last is catch all.
         for ( free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
             header *cur_header = get_block_header( node );
             size_t free_space = get_size( *cur_header );
