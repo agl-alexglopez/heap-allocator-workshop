@@ -463,17 +463,15 @@ static void init_free_node( rb_node *to_free, size_t block_size )
 /// @return              a void pointer to generic space that is now ready for the client.
 static void *split_alloc( rb_node *free_block, size_t request, size_t block_space )
 {
-    rb_node *neighbor = NULL;
     if ( block_space >= request + BLOCK_SIZE ) {
-        neighbor = get_right_neighbor( free_block, request );
         // This takes care of the neighbor and ITS neighbor with appropriate updates.
-        init_free_node( neighbor, block_space - request - HEADERSIZE );
-    } else {
-        request = block_space;
-        neighbor = get_right_neighbor( free_block, block_space );
-        neighbor->header |= LEFT_ALLOCATED;
+        init_free_node( get_right_neighbor( free_block, request ), block_space - request - HEADERSIZE );
+        init_header_size( free_block, request );
+        free_block->header |= ALLOCATED;
+        return get_client_space( free_block );
     }
-    init_header_size( free_block, request );
+    get_right_neighbor( free_block, block_space )->header |= LEFT_ALLOCATED;
+    init_header_size( free_block, block_space );
     free_block->header |= ALLOCATED;
     return get_client_space( free_block );
 }
@@ -542,13 +540,13 @@ bool myinit( void *heap_start, size_t heap_size )
 
 void *mymalloc( size_t requested_size )
 {
-    if ( requested_size != 0 && requested_size <= MAX_REQUEST_SIZE ) {
-        size_t client_request = roundup( requested_size + HEAP_NODE_WIDTH, ALIGNMENT );
-        // Search the tree for the best possible fitting node.
-        rb_node *found_node = find_best_fit( client_request );
-        return split_alloc( found_node, client_request, get_size( found_node->header ) );
+    if ( requested_size == 0 || requested_size > MAX_REQUEST_SIZE ) {
+        return NULL;
     }
-    return NULL;
+    size_t client_request = roundup( requested_size + HEAP_NODE_WIDTH, ALIGNMENT );
+    // Search the tree for the best possible fitting node.
+    rb_node *found_node = find_best_fit( client_request );
+    return split_alloc( found_node, client_request, get_size( found_node->header ) );
 }
 
 void *myrealloc( void *old_ptr, size_t new_size )
@@ -575,24 +573,24 @@ void *myrealloc( void *old_ptr, size_t new_size )
         if ( leftmost_node != old_node ) {
             memmove( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
         }
-        client_space = split_alloc( leftmost_node, request, coalesced_space );
-    } else {
-        client_space = mymalloc( request );
-        if ( client_space ) {
-            memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
-            init_free_node( leftmost_node, coalesced_space );
-        }
+        return split_alloc( leftmost_node, request, coalesced_space );
+    }
+    client_space = mymalloc( request );
+    if ( client_space ) {
+        memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
+        init_free_node( leftmost_node, coalesced_space );
     }
     return client_space;
 }
 
 void myfree( void *ptr )
 {
-    if ( ptr != NULL ) {
-        rb_node *to_insert = get_rb_node( ptr );
-        to_insert = coalesce( to_insert );
-        init_free_node( to_insert, get_size( to_insert->header ) );
+    if ( ptr == NULL ) {
+        return;
     }
+    rb_node *to_insert = get_rb_node( ptr );
+    to_insert = coalesce( to_insert );
+    init_free_node( to_insert, get_size( to_insert->header ) );
 }
 
 ///       Shared Debugging

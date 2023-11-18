@@ -153,17 +153,14 @@ static void init_free_node( header *to_add, size_t block_size )
 /// @return              a void poiter to generic space that is now ready for the client.
 static void *split_alloc( header *free_block, size_t request, size_t block_space )
 {
-    header *neighbor = NULL;
     if ( block_space >= request + MIN_BLOCK_SIZE ) {
-        neighbor = get_right_header( free_block, request );
         // This takes care of the neighbor and ITS neighbor with appropriate updates.
-        init_free_node( neighbor, block_space - request );
-    } else {
-        request = block_space;
-        neighbor = get_right_header( free_block, block_space );
-        *neighbor |= LEFT_ALLOCATED;
+        init_free_node( get_right_header( free_block, request ), block_space - request );
+        init_header( free_block, request, ALLOCATED );
+        return get_free_node( free_block );
     }
-    init_header( free_block, request, ALLOCATED );
+    *get_right_header( free_block, block_space ) |= LEFT_ALLOCATED;
+    init_header( free_block, block_space, ALLOCATED );
     return get_free_node( free_block );
 }
 
@@ -253,21 +250,23 @@ void *mymalloc( size_t requested_size )
         return NULL;
     }
     size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
-    // We use some logarithm properties of powers of 2 to find what should be the closest fit.
-    for ( size_t i = find_index( rounded_request ); i < TABLE_SIZE; i++ ) {
+    // We use some logarithm properties of powers of 2 to find what should be the closest fitting range.
+    for ( size_t i = find_index( rounded_request ); i < TABLE_SIZE; ++i ) {
         // All lists hold advertised size and up to one byte less than next list. Last is catch all.
-        if ( i == TABLE_SIZE - 1 || rounded_request < fits.table[i + 1].size ) {
-            for ( free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
-                header *cur_header = get_block_header( node );
-                size_t free_space = get_size( *cur_header );
-                if ( free_space >= rounded_request ) {
-                    splice_free_node( node, free_space );
-                    return split_alloc( cur_header, rounded_request, free_space );
-                }
-            }
-            // Whoops the best fitting list was empty! We'll try the next size up.
+        if ( i != TABLE_SIZE - 1 && rounded_request >= fits.table[i + 1].size ) {
+            continue;
         }
+        for ( free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
+            header *cur_header = get_block_header( node );
+            size_t free_space = get_size( *cur_header );
+            if ( free_space >= rounded_request ) {
+                splice_free_node( node, free_space );
+                return split_alloc( cur_header, rounded_request, free_space );
+            }
+        }
+        // Whoops the best fitting estimate list was empty or didn't have our size! We'll try the next range up.
     }
+    // This should be strange. The heap would be exhausted.
     return NULL;
 }
 
@@ -300,13 +299,12 @@ void *myrealloc( void *old_ptr, size_t new_size )
         if ( leftmost_header != old_header ) {
             memmove( client_block, old_ptr, old_space ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
         }
-        client_block = split_alloc( leftmost_header, size_needed, coalesced_total );
-    } else {
-        client_block = mymalloc( size_needed );
-        if ( client_block ) {
-            memcpy( client_block, old_ptr, old_space ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
-            init_free_node( leftmost_header, coalesced_total );
-        }
+        return split_alloc( leftmost_header, size_needed, coalesced_total );
+    }
+    client_block = mymalloc( size_needed );
+    if ( client_block ) {
+        memcpy( client_block, old_ptr, old_space ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
+        init_free_node( leftmost_header, coalesced_total );
     }
     // NULL or the space we found from in-place or malloc.
     return client_block;
