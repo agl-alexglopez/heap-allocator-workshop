@@ -77,31 +77,28 @@ static inline size_t find_index( size_t any_block_size )
 {
     // These are not powers of two so log2 tricks will not work and 0 is undefined! But they are
     // garuanteed to be rounded to the nearest HEADERSIZE/ALIGNMENT with a required min size.
-    if ( any_block_size <= SMALL_TABLE_MAX_BYTES ) {
-        switch ( any_block_size ) {
-        case INDEX_0_BYTES:
-            return 0;
-        case INDEX_1_BYTES:
-            return 1;
-        case INDEX_2_BYTES:
-            return 2;
-        case INDEX_3_BYTES:
-            return 3;
-        case INDEX_4_BYTES:
-            return 4;
-        case INDEX_5_BYTES:
-            return 5;
-        case INDEX_6_BYTES:
-            return 6;
-        default:
-            (void)fprintf( stderr, "Error: Size %zubytes is out of alignment.", any_block_size );
-            abort();
-        }
+    switch ( any_block_size ) {
+    case INDEX_0_BYTES:
+        return 0;
+    case INDEX_1_BYTES:
+        return 1;
+    case INDEX_2_BYTES:
+        return 2;
+    case INDEX_3_BYTES:
+        return 3;
+    case INDEX_4_BYTES:
+        return 4;
+    case INDEX_5_BYTES:
+        return 5;
+    case INDEX_6_BYTES:
+        return 6;
+    default: {
+        // Really cool way to get log2 from intrinsics. See https://github.com/pavel-kirienko/o1heap/tree/master.
+        const size_t index_from_floored_log2 = ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
+                                                 - ( (uint_fast8_t)LEADING_ZEROS( any_block_size ) ) );
+        return index_from_floored_log2 > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : index_from_floored_log2;
     }
-    // Really cool way to get log2 from intrinsics. See https://github.com/pavel-kirienko/o1heap/tree/master.
-    const size_t index_from_floored_log2 = ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
-                                             - ( (uint_fast8_t)LEADING_ZEROS( any_block_size ) ) );
-    return index_from_floored_log2 > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : index_from_floored_log2;
+    }
 }
 
 /// @brief splice_free_node  removes a free node out of the free node list.
