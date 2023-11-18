@@ -1,4 +1,4 @@
-# Red Black Tree Allocators
+# Heap Workshop
 
 ![rb-tree-collage](/images/rb-tree-collage.png)
 
