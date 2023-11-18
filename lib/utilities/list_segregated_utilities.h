@@ -13,27 +13,12 @@
 #include "print_utility.h"
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 
 ///////////////////////////// Type Definitions  ///////////////////////////////////////
 
-/// Size Order Classes Maintained by an Array of segregated fits lists
-///     - Our size classes stand for the minimum size of a node in the list less
-///     than the next.
-///     - 15 Size Classes (in bytes):
-///
-///          32,         40,          48,           56,           64-127,
-///          128-255,    256-511,     512-1023,     1024-2047,    2048-4095,
-///          4096-8191,  8192-16383,  16384-32767,  32768-65535,  65536+,
-///
-///     - A first fit search will yeild approximately the best fit.
-///     - We will have one dummy node to serve as both the head and tail of all
-///     lists.
-///     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index
-///     size.
-///
-
 typedef size_t header;
-typedef unsigned char byte;
+typedef uint8_t byte;
 
 typedef struct free_node
 {
@@ -41,9 +26,14 @@ typedef struct free_node
     struct free_node *prev;
 } free_node;
 
+/// The segregated lists table we set up at instantiation takes up a decent chunk of space.
+/// So to compromise we can ensure we take up less space per segment header with uint16_t.
+/// This limits us however to a final bucket being the catch all for any request greater
+/// than or equal to USHRT_MAX. If we want more powers of 2 segments we will need to change
+/// this to the wider uint32_t.
 typedef struct seg_node
 {
-    unsigned short size;
+    uint16_t size;
     free_node *start;
 } seg_node;
 
@@ -59,26 +49,34 @@ typedef struct size_total
     size_t total;
 } size_total;
 
-#define INDEX_0 0UL
-#define INDEX_0_SIZE 32UL
-#define INDEX_1 1UL
-#define INDEX_1_SIZE 40UL
-#define INDEX_2 2UL
-#define INDEX_2_SIZE 48UL
-#define INDEX_3 3UL
-#define INDEX_3_SIZE 56UL
-#define INDEX_OFFSET 2UL
+enum table_sizes
+{
+    TABLE_SIZE = 17,
+    SMALL_TABLE_SIZE = 7,
+};
+
+enum table_bytes
+{
+    INDEX_0_SIZE = 32,
+    INDEX_1_SIZE = 40,
+    INDEX_2_SIZE = 48,
+    INDEX_3_SIZE = 56,
+    INDEX_4_SIZE = 64,
+    INDEX_5_SIZE = 72,
+    INDEX_6_SIZE = 80,
+    SMALL_TABLE_MAX = INDEX_6_SIZE,
+    /// This means our first log2 bucket index calculation yeilds 7 for the 0b1000_0000 bit.
+    /// We then start doubling from here. 128, 256, 512, etc.
+    LARGE_TABLE_MIN = 128,
+    TABLE_BYTES = ( TABLE_SIZE * sizeof( seg_node ) ),
+};
+
 #define SIZE_MASK ~0x7UL
 #define STATUS_CHECK 0x4UL
-#define FREE_NODE_WIDTH (unsigned short)16
-#define HEADER_AND_FREE_NODE (unsigned short)24
+#define FREE_NODE_WIDTH (uint16_t)16
+#define HEADER_AND_FREE_NODE (uint16_t)24
 #define HEADERSIZE sizeof( size_t )
-#define MIN_BLOCK_SIZE (unsigned short)32
-#define TABLE_SIZE (unsigned short)15
-#define SMALL_TABLE_SIZE (unsigned short)4
-#define SMALL_TABLE_MAX (unsigned short)56
-#define LARGE_TABLE_MIN (unsigned short)64
-#define TABLE_BYTES ( TABLE_SIZE * sizeof( seg_node ) )
+#define MIN_BLOCK_SIZE (uint16_t)32
 #define FREED 0x0UL
 #define ALLOCATED 0x1UL
 #define LEFT_ALLOCATED 0x2UL

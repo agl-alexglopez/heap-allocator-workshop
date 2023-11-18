@@ -11,6 +11,7 @@
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 typedef struct header_size
@@ -32,7 +33,7 @@ bool is_header_corrupted( header header_val ) { return header_val & STATUS_CHECK
 static bool is_small_table_valid( seg_node table[] )
 {
     // Check our lookup table. Sizes should never be altered and pointers should never be NULL.
-    unsigned short size = MIN_BLOCK_SIZE;
+    uint16_t size = MIN_BLOCK_SIZE;
     for ( size_t i = 0; i < SMALL_TABLE_SIZE; i++, size += HEADERSIZE ) {
         if ( table[i].size != size ) {
             breakpoint();
@@ -59,7 +60,7 @@ bool check_init( seg_node table[], free_node *nil, size_t client_size )
         breakpoint();
         return false;
     }
-    unsigned short size = LARGE_TABLE_MIN;
+    uint16_t size = LARGE_TABLE_MIN;
     for ( size_t i = SMALL_TABLE_SIZE; i < TABLE_SIZE - 1; i++, size *= 2 ) {
         if ( table[i].size != size ) {
             breakpoint();
@@ -137,6 +138,10 @@ static size_t are_links_valid( seg_node table[], size_t table_index, free_node *
         header *cur_header = get_block_header( cur );
         size_t cur_size = get_size( *cur_header );
         if ( table_index != TABLE_SIZE - 1 && cur_size >= table[table_index + 1].size ) {
+            breakpoint();
+            return false;
+        }
+        if ( cur_size < table[table_index].size ) {
             breakpoint();
             return false;
         }

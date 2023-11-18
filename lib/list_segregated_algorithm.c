@@ -31,15 +31,20 @@
 // NOLINTBEGIN(*-non-const-global-variables)
 
 /// Size Order Classes Maintained by an Array of segregated fits lists
-///     - Our size classes stand for the minimum size of a node in the list less than the next.
+///     - Our size classes stand for the minimum size of a node in the list less
+///     than the next.
 ///     - 15 Size Classes (in bytes):
-///           32,         40,          48,           56,           64-127,
-///           128-255,    256-511,     512-1023,     1024-2047,    2048-4095,
-///           4096-8191,  8192-16383,  16384-32767,  32768-65535,  65536+,
-///     - A first fit search will yeild approximately the best fit.
-///     - We will have one dummy node to serve as both the head and tail of all lists.
-///     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index size.
 ///
+///          32,         40,          48,           56,           64,
+///          72,         80,          128-255,      256-511,      512-1023,
+///          1024-2047,    2048-4095, 4096-8191,    8192-16383,   16384-32767,
+///          32768-65535,  65536+, last bucket carries the rest.
+///
+///     - A first fit search will yeild approximately the best fit.
+///     - We will have one dummy node to serve as both the head and tail of all
+///     lists.
+///     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index
+///     size.
 static struct fits
 {
     seg_node *table;
@@ -55,6 +60,10 @@ static struct heap
     size_t client_size;
 } heap;
 
+/// Count leading zeros of the input LEADING_ZEROS( x )
+/// Credit https://github.com/pavel-kirienko/o1heap/tree/master.
+#define LEADING_ZEROS __builtin_clzl
+
 // NOLINTEND(*-non-const-global-variables)
 
 ///   Static Helper Functions  ///
@@ -64,36 +73,35 @@ static struct heap
 /// @return            the index in the lookup table.
 /// @citation          the bit manipulation is taken from Sean Anderson's Bit Twiddling Hacks.
 ///                    https://graphics.stanford.edu/~seander/bithacks.html
-static inline unsigned int find_index( size_t any_block_size )
+static inline size_t find_index( size_t any_block_size )
 {
-    if ( any_block_size > fits.table[TABLE_SIZE - 1].size ) {
-        return TABLE_SIZE - 1;
-    }
-    // These are not powers of two so log2 tricks will not work.
+    // These are not powers of two so log2 tricks will not work and 0 is undefined! But they are
+    // garuanteed to be rounded to the nearest HEADERSIZE/ALIGNMENT with a required min size.
     if ( any_block_size <= SMALL_TABLE_MAX ) {
         switch ( any_block_size ) {
         case INDEX_0_SIZE:
-            return INDEX_0;
-            break;
+            return 0;
         case INDEX_1_SIZE:
-            return INDEX_1;
-            break;
+            return 1;
         case INDEX_2_SIZE:
-            return INDEX_2;
-            break;
+            return 2;
         case INDEX_3_SIZE:
-            return INDEX_3;
-            break;
+            return 3;
+        case INDEX_4_SIZE:
+            return 4;
+        case INDEX_5_SIZE:
+            return 5;
+        case INDEX_6_SIZE:
+            return 6;
         default:
             (void)fprintf( stderr, "Error: Size %zubytes is out of alignment.", any_block_size );
             abort();
-            break;
         }
     }
     // Really cool way to get log2 from intrinsics. See https://github.com/pavel-kirienko/o1heap/tree/master.
-    return ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
-             - (uint_fast8_t)__builtin_clzl( any_block_size ) )
-           - INDEX_OFFSET;
+    const size_t index_from_floored_log2 = ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
+                                             - ( (uint_fast8_t)LEADING_ZEROS( any_block_size ) ) );
+    return index_from_floored_log2 > TABLE_SIZE - 1 ? TABLE_SIZE - 1 : index_from_floored_log2;
 }
 
 /// @brief splice_free_node  removes a free node out of the free node list.
@@ -103,9 +111,6 @@ static void splice_free_node( free_node *to_splice, size_t block_size )
 {
     // Catch if we are the first node pointed to by the lookup table.
     if ( fits.nil == to_splice->prev ) {
-        // I'm not sure this optimization works or is worth it. For a table of table_size we could
-        // do a linear search of lookup table to find node. Call stacks and variables might
-        // increase instruction counts making bit tricks worthless. Need to profile.
         fits.table[find_index( block_size )].start = to_splice->next;
         to_splice->next->prev = fits.nil;
     } else {
@@ -211,7 +216,7 @@ bool myinit( void *heap_start, size_t heap_size )
     heap_start = (seg_node( * )[TABLE_SIZE])heap_start;
     fits.table = heap_start;
     // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
-    unsigned short size = MIN_BLOCK_SIZE;
+    size_t size = MIN_BLOCK_SIZE;
     for ( size_t index = 0; index < SMALL_TABLE_SIZE; index++, size += ALIGNMENT ) {
         fits.table[index].size = size;
         fits.table[index].start = fits.nil;
@@ -247,23 +252,20 @@ void *mymalloc( size_t requested_size )
     if ( requested_size == 0 || requested_size > MAX_REQUEST_SIZE ) {
         return NULL;
     }
-
-    // Consider using find_index() to jump to correct starting index for search. Perhaps slower to
-    // use bit hacks and so much logic for small table_size. Code needs to be profiled.
     size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
-    for ( size_t i = 0; i < TABLE_SIZE; i++ ) {
-        // All lists hold advertised size and up to one byte less than next list.
+    // We use some logarithm properties of powers of 2 to find what should be the closest fit.
+    for ( size_t i = find_index( rounded_request ); i < TABLE_SIZE; i++ ) {
+        // All lists hold advertised size and up to one byte less than next list. Last is catch all.
         if ( i == TABLE_SIZE - 1 || rounded_request < fits.table[i + 1].size ) {
             for ( free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
-
                 header *cur_header = get_block_header( node );
                 size_t free_space = get_size( *cur_header );
                 if ( free_space >= rounded_request ) {
                     splice_free_node( node, free_space );
-                    // Handoff decision to split or not to our helper, takes care of all details.
                     return split_alloc( cur_header, rounded_request, free_space );
                 }
             }
+            // Whoops the best fitting list was empty! We'll try the next size up.
         }
     }
     return NULL;
