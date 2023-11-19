@@ -59,8 +59,7 @@ struct duplicate_node
 {
     header header;
     struct duplicate_node *links[2];
-    // We will always store the tree parent in first duplicate node in the list.
-    // O(1) coalescing.
+    // We will always store the tree parent in first duplicate node in the list. O(1) coalescing.
     struct rb_node *parent;
 };
 
