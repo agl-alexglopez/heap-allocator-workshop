@@ -1,5 +1,28 @@
 #include "allocator.h"
 #include "debug_break.h"
+#include <stdbool.h>
+#include <stddef.h>
+
+typedef size_t header;
+
+struct free_node
+{
+    struct free_node *links[2];
+};
+
+enum tree_link
+{
+    L = 0,
+    R = 1
+};
+
+enum list_link
+{
+    N = 0,
+    P = 1
+};
+
+///////////////////////////////   Shared Heap Functions   ////////////////////////////////
 
 bool myinit( void *heap_start, size_t heap_size )
 {
