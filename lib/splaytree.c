@@ -283,38 +283,38 @@ static struct node *find_best_fit( size_t key )
     UNIMPLEMENTED();
 }
 
-/// @brief insert_struct node  a modified insertion with additional logic to add duplicates if the
-///                        size in bytes of the block is already in the tree.
-/// @param *current        we must insert to tree or add to a list as duplicate.
+/// @brief insert_node  a modified insertion with additional logic to add duplicates if the
+///                     size in bytes of the block is already in the tree.
+/// @param *current     we must insert to tree or add to a list as duplicate.
 static void insert_node( struct node *current )
 {
     (void)current;
     UNIMPLEMENTED();
 }
 
-static void splay( struct node *x, struct node *path[], int path_len )
+static void splay( struct node *cur, struct node *path[], int path_len )
 {
     while ( path_len >= 3 && path[path_len - 2] != free_nodes.nil ) {
         struct node *parent = path[path_len - 2];
         if ( path[path_len - 3] != free_nodes.nil ) {
-            rotate( parent->links[R] == x, parent, path, path_len - 1 );
+            rotate( parent->links[R] == cur, parent, path, path_len - 1 );
             --path_len;
             continue;
         }
         struct node *gparent = path[path_len - 3];
-        if ( x == parent->links[L] && parent == gparent->links[L] ) {
+        if ( cur == parent->links[L] && parent == gparent->links[L] ) {
             rotate( R, gparent, path, path_len - 2 );
             rotate( R, parent, path, path_len - 1 );
             path_len -= 2;
             continue;
         }
-        if ( x == parent->links[R] && parent == gparent->links[R] ) {
+        if ( cur == parent->links[R] && parent == gparent->links[R] ) {
             rotate( L, gparent, path, path_len - 2 );
             rotate( L, parent, path, path_len - 1 );
             path_len -= 2;
             continue;
         }
-        if ( x == parent->links[R] && parent == gparent->links[L] ) {
+        if ( cur == parent->links[R] && parent == gparent->links[L] ) {
             rotate( L, parent, path, path_len - 1 );
             rotate( R, parent, path, path_len - 1 );
             path_len -= 2;
