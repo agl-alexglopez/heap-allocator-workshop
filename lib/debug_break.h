@@ -21,8 +21,9 @@
 /// @brief unimplemented  tells you where you tried to run code in an unimplemented function.
 #define UNIMPLEMENTED()                                                                                            \
     do {                                                                                                           \
-        (void)fprintf( stderr, "\n!!Func %s unimplemented, Line: %d, File: %s\n", __func__, __LINE__, __FILE__ );  \
-        abort();                                                                                                   \
+        (void)fprintf( stderr, "\n!!Line: %d, File: %s. Func %s not implemented\n", __LINE__, __FILE__,            \
+                       __func__ );                                                                                 \
+        exit( EXIT_FAILURE );                                                                                      \
     } while ( 0 )
 
 #endif
