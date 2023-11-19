@@ -80,6 +80,16 @@ target_link_libraries(test_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 
+########## Splay Tree #############
+
+
+add_executable(test_splaytree test_harness.c)
+target_link_libraries(test_splaytree PUBLIC
+                      segment
+                      script
+                      splaytree
+)
+
 
 ################################# TIME HARNESS PROGRAM ############################################
 

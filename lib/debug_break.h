@@ -6,6 +6,7 @@
 #define DEBUG_BREAK_H
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 /// @brief breakpoint  set this breakpoint on any line where you wish execution to stop. Under normal
 ///                    program runs the program will simply exit. If triggered in GDB execution will
@@ -13,8 +14,15 @@
 ///                    Be sure to step "(gdb) up" out of the raise function to wherever it triggered.
 #define breakpoint()                                                                                               \
     do {                                                                                                           \
-        (void)fprintf( stderr, " !!Break. Line: %d File: %s, Func: %s\n ", __LINE__, __FILE__, __func__ );         \
+        (void)fprintf( stderr, "\n!!Break. Line: %d File: %s, Func: %s\n ", __LINE__, __FILE__, __func__ );        \
         (void)raise( SIGTRAP );                                                                                    \
+    } while ( 0 )
+
+/// @brief unimplemented  tells you where you tried to run code in an unimplemented function.
+#define unimplemented()                                                                                            \
+    do {                                                                                                           \
+        (void)fprintf( stderr, "\n!!Func %s unimplemented, Line: %d, File: %s\n", __func__, __LINE__, __FILE__ );  \
+        abort();                                                                                                   \
     } while ( 0 )
 
 #endif
