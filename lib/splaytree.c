@@ -3,7 +3,6 @@
 #include "print_utility.h"
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdlib.h>
 
 typedef size_t header;
 
