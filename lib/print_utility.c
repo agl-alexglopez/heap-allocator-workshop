@@ -37,7 +37,7 @@ static int gnuplot_process( void )
 /// @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information in
 ///                        case someone is waiting for large data. It can take time.
 /// @brief *graphs         the gnuplots struct containing all the graphs to print.
-void print_gnuplots( gnuplots *graphs )
+void print_gnuplots( struct gnuplots *graphs )
 {
     if ( graphs->num_ops == 0 ) {
         printf( "no operations to graph" );

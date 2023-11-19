@@ -1,5 +1,6 @@
 #include "allocator.h"
 #include "debug_break.h"
+#include "print_utility.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -28,34 +29,34 @@ bool myinit( void *heap_start, size_t heap_size )
 {
     (void)heap_start;
     (void)heap_size;
-    unimplemented();
+    UNIMPLEMENTED();
 }
 
 void *mymalloc( size_t requested_size )
 {
     (void)requested_size;
-    unimplemented();
+    UNIMPLEMENTED();
 }
 
 void *myrealloc( void *old_ptr, size_t new_size )
 {
     (void)old_ptr;
     (void)new_size;
-    unimplemented();
+    UNIMPLEMENTED();
 }
 
 void myfree( void *ptr )
 {
     (void)ptr;
-    unimplemented();
+    UNIMPLEMENTED();
 }
 
-bool validate_heap( void ) { unimplemented(); }
+bool validate_heap( void ) { UNIMPLEMENTED(); }
 
-size_t get_free_total( void ) { unimplemented(); }
+size_t get_free_total( void ) { UNIMPLEMENTED(); }
 
-void print_free_nodes( print_style style )
+void print_free_nodes( enum print_style style )
 {
     (void)style;
-    unimplemented();
+    UNIMPLEMENTED();
 }

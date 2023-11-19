@@ -191,7 +191,7 @@ static bool is_bheight_valid_v2( const struct rb_node *root, const struct rb_nod
 static bool is_binary_tree( const struct rb_node *root, const struct rb_node *black_nil );
 static bool is_duplicate_storing_parent( const struct rb_node *parent, const struct rb_node *root,
                                          const void *nil_and_tail );
-static void print_rb_tree( const struct rb_node *root, const void *nil_and_tail, print_style style );
+static void print_rb_tree( const struct rb_node *root, const void *nil_and_tail, enum print_style style );
 static void print_all( struct heap_range r, size_t heap_size, struct rb_node *tree_root,
                        struct rb_node *black_nil );
 
@@ -323,7 +323,7 @@ bool validate_heap( void )
 
 ////////////////////////         Shared Printer     ///////////////////////////////////
 
-void print_free_nodes( print_style style )
+void print_free_nodes( enum print_style style )
 {
     printf( COLOR_CYN "(+X)" COLOR_NIL );
     printf( " Indicates duplicate nodes in the tree linked by a doubly-linked list.\n" );
@@ -899,11 +899,11 @@ static inline struct rb_node *get_rb_node( const void *client_space )
 static bool check_init( struct heap_range r, size_t heap_size )
 {
     if ( is_left_space( r.start ) ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     if ( (uint8_t *)r.end - (uint8_t *)r.start + HEAP_NODE_WIDTH != heap_size ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     return true;
@@ -924,7 +924,7 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
     while ( cur_node != r.end ) {
         size_t block_size_check = get_size( cur_node->header );
         if ( block_size_check == 0 ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
 
@@ -937,11 +937,11 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
         cur_node = get_right_neighbor( cur_node, block_size_check );
     }
     if ( size_used + *total_free_mem != s.size ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     if ( total_free_nodes != s.total ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     return true;
@@ -958,7 +958,7 @@ static bool is_red_red( const struct rb_node *root, const struct rb_node *black_
     }
     if ( get_color( root->header ) == RED ) {
         if ( get_color( root->links[L]->header ) == RED || get_color( root->links[R]->header ) == RED ) {
-            breakpoint();
+            BREAKPOINT();
             return true;
         }
     }
@@ -979,7 +979,7 @@ static int calculate_bheight( const struct rb_node *root, const struct rb_node *
     int rt_bheight = calculate_bheight( root->links[R], black_nil );
     int add = get_color( root->header ) == BLACK;
     if ( lf_bheight == -1 || rt_bheight == -1 || lf_bheight != rt_bheight ) {
-        breakpoint();
+        BREAKPOINT();
         return -1;
     }
     return lf_bheight + add;
@@ -1022,7 +1022,7 @@ static size_t extract_tree_mem( const struct rb_node *root, const void *nil_and_
 static bool is_rbtree_mem_valid( const struct rb_node *root, const void *nil_and_tail, size_t total_free_mem )
 {
     if ( total_free_mem != extract_tree_mem( root, nil_and_tail ) ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     return true;
@@ -1043,7 +1043,7 @@ static int calculate_bheight_v2( const struct rb_node *root, const struct rb_nod
     int left_height = calculate_bheight_v2( root->links[L], black_nil );
     int right_height = calculate_bheight_v2( root->links[R], black_nil );
     if ( left_height != 0 && right_height != 0 && left_height != right_height ) {
-        breakpoint();
+        BREAKPOINT();
         return 0;
     }
     if ( left_height != 0 && right_height != 0 ) {
@@ -1074,11 +1074,11 @@ static bool is_binary_tree( const struct rb_node *root, const struct rb_node *bl
     }
     size_t root_value = get_size( root->header );
     if ( root->links[L] != black_nil && root_value < get_size( root->links[L]->header ) ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     if ( root->links[R] != black_nil && root_value > get_size( root->links[R]->header ) ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     return is_binary_tree( root->links[L], black_nil ) && is_binary_tree( root->links[R], black_nil );
@@ -1097,7 +1097,7 @@ static bool is_duplicate_storing_parent( const struct rb_node *parent, const str
         return true;
     }
     if ( root->list_start != nil_and_tail && root->list_start->parent != parent ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     return is_duplicate_storing_parent( root, root->links[L], nil_and_tail )
@@ -1125,7 +1125,7 @@ static int get_black_height( const struct rb_node *root, const struct rb_node *b
 /// @param *root          the root we will print with the appropriate info.
 /// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
 /// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
-static void print_node( const struct rb_node *root, const void *nil_and_tail, print_style style )
+static void print_node( const struct rb_node *root, const void *nil_and_tail, enum print_style style )
 {
     size_t block_size = get_size( root->header );
     get_color( root->header ) == BLACK ? printf( COLOR_BLK ) : printf( COLOR_RED );
@@ -1162,7 +1162,7 @@ static void print_node( const struct rb_node *root, const void *nil_and_tail, pr
 /// @param node_type         the node to print can either be a leaf or internal branch.
 /// @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
 static void print_inner_tree( const struct rb_node *root, const void *nil_and_tail, const char *prefix,
-                              const print_link node_type, const enum tree_link dir, print_style style )
+                              const enum print_link node_type, const enum tree_link dir, enum print_style style )
 {
     if ( root == nil_and_tail ) {
         return;
@@ -1199,7 +1199,7 @@ static void print_inner_tree( const struct rb_node *root, const void *nil_and_ta
 /// @param *root          the root node to begin at for printing recursively.
 /// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
 /// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
-static void print_rb_tree( const struct rb_node *root, const void *nil_and_tail, print_style style )
+static void print_rb_tree( const struct rb_node *root, const void *nil_and_tail, enum print_style style )
 {
     if ( root == nil_and_tail ) {
         return;

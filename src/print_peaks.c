@@ -21,6 +21,7 @@
 #include <getopt.h>
 #include <limits.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -29,25 +30,26 @@
 
 // Pick line numbers in the script to make breakpoints. Execution will stop and print there.
 typedef int breakpoint;
-typedef unsigned char byte;
 
 #define MAX_BREAKPOINTS (unsigned short)100
 const long heap_size = 1L << 32;
+const int numeric_base = 10;
+const int max_digits = 9;
 
-typedef struct
+struct user_breaks
 {
-    print_style style;
+    enum print_style style;
     breakpoint breakpoints[MAX_BREAKPOINTS];
     int num_breakpoints;
-} user_breaks;
+};
 
 /// FUNCTION PROTOTYPE
 
-int print_peaks( char *script_name, user_breaks *user_reqs );
-static size_t print_allocator( script *s, user_breaks *user_reqs, gnuplots *graphs );
-static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int max );
+int print_peaks( char *script_name, struct user_breaks *user_reqs );
+static size_t print_allocator( struct script *s, struct user_breaks *user_reqs, struct gnuplots *graphs );
+static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_break, int max );
 static int get_user_int( int min, int max );
-static void validate_breakpoints( script *s, user_breaks *user_reqs );
+static void validate_breakpoints( struct script *s, struct user_breaks *user_reqs );
 static void binsert( const void *key, void *base, int *p_nelem, size_t width,
                      int ( *compar )( const void *, const void * ) );
 static int cmp_breakpoints( const void *a, const void *b );
@@ -71,7 +73,7 @@ static int cmp_breakpoints( const void *a, const void *b );
 ///            can be entered in any order.
 int main( int argc, char *argv[] )
 {
-    user_breaks user_reqs = { .style = PLAIN, .breakpoints = { 0 }, .num_breakpoints = 0 };
+    struct user_breaks user_reqs = { .style = PLAIN, .breakpoints = { 0 }, .num_breakpoints = 0 };
     int check = 0;
     char c = 0;
     while ( ( check = getopt( argc, argv, "vb:" ) ) != -1 ) {
@@ -81,7 +83,7 @@ int main( int argc, char *argv[] )
         }
         if ( c == 'b' ) {
             char *ptr = NULL;
-            size_t req = strtol( optarg, &ptr, 10 ) - 1;
+            size_t req = strtol( optarg, &ptr, numeric_base ) - 1;
             if ( req > INT_MAX ) {
                 printf( "Request exceeding INT_MAX not possible for this program." );
                 abort();
@@ -110,12 +112,13 @@ int main( int argc, char *argv[] )
 /// @param script_name      the pointer to the script name we will execute.
 /// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
 /// @return                 0 upon successful execution 1 upon error.
-int print_peaks( char *script_name, user_breaks *user_reqs )
+int print_peaks( char *script_name, struct user_breaks *user_reqs )
 {
-    script s = parse_script( script_name );
+    struct script s = parse_script( script_name );
     validate_breakpoints( &s, user_reqs );
 
-    gnuplots graphs = { .util_percents = NULL, .free_nodes = NULL, .request_times = NULL, .num_ops = s.num_ops };
+    struct gnuplots graphs
+        = { .util_percents = NULL, .free_nodes = NULL, .request_times = NULL, .num_ops = s.num_ops };
     graphs.free_nodes = malloc( sizeof( size_t ) * s.num_ops );
     assert( graphs.free_nodes );
     graphs.util_percents = malloc( sizeof( double ) * s.num_ops );
@@ -146,7 +149,7 @@ int print_peaks( char *script_name, user_breaks *user_reqs )
 /// @param *script          the script_t with all info for the script file to execute.
 /// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
 /// @return                 the size of the heap overall as helpful utilization info.
-static size_t print_allocator( script *s, user_breaks *user_reqs, gnuplots *graphs )
+static size_t print_allocator( struct script *s, struct user_breaks *user_reqs, struct gnuplots *graphs )
 {
     init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
@@ -174,7 +177,7 @@ static size_t print_allocator( script *s, user_breaks *user_reqs, gnuplots *grap
         graphs->free_nodes[req] = total_free_nodes;
         // Avoid a loss of precision while tracking the utilization over heap lifetime.
         double peak_size = 100.0 * (double)s->peak_size;
-        graphs->util_percents[req] = peak_size / (double)( (byte *)heap_end - (byte *)heap_segment_start() );
+        graphs->util_percents[req] = peak_size / (double)( (uint8_t *)heap_end - (uint8_t *)heap_segment_start() );
 
         if ( curr_break < user_reqs->num_breakpoints && user_reqs->breakpoints[curr_break] == req ) {
             printf( "There are %zu free nodes after executing command on line %d :\n", total_free_nodes, req + 1 );
@@ -221,7 +224,7 @@ static size_t print_allocator( script *s, user_breaks *user_reqs, gnuplots *grap
             printf( "There were %zu free blocks of memory.\n", peak_free_node_count );
         }
     }
-    return (byte *)heap_end - (byte *)heap_segment_start();
+    return (uint8_t *)heap_end - (uint8_t *)heap_segment_start();
 }
 
 static void consume_remaining_input( int *c )
@@ -235,7 +238,7 @@ static void consume_remaining_input( int *c )
 ///                                 breakpoint, or skip remaining.
 /// @param *user_reqs               pointer to the struct with user style, and possible breaks.
 /// @param max                      the upper limit of user input and script range.
-static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int max )
+static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_break, int max )
 {
     int min = user_reqs->breakpoints[curr_break] + 1;
     while ( true ) {
@@ -290,13 +293,13 @@ static void handle_user_breakpoints( user_breaks *user_reqs, int curr_break, int
 /// @return              the valid integer entered by the user.
 static int get_user_int( int min, int max )
 {
-    char *buff = malloc( sizeof( char ) * 9 );
-    memset( buff, 0, 9 ); // NOLINT
+    char *buff = malloc( sizeof( char ) * max_digits );
+    memset( buff, 0, max_digits ); // NOLINT
     char *input = NULL;
     int input_int = 0;
     while ( input == NULL ) {
         (void)fputs( "Enter the new script line breakpoint: ", stdout );
-        input = fgets( buff, 9, stdin );
+        input = fgets( buff, max_digits, stdin );
 
         if ( buff[strlen( input ) - 1] != '\n' ) {
             (void)fprintf( stderr, " ERROR: Breakpoint out of script range %d-%d.\n", min + 1, max + 1 );
@@ -307,7 +310,7 @@ static int get_user_int( int min, int max )
 
         errno = 0;
         char *endptr = NULL;
-        size_t entered = strtol( input, &endptr, 10 ) - 1;
+        size_t entered = strtol( input, &endptr, numeric_base ) - 1;
         input_int = (int)entered;
 
         if ( entered > INT_MAX ) {
@@ -332,7 +335,7 @@ static int get_user_int( int min, int max )
 /// @brief validate_breakpoints  checks any requested breakpoints to make sure they are in range.
 /// @param script                the parsed script with information we need to verify ranges.
 /// @param *user_reqs            struct containing user print style, and possible breaks.
-static void validate_breakpoints( script *s, user_breaks *user_reqs )
+static void validate_breakpoints( struct script *s, struct user_breaks *user_reqs )
 {
     // It's easier if the breakpoints are in order and can run along with our script execution.
     for ( int brk = 0; brk < user_reqs->num_breakpoints; brk++ ) {
@@ -359,22 +362,22 @@ static void binsert( const void *key, void *base, int *p_nelem, size_t width,
                      int ( *compar )( const void *, const void * ) )
 {
     // We will use the address at the end of the array to help move bytes if we don't find elem.
-    void *end = (byte *)base + ( *p_nelem * width );
+    void *end = (uint8_t *)base + ( *p_nelem * width );
     for ( size_t nremain = *p_nelem; nremain != 0; nremain >>= 1 ) {
-        void *elem = (byte *)base + ( nremain >> 1 ) * width;
+        void *elem = (uint8_t *)base + width * ( nremain >> 1 );
         int sign = compar( key, elem );
         if ( sign == 0 ) {
             return;
         }
         if ( sign > 0 ) { // key > elem
             // base settles where key belongs if we cannot find it. Steps right in this case.
-            base = (byte *)elem + width;
+            base = (uint8_t *)elem + width;
             nremain--;
         }
         // key < elem and the base does not move in this case.
     }
     // First move does nothing, 0bytes, if we are adding first elem or new greatest value.
-    memmove( (byte *)base + width, base, (byte *)end - (byte *)base ); // NOLINT
+    memmove( (uint8_t *)base + width, base, (uint8_t *)end - (uint8_t *)base ); // NOLINT
     // Now, wherever the base settled is where our key belongs.
     memcpy( base, key, width ); // NOLINT
     ++*p_nelem;

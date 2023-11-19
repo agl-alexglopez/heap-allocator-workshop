@@ -71,13 +71,13 @@ struct bad_jump
     header *prev;
 };
 
-enum table_sizes
+enum bucket_sizes
 {
     NUM_BUCKETS = 17,
     NUM_SMALL_BUCKETS = 7,
 };
 
-enum table_bytes
+enum bucket_bytes
 {
     INDEX_0_BYTES = 32,
     INDEX_1_BYTES = 40,
@@ -86,11 +86,18 @@ enum table_bytes
     INDEX_4_BYTES = 64,
     INDEX_5_BYTES = 72,
     INDEX_6_BYTES = 80,
+    I0 = 0,
+    I1 = 1,
+    I2 = 2,
+    I3 = 3,
+    I4 = 4,
+    I5 = 5,
+    I6 = 6,
     SMALL_TABLE_MAX_BYTES = INDEX_6_BYTES,
     /// This means our first log2 bucket index calculation yeilds 7 for the 0b1000_0000 bit.
     /// We then start doubling from here. 128, 256, 512, etc. Probably should profile to pick sizes.
     LARGE_TABLE_MIN_BYTES = 128,
-    TABLE_BYTES = ( NUM_BUCKETS * sizeof( struct seg_node ) ),
+    TOTAL_TABLE_BYTES = ( NUM_BUCKETS * sizeof( struct seg_node ) ),
 };
 
 /// Unsigned bitwise helpers we can't put into enums.
@@ -168,7 +175,7 @@ static bool check_init( struct seg_node table[], struct free_node *nil, size_t c
 static bool is_memory_balanced( size_t *total_free_mem, struct heap_range hr, struct size_total st );
 static bool are_fits_valid( size_t total_free_mem, struct seg_node table[], struct free_node *nil );
 static void print_all( struct heap_range hr, size_t client_size, struct seg_node table[], struct free_node *nil );
-static void print_fits( print_style style, struct seg_node table[], struct free_node *nil );
+static void print_fits( enum print_style style, struct seg_node table[], struct free_node *nil );
 
 ///////////////////////////   Shared Heap Functions  ///////////////////////////////////////////
 
@@ -205,15 +212,15 @@ bool myinit( void *heap_start, size_t heap_size )
     fits.table[NUM_BUCKETS - 1].size = USHRT_MAX;
     fits.table[NUM_BUCKETS - 1].start = fits.nil;
 
-    header *first_block = (header *)( (uint8_t *)heap_start + TABLE_BYTES );
-    init_header( first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH, FREED );
-    init_footer( first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH );
+    header *first_block = (header *)( (uint8_t *)heap_start + TOTAL_TABLE_BYTES );
+    init_header( first_block, heap.client_size - TOTAL_TABLE_BYTES - FREE_NODE_WIDTH, FREED );
+    init_footer( first_block, heap.client_size - TOTAL_TABLE_BYTES - FREE_NODE_WIDTH );
 
     struct free_node *first_free = (struct free_node *)( (uint8_t *)first_block + ALIGNMENT );
     first_free->next = fits.nil;
     first_free->prev = fits.nil;
     // Insert this first free into the appropriately sized list.
-    init_free_node( first_block, heap.client_size - TABLE_BYTES - FREE_NODE_WIDTH );
+    init_free_node( first_block, heap.client_size - TOTAL_TABLE_BYTES - FREE_NODE_WIDTH );
 
     heap.client_start = first_block;
     heap.client_end = fits.nil;
@@ -226,7 +233,7 @@ void *mymalloc( size_t requested_size )
     if ( requested_size == 0 || requested_size > MAX_REQUEST_SIZE ) {
         return NULL;
     }
-    size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
+    const size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
     // We are starting with a pretty good guess thanks to log2 properties but we might not find anything.
     for ( size_t i = find_index( rounded_request ); i < NUM_BUCKETS; ++i ) {
         for ( struct free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
@@ -393,19 +400,19 @@ static inline size_t find_index( size_t any_block_size )
 {
     switch ( any_block_size ) {
     case INDEX_0_BYTES:
-        return 0;
+        return I0;
     case INDEX_1_BYTES:
-        return 1;
+        return I1;
     case INDEX_2_BYTES:
-        return 2;
+        return I2;
     case INDEX_3_BYTES:
-        return 3;
+        return I3;
     case INDEX_4_BYTES:
-        return 4;
+        return I4;
     case INDEX_5_BYTES:
-        return 5;
+        return I5;
     case INDEX_6_BYTES:
-        return 6;
+        return I6;
     default: {
         const size_t index_from_floored_log2 = ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
                                                  - ( (uint_fast8_t)LEADING_ZEROS( any_block_size ) ) );
@@ -434,7 +441,7 @@ bool validate_heap( void )
 
 ////////////////////////////     Shared Printer       ///////////////////////////////////////
 
-void print_free_nodes( print_style style ) { print_fits( style, fits.table, fits.nil ); }
+void print_free_nodes( enum print_style style ) { print_fits( style, fits.table, fits.nil ); }
 
 void dump_heap( void )
 {
@@ -537,12 +544,12 @@ static bool is_small_table_valid( struct seg_node table[] )
     uint16_t size = MIN_BLOCK_SIZE;
     for ( size_t i = 0; i < NUM_SMALL_BUCKETS; i++, size += HEADERSIZE ) {
         if ( table[i].size != size ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
         // This should either be a valid node or the sentinel.
         if ( NULL == table[i].start ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
     }
@@ -560,27 +567,27 @@ static bool check_init( struct seg_node table[], struct free_node *nil, size_t c
     void *first_address = table;
     void *last_address = (uint8_t *)nil + FREE_NODE_WIDTH;
     if ( (size_t)( (uint8_t *)last_address - (uint8_t *)first_address ) != client_size ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     if ( !is_small_table_valid( table ) ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     uint16_t size = LARGE_TABLE_MIN_BYTES;
     for ( size_t i = NUM_SMALL_BUCKETS; i < NUM_BUCKETS - 1; i++, size *= 2 ) {
         if ( table[i].size != size ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
         // This should either be a valid node or the nil.
         if ( NULL == table[i].start ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
     }
     if ( table[NUM_BUCKETS - 1].size != USHRT_MAX ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     return true;
@@ -611,17 +618,17 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range hr, st
 {
     // Check that after checking all headers we end on size 0 tail and then end of address space.
     header *cur_header = hr.start;
-    size_t size_used = FREE_NODE_WIDTH + TABLE_BYTES;
+    size_t size_used = FREE_NODE_WIDTH + TOTAL_TABLE_BYTES;
     size_t total_free_nodes = 0;
     while ( cur_header != hr.end ) {
         size_t block_size_check = get_size( *cur_header );
         if ( block_size_check == 0 ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
 
         if ( !is_valid_header( ( struct header_size ){ *cur_header, block_size_check }, st.size ) ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
         if ( is_block_allocated( *cur_header ) ) {
@@ -633,11 +640,11 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range hr, st
         cur_header = get_right_header( cur_header, block_size_check );
     }
     if ( size_used + *total_free_mem != st.size ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     if ( total_free_nodes != st.total ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     return true;
@@ -649,20 +656,20 @@ static size_t are_links_valid( struct seg_node table[], size_t table_index, stru
         header *cur_header = get_block_header( cur );
         size_t cur_size = get_size( *cur_header );
         if ( table_index != NUM_BUCKETS - 1 && cur_size >= table[table_index + 1].size ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
         if ( cur_size < table[table_index].size ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
         if ( is_block_allocated( *cur_header ) ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
         // This algorithm does not allow two free blocks to remain next to one another.
         if ( is_left_space( get_block_header( cur ) ) ) {
-            breakpoint();
+            BREAKPOINT();
             return false;
         }
         free_mem += cur_size;
@@ -684,7 +691,7 @@ static bool are_fits_valid( size_t total_free_mem, struct seg_node table[], stru
         linked_free_mem = are_links_valid( table, i, nil, linked_free_mem );
     }
     if ( total_free_mem != linked_free_mem ) {
-        breakpoint();
+        BREAKPOINT();
         return false;
     }
     return true;
@@ -696,7 +703,7 @@ static bool are_fits_valid( size_t total_free_mem, struct seg_node table[], stru
 ///                    adding is progressing correctly.
 /// @param table[]     the lookup table that holds the list size ranges
 /// @param *nil        a special free_node that serves as a sentinel for logic and edgecases.
-static void print_fits( print_style style, struct seg_node table[], struct free_node *nil )
+static void print_fits( enum print_style style, struct seg_node table[], struct free_node *nil )
 {
     bool alternate = false;
     for ( size_t i = 0; i < NUM_BUCKETS; i++, alternate = !alternate ) {

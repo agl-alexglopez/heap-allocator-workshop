@@ -62,6 +62,6 @@ size_t get_free_total( void );
 /// PLAIN or VERBOSE style. Plain will only show the sizes in bytes that the
 /// blocks store, while VERBOSE will show their addresses in the heap and for the
 /// tree allocators, the black height of the tree as well.
-void print_free_nodes( print_style style );
+void print_free_nodes( enum print_style style );
 
 #endif

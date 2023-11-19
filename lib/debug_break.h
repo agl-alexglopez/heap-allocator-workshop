@@ -12,14 +12,14 @@
 ///                    program runs the program will simply exit. If triggered in GDB execution will
 ///                    stop while able to explore the surrounding context, varialbes, and stack frames.
 ///                    Be sure to step "(gdb) up" out of the raise function to wherever it triggered.
-#define breakpoint()                                                                                               \
+#define BREAKPOINT()                                                                                               \
     do {                                                                                                           \
         (void)fprintf( stderr, "\n!!Break. Line: %d File: %s, Func: %s\n ", __LINE__, __FILE__, __func__ );        \
         (void)raise( SIGTRAP );                                                                                    \
     } while ( 0 )
 
 /// @brief unimplemented  tells you where you tried to run code in an unimplemented function.
-#define unimplemented()                                                                                            \
+#define UNIMPLEMENTED()                                                                                            \
     do {                                                                                                           \
         (void)fprintf( stderr, "\n!!Func %s unimplemented, Line: %d, File: %s\n", __func__, __LINE__, __FILE__ );  \
         abort();                                                                                                   \

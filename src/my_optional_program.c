@@ -14,7 +14,7 @@
 /// initial allocation will be for min size, if not big enough, doubles
 /// to 64, then 128, then 256, etc. as needed to accommodate the entire line
 /// resize-as-you-go, doubling each time.
-enum
+enum buffer_limits
 {
     MINIMUM_SIZE = 32,
     NEW_LINE = '\n',
@@ -27,20 +27,20 @@ enum
 #define HEAP_SIZE 1L << 32
 
 // "freq" abbreviation used throughout means frequency of occurences of the associated text line.
-typedef struct freq_cell
+struct freq_cell
 {
     int freq;
     char *text;
-} freq_cell;
+};
 
 ///  Function Prototypes
 
 // Driver function for printing.
 void print_uniq_lines( FILE *file_pointer );
 // Helper functions that manage the array of structs
-freq_cell *fill_freq_array( FILE *file_pointer, size_t increment, size_t *size );
-bool is_added( char *heap_line, freq_cell *freq_array, size_t index );
-freq_cell *realloc_array( freq_cell *freq_array, size_t total_space );
+struct freq_cell *fill_freq_array( FILE *file_pointer, size_t increment, size_t *size );
+bool is_added( char *heap_line, struct freq_cell *freq_array, size_t index );
+struct freq_cell *realloc_array( struct freq_cell *freq_array, size_t total_space );
 char *read_line( FILE *file_pointer );
 bool initialize_heap_allocator();
 
@@ -77,7 +77,7 @@ int main( int argc, char *argv[] )
 void print_uniq_lines( FILE *file_pointer )
 {
     size_t array_size = 0;
-    freq_cell *freq_array = fill_freq_array( file_pointer, ESTIMATE, &array_size );
+    struct freq_cell *freq_array = fill_freq_array( file_pointer, ESTIMATE, &array_size );
     // First elem will be NULL sentinel if there were no strings so we will just free array.
     for ( size_t i = 0; i < array_size; i++ ) {
         printf( "%7d %s\n", freq_array[i].freq, freq_array[i].text );
@@ -98,10 +98,10 @@ void print_uniq_lines( FILE *file_pointer )
 /// @warning                 it is the user's responsibility to free heap allocated strings within
 ///                          the zero indexed array and free the heap array. The array at the index
 ///                          of its size will have the text field set to NULL, including size 0.
-freq_cell *fill_freq_array( FILE *file_pointer, size_t increment, size_t *size )
+struct freq_cell *fill_freq_array( FILE *file_pointer, size_t increment, size_t *size )
 {
     size_t total_space = increment;
-    freq_cell *freq_array = mymalloc( total_space * sizeof( freq_cell ) );
+    struct freq_cell *freq_array = mymalloc( total_space * sizeof( struct freq_cell ) );
     assert( freq_array );
 
     size_t index = 0;
@@ -125,7 +125,7 @@ freq_cell *fill_freq_array( FILE *file_pointer, size_t increment, size_t *size )
 /// @param index       the potential index that we may insert an element into.
 /// @return            true if the heap string was inserted, false if it was not. The function will
 ///                    increment the frequency field of the new string or already present string.
-bool is_added( char *heap_line, freq_cell *freq_array, size_t index )
+bool is_added( char *heap_line, struct freq_cell *freq_array, size_t index )
 {
     if ( index != 0 ) {
         size_t i = 0;
@@ -151,9 +151,9 @@ bool is_added( char *heap_line, freq_cell *freq_array, size_t index )
 /// @warning              it is the user's responsibility to make sure the freq_array points
 ///                       to previously allocated heap memory and to keep track of the current
 ///                       size of the allocated heap memory for the array.
-freq_cell *realloc_array( freq_cell *freq_array, size_t total_space )
+struct freq_cell *realloc_array( struct freq_cell *freq_array, size_t total_space )
 {
-    freq_cell *more_space = myrealloc( freq_array, total_space * sizeof( freq_cell ) );
+    struct freq_cell *more_space = myrealloc( freq_array, total_space * sizeof( struct freq_cell ) );
     assert( more_space );
     freq_array = more_space;
     return freq_array;

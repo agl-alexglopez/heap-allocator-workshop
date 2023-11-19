@@ -20,6 +20,7 @@
 #include <assert.h>
 // NOLINTNEXTLINE(*include-cleaner)
 #include <getopt.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -27,7 +28,6 @@
 
 /// TYPE DECLARATION
 
-typedef unsigned char byte;
 // Create targeted scripts with intervals you want to time, no point in too many requests.
 enum
 {
@@ -35,27 +35,28 @@ enum
 };
 
 // Requests to the heap are zero indexed, but we can allow users to enter line no. then subtract 1.
-typedef struct
+struct interval
 {
     int start_req;
     int end_req;
-} interval;
+};
 
-typedef struct
+struct interval_reqs
 {
-    interval intervals[MAX_TIMER_REQUESTS];
+    struct interval intervals[MAX_TIMER_REQUESTS];
     double interval_averages[MAX_TIMER_REQUESTS];
     size_t num_intervals;
-} interval_reqs;
+};
 
 const long heap_size = 1L << 32;
+const int base_10 = 10;
 
 /// FUNCTION PROTOTYPE
 
-static int time_script( char *script_name, interval_reqs *user_requests );
-static size_t time_allocator( script *s, interval_reqs *user_requests, gnuplots *graphs );
-static void report_interval_averages( interval_reqs *user_requests );
-static void validate_intervals( script *s, interval_reqs *user_requests );
+static int time_script( char *script_name, struct interval_reqs *user_requests );
+static size_t time_allocator( struct script *s, struct interval_reqs *user_requests, struct gnuplots *graphs );
+static void report_interval_averages( struct interval_reqs *user_requests );
+static void validate_intervals( struct script *s, struct interval_reqs *user_requests );
 
 /// TIME EVALUATION IMPLEMENTATIO
 
@@ -71,15 +72,15 @@ static void validate_intervals( script *s, interval_reqs *user_requests );
 ///              will be timed.
 int main( int argc, char *argv[] )
 {
-    interval_reqs user_req = { 0 };
+    struct interval_reqs user_req = { 0 };
     // -s flag to start timer on line number, -e flag to end flag on line number.
     int opt = getopt( argc, argv, "s:" );
     while ( opt != -1 ) {
-        interval intv = { 0 };
+        struct interval intv = { 0 };
         char *ptr = NULL;
 
         // It's easier for the user to enter line numbers. We will convert to zero indexed request.
-        intv.start_req = (int)strtol( optarg, &ptr, 10 ) - 1;
+        intv.start_req = (int)strtol( optarg, &ptr, base_10 ) - 1;
         if ( user_req.num_intervals && user_req.intervals[user_req.num_intervals - 1].end_req >= intv.start_req ) {
             printf( "Timing intervals can't overlap. Revisit script line ranges.\n" );
             printf( "Example of Bad Input Flags: -s 1 -e 5 -s 2\n" );
@@ -89,14 +90,14 @@ int main( int argc, char *argv[] )
         // Hide the end argument behind the start case to prevent ill formed args.
         opt = getopt( argc, argv, "e:" );
         if ( opt != -1 ) {
-            intv.end_req = (int)strtol( optarg, &ptr, 10 ) - 1;
+            intv.end_req = (int)strtol( optarg, &ptr, base_10 ) - 1;
         }
         user_req.intervals[user_req.num_intervals++] = intv;
         opt = getopt( argc, argv, "s:" );
     }
     // We will default to timing the entire script if the user does not enter arguments.
     if ( user_req.num_intervals == 0 ) {
-        user_req.intervals[user_req.num_intervals++] = ( interval ){ 0 };
+        user_req.intervals[user_req.num_intervals++] = ( struct interval ){ 0 };
     }
 
     if ( optind >= argc ) {
@@ -116,13 +117,14 @@ int main( int argc, char *argv[] )
 ///                        outputs the times for the lines and overall utilization.
 /// @param *script_name    the script we are tasked with timing.
 /// @param *user_requests  the struct containing user requests for timings and how many.
-static int time_script( char *script_name, interval_reqs *user_requests )
+static int time_script( char *script_name, struct interval_reqs *user_requests )
 {
-    script s = parse_script( script_name );
+    struct script s = parse_script( script_name );
     validate_intervals( &s, user_requests );
 
     // We will do some graphing with helpful info at the end of program execution.
-    gnuplots graphs = { .util_percents = NULL, .free_nodes = NULL, .request_times = NULL, .num_ops = s.num_ops };
+    struct gnuplots graphs
+        = { .util_percents = NULL, .free_nodes = NULL, .request_times = NULL, .num_ops = s.num_ops };
     graphs.free_nodes = malloc( sizeof( size_t ) * s.num_ops );
     assert( graphs.free_nodes );
     graphs.util_percents = malloc( sizeof( double ) * s.num_ops );
@@ -153,7 +155,7 @@ static int time_script( char *script_name, interval_reqs *user_requests )
 /// @param *user_requests  the struct containing user requested intervals and how many.
 /// @param *graphs         the struct containing arrays we will fill with execution info to plot.
 /// @return                the size of the heap overall.
-static size_t time_allocator( script *s, interval_reqs *user_requests, gnuplots *graphs )
+static size_t time_allocator( struct script *s, struct interval_reqs *user_requests, struct gnuplots *graphs )
 {
     init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
@@ -171,7 +173,7 @@ static size_t time_allocator( script *s, interval_reqs *user_requests, gnuplots 
         if ( current_interval < user_requests->num_intervals
              && user_requests->intervals[current_interval].start_req == req ) {
 
-            interval sect = user_requests->intervals[current_interval];
+            struct interval sect = user_requests->intervals[current_interval];
             double total_request_time = 0;
             // Increment the outer loops request variable--------v
             for ( int sc = sect.start_req; sc < sect.end_req; sc++, req++ ) {
@@ -182,7 +184,7 @@ static size_t time_allocator( script *s, interval_reqs *user_requests, gnuplots 
                 graphs->request_times[req] = request_time;
                 graphs->free_nodes[req] = get_free_total();
                 graphs->util_percents[req] = ( 100.0 * (double)s->peak_size )
-                                             / (double)( (byte *)heap_end - (byte *)heap_segment_start() );
+                                             / (double)( (uint8_t *)heap_end - (uint8_t *)heap_segment_start() );
             }
             printf( "Execution time for script lines %d-%d (milliseconds): %f\n", sect.start_req + 1,
                     sect.end_req + 1, total_request_time );
@@ -195,18 +197,18 @@ static size_t time_allocator( script *s, interval_reqs *user_requests, gnuplots 
 
             graphs->request_times[req] = request_time;
             graphs->free_nodes[req] = get_free_total();
-            graphs->util_percents[req]
-                = ( 100.0 * (double)s->peak_size ) / (double)( (byte *)heap_end - (byte *)heap_segment_start() );
+            graphs->util_percents[req] = ( 100.0 * (double)s->peak_size )
+                                         / (double)( (uint8_t *)heap_end - (uint8_t *)heap_segment_start() );
             req++;
         }
     }
-    return (byte *)heap_end - (byte *)heap_segment_start();
+    return (uint8_t *)heap_end - (uint8_t *)heap_segment_start();
 }
 
 /// @brief report_interval_averages  prints the average time per request for a user requested
 ///                                  interval of line numbers.
 /// @param *user_requests            a pointer to the struct containing user interval information.
-static void report_interval_averages( interval_reqs *user_requests )
+static void report_interval_averages( struct interval_reqs *user_requests )
 {
     for ( size_t i = 0; i < user_requests->num_intervals; i++ ) {
         printf( "Average time (milliseconds) per request lines %d-%d: %lf\n",
@@ -220,7 +222,7 @@ static void report_interval_averages( interval_reqs *user_requests )
 /// @param *script             the script_t passed in with information about the file we parsed.
 /// @param intervals[]         the array of lines to time for the user. Check all O(N).
 /// @param num_intervals       lenghth of the lines to time array.
-static void validate_intervals( script *s, interval_reqs *user_requests )
+static void validate_intervals( struct script *s, struct interval_reqs *user_requests )
 {
     // We can tidy up lazy user input by making sure the end of the time interval makes sense.
     for ( size_t req = 0; req < user_requests->num_intervals; req++ ) {
