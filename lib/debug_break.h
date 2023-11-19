@@ -6,7 +6,6 @@
 #define DEBUG_BREAK_H
 #include <signal.h>
 #include <stdio.h>
-#include <stdlib.h>
 
 /// @brief breakpoint  set this breakpoint on any line where you wish execution to stop. Under normal
 ///                    program runs the program will simply exit. If triggered in GDB execution will

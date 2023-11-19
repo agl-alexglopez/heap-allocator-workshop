@@ -9,6 +9,8 @@ Checks: >
    -fuchsia-default-arguments-calls,
    -fuchsia-default-arguments-declarations,
 
+WarningsAsErrors: "*"
+
 CheckOptions:
    - { key: hicpp-signed-bitwise.IgnorePositiveIntegerLiterals, value: true }
    - { key: readability-identifier-naming.FunctionCase, value: lower_case }
