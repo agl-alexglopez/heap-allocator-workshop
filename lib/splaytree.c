@@ -295,34 +295,38 @@ static void insert_node( struct node *current )
 static void splay( struct node *cur, struct node *path[], int path_len )
 {
     while ( path_len >= 3 && path[path_len - 2] != free_nodes.nil ) {
+        struct node *gparent = path[path_len - 3];
         struct node *parent = path[path_len - 2];
-        if ( path[path_len - 3] != free_nodes.nil ) {
+        if ( gparent != free_nodes.nil ) {
             rotate( parent->links[R] == cur, parent, path, path_len - 1 );
             --path_len;
             continue;
         }
-        struct node *gparent = path[path_len - 3];
         if ( cur == parent->links[L] && parent == gparent->links[L] ) {
             rotate( R, gparent, path, path_len - 2 );
+            --path_len;
             rotate( R, parent, path, path_len - 1 );
-            path_len -= 2;
+            --path_len;
             continue;
         }
         if ( cur == parent->links[R] && parent == gparent->links[R] ) {
             rotate( L, gparent, path, path_len - 2 );
+            --path_len;
             rotate( L, parent, path, path_len - 1 );
-            path_len -= 2;
+            --path_len;
             continue;
         }
         if ( cur == parent->links[R] && parent == gparent->links[L] ) {
             rotate( L, parent, path, path_len - 1 );
+            --path_len;
             rotate( R, parent, path, path_len - 1 );
-            path_len -= 2;
+            --path_len;
             continue;
         }
         rotate( R, parent, path, path_len - 1 );
+        --path_len;
         rotate( L, parent, path, path_len - 1 );
-        path_len -= 2;
+        --path_len;
     }
 }
 
