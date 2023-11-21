@@ -35,10 +35,10 @@ struct duplicate_node
     struct node *parent;
 };
 
-struct join_pair
+struct tree_pair
 {
-    struct node *a;
-    struct node *b;
+    struct node *lesser;
+    struct node *greater;
 };
 
 struct heap_range
@@ -59,25 +59,13 @@ struct size_total
     size_t total;
 };
 
-struct path_view
+struct path_slice
 {
     struct node **nodes;
     int len;
 };
 
-struct tree_split
-{
-    struct node *s;
-    struct node *t;
-};
-
 #define MAX_TREE_HEIGHT 64UL
-
-struct path
-{
-    struct node *nodes[MAX_TREE_HEIGHT];
-    int len;
-};
 
 #define SIZE_MASK ~0x7UL
 #define BLOCK_SIZE 40UL
@@ -126,12 +114,12 @@ static void remove_head( struct node *head, struct node *lft_child, struct node 
 static void *free_coalesced_node( void *to_coalesce );
 static struct node *find_best_fit( size_t key );
 static void insert_node( struct node *current );
-static void splay( struct node *cur, struct path_view p );
-static struct node *join( struct join_pair pair, struct path_view p );
-static struct tree_split split( struct node *x, struct path_view p );
+static void splay( struct node *cur, struct path_slice p );
+static struct node *join( struct tree_pair pair, struct path_slice p );
+static struct tree_pair split( struct node *x, struct path_slice p );
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent );
 static struct node *delete_duplicate( struct node *head );
-static void rotate( enum tree_link rotation, struct node *current, struct path_view p );
+static void rotate( enum tree_link rotation, struct node *current, struct path_slice p );
 static bool check_init( struct heap_range r, size_t heap_size );
 static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, struct size_total s );
 static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail );
@@ -431,11 +419,12 @@ static struct node *find_best_fit( size_t key )
     if ( remove->list_start != free_nodes.list_tail ) {
         return delete_duplicate( remove );
     }
-    struct tree_split ts = split( remove, ( struct path_view ){ path, len_to_best_fit } );
-    if ( ts.s->links[L] != free_nodes.nil ) {
-        ts.s->links[L]->list_start->parent = free_nodes.nil;
+    struct tree_pair lg = split( remove, ( struct path_slice ){ path, len_to_best_fit } );
+    if ( lg.lesser->links[L] != free_nodes.nil ) {
+        lg.lesser->links[L]->list_start->parent = free_nodes.nil;
     }
-    free_nodes.root = join( ( struct join_pair ){ ts.s->links[L], ts.t }, ( struct path_view ){ path, 1 } );
+    free_nodes.root
+        = join( ( struct tree_pair ){ lg.lesser->links[L], lg.greater }, ( struct path_slice ){ path, 1 } );
     --free_nodes.total;
     return remove;
 }
@@ -446,9 +435,7 @@ static struct node *find_best_fit( size_t key )
 static void insert_node( struct node *current )
 {
     size_t current_key = get_size( current->header );
-
     struct node *path[MAX_TREE_HEIGHT];
-    // This simplifies our insertion fixup logic later. See loop in the fixup function.
     path[0] = free_nodes.nil;
     int path_len = 1;
     struct node *seeker = free_nodes.root;
@@ -475,85 +462,88 @@ static void insert_node( struct node *current )
     // Store the doubly linked duplicates in list. list_tail aka nil is the dummy tail.
     current->list_start = free_nodes.list_tail;
     path[path_len++] = current;
-    splay( current, ( struct path_view ){ path, path_len } );
+    splay( current, ( struct path_slice ){ path, path_len } );
     ++free_nodes.total;
 }
 
-static struct node *join( struct join_pair pair, struct path_view p )
+/// @brief join  when joining, we have just splayed a node we wish to remove to the root of a tree, then split.
+///              We now must make a new root and join the two trees split trees. The smaller tree contains the
+///              maximum we will use. This maximum then takes the larger tree as its right child.
+static struct node *join( struct tree_pair pair, struct path_slice p )
 {
-    if ( pair.a == free_nodes.nil ) {
-        return pair.b;
+    if ( pair.lesser == free_nodes.nil ) {
+        return pair.greater;
     }
-    if ( pair.b == free_nodes.nil ) {
-        return pair.a;
+    if ( pair.greater == free_nodes.nil ) {
+        return pair.lesser;
     }
-    for ( struct node *seeker = pair.a; seeker != free_nodes.nil; seeker = seeker->links[R] ) {
+    for ( struct node *seeker = pair.lesser; seeker != free_nodes.nil; seeker = seeker->links[R] ) {
         p.nodes[p.len++] = seeker;
     }
-    struct node *max_x = p.nodes[p.len - 1];
-    splay( max_x, p );
-    max_x->links[R] = pair.b;
-    pair.b->list_start->parent = max_x;
-    return max_x;
+    struct node *max_lesser = p.nodes[p.len - 1];
+    splay( max_lesser, p );
+    max_lesser->links[R] = pair.greater;
+    pair.greater->list_start->parent = max_lesser;
+    return max_lesser;
 }
 
-static struct tree_split split( struct node *x, struct path_view p )
+static struct tree_pair split( struct node *x, struct path_slice p )
 {
     splay( x, p );
-    struct tree_split split = { x, free_nodes.nil };
+    struct tree_pair split = { x, free_nodes.nil };
     if ( x->links[R] != free_nodes.nil ) {
-        split.t = x->links[R];
-        split.t->list_start->parent = free_nodes.nil;
+        split.greater = x->links[R];
+        split.greater->list_start->parent = free_nodes.nil;
     }
-    split.s->links[R] = free_nodes.nil;
+    split.lesser->links[R] = free_nodes.nil;
     return split;
 }
 
-static void splay( struct node *cur, struct path_view p )
+static void splay( struct node *cur, struct path_slice p )
 {
     while ( p.len >= 3 && p.nodes[p.len - 2] != free_nodes.nil ) {
         struct node *gparent = p.nodes[p.len - 3];
         struct node *parent = p.nodes[p.len - 2];
         if ( gparent == free_nodes.nil ) {
             // Zig or Zag rotates in the opposite direction of the child relationship.
-            rotate( !( parent->links[R] == cur ), parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            rotate( !( parent->links[R] == cur ), parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
             p.nodes[p.len - 2] = cur;
             --p.len;
             continue;
         }
         if ( cur == parent->links[L] && parent == gparent->links[L] ) {
             // Zig-Zig branch
-            rotate( R, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            rotate( R, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = parent;
             p.nodes[p.len - 2] = cur;
-            rotate( R, parent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            rotate( R, parent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = cur;
             p.len -= 2;
             continue;
         }
         if ( cur == parent->links[R] && parent == gparent->links[R] ) {
             // Zag-Zag branch
-            rotate( L, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            rotate( L, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = parent;
             p.nodes[p.len - 2] = cur;
-            rotate( L, parent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            rotate( L, parent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = cur;
             p.len -= 2;
             continue;
         }
         if ( cur == parent->links[R] && parent == gparent->links[L] ) {
             // Zig-Zag branch
-            rotate( L, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            rotate( L, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
             p.nodes[p.len - 2] = cur;
-            rotate( R, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            rotate( R, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = cur;
             p.len -= 2;
             continue;
         }
         // Zag-Zig branch
-        rotate( R, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+        rotate( R, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
         p.nodes[p.len - 2] = cur;
-        rotate( L, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+        rotate( L, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
         p.nodes[p.len - 3] = cur;
         p.len -= 2;
     }
@@ -605,7 +595,7 @@ static struct node *delete_duplicate( struct node *head )
 /// @param *current  the node around which we will rotate.
 /// @param rotation  either left or right. Determines the rotation and its opposite direction.
 /// @warning         this function modifies the stack.
-static void rotate( enum tree_link rotation, struct node *current, struct path_view p )
+static void rotate( enum tree_link rotation, struct node *current, struct path_slice p )
 {
     if ( p.len < 2 ) {
         printf( "Path length is %d but request for path len %d - 2 was made.", p.len, p.len );
