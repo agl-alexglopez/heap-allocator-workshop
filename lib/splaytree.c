@@ -17,8 +17,8 @@ enum tree_link
 
 enum list_link
 {
-    N = 0,
-    P = 1
+    P = 0,
+    N = 1
 };
 
 struct node
@@ -487,14 +487,13 @@ static struct node *join( struct join_pair pair, struct path_view p )
     if ( pair.b == free_nodes.nil ) {
         return pair.a;
     }
-    struct node *max_x = pair.a;
-    p.nodes[p.len++] = max_x;
-    for ( ; max_x->links[R] != free_nodes.nil; max_x = max_x->links[R] ) {
-        p.nodes[p.len++] = max_x;
+    for ( struct node *seeker = pair.a; seeker != free_nodes.nil; seeker = seeker->links[R] ) {
+        p.nodes[p.len++] = seeker;
     }
+    struct node *max_x = p.nodes[p.len - 1];
     splay( max_x, p );
     max_x->links[R] = pair.b;
-    pair.b->list_start->parent = pair.a;
+    pair.b->list_start->parent = max_x;
     return max_x;
 }
 
