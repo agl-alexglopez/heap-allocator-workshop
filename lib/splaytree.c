@@ -1,11 +1,25 @@
 #include "allocator.h"
 #include "debug_break.h"
 #include "print_utility.h"
+#include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 typedef size_t header;
+
+enum tree_link
+{
+    L = 0,
+    R = 1
+};
+
+enum list_link
+{
+    N = 0,
+    P = 1
+};
 
 struct node
 {
@@ -21,16 +35,54 @@ struct duplicate_node
     struct node *parent;
 };
 
-enum tree_link
+struct join_pair
 {
-    L = 0,
-    R = 1
+    struct node *a;
+    struct node *b;
 };
 
-enum list_link
+struct heap_range
 {
-    N = 0,
-    P = 1
+    void *start;
+    void *end;
+};
+
+struct bad_jump
+{
+    struct node *prev;
+    struct node *root;
+};
+
+struct size_total
+{
+    size_t size;
+    size_t total;
+};
+
+struct path_view
+{
+    struct node **nodes;
+    int len;
+};
+
+struct tree_split
+{
+    struct node *s;
+    struct node *t;
+};
+
+struct parent_child
+{
+    struct node *parent;
+    struct node *child;
+};
+
+#define MAX_TREE_HEIGHT 64UL
+
+struct path
+{
+    struct node *nodes[MAX_TREE_HEIGHT];
+    int len;
 };
 
 #define SIZE_MASK ~0x7UL
@@ -40,7 +92,6 @@ enum list_link
 #define ALLOCATED 0x1UL
 #define LEFT_ALLOCATED 0x2UL
 #define HEAP_NODE_WIDTH 32UL
-#define MAX_TREE_HEIGHT 64UL
 #define LEFT_FREE ~0x2UL
 
 // NOLINTBEGIN(*-non-const-global-variables)
@@ -66,7 +117,6 @@ static struct heap
 
 static size_t roundup( size_t requested_size, size_t multiple );
 static size_t get_size( header header_val );
-static struct node *get_min( struct node *root, struct node *nil, struct node *path[], int *path_len );
 static bool is_block_allocated( header block_header );
 static bool is_left_space( const struct node *node );
 static void init_header_size( struct node *node, size_t payload );
@@ -82,8 +132,18 @@ static void remove_head( struct node *head, struct node *lft_child, struct node 
 static void *free_coalesced_node( void *to_coalesce );
 static struct node *find_best_fit( size_t key );
 static void insert_node( struct node *current );
-static void splay( struct node *x, struct node *path[], int path_len );
-static void rotate( enum tree_link rotation, struct node *current, struct node *path[], int path_len );
+static struct parent_child splay( struct node *root, size_t size );
+static void add_duplicate( struct parent_child pc, struct duplicate_node *add );
+static struct node *delete_duplicate( struct node *head );
+static bool check_init( struct heap_range r, size_t heap_size );
+static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, struct size_total s );
+static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail );
+static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail, size_t total_free_mem );
+static bool is_binary_tree( const struct node *root, const struct node *nil );
+static bool is_duplicate_storing_parent( const struct node *parent, const struct node *root,
+                                         const void *nil_and_tail );
+static void print_tree( const struct node *root, const void *nil_and_tail, enum print_style style );
+static void print_all( struct heap_range r, size_t heap_size, struct node *tree_root, struct node *nil );
 
 ///////////////////////////////   Shared Heap Functions   ////////////////////////////////
 
@@ -115,29 +175,95 @@ bool myinit( void *heap_start, size_t heap_size )
 
 void *mymalloc( size_t requested_size )
 {
-    (void)requested_size;
-    UNIMPLEMENTED();
+    if ( requested_size == 0 || requested_size > MAX_REQUEST_SIZE ) {
+        return NULL;
+    }
+    size_t client_request = roundup( requested_size + HEAP_NODE_WIDTH, ALIGNMENT );
+    // Search the tree for the best possible fitting node.
+    struct node *found_node = find_best_fit( client_request );
+    return split_alloc( found_node, client_request, get_size( found_node->header ) );
 }
 
 void *myrealloc( void *old_ptr, size_t new_size )
 {
-    (void)old_ptr;
-    (void)new_size;
-    UNIMPLEMENTED();
+    if ( new_size > MAX_REQUEST_SIZE ) {
+        return NULL;
+    }
+    if ( old_ptr == NULL ) {
+        return mymalloc( new_size );
+    }
+    if ( new_size == 0 ) {
+        myfree( old_ptr );
+        return NULL;
+    }
+    size_t request = roundup( new_size + HEAP_NODE_WIDTH, ALIGNMENT );
+    struct node *old_node = get_node( old_ptr );
+    size_t old_size = get_size( old_node->header );
+
+    struct node *leftmost_node = coalesce( old_node );
+    size_t coalesced_space = get_size( leftmost_node->header );
+    void *client_space = get_client_space( leftmost_node );
+
+    if ( coalesced_space >= request ) {
+        if ( leftmost_node != old_node ) {
+            memmove( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
+        }
+        return split_alloc( leftmost_node, request, coalesced_space );
+    }
+    client_space = mymalloc( request );
+    if ( client_space ) {
+        memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
+        init_free_node( leftmost_node, coalesced_space );
+    }
+    return client_space;
 }
 
 void myfree( void *ptr )
 {
-    (void)ptr;
-    UNIMPLEMENTED();
+    if ( ptr == NULL ) {
+        return;
+    }
+    struct node *to_insert = get_node( ptr );
+    to_insert = coalesce( to_insert );
+    init_free_node( to_insert, get_size( to_insert->header ) );
 }
 
-bool validate_heap( void ) { UNIMPLEMENTED(); }
+bool validate_heap( void )
+{
+
+    if ( !check_init( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
+        return false;
+    }
+    // Check that after checking all headers we end on size 0 tail and then end of address space.
+    size_t total_free_mem = 0;
+    if ( !is_memory_balanced( &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
+                              ( struct size_total ){ heap.heap_size, free_nodes.total } ) ) {
+        return false;
+    }
+    // Does a tree search for all memory match the linear heap search for totals?
+    if ( !is_tree_mem_valid( free_nodes.root, free_nodes.nil, total_free_mem ) ) {
+        return false;
+    }
+    if ( !is_binary_tree( free_nodes.root, free_nodes.nil ) ) {
+        return false;
+    }
+    if ( !is_duplicate_storing_parent( free_nodes.nil, free_nodes.root, free_nodes.nil ) ) {
+        return false;
+    }
+    return true;
+}
 
 void print_free_nodes( enum print_style style )
 {
-    (void)style;
-    UNIMPLEMENTED();
+    printf( COLOR_CYN "(+X)" COLOR_NIL );
+    printf( " Indicates duplicate nodes in the tree linked by a doubly-linked list.\n" );
+    print_tree( free_nodes.root, free_nodes.nil, style );
+}
+
+void dump_heap( void )
+{
+    print_all( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, free_nodes.root,
+               free_nodes.nil );
 }
 
 /////////////////////    Static Heap Helper Functions    //////////////////////////////////
@@ -188,7 +314,7 @@ static struct node *coalesce( struct node *leftmost_node )
     size_t coalesced_space = get_size( leftmost_node->header );
     struct node *rightmost_node = get_right_neighbor( leftmost_node, coalesced_space );
 
-    // The black_nil is the right boundary. We set it to always be allocated with size 0.
+    // The nil is the right boundary. We set it to always be allocated with size 0.
     if ( !is_block_allocated( rightmost_node->header ) ) {
         coalesced_space += get_size( rightmost_node->header ) + HEADERSIZE;
         (void)free_coalesced_node( rightmost_node );
@@ -223,7 +349,7 @@ static void remove_head( struct node *head, struct node *lft_child, struct node 
     new_tree_node->links[L] = lft_child;
     new_tree_node->links[R] = rgt_child;
 
-    // We often write to fields of the black_nil, invariant. DO NOT use the nodes it stores!
+    // We often write to fields of the nil, invariant. DO NOT use the nodes it stores!
     if ( lft_child != free_nodes.nil ) {
         lft_child->list_start->parent = new_tree_node;
     }
@@ -279,8 +405,22 @@ static void *free_coalesced_node( void *to_coalesce )
 /// @return               the pointer to the struct node that is the best fit for our need.
 static struct node *find_best_fit( size_t key )
 {
-    (void)key;
-    UNIMPLEMENTED();
+    struct parent_child found = splay( free_nodes.root, key );
+    if ( found.child == free_nodes.nil ) {
+        return free_nodes.nil;
+    }
+    if ( found.child->list_start != free_nodes.list_tail ) {
+        return delete_duplicate( found.child );
+    }
+    // struct node *to_return = found;
+    // if ( found.child->links[L] == free_nodes.nil ) {
+    //     to_return = found.child->links[R];
+    // } else {
+    //     to_return = splay( found.child->links[L], key ).child;
+    //     to_return->links[R] = found.child->links[R];
+    // }
+    --free_nodes.total;
+    return found.child;
 }
 
 /// @brief insert_node  a modified insertion with additional logic to add duplicates if the
@@ -288,80 +428,129 @@ static struct node *find_best_fit( size_t key )
 /// @param *current     we must insert to tree or add to a list as duplicate.
 static void insert_node( struct node *current )
 {
-    (void)current;
-    UNIMPLEMENTED();
-}
-
-static void splay( struct node *cur, struct node *path[], int path_len )
-{
-    while ( path_len >= 3 && path[path_len - 2] != free_nodes.nil ) {
-        struct node *gparent = path[path_len - 3];
-        struct node *parent = path[path_len - 2];
-        if ( gparent != free_nodes.nil ) {
-            rotate( parent->links[R] == cur, parent, path, path_len - 1 );
-            --path_len;
-            continue;
-        }
-        if ( cur == parent->links[L] && parent == gparent->links[L] ) {
-            rotate( R, gparent, path, path_len - 2 );
-            --path_len;
-            rotate( R, parent, path, path_len - 1 );
-            --path_len;
-            continue;
-        }
-        if ( cur == parent->links[R] && parent == gparent->links[R] ) {
-            rotate( L, gparent, path, path_len - 2 );
-            --path_len;
-            rotate( L, parent, path, path_len - 1 );
-            --path_len;
-            continue;
-        }
-        if ( cur == parent->links[R] && parent == gparent->links[L] ) {
-            rotate( L, parent, path, path_len - 1 );
-            --path_len;
-            rotate( R, parent, path, path_len - 1 );
-            --path_len;
-            continue;
-        }
-        rotate( R, parent, path, path_len - 1 );
-        --path_len;
-        rotate( L, parent, path, path_len - 1 );
-        --path_len;
+    size_t current_key = get_size( current->header );
+    if ( free_nodes.root == free_nodes.nil ) {
+        current->links[L] = free_nodes.nil;
+        current->links[R] = free_nodes.nil;
+        free_nodes.total = 1;
+        return;
     }
-}
-
-/// @brief rotate    a unified version of the traditional left and right rotation functions. The
-///                  rotation is either left or right and opposite is its opposite direction. We
-///                  take the current nodes child, and swap them and their arbitrary subtrees are
-///                  re-linked correctly depending on the direction of the rotation.
-/// @param *current  the node around which we will rotate.
-/// @param rotation  either left or right. Determines the rotation and its opposite direction.
-/// @warning         this function modifies the stack.
-static void rotate( enum tree_link rotation, struct node *current, struct node *path[], int path_len )
-{
-    if ( path_len < 2 ) {
-        printf( "Path length is %d but request for path len %d - 2 was made.", path_len, path_len );
-        abort();
+    struct parent_child found = splay( free_nodes.root, current_key );
+    size_t found_size = get_size( found.child->header );
+    if ( current_key == found_size ) {
+        add_duplicate( found, (struct duplicate_node *)current );
+        return;
     }
-    struct node *parent = path[path_len - 2];
-    struct node *child = current->links[!rotation];
-    current->links[!rotation] = child->links[rotation];
-    if ( child->links[rotation] != free_nodes.nil ) {
-        child->links[rotation]->list_start->parent = current;
-    }
-    if ( child != free_nodes.nil ) {
-        child->list_start->parent = parent;
-    }
-    if ( parent == free_nodes.nil ) {
-        free_nodes.root = child;
+    if ( current_key < found_size ) {
+        current->links[L] = found.child->links[L];
+        current->links[R] = found.child;
+        found.child->links[L] = free_nodes.nil;
     } else {
-        parent->links[parent->links[R] == current] = child;
+        current->links[R] = found.child->links[R];
+        current->links[L] = found.child;
+        found.child->links[R] = free_nodes.nil;
     }
-    child->links[rotation] = current;
-    current->list_start->parent = child;
-    // Make sure to adjust lineage due to rotation for the path.
-    path[path_len - 1] = child;
-    path[path_len] = current;
+    ++free_nodes.total;
+}
+
+static struct parent_child splay( struct node *root, size_t size ) // NOLINT (*cognitive-complexity)
+{
+    struct node new_tree;
+    struct node *left = free_nodes.nil;
+    struct node *right = free_nodes.nil;
+    struct node *finger = free_nodes.nil;
+    if ( root == free_nodes.nil ) {
+        return ( struct parent_child ){ free_nodes.nil, free_nodes.nil };
+    }
+    new_tree.links[L] = free_nodes.nil;
+    new_tree.links[R] = free_nodes.nil;
+    left = &new_tree;
+    right = &new_tree;
+
+    struct node *parent = free_nodes.nil;
+    for ( ;; ) {
+        if ( size < get_size( root->header ) ) {
+            if ( root->links[L] == free_nodes.nil ) {
+                break;
+            }
+            if ( size < get_size( root->links[L]->header ) ) {
+                finger = root->links[L]; /* rotate right */
+                root->links[L] = finger->links[R];
+                finger->links[R] = root;
+                parent = root;
+                root = finger;
+                if ( root->links[L] == free_nodes.nil ) {
+                    break;
+                }
+            }
+            right->links[L] = root; /* link right */
+            right = root;
+            parent = root;
+            root = root->links[L];
+        } else if ( size > get_size( root->header ) ) {
+            if ( root->links[R] == free_nodes.nil ) {
+                break;
+            }
+            if ( size > get_size( root->links[R]->header ) ) {
+                finger = root->links[R]; /* rotate left */
+                root->links[R] = finger->links[L];
+                finger->links[L] = root;
+                parent = root;
+                root = finger;
+                if ( root->links[R] == free_nodes.nil ) {
+                    break;
+                }
+            }
+            left->links[R] = root; /* link left */
+            left = root;
+            parent = root;
+            root = root->links[R];
+        } else {
+            break;
+        }
+    }
+    left->links[R] = root->links[L]; /* assemble */
+    right->links[L] = root->links[R];
+    root->links[L] = new_tree.links[R];
+    root->links[R] = new_tree.links[L];
+    return ( struct parent_child ){ parent, root };
+}
+
+/// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
+///                       rotation of duplicates in the tree. This adds the duplicate node to the
+///                       linked list of the node already present.
+static void add_duplicate( struct parent_child pc, struct duplicate_node *add )
+{
+    add->header = pc.child->header;
+    // The first node in the list can store the tree nodes parent for faster coalescing later.
+    if ( pc.child->list_start == free_nodes.list_tail ) {
+        add->parent = pc.parent;
+    } else {
+        add->parent = pc.child->list_start->parent;
+        pc.child->list_start->parent = NULL;
+    }
+    // Get the first next node in the doubly linked list, invariant and correct its left field.
+    pc.child->list_start->links[P] = add;
+    add->links[N] = pc.child->list_start;
+    pc.child->list_start = add;
+    add->links[P] = (struct duplicate_node *)pc.child;
+    ++free_nodes.total;
+}
+
+/// @brief delete_duplicate  will remove a duplicate node from the tree when the request is coming
+///                          from a call from malloc. Address of duplicate does not matter so we
+///                          remove the first node from the linked list.
+/// @param *head             We know this node has a next node and it must be removed for malloc.
+static struct node *delete_duplicate( struct node *head )
+{
+    struct duplicate_node *next_node = head->list_start;
+    /// Take care of the possible node to the right in the doubly linked list first. This could be
+    /// another node or it could be free_nodes.list_tail, it does not matter either way.
+    next_node->links[N]->parent = next_node->parent;
+    next_node->links[N]->links[P] = (struct duplicate_node *)head;
+    head->list_start = next_node->links[N];
+    --free_nodes.total;
+    return (struct node *)next_node;
 }
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
@@ -379,21 +568,6 @@ static inline size_t roundup( size_t requested_size, size_t multiple )
 /// @param header_val  the value of the node in question passed by value.
 /// @return            the size in bytes as a size_t of the node.
 static inline size_t get_size( header header_val ) { return SIZE_MASK & header_val; }
-
-/// @brief get_min     returns the smallest node in a valid binary search tree.
-/// @param *root       the root of any valid binary search tree.
-/// @param *black_nil  the sentinel node sitting at the bottom of the tree. It is always black.
-/// @param *path[]     the stack we are using to track tree lineage and rotations.
-/// @param *path_len   the length of the path we update as we get the tree minimum.
-/// @return            a pointer to the minimum node in a valid binary search tree.
-static inline struct node *get_min( struct node *root, struct node *nil, struct node *path[], int *path_len )
-{
-    for ( ; root->links[L] != nil; root = root->links[L] ) {
-        path[( *path_len )++] = root;
-    }
-    path[( *path_len )++] = root;
-    return root;
-}
 
 /// @brief is_block_allocated  determines if a node is allocated or free.
 /// @param block_header        the header value of a node passed by value.
@@ -456,3 +630,354 @@ static inline struct node *get_node( const void *client_space )
 {
     return (struct node *)( (uint8_t *)client_space - HEADERSIZE );
 }
+/////////////////////////////    Debugging and Testing Functions   //////////////////////////////////
+
+// NOLINTBEGIN(misc-no-recursion)
+
+/// @breif check_init    checks the internal representation of our heap, especially the head and tail
+///                      nodes for any issues that would ruin our algorithms.
+/// @param hr            start and end of the heap
+/// @param heap_size     the total size in bytes of the heap.
+/// @return              true if everything is in order otherwise false.
+static bool check_init( struct heap_range r, size_t heap_size )
+{
+    if ( is_left_space( r.start ) ) {
+        BREAKPOINT();
+        return false;
+    }
+    if ( (uint8_t *)r.end - (uint8_t *)r.start + HEAP_NODE_WIDTH != heap_size ) {
+        BREAKPOINT();
+        return false;
+    }
+    return true;
+}
+
+/// @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
+///                            reported match the global bookeeping in our struct.
+/// @param hr                  start and end of the heap
+/// @param s                   size of the heap memory and total free nodes.
+/// @return                    true if our tallying is correct and our totals match.
+static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, struct size_total s )
+{
+    // Check that after checking all headers we end on size 0 tail and then end of
+    // address space.
+    struct node *cur_node = r.start;
+    size_t size_used = HEAP_NODE_WIDTH;
+    size_t total_free_nodes = 0;
+    while ( cur_node != r.end ) {
+        size_t block_size_check = get_size( cur_node->header );
+        if ( block_size_check == 0 ) {
+            BREAKPOINT();
+            return false;
+        }
+
+        if ( is_block_allocated( cur_node->header ) ) {
+            size_used += block_size_check + HEADERSIZE;
+        } else {
+            total_free_nodes++;
+            *total_free_mem += block_size_check + HEADERSIZE;
+        }
+        cur_node = get_right_neighbor( cur_node, block_size_check );
+    }
+    if ( size_used + *total_free_mem != s.size ) {
+        BREAKPOINT();
+        return false;
+    }
+    if ( total_free_nodes != s.total ) {
+        BREAKPOINT();
+        return false;
+    }
+    return true;
+}
+
+/// @brief extract_tree_mem  sums the total memory in the red black tree to see if it matches
+///                          the total memory we got from traversing blocks of the heap.
+/// @param *root             the root to start at for the summing recursive search.
+/// @param *nil_and_tail     the address of a sentinel node serving as both list tail and black nil.
+/// @return                  the total memory in bytes as a size_t in the red black tree.
+static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail )
+{
+    if ( root == nil_and_tail ) {
+        return 0UL;
+    }
+    size_t total_mem = get_size( root->header ) + HEADERSIZE;
+    for ( struct duplicate_node *tally_list = root->list_start; tally_list != nil_and_tail;
+          tally_list = tally_list->links[N] ) {
+        total_mem += get_size( tally_list->header ) + HEADERSIZE;
+    }
+    return total_mem + extract_tree_mem( root->links[R], nil_and_tail )
+           + extract_tree_mem( root->links[L], nil_and_tail );
+}
+
+/// @brief is_rbtree_mem_valid  a wrapper for tree memory sum function used to check correctness.
+/// @param *root                the root node to begin at for the recursive summing search.
+/// @param *nil_and_tail        address of a sentinel node serving as both list tail and black nil.
+/// @param total_free_mem       the total free memory collected from a linear heap search.
+/// @return                     true if the totals match false if they do not.
+static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail, size_t total_free_mem )
+{
+    if ( total_free_mem != extract_tree_mem( root, nil_and_tail ) ) {
+        BREAKPOINT();
+        return false;
+    }
+    return true;
+}
+
+/// @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left
+///                        should be less than the root and nodes to the right should be greater.
+/// @param *root           the root of the tree from which we examine children.
+/// @param *nil      the sentinel node at the bottom of the tree that is always black.
+/// @return                true if the tree is valid, false if not.
+static bool is_binary_tree( const struct node *root, const struct node *nil )
+{
+    if ( root == nil ) {
+        return true;
+    }
+    size_t root_value = get_size( root->header );
+    if ( root->links[L] != nil && root_value < get_size( root->links[L]->header ) ) {
+        BREAKPOINT();
+        return false;
+    }
+    if ( root->links[R] != nil && root_value > get_size( root->links[R]->header ) ) {
+        BREAKPOINT();
+        return false;
+    }
+    return is_binary_tree( root->links[L], nil ) && is_binary_tree( root->links[R], nil );
+}
+
+/// @brief is_parent_valid  for duplicate node operations it is important to check the parents
+///                         and fields are updated corectly so we can continue using the tree.
+/// @param *parent          the parent of the current root.
+/// @param *root            the root to start at for the recursive search.
+/// @param *nil_and_tail    address of a sentinel node serving as both list tail and black nil.
+/// @return                 true if all parent child relationships are correct.
+static bool is_duplicate_storing_parent( const struct node *parent, const struct node *root,
+                                         const void *nil_and_tail )
+{
+    if ( root == nil_and_tail ) {
+        return true;
+    }
+    if ( root->list_start != nil_and_tail && root->list_start->parent != parent ) {
+        BREAKPOINT();
+        return false;
+    }
+    return is_duplicate_storing_parent( root, root->links[L], nil_and_tail )
+           && is_duplicate_storing_parent( root, root->links[R], nil_and_tail );
+}
+
+/////////////////////////////        Printing Functions            //////////////////////////////////
+
+/// @brief print_node     prints an individual node in its color and status as left or right child.
+/// @param *root          the root we will print with the appropriate info.
+/// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
+/// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
+static void print_node( const struct node *root, const void *nil_and_tail, enum print_style style )
+{
+    size_t block_size = get_size( root->header );
+    if ( style == VERBOSE ) {
+        printf( "%p:", root );
+    }
+    printf( "(%zubytes)", block_size );
+    printf( COLOR_CYN );
+    // If a node is a duplicate, we will give it a special mark among nodes.
+    if ( root->list_start != nil_and_tail ) {
+        int duplicates = 1;
+        struct duplicate_node *duplicate = root->list_start;
+        for ( ; ( duplicate = duplicate->links[N] ) != nil_and_tail; duplicates++ ) {}
+        printf( "(+%d)", duplicates );
+    }
+    printf( COLOR_NIL );
+    printf( "\n" );
+}
+
+/// @brief print_inner_tree  recursively prints the contents of a red black tree with color
+///                          and in a style similar to a directory structure to be read from
+///                          left to right.
+/// @param *root             the root node to start at.
+/// @param *nil_and_tail     address of a sentinel node serving as both list tail and black nil.
+/// @param *prefix           the string we print spacing and characters across recursive calls.
+/// @param node_type         the node to print can either be a leaf or internal branch.
+/// @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
+static void print_inner_tree( const struct node *root, const void *nil_and_tail, const char *prefix,
+                              const enum print_link node_type, const enum tree_link dir, enum print_style style )
+{
+    if ( root == nil_and_tail ) {
+        return;
+    }
+    printf( "%s", prefix );
+    printf( "%s", node_type == LEAF ? " └──" : " ├──" );
+    printf( COLOR_CYN );
+    dir == L ? printf( "L:" ) : printf( "R:" );
+    printf( COLOR_NIL );
+    print_node( root, nil_and_tail, style );
+
+    char *str = NULL;
+    int string_length = snprintf( NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
+    if ( string_length > 0 ) {
+        str = malloc( string_length + 1 );
+        (void)snprintf( str, string_length, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
+    }
+    if ( str != NULL ) {
+        if ( root->links[R] == nil_and_tail ) {
+            print_inner_tree( root->links[L], nil_and_tail, str, LEAF, L, style );
+        } else if ( root->links[L] == nil_and_tail ) {
+            print_inner_tree( root->links[R], nil_and_tail, str, LEAF, R, style );
+        } else {
+            print_inner_tree( root->links[R], nil_and_tail, str, BRANCH, R, style );
+            print_inner_tree( root->links[L], nil_and_tail, str, LEAF, L, style );
+        }
+    } else {
+        printf( COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL );
+    }
+    free( str );
+}
+
+/// @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
+/// @param *root          the root node to begin at for printing recursively.
+/// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
+/// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
+static void print_tree( const struct node *root, const void *nil_and_tail, enum print_style style )
+{
+    if ( root == nil_and_tail ) {
+        return;
+    }
+    printf( " " );
+    print_node( root, nil_and_tail, style );
+
+    if ( root->links[R] == nil_and_tail ) {
+        print_inner_tree( root->links[L], nil_and_tail, "", LEAF, L, style );
+    } else if ( root->links[L] == nil_and_tail ) {
+        print_inner_tree( root->links[R], nil_and_tail, "", LEAF, R, style );
+    } else {
+        print_inner_tree( root->links[R], nil_and_tail, "", BRANCH, R, style );
+        print_inner_tree( root->links[L], nil_and_tail, "", LEAF, L, style );
+    }
+}
+
+/// @brief print_alloc_block  prints the contents of an allocated block of memory.
+/// @param *node              a valid struct node to a block of allocated memory.
+static void print_alloc_block( const struct node *node )
+{
+    size_t block_size = get_size( node->header );
+    // We will see from what direction our header is messed up by printing 16
+    // digits.
+    printf( COLOR_GRN "%p: HDR->0x%016zX(%zubytes)\n" COLOR_NIL, node, node->header, block_size );
+}
+
+/// @brief print_free_block  prints the contents of a free block of heap memory.
+/// @param *node             a valid header to a block of allocated memory.
+static void print_free_block( const struct node *node )
+{
+    size_t block_size = get_size( node->header );
+    header *footer = (header *)( (uint8_t *)node + block_size );
+    // We should be able to see the header is the same as the footer. However, due
+    // to fixup functions, the color may change for nodes and color is irrelevant to footers.
+    header to_print = *footer;
+    if ( get_size( *footer ) != get_size( node->header ) ) {
+        to_print = ULLONG_MAX;
+    }
+    short indent_struct_fields = PRINTER_INDENT;
+    printf( "%p: HDR->0x%016zX(%zubytes)\n", node, node->header, block_size );
+    printf( "%*c", indent_struct_fields, ' ' );
+    if ( node->links[L] ) {
+        printf( "LFT->%p\n", node->links[L] );
+    } else {
+        printf( "LFT->%p\n", NULL );
+    }
+    printf( COLOR_NIL );
+    printf( "%*c", indent_struct_fields, ' ' );
+    if ( node->links[R] ) {
+        printf( "RGT->%p\n", node->links[R] );
+    } else {
+        printf( "RGT->%p\n", NULL );
+    }
+    printf( "%*c", indent_struct_fields, ' ' );
+    printf( "LST->%p\n", node->list_start ? node->list_start : NULL );
+    printf( "%*c", indent_struct_fields, ' ' );
+    printf( "FTR->0x%016zX\n", to_print );
+}
+
+/// @brief print_error_block  prints a helpful error message if a block is corrupted.
+/// @param *header            a header to a block of memory.
+/// @param full_size          the full size of a block of memory, not just the user block size.
+static void print_error_block( const struct node *node, size_t block_size )
+{
+    printf( "\n%p: HDR->0x%016zX->%zubyts\n", node, node->header, block_size );
+    printf( "Block size is too large and header is corrupted.\n" );
+}
+
+/// @brief print_bad_jump  If we overwrite data in a header, this print statement will help
+///                        us notice where we went wrong and what the addresses were.
+/// @param *current        the current node that is likely garbage values that don't make sense.
+/// @param *prev           the previous node that we jumped from.
+/// @param *root           the root node to begin at for printing recursively.
+/// @param *nil_and_tail   address of a sentinel node serving as both list tail and black nil.
+static void print_bad_jump( const struct node *current, struct bad_jump j, const void *nil_and_tail )
+{
+    size_t prev_size = get_size( j.prev->header );
+    size_t cur_size = get_size( current->header );
+    printf( "A bad jump from the value of a header has occured. Bad distance to "
+            "next header.\n" );
+    printf( "The previous address: %p:\n", j.prev );
+    printf( "\tHeader Hex Value: %016zX:\n", j.prev->header );
+    printf( "\tBlock Byte Value: %zubytes:\n", prev_size );
+    printf( "\nJump by %zubytes...\n", prev_size );
+    printf( "The current address: %p:\n", current );
+    printf( "\tHeader Hex Value: 0x%016zX:\n", current->header );
+    printf( "\tBlock Byte Value: %zubytes:\n", cur_size );
+    printf( "\nJump by %zubytes...\n", cur_size );
+    printf( "Current state of the free tree:\n" );
+    print_tree( j.root, nil_and_tail, VERBOSE );
+}
+
+/// @brief print_all    prints our the complete status of the heap, all of its blocks, and
+///                     the sizes the blocks occupy. Printing should be clean with no overlap
+///                     of unique id's between heap blocks or corrupted headers.
+/// @param hr           start and end of the heap
+/// @param heap_size    the size in bytes of the
+/// @param *root        the root of the tree we start at for printing.
+/// @param *nil   the sentinel node that waits at the bottom of the tree for all leaves.
+static void print_all( struct heap_range r, size_t heap_size, struct node *tree_root, struct node *nil )
+{
+    struct node *node = r.start;
+    printf( "Heap client segment starts at address %p, ends %p. %zu total bytes "
+            "currently used.\n",
+            node, r.end, heap_size );
+    printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
+    printf( "COLOR KEY: " COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
+
+    printf( "%p: START OF  HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", r.start );
+    struct node *prev = node;
+    while ( node != r.end ) {
+        size_t full_size = get_size( node->header );
+
+        if ( full_size == 0 ) {
+            print_bad_jump( node, ( struct bad_jump ){ prev, tree_root }, nil );
+            printf( "Last known pointer before jump: %p", prev );
+            return;
+        }
+        if ( (void *)node > r.end ) {
+            print_error_block( node, full_size );
+            return;
+        }
+        if ( is_block_allocated( node->header ) ) {
+            print_alloc_block( node );
+        } else {
+            print_free_block( node );
+        }
+        prev = node;
+        node = get_right_neighbor( node, full_size );
+    }
+    printf( "%p: NIL HDR->0x%016zX\n", nil, nil->header );
+    printf( "%p: FINAL ADDRESS", (uint8_t *)r.end + HEAP_NODE_WIDTH );
+    printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
+    printf( "COLOR KEY: " COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
+
+    printf( "\nSPLAY TREE OF FREE NODES AND BLOCK SIZES.\n" );
+    printf( "HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n" );
+    printf( COLOR_CYN "(+X)" COLOR_NIL );
+    printf( " INDICATES DUPLICATE NODES IN THE TREE. THEY HAVE A N NODE.\n" );
+    print_tree( tree_root, nil, VERBOSE );
+}
+
+// NOLINTEND(misc-no-recursion)
