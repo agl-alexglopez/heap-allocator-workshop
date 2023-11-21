@@ -71,12 +71,6 @@ struct tree_split
     struct node *t;
 };
 
-struct parent_child
-{
-    struct node *parent;
-    struct node *child;
-};
-
 #define MAX_TREE_HEIGHT 64UL
 
 struct path
@@ -132,9 +126,12 @@ static void remove_head( struct node *head, struct node *lft_child, struct node 
 static void *free_coalesced_node( void *to_coalesce );
 static struct node *find_best_fit( size_t key );
 static void insert_node( struct node *current );
-static struct parent_child splay( struct node *root, size_t size );
-static void add_duplicate( struct parent_child pc, struct duplicate_node *add );
+static void splay( struct node *cur, struct path_view p );
+static struct node *join( struct join_pair pair, struct path_view p );
+static struct tree_split split( struct node *x, struct path_view p );
+static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent );
 static struct node *delete_duplicate( struct node *head );
+static void rotate( enum tree_link rotation, struct node *current, struct path_view p );
 static bool check_init( struct heap_range r, size_t heap_size );
 static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, struct size_total s );
 static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail );
@@ -405,22 +402,42 @@ static void *free_coalesced_node( void *to_coalesce )
 /// @return               the pointer to the struct node that is the best fit for our need.
 static struct node *find_best_fit( size_t key )
 {
-    struct parent_child found = splay( free_nodes.root, key );
-    if ( found.child == free_nodes.nil ) {
-        return free_nodes.nil;
+    struct node *path[MAX_TREE_HEIGHT];
+    path[0] = free_nodes.nil;
+    int path_len = 1;
+    int len_to_best_fit = 1;
+
+    struct node *seeker = free_nodes.root;
+    size_t best_fit_size = ULLONG_MAX;
+    struct node *remove = seeker;
+    while ( seeker != free_nodes.nil ) {
+        size_t seeker_size = get_size( seeker->header );
+        path[path_len++] = seeker;
+        if ( key == seeker_size ) {
+            remove = seeker;
+            len_to_best_fit = path_len;
+            break;
+        }
+        enum tree_link search_direction = seeker_size < key;
+        /// The key is less than the current found size but let's remember this size on the way down
+        /// as a candidate for the best fit. The closest fit will have won when we reach the bottom.
+        if ( search_direction == L && seeker_size < best_fit_size ) {
+            remove = seeker;
+            best_fit_size = seeker_size;
+            len_to_best_fit = path_len;
+        }
+        seeker = seeker->links[search_direction];
     }
-    if ( found.child->list_start != free_nodes.list_tail ) {
-        return delete_duplicate( found.child );
+    if ( remove->list_start != free_nodes.list_tail ) {
+        return delete_duplicate( remove );
     }
-    // struct node *to_return = found;
-    // if ( found.child->links[L] == free_nodes.nil ) {
-    //     to_return = found.child->links[R];
-    // } else {
-    //     to_return = splay( found.child->links[L], key ).child;
-    //     to_return->links[R] = found.child->links[R];
-    // }
+    struct tree_split ts = split( remove, ( struct path_view ){ path, len_to_best_fit } );
+    if ( ts.s->links[L] != free_nodes.nil ) {
+        ts.s->links[L]->list_start->parent = free_nodes.nil;
+    }
+    free_nodes.root = join( ( struct join_pair ){ ts.s->links[L], ts.t }, ( struct path_view ){ path, 1 } );
     --free_nodes.total;
-    return found.child;
+    return remove;
 }
 
 /// @brief insert_node  a modified insertion with additional logic to add duplicates if the
@@ -429,111 +446,129 @@ static struct node *find_best_fit( size_t key )
 static void insert_node( struct node *current )
 {
     size_t current_key = get_size( current->header );
-    if ( free_nodes.root == free_nodes.nil ) {
-        current->links[L] = free_nodes.nil;
-        current->links[R] = free_nodes.nil;
-        free_nodes.total = 1;
-        return;
+
+    struct node *path[MAX_TREE_HEIGHT];
+    // This simplifies our insertion fixup logic later. See loop in the fixup function.
+    path[0] = free_nodes.nil;
+    int path_len = 1;
+    struct node *seeker = free_nodes.root;
+    while ( seeker != free_nodes.nil ) {
+        path[path_len++] = seeker;
+
+        size_t parent_size = get_size( seeker->header );
+        // Ability to add duplicates to linked list means no fixups necessary if duplicate.
+        if ( current_key == parent_size ) {
+            add_duplicate( seeker, (struct duplicate_node *)current, path[path_len - 2] );
+            return;
+        }
+        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
+        seeker = seeker->links[parent_size < current_key];
     }
-    struct parent_child found = splay( free_nodes.root, current_key );
-    size_t found_size = get_size( found.child->header );
-    if ( current_key == found_size ) {
-        add_duplicate( found, (struct duplicate_node *)current );
-        return;
-    }
-    if ( current_key < found_size ) {
-        current->links[L] = found.child->links[L];
-        current->links[R] = found.child;
-        found.child->links[L] = free_nodes.nil;
+    struct node *parent = path[path_len - 1];
+    if ( parent == free_nodes.nil ) {
+        free_nodes.root = current;
     } else {
-        current->links[R] = found.child->links[R];
-        current->links[L] = found.child;
-        found.child->links[R] = free_nodes.nil;
+        parent->links[get_size( parent->header ) < current_key] = current;
     }
+    current->links[L] = free_nodes.nil;
+    current->links[R] = free_nodes.nil;
+    // Store the doubly linked duplicates in list. list_tail aka nil is the dummy tail.
+    current->list_start = free_nodes.list_tail;
+    path[path_len++] = current;
+    splay( current, ( struct path_view ){ path, path_len } );
     ++free_nodes.total;
 }
 
-static struct parent_child splay( struct node *root, size_t size ) // NOLINT (*cognitive-complexity)
+static struct node *join( struct join_pair pair, struct path_view p )
 {
-    struct node new_tree;
-    struct node *left = free_nodes.nil;
-    struct node *right = free_nodes.nil;
-    struct node *finger = free_nodes.nil;
-    if ( root == free_nodes.nil ) {
-        return ( struct parent_child ){ free_nodes.nil, free_nodes.nil };
+    if ( pair.a == free_nodes.nil ) {
+        return pair.b;
     }
-    new_tree.links[L] = free_nodes.nil;
-    new_tree.links[R] = free_nodes.nil;
-    left = &new_tree;
-    right = &new_tree;
+    if ( pair.b == free_nodes.nil ) {
+        return pair.a;
+    }
+    struct node *max_x = pair.a;
+    p.nodes[p.len++] = max_x;
+    for ( ; max_x->links[R] != free_nodes.nil; max_x = max_x->links[R] ) {
+        p.nodes[p.len++] = max_x;
+    }
+    splay( max_x, p );
+    max_x->links[R] = pair.b;
+    pair.b->list_start->parent = pair.a;
+    return max_x;
+}
 
-    struct node *parent = free_nodes.nil;
-    for ( ;; ) {
-        if ( size < get_size( root->header ) ) {
-            if ( root->links[L] == free_nodes.nil ) {
-                break;
-            }
-            if ( size < get_size( root->links[L]->header ) ) {
-                finger = root->links[L]; /* rotate right */
-                root->links[L] = finger->links[R];
-                finger->links[R] = root;
-                parent = root;
-                root = finger;
-                if ( root->links[L] == free_nodes.nil ) {
-                    break;
-                }
-            }
-            right->links[L] = root; /* link right */
-            right = root;
-            parent = root;
-            root = root->links[L];
-        } else if ( size > get_size( root->header ) ) {
-            if ( root->links[R] == free_nodes.nil ) {
-                break;
-            }
-            if ( size > get_size( root->links[R]->header ) ) {
-                finger = root->links[R]; /* rotate left */
-                root->links[R] = finger->links[L];
-                finger->links[L] = root;
-                parent = root;
-                root = finger;
-                if ( root->links[R] == free_nodes.nil ) {
-                    break;
-                }
-            }
-            left->links[R] = root; /* link left */
-            left = root;
-            parent = root;
-            root = root->links[R];
-        } else {
-            break;
-        }
+static struct tree_split split( struct node *x, struct path_view p )
+{
+    splay( x, p );
+    struct tree_split split = { x, free_nodes.nil };
+    if ( x->links[R] != free_nodes.nil ) {
+        split.t = x->links[R];
+        split.t->list_start->parent = free_nodes.nil;
     }
-    left->links[R] = root->links[L]; /* assemble */
-    right->links[L] = root->links[R];
-    root->links[L] = new_tree.links[R];
-    root->links[R] = new_tree.links[L];
-    return ( struct parent_child ){ parent, root };
+    split.s->links[R] = free_nodes.nil;
+    return split;
+}
+
+static void splay( struct node *cur, struct path_view p )
+{
+    while ( p.len >= 3 && p.nodes[p.len - 2] != free_nodes.nil ) {
+        struct node *gparent = p.nodes[p.len - 3];
+        struct node *parent = p.nodes[p.len - 2];
+        if ( gparent == free_nodes.nil ) {
+            // Zig or Zag rotates in the opposite direction of the child relationship.
+            rotate( !( parent->links[R] == cur ), parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            --p.len;
+            continue;
+        }
+        if ( cur == parent->links[L] && parent == gparent->links[L] ) {
+            // Zig-Zig branch
+            rotate( R, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            rotate( R, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            p.len -= 2;
+            continue;
+        }
+        if ( cur == parent->links[R] && parent == gparent->links[R] ) {
+            // Zag-Zag branch
+            rotate( L, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            rotate( L, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            p.len -= 2;
+            continue;
+        }
+        if ( cur == parent->links[R] && parent == gparent->links[L] ) {
+            // Zig-Zag branch
+            rotate( L, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            rotate( R, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            p.len -= 2;
+            continue;
+        }
+        // Zag-Zig branch
+        rotate( R, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+        rotate( L, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+        p.len -= 2;
+    }
 }
 
 /// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
 ///                       rotation of duplicates in the tree. This adds the duplicate node to the
 ///                       linked list of the node already present.
-static void add_duplicate( struct parent_child pc, struct duplicate_node *add )
+/// @param *head          the node currently organized in the tree. We will add to its list.
+/// @param *to_add        the node to add to the linked list.
+static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
 {
-    add->header = pc.child->header;
+    add->header = head->header;
     // The first node in the list can store the tree nodes parent for faster coalescing later.
-    if ( pc.child->list_start == free_nodes.list_tail ) {
-        add->parent = pc.parent;
+    if ( head->list_start == free_nodes.list_tail ) {
+        add->parent = parent;
     } else {
-        add->parent = pc.child->list_start->parent;
-        pc.child->list_start->parent = NULL;
+        add->parent = head->list_start->parent;
+        head->list_start->parent = NULL;
     }
     // Get the first next node in the doubly linked list, invariant and correct its left field.
-    pc.child->list_start->links[P] = add;
-    add->links[N] = pc.child->list_start;
-    pc.child->list_start = add;
-    add->links[P] = (struct duplicate_node *)pc.child;
+    head->list_start->links[P] = add;
+    add->links[N] = head->list_start;
+    head->list_start = add;
+    add->links[P] = (struct duplicate_node *)head;
     ++free_nodes.total;
 }
 
@@ -551,6 +586,40 @@ static struct node *delete_duplicate( struct node *head )
     head->list_start = next_node->links[N];
     --free_nodes.total;
     return (struct node *)next_node;
+}
+
+/// @brief rotate    a unified version of the traditional left and right rotation functions. The
+///                  rotation is either left or right and opposite is its opposite direction. We
+///                  take the current nodes child, and swap them and their arbitrary subtrees are
+///                  re-linked correctly depending on the direction of the rotation.
+/// @param *current  the node around which we will rotate.
+/// @param rotation  either left or right. Determines the rotation and its opposite direction.
+/// @warning         this function modifies the stack.
+static void rotate( enum tree_link rotation, struct node *current, struct path_view p )
+{
+    if ( p.len < 2 ) {
+        printf( "Path length is %d but request for path len %d - 2 was made.", p.len, p.len );
+        abort();
+    }
+    struct node *parent = p.nodes[p.len - 2];
+    struct node *child = current->links[!rotation];
+    current->links[!rotation] = child->links[rotation];
+    if ( child->links[rotation] != free_nodes.nil ) {
+        child->links[rotation]->list_start->parent = current;
+    }
+    if ( child != free_nodes.nil ) {
+        child->list_start->parent = parent;
+    }
+    if ( parent == free_nodes.nil ) {
+        free_nodes.root = child;
+    } else {
+        parent->links[parent->links[R] == current] = child;
+    }
+    child->links[rotation] = current;
+    current->list_start->parent = child;
+    // Make sure to adjust lineage due to rotation for the path.
+    p.nodes[p.len - 1] = child;
+    p.nodes[p.len] = current;
 }
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
