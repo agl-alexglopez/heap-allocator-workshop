@@ -518,33 +518,44 @@ static void splay( struct node *cur, struct path_view p )
         if ( gparent == free_nodes.nil ) {
             // Zig or Zag rotates in the opposite direction of the child relationship.
             rotate( !( parent->links[R] == cur ), parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            p.nodes[p.len - 2] = cur;
             --p.len;
             continue;
         }
         if ( cur == parent->links[L] && parent == gparent->links[L] ) {
             // Zig-Zig branch
             rotate( R, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
-            rotate( R, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            p.nodes[p.len - 3] = parent;
+            p.nodes[p.len - 2] = cur;
+            rotate( R, parent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            p.nodes[p.len - 3] = cur;
             p.len -= 2;
             continue;
         }
         if ( cur == parent->links[R] && parent == gparent->links[R] ) {
             // Zag-Zag branch
             rotate( L, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
-            rotate( L, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            p.nodes[p.len - 3] = parent;
+            p.nodes[p.len - 2] = cur;
+            rotate( L, parent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            p.nodes[p.len - 3] = cur;
             p.len -= 2;
             continue;
         }
         if ( cur == parent->links[R] && parent == gparent->links[L] ) {
             // Zig-Zag branch
             rotate( L, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+            p.nodes[p.len - 2] = cur;
             rotate( R, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+            p.nodes[p.len - 3] = cur;
             p.len -= 2;
             continue;
         }
         // Zag-Zig branch
         rotate( R, parent, ( struct path_view ){ p.nodes, p.len - 1 } );
+        p.nodes[p.len - 2] = cur;
         rotate( L, gparent, ( struct path_view ){ p.nodes, p.len - 2 } );
+        p.nodes[p.len - 3] = cur;
         p.len -= 2;
     }
 }
@@ -617,9 +628,6 @@ static void rotate( enum tree_link rotation, struct node *current, struct path_v
     }
     child->links[rotation] = current;
     current->list_start->parent = child;
-    // Make sure to adjust lineage due to rotation for the path.
-    p.nodes[p.len - 1] = child;
-    p.nodes[p.len] = current;
 }
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
