@@ -125,6 +125,7 @@ struct path_slice
     int len;
 };
 
+/// Logarithmic properties should have us covered here but use asserts just in case.
 enum
 {
     MAX_TREE_HEIGHT = 64
@@ -141,7 +142,9 @@ enum
 
 // NOLINTBEGIN(*-non-const-global-variables)
 
-/// Implemented as a splay tree of free nodes.
+/// Implemented as a splay tree of free nodes. I use an explicit nil node rather
+/// than NULL, similar to what CLRS recommends for a Red-Black Tree. This helps
+/// with some invariant coding patterns that I like especially for the duplicate list.
 static struct free_nodes
 {
     struct node *root;
@@ -151,6 +154,7 @@ static struct free_nodes
     size_t total;
 } free_nodes;
 
+/// Useful for internal tracking and validating of the heap to speedup development.
 static struct heap
 {
     void *client_start;
@@ -159,6 +163,10 @@ static struct heap
 } heap;
 
 // NOLINTEND(*-non-const-global-variables)
+
+///////////////////////////////   Forward Declarations   //////////////////////////////
+
+// This lets us organize many functions how we wish for readability.
 
 static size_t roundup( size_t requested_size, size_t multiple );
 static size_t get_size( header header_val );
@@ -464,6 +472,7 @@ static struct node *find_best_fit( size_t key )
     while ( seeker != free_nodes.nil ) {
         size_t seeker_size = get_size( seeker->header );
         path[path_len++] = seeker;
+        assert( path_len < MAX_TREE_HEIGHT );
         if ( key == seeker_size ) {
             remove = seeker;
             len_to_best_fit = path_len;
@@ -505,7 +514,7 @@ static void insert_node( struct node *current )
     struct node *seeker = free_nodes.root;
     while ( seeker != free_nodes.nil ) {
         path[path_len++] = seeker;
-
+        assert( path_len < MAX_TREE_HEIGHT );
         size_t parent_size = get_size( seeker->header );
         // Ability to add duplicates to linked list means no fixups necessary if duplicate.
         if ( current_key == parent_size ) {

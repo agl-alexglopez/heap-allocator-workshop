@@ -22,6 +22,7 @@
 #include "allocator.h"
 #include "debug_break.h"
 #include "print_utility.h"
+#include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -103,6 +104,11 @@ enum list_link
     N = 1
 };
 
+enum
+{
+    MAX_TREE_HEIGHT = 64,
+};
+
 #define SIZE_MASK ~0x7UL
 #define BLOCK_SIZE 40UL
 #define HEADERSIZE sizeof( size_t )
@@ -112,7 +118,6 @@ enum list_link
 // Red black trees are always balanced so this should be plenty of height (2^50 nodes)
 #define COLOR_MASK 0x4UL
 #define HEAP_NODE_WIDTH 32UL
-#define MAX_TREE_HEIGHT 50UL
 #define RED_PAINT 0x4UL
 #define BLK_PAINT ~0x4UL
 #define LEFT_FREE ~0x2UL
@@ -514,7 +519,7 @@ static void insert_rb_node( struct rb_node *current )
     struct rb_node *seeker = free_nodes.tree_root;
     while ( seeker != free_nodes.black_nil ) {
         path[path_len++] = seeker;
-
+        assert( path_len < MAX_TREE_HEIGHT );
         size_t parent_size = get_size( seeker->header );
         // Ability to add duplicates to linked list means no fixups necessary if duplicate.
         if ( current_key == parent_size ) {
@@ -690,6 +695,7 @@ static struct rb_node *find_best_fit( size_t key )
     while ( seeker != free_nodes.black_nil ) {
         size_t seeker_size = get_size( seeker->header );
         path[path_len++] = seeker;
+        assert( path_len < MAX_TREE_HEIGHT );
         if ( key == seeker_size ) {
             remove = seeker;
             len_to_best_fit = path_len;
@@ -705,7 +711,6 @@ static struct rb_node *find_best_fit( size_t key )
         }
         seeker = seeker->links[search_direction];
     }
-
     if ( remove->list_start != free_nodes.list_tail ) {
         // We will keep remove in the tree and just get the first node in doubly linked list.
         return delete_duplicate( remove );
