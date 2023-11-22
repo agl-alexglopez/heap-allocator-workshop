@@ -8,6 +8,8 @@
 /// I don't want others to install ncurses just to explore the project. They
 /// already must install gnuplot. Hope this works.
 #define COLOR_BLK "\033[34;1m"
+#define COLOR_BLU_BOLD "\033[38;5;12m"
+#define COLOR_RED_BOLD "\033[38;5;9m"
 #define COLOR_RED "\033[31;1m"
 #define COLOR_CYN "\033[36;1m"
 #define COLOR_GRN "\033[32;1m"

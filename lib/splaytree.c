@@ -312,11 +312,11 @@ void print_free_nodes( enum print_style style )
     printf( "%s(X)%s", COLOR_CYN, COLOR_NIL );
     printf( " Indicates number of nodes in the subtree rooted at X.\n" );
     printf( "%sBlue%s edge means total nodes rooted at X %s<=%s ((number of nodes rooted at Parent) / 2).\n",
-            COLOR_BLK, COLOR_NIL, COLOR_BLK, COLOR_NIL );
+            COLOR_BLU_BOLD, COLOR_NIL, COLOR_BLU_BOLD, COLOR_NIL );
     printf( "%sRed%s edge means total nodes rooted at X %s>%s ((number of nodes rooted at Parent) / 2).\n",
-            COLOR_RED, COLOR_NIL, COLOR_RED, COLOR_NIL );
-    printf( "This is the %sheavy%s/%slight%s decomposition of a Splay Tree.\n", COLOR_RED, COLOR_NIL, COLOR_BLK,
-            COLOR_NIL );
+            COLOR_RED_BOLD, COLOR_NIL, COLOR_RED_BOLD, COLOR_NIL );
+    printf( "This is the %sheavy%s/%slight%s decomposition of a Splay Tree.\n", COLOR_RED_BOLD, COLOR_NIL,
+            COLOR_BLU_BOLD, COLOR_NIL );
     printf( "%s(+X)%s", COLOR_CYN, COLOR_NIL );
     printf( " Indicates duplicate nodes in the tree linked by a doubly-linked list.\n" );
     print_tree( free_nodes.root, free_nodes.nil, style );
@@ -931,12 +931,20 @@ static bool is_duplicate_storing_parent( const struct node *parent, const struct
 
 /////////////////////////////        Printing Functions            //////////////////////////////////
 
-static size_t get_subtree_size( const struct node *root, const void *nil_and_tail )
+static size_t get_subtree_size( const struct node *root )
 {
-    if ( root == nil_and_tail ) {
+    if ( root == free_nodes.nil ) {
         return 0;
     }
-    return 1 + get_subtree_size( root->links[L], nil_and_tail ) + get_subtree_size( root->links[R], nil_and_tail );
+    return 1 + get_subtree_size( root->links[L] ) + get_subtree_size( root->links[R] );
+}
+
+static const char *get_edge_color( const struct node *root, size_t parent_size )
+{
+    if ( root == free_nodes.nil ) {
+        return "";
+    }
+    return get_subtree_size( root ) <= parent_size / 2 ? COLOR_BLU_BOLD : COLOR_RED_BOLD;
 }
 
 /// @brief print_node     prints an individual node in its color and status as left or right child.
@@ -971,37 +979,44 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
 /// @param dir               no parent field so we need to track where we came from.
 /// @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
 static void print_inner_tree( const struct node *root, size_t parent_size, const char *prefix,
-                              const enum print_link node_type, const enum tree_link dir, enum print_style style )
+                              const char *branch_color, const enum print_link node_type, const enum tree_link dir,
+                              enum print_style style )
 {
     if ( root == free_nodes.nil ) {
         return;
     }
-    size_t subtree_size = get_subtree_size( root, free_nodes.nil );
+    size_t subtree_size = get_subtree_size( root );
     printf( "%s", prefix );
-    printf( subtree_size <= ( parent_size / 2 ) ? COLOR_BLK : COLOR_RED );
-    printf( "%s" COLOR_NIL, node_type == LEAF ? " └──" : " ├──" );
+    printf( "%s", branch_color );
+    printf( "%s%s%s", subtree_size <= parent_size / 2 ? COLOR_BLU_BOLD : COLOR_RED_BOLD,
+            node_type == LEAF ? " └──" : " ├──", COLOR_NIL );
     printf( COLOR_CYN );
     printf( "(%zu)", subtree_size );
     dir == L ? printf( "L:" COLOR_NIL ) : printf( "R:" COLOR_NIL );
     print_node( root, free_nodes.nil, style );
 
     char *str = NULL;
-    int string_length = snprintf( NULL, 0, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
+    int string_length
+        = snprintf( NULL, 0, "%s%s%s", prefix, branch_color, node_type == LEAF ? "     " : " │   " ); // NOLINT
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        (void)snprintf( str, string_length, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
+        (void)snprintf( str, string_length, "%s%s%s", prefix, branch_color,
+                        node_type == LEAF ? "     " : " │   " ); // NOLINT
     }
     if ( str == NULL ) {
         printf( COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL );
         return;
     }
+
+    const char *left_edge_color = get_edge_color( root->links[L], subtree_size );
+    const char *right_edge_color = get_edge_color( root->links[L], subtree_size );
     if ( root->links[R] == free_nodes.nil ) {
-        print_inner_tree( root->links[L], subtree_size, str, LEAF, L, style );
+        print_inner_tree( root->links[L], subtree_size, str, left_edge_color, LEAF, L, style );
     } else if ( root->links[L] == free_nodes.nil ) {
-        print_inner_tree( root->links[R], subtree_size, str, LEAF, R, style );
+        print_inner_tree( root->links[R], subtree_size, str, right_edge_color, LEAF, R, style );
     } else {
-        print_inner_tree( root->links[R], subtree_size, str, BRANCH, R, style );
-        print_inner_tree( root->links[L], subtree_size, str, LEAF, L, style );
+        print_inner_tree( root->links[R], subtree_size, str, right_edge_color, BRANCH, R, style );
+        print_inner_tree( root->links[L], subtree_size, str, left_edge_color, LEAF, L, style );
     }
     free( str );
 }
@@ -1015,17 +1030,19 @@ static void print_tree( const struct node *root, const void *nil_and_tail, enum 
     if ( root == nil_and_tail ) {
         return;
     }
-    size_t subtree_size = get_subtree_size( root, nil_and_tail );
+    size_t subtree_size = get_subtree_size( root );
     printf( "(%zu)", subtree_size );
     print_node( root, nil_and_tail, style );
 
+    const char *left_edge_color = get_edge_color( root->links[L], subtree_size );
+    const char *right_edge_color = get_edge_color( root->links[L], subtree_size );
     if ( root->links[R] == nil_and_tail ) {
-        print_inner_tree( root->links[L], subtree_size, "", LEAF, L, style );
+        print_inner_tree( root->links[L], subtree_size, "", left_edge_color, LEAF, L, style );
     } else if ( root->links[L] == nil_and_tail ) {
-        print_inner_tree( root->links[R], subtree_size, "", LEAF, R, style );
+        print_inner_tree( root->links[R], subtree_size, "", right_edge_color, LEAF, R, style );
     } else {
-        print_inner_tree( root->links[R], subtree_size, "", BRANCH, R, style );
-        print_inner_tree( root->links[L], subtree_size, "", LEAF, L, style );
+        print_inner_tree( root->links[R], subtree_size, "", right_edge_color, BRANCH, R, style );
+        print_inner_tree( root->links[L], subtree_size, "", left_edge_color, LEAF, L, style );
     }
 }
 
