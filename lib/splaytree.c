@@ -979,15 +979,14 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
 /// @param dir               no parent field so we need to track where we came from.
 /// @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
 static void print_inner_tree( const struct node *root, size_t parent_size, const char *prefix,
-                              const char *branch_color, const enum print_link node_type, const enum tree_link dir,
-                              enum print_style style )
+                              const char *prefix_branch_color, const enum print_link node_type,
+                              const enum tree_link dir, enum print_style style )
 {
     if ( root == free_nodes.nil ) {
         return;
     }
     size_t subtree_size = get_subtree_size( root );
     printf( "%s", prefix );
-    printf( "%s", branch_color );
     printf( "%s%s%s", subtree_size <= parent_size / 2 ? COLOR_BLU_BOLD : COLOR_RED_BOLD,
             node_type == LEAF ? " └──" : " ├──", COLOR_NIL );
     printf( COLOR_CYN );
@@ -996,11 +995,11 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
     print_node( root, free_nodes.nil, style );
 
     char *str = NULL;
-    int string_length
-        = snprintf( NULL, 0, "%s%s%s", prefix, branch_color, node_type == LEAF ? "     " : " │   " ); // NOLINT
+    int string_length = snprintf( NULL, 0, "%s%s%s", prefix, prefix_branch_color,
+                                  node_type == LEAF ? "     " : " │   " ); // NOLINT
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        (void)snprintf( str, string_length, "%s%s%s", prefix, branch_color,
+        (void)snprintf( str, string_length, "%s%s%s", prefix, prefix_branch_color,
                         node_type == LEAF ? "     " : " │   " ); // NOLINT
     }
     if ( str == NULL ) {
@@ -1008,14 +1007,14 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
         return;
     }
 
+    // With this print style the only continuing prefix we need colored is the left, the unicode vertical bar.
     const char *left_edge_color = get_edge_color( root->links[L], subtree_size );
-    const char *right_edge_color = get_edge_color( root->links[L], subtree_size );
     if ( root->links[R] == free_nodes.nil ) {
         print_inner_tree( root->links[L], subtree_size, str, left_edge_color, LEAF, L, style );
     } else if ( root->links[L] == free_nodes.nil ) {
-        print_inner_tree( root->links[R], subtree_size, str, right_edge_color, LEAF, R, style );
+        print_inner_tree( root->links[R], subtree_size, str, left_edge_color, LEAF, R, style );
     } else {
-        print_inner_tree( root->links[R], subtree_size, str, right_edge_color, BRANCH, R, style );
+        print_inner_tree( root->links[R], subtree_size, str, left_edge_color, BRANCH, R, style );
         print_inner_tree( root->links[L], subtree_size, str, left_edge_color, LEAF, L, style );
     }
     free( str );
@@ -1034,14 +1033,14 @@ static void print_tree( const struct node *root, const void *nil_and_tail, enum 
     printf( "%s(%zu)%s", COLOR_CYN, subtree_size, COLOR_NIL );
     print_node( root, nil_and_tail, style );
 
+    // With this print style the only continuing prefix we need colored is the left.
     const char *left_edge_color = get_edge_color( root->links[L], subtree_size );
-    const char *right_edge_color = get_edge_color( root->links[L], subtree_size );
     if ( root->links[R] == nil_and_tail ) {
         print_inner_tree( root->links[L], subtree_size, "", left_edge_color, LEAF, L, style );
     } else if ( root->links[L] == nil_and_tail ) {
-        print_inner_tree( root->links[R], subtree_size, "", right_edge_color, LEAF, R, style );
+        print_inner_tree( root->links[R], subtree_size, "", left_edge_color, LEAF, R, style );
     } else {
-        print_inner_tree( root->links[R], subtree_size, "", right_edge_color, BRANCH, R, style );
+        print_inner_tree( root->links[R], subtree_size, "", left_edge_color, BRANCH, R, style );
         print_inner_tree( root->links[L], subtree_size, "", left_edge_color, LEAF, L, style );
     }
 }
