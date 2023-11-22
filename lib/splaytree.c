@@ -978,6 +978,7 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
 /// @param node_type         the node to print can either be a leaf or internal branch.
 /// @param dir               no parent field so we need to track where we came from.
 /// @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
+/// @warning                 this function is hideous/slow but it prints the edge colors correctly.
 static void print_inner_tree( const struct node *root, size_t parent_size, const char *prefix,
                               const char *prefix_branch_color, const enum print_link node_type,
                               const enum tree_link dir, enum print_style style )
