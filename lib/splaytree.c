@@ -309,7 +309,15 @@ bool validate_heap( void )
 
 void print_free_nodes( enum print_style style )
 {
-    printf( COLOR_CYN "(+X)" COLOR_NIL );
+    printf( "%s(X)%s", COLOR_CYN, COLOR_NIL );
+    printf( " Indicates number of nodes in the subtree rooted at X.\n" );
+    printf( "%sBlue%s edge means total nodes rooted at X %s<=%s ((number of nodes rooted at Parent) / 2).\n",
+            COLOR_BLK, COLOR_NIL, COLOR_BLK, COLOR_NIL );
+    printf( "%sRed%s edge means total nodes rooted at X %s>%s ((number of nodes rooted at Parent) / 2).\n",
+            COLOR_RED, COLOR_NIL, COLOR_RED, COLOR_NIL );
+    printf( "This is the %sheavy%s/%slight%s decomposition of a Splay Tree.\n", COLOR_RED, COLOR_NIL, COLOR_BLK,
+            COLOR_NIL );
+    printf( "%s(+X)%s", COLOR_CYN, COLOR_NIL );
     printf( " Indicates duplicate nodes in the tree linked by a doubly-linked list.\n" );
     print_tree( free_nodes.root, free_nodes.nil, style );
 }
@@ -983,17 +991,17 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
         str = malloc( string_length + 1 );
         (void)snprintf( str, string_length, "%s%s", prefix, node_type == LEAF ? "     " : " │   " ); // NOLINT
     }
-    if ( str != NULL ) {
-        if ( root->links[R] == free_nodes.nil ) {
-            print_inner_tree( root->links[L], subtree_size, str, LEAF, L, style );
-        } else if ( root->links[L] == free_nodes.nil ) {
-            print_inner_tree( root->links[R], subtree_size, str, LEAF, R, style );
-        } else {
-            print_inner_tree( root->links[R], subtree_size, str, BRANCH, R, style );
-            print_inner_tree( root->links[L], subtree_size, str, LEAF, L, style );
-        }
-    } else {
+    if ( str == NULL ) {
         printf( COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL );
+        return;
+    }
+    if ( root->links[R] == free_nodes.nil ) {
+        print_inner_tree( root->links[L], subtree_size, str, LEAF, L, style );
+    } else if ( root->links[L] == free_nodes.nil ) {
+        print_inner_tree( root->links[R], subtree_size, str, LEAF, R, style );
+    } else {
+        print_inner_tree( root->links[R], subtree_size, str, BRANCH, R, style );
+        print_inner_tree( root->links[L], subtree_size, str, LEAF, L, style );
     }
     free( str );
 }
