@@ -187,7 +187,7 @@ static struct node *find_best_fit( size_t key );
 static void insert_node( struct node *current );
 static void splay( struct node *cur, struct path_slice p );
 static struct node *join( struct tree_pair pair, struct path_slice p );
-static struct tree_pair split( struct node *x, struct path_slice p );
+static struct tree_pair split( struct node *remove, struct path_slice p );
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent );
 static struct node *delete_duplicate( struct node *head );
 static void rotate( enum tree_link rotation, struct node *current, struct path_slice p );
@@ -308,6 +308,8 @@ bool validate_heap( void )
     }
     return true;
 }
+
+//////////////////////////       Printing Public Helpers    //////////////////////////////////
 
 void print_free_nodes( enum print_style style )
 {
@@ -479,8 +481,8 @@ static struct node *find_best_fit( size_t key )
             break;
         }
         enum tree_link search_direction = seeker_size < key;
-        /// The key is less than the current found size but let's remember this size on the way down
-        /// as a candidate for the best fit. The closest fit will have won when we reach the bottom.
+        // The key is less than the current found size but let's remember this size on the way down
+        // as a candidate for the best fit. The closest fit will have won when we reach the bottom.
         if ( search_direction == L && seeker_size < best_fit_size ) {
             remove = seeker;
             best_fit_size = seeker_size;
@@ -488,7 +490,6 @@ static struct node *find_best_fit( size_t key )
         }
         seeker = seeker->links[search_direction];
     }
-    assert( path_len < MAX_TREE_HEIGHT );
     if ( remove->list_start != free_nodes.list_tail ) {
         return delete_duplicate( remove );
     }
@@ -560,18 +561,29 @@ static struct node *join( struct tree_pair pair, struct path_slice p )
     return max_lesser;
 }
 
-static struct tree_pair split( struct node *x, struct path_slice p )
+/// @brief split   splay a node and then split its arbitrary subtrees into lesser and greater trees in
+///                in preparation for removal.
+/// @param remove  the node we will splay and then split into two trees.
+/// @param p       the path_slice we will use to splay the node for removal
+/// @return        the tree_pair of a lesser and greater tree we will later join after node removal.
+static struct tree_pair split( struct node *remove, struct path_slice p )
 {
-    splay( x, p );
-    struct tree_pair split = { x, free_nodes.nil };
-    if ( x->links[R] != free_nodes.nil ) {
-        split.greater = x->links[R];
+    splay( remove, p );
+    struct tree_pair split = { .lesser = remove, .greater = free_nodes.nil };
+    if ( remove->links[R] != free_nodes.nil ) {
+        split.greater = remove->links[R];
         split.greater->list_start->parent = free_nodes.nil;
     }
     split.lesser->links[R] = free_nodes.nil;
     return split;
 }
 
+/// @brief splay  splays a node from its location in the tree to the root. A splay is defined by all
+///               combinations of the Zig and Zag operations. A Zig or Zag operation is a simple rotation
+///               that rotates a child node in the opposite direction from its relationship to its parent.
+///               That means we have Zag, Zig, Zig-Zig, Zag-Zag, Zig-Zag, and Zag-Zig to consider.
+/// @param cur    the current node making its way up the tree.
+/// @param p      the path_slice we will use to find the lineage of cur as it Zig and or Zags up the tree.
 static void splay( struct node *cur, struct path_slice p )
 {
     while ( p.len >= 3 && p.nodes[p.len - 2] != free_nodes.nil ) {
