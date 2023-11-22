@@ -490,7 +490,11 @@ static struct node *find_best_fit( size_t key )
         }
         seeker = seeker->links[search_direction];
     }
+    // While removing and we encounter a duplicate, we should still fixup the tree with a
+    // splay operation before removing the duplicate. We will then leave it at the root.
+    // It is possible requests for these sizes will continue making the nodes "hot". Maybe not.
     if ( remove->list_start != free_nodes.list_tail ) {
+        splay( remove, ( struct path_slice ){ path, len_to_best_fit } );
         return delete_duplicate( remove );
     }
     struct tree_pair lg = split( remove, ( struct path_slice ){ path, len_to_best_fit } );
@@ -517,11 +521,10 @@ static void insert_node( struct node *current )
         path[path_len++] = seeker;
         assert( path_len < MAX_TREE_HEIGHT );
         size_t parent_size = get_size( seeker->header );
-        // We have a great opportunity to set up possible future speedups here. The user has just requested
-        // this amount of space but it is a duplicate. However, if we move the existing duplicate to the root
-        // via splaying before adding the new duplicate we benefit from splay fixups and we have multiple
-        // "hot" nodes at the root available in O(1) if requested again. If request patterns changes then oh well,
-        // can't win 'em all.
+        // The user has just requested this amount of space but it is a duplicate. However, if we move the
+        // existing duplicate to the root via splaying before adding the new duplicate we benefit from
+        // splay fixups and we have multiple "hot" nodes at the root available in O(1) if requested again.
+        // If request patterns changes then oh well, can't win 'em all.
         if ( current_key == parent_size ) {
             splay( seeker, ( struct path_slice ){ path, path_len } );
             add_duplicate( seeker, (struct duplicate_node *)current, free_nodes.nil );
