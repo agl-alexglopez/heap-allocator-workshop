@@ -9,10 +9,7 @@
 /// a parent pointer, instead using a stack to track the history of a path to a node
 /// that will be splayed to the root and removed or inserted and splayed. We need the
 /// space a parent pointer would take up to track duplicate nodes of the same size in
-/// order to support coalescing. There are some interesting optimizations to support
-/// O(1) coalescing in special cases and tree trimming overall (only uniquely sized
-/// nodes are ever stored in the tree directly). For more information see the detailed
-/// writeup.
+/// order to support coalescing. For more information see the detailed writeup.
 /// Citations:
 /// ------------------------------------------
 /// 1. Bryant and O'Hallaron, Computer Systems: A Programmer's Perspective, Chapter 9.
@@ -23,8 +20,7 @@
 /// 2. Algorithm Tutors. https://algorithmtutor.com/Data-Structures/Tree/Splay-Trees/
 ///    The pseudocode is a good jumping off point for splay trees. However, significant
 ///    modification is required to abandon the parent pointer, contextualize the data
-///    structure to a heap allocator, support coalescing, and optimize for duplicate
-///    nodes.
+///    structure to a heap allocator, support coalescing, and optimize for duplicate nodes.
 #include "allocator.h"
 #include "debug_break.h"
 #include "print_utility.h"
@@ -326,39 +322,6 @@ void dump_heap( void )
 
 /////////////////////    Static Heap Helper Functions    //////////////////////////////////
 
-/// @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
-/// @param *to_free        the heap_node to add to the red black tree.
-/// @param block_size      the size we use to initialize the node and find the right place in tree.
-static void init_free_node( struct node *to_free, size_t block_size )
-{
-    to_free->header = block_size | LEFT_ALLOCATED;
-    to_free->list_start = free_nodes.list_tail;
-    init_footer( to_free, block_size );
-    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
-    insert_node( to_free );
-}
-
-/// @brief *split_alloc  determines if a block should be taken entirely or split into two blocks. If
-///                      split, it will add the newly freed split block to the free red black tree.
-/// @param *free_block   a pointer to the node for a free block in its entirety.
-/// @param request       the user request for space.
-/// @param block_space   the entire space that we have to work with.
-/// @return              a void pointer to generic space that is now ready for the client.
-static void *split_alloc( struct node *free_block, size_t request, size_t block_space )
-{
-    if ( block_space >= request + BLOCK_SIZE ) {
-        // This takes care of the neighbor and ITS neighbor with appropriate updates.
-        init_free_node( get_right_neighbor( free_block, request ), block_space - request - HEADERSIZE );
-        init_header_size( free_block, request );
-        free_block->header |= ALLOCATED;
-        return get_client_space( free_block );
-    }
-    get_right_neighbor( free_block, block_space )->header |= LEFT_ALLOCATED;
-    init_header_size( free_block, block_space );
-    free_block->header |= ALLOCATED;
-    return get_client_space( free_block );
-}
-
 /// @brief coalesce        attempts to coalesce left and right if the left and right node
 ///                        are free. Runs the search to free the specific free node in O(logN) + d
 ///                        where d is the number of duplicate nodes of the same size.
@@ -387,38 +350,6 @@ static struct node *coalesce( struct node *leftmost_node )
     // We do not initialize a footer here because we don't want to overwrite user data.
     init_header_size( leftmost_node, coalesced_space );
     return leftmost_node;
-}
-
-/// @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
-///                     red black tree. The next duplicate must become the new tree node and the
-///                     parent and children must be adjusted to track this new node.
-/// @param head         the node in the tree that must now be coalesced.
-/// @param lft_child    if the left child has a duplicate, it tracks the new tree node as parent.
-/// @param rgt_child    if the right child has a duplicate, it tracks the new tree node as parent.
-static void remove_head( struct node *head, struct node *lft_child, struct node *rgt_child )
-{
-    // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
-    struct node *tree_parent = head->list_start->parent;
-    head->list_start->header = head->header;
-    head->list_start->links[N]->parent = head->list_start->parent;
-
-    struct node *new_tree_node = (struct node *)head->list_start;
-    new_tree_node->list_start = head->list_start->links[N];
-    new_tree_node->links[L] = lft_child;
-    new_tree_node->links[R] = rgt_child;
-
-    // We often write to fields of the nil, invariant. DO NOT use the nodes it stores!
-    if ( lft_child != free_nodes.nil ) {
-        lft_child->list_start->parent = new_tree_node;
-    }
-    if ( rgt_child != free_nodes.nil ) {
-        rgt_child->list_start->parent = new_tree_node;
-    }
-    if ( tree_parent == free_nodes.nil ) {
-        free_nodes.root = new_tree_node;
-    } else {
-        tree_parent->links[tree_parent->links[R] == head] = new_tree_node;
-    }
 }
 
 /// @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
@@ -453,6 +384,71 @@ static void *free_coalesced_node( void *to_coalesce )
     }
     free_nodes.total--;
     return to_coalesce;
+}
+
+/// @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
+///                     red black tree. The next duplicate must become the new tree node and the
+///                     parent and children must be adjusted to track this new node.
+/// @param head         the node in the tree that must now be coalesced.
+/// @param lft_child    if the left child has a duplicate, it tracks the new tree node as parent.
+/// @param rgt_child    if the right child has a duplicate, it tracks the new tree node as parent.
+static void remove_head( struct node *head, struct node *lft_child, struct node *rgt_child )
+{
+    // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
+    struct node *tree_parent = head->list_start->parent;
+    head->list_start->header = head->header;
+    head->list_start->links[N]->parent = head->list_start->parent;
+
+    struct node *new_tree_node = (struct node *)head->list_start;
+    new_tree_node->list_start = head->list_start->links[N];
+    new_tree_node->links[L] = lft_child;
+    new_tree_node->links[R] = rgt_child;
+
+    // We often write to fields of the nil, invariant. DO NOT use the nodes it stores!
+    if ( lft_child != free_nodes.nil ) {
+        lft_child->list_start->parent = new_tree_node;
+    }
+    if ( rgt_child != free_nodes.nil ) {
+        rgt_child->list_start->parent = new_tree_node;
+    }
+    if ( tree_parent == free_nodes.nil ) {
+        free_nodes.root = new_tree_node;
+    } else {
+        tree_parent->links[tree_parent->links[R] == head] = new_tree_node;
+    }
+}
+
+/// @brief *split_alloc  determines if a block should be taken entirely or split into two blocks. If
+///                      split, it will add the newly freed split block to the free red black tree.
+/// @param *free_block   a pointer to the node for a free block in its entirety.
+/// @param request       the user request for space.
+/// @param block_space   the entire space that we have to work with.
+/// @return              a void pointer to generic space that is now ready for the client.
+static void *split_alloc( struct node *free_block, size_t request, size_t block_space )
+{
+    if ( block_space >= request + BLOCK_SIZE ) {
+        // This takes care of the neighbor and ITS neighbor with appropriate updates.
+        init_free_node( get_right_neighbor( free_block, request ), block_space - request - HEADERSIZE );
+        init_header_size( free_block, request );
+        free_block->header |= ALLOCATED;
+        return get_client_space( free_block );
+    }
+    get_right_neighbor( free_block, block_space )->header |= LEFT_ALLOCATED;
+    init_header_size( free_block, block_space );
+    free_block->header |= ALLOCATED;
+    return get_client_space( free_block );
+}
+
+/// @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
+/// @param *to_free        the heap_node to add to the red black tree.
+/// @param block_size      the size we use to initialize the node and find the right place in tree.
+static void init_free_node( struct node *to_free, size_t block_size )
+{
+    to_free->header = block_size | LEFT_ALLOCATED;
+    to_free->list_start = free_nodes.list_tail;
+    init_footer( to_free, block_size );
+    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
+    insert_node( to_free );
 }
 
 /////////////////////////////      Splay Tree Implementation       //////////////////////////////////
@@ -495,6 +491,7 @@ static struct node *find_best_fit( size_t key )
     // It is possible requests for these sizes will continue making the nodes "hot". Maybe not.
     if ( remove->list_start != free_nodes.list_tail ) {
         splay( remove, ( struct path_slice ){ path, len_to_best_fit } );
+        assert( remove == free_nodes.root );
         return delete_duplicate( remove );
     }
     struct tree_pair lg = split( remove, ( struct path_slice ){ path, len_to_best_fit } );
@@ -507,45 +504,21 @@ static struct node *find_best_fit( size_t key )
     return remove;
 }
 
-/// @brief insert_node  a modified insertion with additional logic to add duplicates if the
-///                     size in bytes of the block is already in the tree.
-/// @param *current     we must insert to tree or add to a list as duplicate.
-static void insert_node( struct node *current )
+/// @brief split   splay a node and then split its arbitrary subtrees into lesser and greater trees in
+///                in preparation for removal.
+/// @param remove  the node we will splay and then split into two trees.
+/// @param p       the path_slice we will use to splay the node for removal
+/// @return        the tree_pair of a lesser and greater tree we will later join after node removal.
+static struct tree_pair split( struct node *remove, struct path_slice p )
 {
-    size_t current_key = get_size( current->header );
-    struct node *path[MAX_TREE_HEIGHT];
-    path[0] = free_nodes.nil;
-    int path_len = 1;
-    struct node *seeker = free_nodes.root;
-    while ( seeker != free_nodes.nil ) {
-        path[path_len++] = seeker;
-        assert( path_len < MAX_TREE_HEIGHT );
-        size_t parent_size = get_size( seeker->header );
-        // The user has just requested this amount of space but it is a duplicate. However, if we move the
-        // existing duplicate to the root via splaying before adding the new duplicate we benefit from
-        // splay fixups and we have multiple "hot" nodes at the root available in O(1) if requested again.
-        // If request patterns changes then oh well, can't win 'em all.
-        if ( current_key == parent_size ) {
-            splay( seeker, ( struct path_slice ){ path, path_len } );
-            add_duplicate( seeker, (struct duplicate_node *)current, free_nodes.nil );
-            return;
-        }
-        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
-        seeker = seeker->links[parent_size < current_key];
+    splay( remove, p );
+    struct tree_pair split = { .lesser = remove, .greater = free_nodes.nil };
+    if ( remove->links[R] != free_nodes.nil ) {
+        split.greater = remove->links[R];
+        split.greater->list_start->parent = free_nodes.nil;
     }
-    struct node *parent = path[path_len - 1];
-    if ( parent == free_nodes.nil ) {
-        free_nodes.root = current;
-    } else {
-        parent->links[get_size( parent->header ) < current_key] = current;
-    }
-    current->links[L] = free_nodes.nil;
-    current->links[R] = free_nodes.nil;
-    // Store the doubly linked duplicates in list. list_tail aka nil is the dummy tail.
-    current->list_start = free_nodes.list_tail;
-    path[path_len++] = current;
-    splay( current, ( struct path_slice ){ path, path_len } );
-    ++free_nodes.total;
+    split.lesser->links[R] = free_nodes.nil;
+    return split;
 }
 
 /// @brief join  when joining, we have just splayed a node we wish to remove to the root of a tree, then split.
@@ -569,21 +542,62 @@ static struct node *join( struct tree_pair pair, struct path_slice p )
     return max_lesser;
 }
 
-/// @brief split   splay a node and then split its arbitrary subtrees into lesser and greater trees in
-///                in preparation for removal.
-/// @param remove  the node we will splay and then split into two trees.
-/// @param p       the path_slice we will use to splay the node for removal
-/// @return        the tree_pair of a lesser and greater tree we will later join after node removal.
-static struct tree_pair split( struct node *remove, struct path_slice p )
+/// @brief delete_duplicate  will remove a duplicate node from the tree when the request is coming
+///                          from a call from malloc. Address of duplicate does not matter so we
+///                          remove the first node from the linked list.
+/// @param *head             We know this node has a next node and it must be removed for malloc.
+static struct node *delete_duplicate( struct node *head )
 {
-    splay( remove, p );
-    struct tree_pair split = { .lesser = remove, .greater = free_nodes.nil };
-    if ( remove->links[R] != free_nodes.nil ) {
-        split.greater = remove->links[R];
-        split.greater->list_start->parent = free_nodes.nil;
+    struct duplicate_node *next_node = head->list_start;
+    /// Take care of the possible node to the right in the doubly linked list first. This could be
+    /// another node or it could be free_nodes.list_tail, it does not matter either way.
+    next_node->links[N]->parent = next_node->parent;
+    next_node->links[N]->links[P] = (struct duplicate_node *)head;
+    head->list_start = next_node->links[N];
+    --free_nodes.total;
+    return (struct node *)next_node;
+}
+
+/// @brief insert_node  a modified insertion with additional logic to add duplicates if the
+///                     size in bytes of the block is already in the tree.
+/// @param *current     we must insert to tree or add to a list as duplicate.
+static void insert_node( struct node *current )
+{
+    size_t current_key = get_size( current->header );
+    struct node *path[MAX_TREE_HEIGHT];
+    path[0] = free_nodes.nil;
+    int path_len = 1;
+    struct node *seeker = free_nodes.root;
+    while ( seeker != free_nodes.nil ) {
+        path[path_len++] = seeker;
+        assert( path_len < MAX_TREE_HEIGHT );
+        size_t parent_size = get_size( seeker->header );
+        // The user has just requested this amount of space but it is a duplicate. However, if we move the
+        // existing duplicate to the root via splaying before adding the new duplicate we benefit from
+        // splay fixups and we have multiple "hot" nodes at the root available in O(1) if requested again.
+        // If request patterns changes then oh well, can't win 'em all.
+        if ( current_key == parent_size ) {
+            splay( seeker, ( struct path_slice ){ path, path_len } );
+            assert( seeker == free_nodes.root );
+            add_duplicate( seeker, (struct duplicate_node *)current, free_nodes.nil );
+            return;
+        }
+        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
+        seeker = seeker->links[parent_size < current_key];
     }
-    split.lesser->links[R] = free_nodes.nil;
-    return split;
+    struct node *parent = path[path_len - 1];
+    if ( parent == free_nodes.nil ) {
+        free_nodes.root = current;
+    } else {
+        parent->links[get_size( parent->header ) < current_key] = current;
+    }
+    current->links[L] = free_nodes.nil;
+    current->links[R] = free_nodes.nil;
+    // Store the doubly linked duplicates in list. list_tail aka nil is the dummy tail.
+    current->list_start = free_nodes.list_tail;
+    path[path_len++] = current;
+    splay( current, ( struct path_slice ){ path, path_len } );
+    ++free_nodes.total;
 }
 
 /// @brief splay  splays a node from its location in the tree to the root. A splay is defined by all
@@ -642,45 +656,6 @@ static void splay( struct node *cur, struct path_slice p )
     }
 }
 
-/// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
-///                       rotation of duplicates in the tree. This adds the duplicate node to the
-///                       linked list of the node already present.
-/// @param *head          the node currently organized in the tree. We will add to its list.
-/// @param *to_add        the node to add to the linked list.
-static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
-{
-    add->header = head->header;
-    // The first node in the list can store the tree nodes parent for faster coalescing later.
-    if ( head->list_start == free_nodes.list_tail ) {
-        add->parent = parent;
-    } else {
-        add->parent = head->list_start->parent;
-        head->list_start->parent = NULL;
-    }
-    // Get the first next node in the doubly linked list, invariant and correct its left field.
-    head->list_start->links[P] = add;
-    add->links[N] = head->list_start;
-    head->list_start = add;
-    add->links[P] = (struct duplicate_node *)head;
-    ++free_nodes.total;
-}
-
-/// @brief delete_duplicate  will remove a duplicate node from the tree when the request is coming
-///                          from a call from malloc. Address of duplicate does not matter so we
-///                          remove the first node from the linked list.
-/// @param *head             We know this node has a next node and it must be removed for malloc.
-static struct node *delete_duplicate( struct node *head )
-{
-    struct duplicate_node *next_node = head->list_start;
-    /// Take care of the possible node to the right in the doubly linked list first. This could be
-    /// another node or it could be free_nodes.list_tail, it does not matter either way.
-    next_node->links[N]->parent = next_node->parent;
-    next_node->links[N]->links[P] = (struct duplicate_node *)head;
-    head->list_start = next_node->links[N];
-    --free_nodes.total;
-    return (struct node *)next_node;
-}
-
 /// @brief rotate    a unified version of the traditional left and right rotation functions. The
 ///                  rotation is either left or right and opposite is its opposite direction. We
 ///                  take the current nodes child, and swap them and their arbitrary subtrees are
@@ -710,6 +685,29 @@ static void rotate( enum tree_link rotation, struct node *current, struct path_s
     }
     child->links[rotation] = current;
     current->list_start->parent = child;
+}
+
+/// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
+///                       rotation of duplicates in the tree. This adds the duplicate node to the
+///                       linked list of the node already present.
+/// @param *head          the node currently organized in the tree. We will add to its list.
+/// @param *to_add        the node to add to the linked list.
+static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
+{
+    add->header = head->header;
+    // The first node in the list can store the tree nodes parent for faster coalescing later.
+    if ( head->list_start == free_nodes.list_tail ) {
+        add->parent = parent;
+    } else {
+        add->parent = head->list_start->parent;
+        head->list_start->parent = NULL;
+    }
+    // Get the first next node in the doubly linked list, invariant and correct its left field.
+    head->list_start->links[P] = add;
+    add->links[N] = head->list_start;
+    head->list_start = add;
+    add->links[P] = (struct duplicate_node *)head;
+    ++free_nodes.total;
 }
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
