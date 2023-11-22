@@ -323,13 +323,12 @@ void dump_heap( void )
 /////////////////////    Static Heap Helper Functions    //////////////////////////////////
 
 /// @brief coalesce        attempts to coalesce left and right if the left and right node
-///                        are free. Runs the search to free the specific free node in O(logN) + d
-///                        where d is the number of duplicate nodes of the same size.
+///                        are free.
 /// @param *leftmost_node  the current node that will move left if left is free to coalesce.
 /// @return                the leftmost node from attempts to coalesce left and right. The leftmost
 ///                        node is initialized to reflect the correct size for the space it now has.
 /// @warning               this function does not overwrite the data that may be in the middle if we
-///                        expand left and write. The user may wish to move elsewhere if reallocing.
+///                        expand left and right. The user may wish to move elsewhere if reallocing.
 static struct node *coalesce( struct node *leftmost_node )
 {
     size_t coalesced_space = get_size( leftmost_node->header );
