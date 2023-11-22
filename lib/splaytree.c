@@ -1,6 +1,34 @@
+/// Author: Alexander Griffin Lopez
+/// File: splaytree.c aka splaytree_bottomup.c
+/// ------------------------------------------
+/// This file contains my implementation of a splay tree heap allocator. A splay tree
+/// is an interesting data structure to support the free nodes of a heap allocator
+/// because perhaps we can benefit from the frequencies in access patterns. This is
+/// just experimental, as I do not often here splay trees enter the discussion when
+/// considering allocator schemes. This is a bottom up splay tree that does not use
+/// a parent pointer, instead using a stack to track the history of a path to a node
+/// that will be splayed to the root and removed or inserted and splayed. We need the
+/// space a parent pointer would take up to track duplicate nodes of the same size in
+/// order to support coalescing. There are some interesting optimizations to support
+/// O(1) coalescing in special cases and tree trimming overall (only uniquely sized
+/// nodes are ever stored in the tree directly). For more information see the detailed
+/// writeup.
+/// Citations:
+/// ------------------------------------------
+/// 1. Bryant and O'Hallaron, Computer Systems: A Programmer's Perspective, Chapter 9.
+///    I used the explicit free list outline from the textbook, specifically
+///    regarding how to implement left and right coalescing. I even used their
+///    suggested optimization of an extra control bit so that the footers to the left
+///    can be overwritten if the block is allocated so the user can have more space.
+/// 2. Algorithm Tutors. https://algorithmtutor.com/Data-Structures/Tree/Splay-Trees/
+///    The pseudocode is a good jumping off point for splay trees. However, significant
+///    modification is required to abandon the parent pointer, contextualize the data
+///    structure to a heap allocator, support coalescing, and optimize for duplicate
+///    nodes.
 #include "allocator.h"
 #include "debug_break.h"
 #include "print_utility.h"
+#include <assert.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stddef.h>
@@ -9,18 +37,33 @@
 
 typedef size_t header;
 
+/// The children of a node in a tree can be an array *nodes[2]. I prefer to
+/// code binary trees this way because when the opportunity arrises you
+/// can unite symmetric code cases for Left and Right into one piece of code
+/// that uses a `tree_link dir = parent->links[R] == cur;` approach. Then
+/// you have a `dir` and a `!dir` without needing to write code for each case
+/// of the dir being left or right, just invert the direction you stored.
 enum tree_link
 {
     L = 0,
     R = 1
 };
 
+/// Duplicate nodes of the same size are attached to the representitive head
+/// node in the tree. They are organized with a Previous and Next scheme to
+/// avoid confusion and make it type-clear that we are dealing with list nodes
+/// not tree nodes. This requires some limited and intentional casting but
+/// is worth it for clarity/sanity while coding up these complicated cases.
 enum list_link
 {
     P = 0,
     N = 1
 };
 
+/// A node in this splay tree does not track its parent so we will manage a stack.
+/// We also have the additional optimization of tracking duplicates in a linked
+/// list of duplicate_node members. We can access that list via the list_start.
+/// If the list is empty it will point to our placeholder node that acts as nil.
 struct node
 {
     header header;
@@ -28,6 +71,13 @@ struct node
     struct duplicate_node *list_start;
 };
 
+/// A node in the duplicate_node list contains the same number of payload bytes
+/// as its duplicate in the tree. However, these nodes only point to duplicate
+/// nodes to their left or right. The head node in this list after the node
+/// in the tree is responsible for tracking the parent of the node in the tree.
+/// This helps in the case of a tree node being coalesced or removed from the
+/// tree. The duplicate can take its place, update the parent of the new node
+/// as its child and no splaying operations take place saving many instructions.
 struct duplicate_node
 {
     header header;
@@ -35,37 +85,50 @@ struct duplicate_node
     struct node *parent;
 };
 
+/// When a splay tree node is removed we need to splay the node to the root, split
+/// its lesser and greater arbitrary subtrees and then join those remaining subtrees
+/// to form a new tree without the removed node. Track those subtrees with this.
 struct tree_pair
 {
     struct node *lesser;
     struct node *greater;
 };
 
+/// Mainly for internal validation and bookeeping. Run over the heap with this.
 struct heap_range
 {
     void *start;
     void *end;
 };
 
+/// If a header is corrupted why trying to jump through the heap headers this
+/// will help us catch errors.
 struct bad_jump
 {
     struct node *prev;
     struct node *root;
 };
 
+/// Generic struct for tracking a size in bytes and quantity that makes up those bytes.
 struct size_total
 {
-    size_t size;
-    size_t total;
+    size_t byte_size;
+    size_t count_total;
 };
 
+/// Key struct that helps couple the path with its length. Think span in C++ or Slice
+/// in Rust. It is a slice of our path to a node and the length of that path and we
+/// use it in any functions that will splay a node to the root.
 struct path_slice
 {
     struct node **nodes;
     int len;
 };
 
-#define MAX_TREE_HEIGHT 64UL
+enum
+{
+    MAX_TREE_HEIGHT = 64
+};
 
 #define SIZE_MASK ~0x7UL
 #define BLOCK_SIZE 40UL
@@ -416,6 +479,7 @@ static struct node *find_best_fit( size_t key )
         }
         seeker = seeker->links[search_direction];
     }
+    assert( path_len < MAX_TREE_HEIGHT );
     if ( remove->list_start != free_nodes.list_tail ) {
         return delete_duplicate( remove );
     }
@@ -745,11 +809,11 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
         }
         cur_node = get_right_neighbor( cur_node, block_size_check );
     }
-    if ( size_used + *total_free_mem != s.size ) {
+    if ( size_used + *total_free_mem != s.byte_size ) {
         BREAKPOINT();
         return false;
     }
-    if ( total_free_nodes != s.total ) {
+    if ( total_free_nodes != s.count_total ) {
         BREAKPOINT();
         return false;
     }

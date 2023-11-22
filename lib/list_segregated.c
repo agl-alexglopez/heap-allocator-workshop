@@ -55,8 +55,8 @@ struct heap_range
 
 struct size_total
 {
-    size_t size;
-    size_t total;
+    size_t byte_size;
+    size_t count_total;
 };
 
 struct header_size
@@ -627,7 +627,7 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range hr, st
             return false;
         }
 
-        if ( !is_valid_header( ( struct header_size ){ *cur_header, block_size_check }, st.size ) ) {
+        if ( !is_valid_header( ( struct header_size ){ *cur_header, block_size_check }, st.byte_size ) ) {
             BREAKPOINT();
             return false;
         }
@@ -639,11 +639,11 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range hr, st
         }
         cur_header = get_right_header( cur_header, block_size_check );
     }
-    if ( size_used + *total_free_mem != st.size ) {
+    if ( size_used + *total_free_mem != st.byte_size ) {
         BREAKPOINT();
         return false;
     }
-    if ( total_free_nodes != st.total ) {
+    if ( total_free_nodes != st.count_total ) {
         BREAKPOINT();
         return false;
     }

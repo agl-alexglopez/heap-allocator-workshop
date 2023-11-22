@@ -67,8 +67,8 @@ struct bad_jump
 
 struct size_total
 {
-    size_t size;
-    size_t total;
+    size_t byte_size;
+    size_t count_total;
 };
 
 enum rb_color
@@ -787,11 +787,11 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
         }
         cur_node = get_right_neighbor( cur_node, block_size_check );
     }
-    if ( size_used + *total_free_mem != s.size ) {
+    if ( size_used + *total_free_mem != s.byte_size ) {
         BREAKPOINT();
         return false;
     }
-    if ( total_free_nodes != s.total ) {
+    if ( total_free_nodes != s.count_total ) {
         BREAKPOINT();
         return false;
     }
