@@ -1031,7 +1031,7 @@ static void print_tree( const struct node *root, const void *nil_and_tail, enum 
         return;
     }
     size_t subtree_size = get_subtree_size( root );
-    printf( "(%zu)", subtree_size );
+    printf( "%s(%zu)%s", COLOR_CYN, subtree_size, COLOR_NIL );
     print_node( root, nil_and_tail, style );
 
     const char *left_edge_color = get_edge_color( root->links[L], subtree_size );
