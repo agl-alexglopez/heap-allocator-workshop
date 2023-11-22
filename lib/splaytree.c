@@ -517,9 +517,14 @@ static void insert_node( struct node *current )
         path[path_len++] = seeker;
         assert( path_len < MAX_TREE_HEIGHT );
         size_t parent_size = get_size( seeker->header );
-        // Ability to add duplicates to linked list means no fixups necessary if duplicate.
+        // We have a great opportunity to set up possible future speedups here. The user has just requested
+        // this amount of space but it is a duplicate. However, if we move the existing duplicate to the root
+        // via splaying before adding the new duplicate we benefit from splay fixups and we have multiple
+        // "hot" nodes at the root available in O(1) if requested again. If request patterns changes then oh well,
+        // can't win 'em all.
         if ( current_key == parent_size ) {
-            add_duplicate( seeker, (struct duplicate_node *)current, path[path_len - 2] );
+            splay( seeker, ( struct path_slice ){ path, path_len } );
+            add_duplicate( seeker, (struct duplicate_node *)current, free_nodes.nil );
             return;
         }
         // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
