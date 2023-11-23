@@ -120,18 +120,21 @@ static struct node *get_node( const void *client_space );
 static void init_free_node( struct node *to_free, size_t block_size );
 static void *split_alloc( struct node *free_block, size_t request, size_t block_space );
 static struct node *coalesce( struct node *leftmost_node );
+static struct node *coalesce_splay( size_t key );
 static void remove_head( struct node *head, struct node *lft_child, struct node *rgt_child );
 static void *free_coalesced_node( void *to_coalesce );
 static struct node *find_best_fit( size_t key );
 static void insert_node( struct node *current );
-static struct parent_child splay( struct node *root, size_t size );
-static void add_duplicate( struct parent_child pc, struct duplicate_node *add );
+static struct node *splay( struct node *root, size_t size );
+static struct node *splay_bestfit( struct node *root, size_t size );
+static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent );
 static struct node *delete_duplicate( struct node *head );
 static bool check_init( struct heap_range r, size_t heap_size );
 static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, struct size_total s );
 static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail );
 static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail, size_t total_free_mem );
 static bool is_binary_tree( const struct node *root, const struct node *nil );
+static bool are_subtrees_valid( const struct node *root, const struct node *nil );
 static bool is_duplicate_storing_parent( const struct node *parent, const struct node *root,
                                          const void *nil_and_tail );
 static void print_tree( const struct node *root, const void *nil_and_tail, enum print_style style );
@@ -237,6 +240,9 @@ bool validate_heap( void )
         return false;
     }
     if ( !is_binary_tree( free_nodes.root, free_nodes.nil ) ) {
+        return false;
+    }
+    if ( !are_subtrees_valid( free_nodes.root, free_nodes.nil ) ) {
         return false;
     }
     if ( !is_duplicate_storing_parent( free_nodes.nil, free_nodes.root, free_nodes.nil ) ) {
@@ -365,7 +371,7 @@ static void *free_coalesced_node( void *to_coalesce )
     struct node *tree_node = to_coalesce;
     // Go find and fix the node the normal way if it is unique.
     if ( tree_node->list_start == free_nodes.list_tail ) {
-        return find_best_fit( get_size( tree_node->header ) );
+        return coalesce_splay( get_size( tree_node->header ) );
     }
     struct duplicate_node *list_node = to_coalesce;
     struct node *lft_tree_node = tree_node->links[L];
@@ -391,35 +397,54 @@ static void *free_coalesced_node( void *to_coalesce )
 
 /////////////////////////////      Splay Tree Implementation       //////////////////////////////////
 
+static struct node *coalesce_splay( size_t key )
+{
+    struct node *to_return = splay( free_nodes.root, key );
+    if ( to_return->list_start != free_nodes.list_tail ) {
+        free_nodes.root = to_return;
+        if ( free_nodes.root != free_nodes.nil ) {
+            free_nodes.root->list_start->parent = free_nodes.nil;
+        }
+        return delete_duplicate( to_return );
+    }
+    if ( to_return->links[L] == free_nodes.nil ) {
+        free_nodes.root = to_return->links[R];
+    } else {
+        free_nodes.root = splay( to_return->links[L], key );
+        free_nodes.root->links[R] = to_return->links[R];
+    }
+    if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
+        free_nodes.root->list_start->parent = free_nodes.nil;
+    }
+    --free_nodes.total;
+    return to_return;
+}
+
 /// @brief find_best_fit  a splay tree is well suited to best fit search in O(logN) time. We
 ///                       will find the best fitting node possible given the options in our tree.
 /// @param key            the size_t number of bytes we are searching for in our tree.
 /// @return               the pointer to the struct node that is the best fit for our need.
 static struct node *find_best_fit( size_t key )
 {
-    struct parent_child found = splay( free_nodes.root, key );
-    if ( found.child == free_nodes.nil ) {
-        return free_nodes.nil;
-    }
-    if ( found.child == free_nodes.root ) {
-        found.child->links[L]->links[R] = found.child->links[R];
-        if ( found.child->links[R] != free_nodes.nil ) {
-            found.child->links[R]->list_start->parent = found.child->links[L];
+    struct node *to_return = splay_bestfit( free_nodes.root, key );
+    if ( to_return->list_start != free_nodes.list_tail ) {
+        free_nodes.root = to_return;
+        if ( free_nodes.root != free_nodes.nil ) {
+            free_nodes.root->list_start->parent = free_nodes.nil;
         }
-        free_nodes.root = found.child->links[L];
+        return delete_duplicate( to_return );
     }
-    if ( found.child->list_start != free_nodes.list_tail ) {
-        return delete_duplicate( found.child );
+    if ( to_return->links[L] == free_nodes.nil ) {
+        free_nodes.root = to_return->links[R];
+    } else {
+        free_nodes.root = splay_bestfit( to_return->links[L], key );
+        free_nodes.root->links[R] = to_return->links[R];
     }
-    // struct node *to_return = NULL;
-    // if ( found.child->links[L] == free_nodes.nil ) {
-    //     to_return = found.child->links[R];
-    // } else {
-    //     to_return = splay( found.child->links[L], key ).child;
-    //     to_return->links[R] = found.child->links[R];
-    // }
+    if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
+        free_nodes.root->list_start->parent = free_nodes.nil;
+    }
     --free_nodes.total;
-    return found.child;
+    return to_return;
 }
 
 /// @brief insert_node  a modified insertion with additional logic to add duplicates if the
@@ -435,42 +460,48 @@ static void insert_node( struct node *current )
         free_nodes.total = 1;
         return;
     }
-    struct parent_child found = splay( free_nodes.root, current_key );
-    size_t found_size = get_size( found.child->header );
+    free_nodes.root = splay( free_nodes.root, current_key );
+    size_t found_size = get_size( free_nodes.root->header );
     if ( current_key == found_size ) {
-        add_duplicate( found, (struct duplicate_node *)current );
+        add_duplicate( free_nodes.root, (struct duplicate_node *)current, free_nodes.nil );
         return;
     }
     if ( current_key < found_size ) {
-        current->links[L] = found.child->links[L];
-        current->links[R] = found.child;
-        found.child->links[L] = free_nodes.nil;
+        current->links[L] = free_nodes.root->links[L];
+        if ( current->links[L] != free_nodes.nil && current->links[L]->list_start != free_nodes.list_tail ) {
+            current->links[L]->list_start->parent = current;
+        }
+        current->links[R] = free_nodes.root;
+        free_nodes.root->links[L] = free_nodes.nil;
     } else {
-        current->links[R] = found.child->links[R];
-        current->links[L] = found.child;
-        found.child->links[R] = free_nodes.nil;
+        current->links[R] = free_nodes.root->links[R];
+        if ( current->links[R] != free_nodes.nil && current->links[R]->list_start != free_nodes.list_tail ) {
+            current->links[R]->list_start->parent = current;
+        }
+        current->links[L] = free_nodes.root;
+        free_nodes.root->links[R] = free_nodes.nil;
     }
-    if ( found.child == free_nodes.root ) {
-        free_nodes.root = current;
+    if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
+        free_nodes.root->list_start->parent = current;
     }
+    free_nodes.root = current;
     ++free_nodes.total;
 }
 
-static struct parent_child splay( struct node *root, size_t size ) // NOLINT (*cognitive-complexity)
+static struct node *splay( struct node *root, size_t size ) // NOLINT (*cognitive-complexity)
 {
     struct node new_tree;
     struct node *left = free_nodes.nil;
     struct node *right = free_nodes.nil;
     struct node *finger = free_nodes.nil;
     if ( root == free_nodes.nil ) {
-        return ( struct parent_child ){ free_nodes.nil, free_nodes.nil };
+        return free_nodes.nil;
     }
     new_tree.links[L] = free_nodes.nil;
     new_tree.links[R] = free_nodes.nil;
     left = &new_tree;
     right = &new_tree;
 
-    struct node *parent = free_nodes.nil;
     for ( ;; ) {
         if ( size < get_size( root->header ) ) {
             if ( root->links[L] == free_nodes.nil ) {
@@ -479,9 +510,10 @@ static struct parent_child splay( struct node *root, size_t size ) // NOLINT (*c
             if ( size < get_size( root->links[L]->header ) ) {
                 finger = root->links[L]; /* rotate right */
                 root->links[L] = finger->links[R];
-                finger->links[R]->list_start->parent = root;
+                if ( finger->links[R] != free_nodes.nil && finger->links[R]->list_start != free_nodes.list_tail ) {
+                    finger->links[R]->list_start->parent = root;
+                }
                 finger->links[R] = root;
-                parent = root;
                 root = finger;
                 if ( root->links[L] == free_nodes.nil ) {
                     break;
@@ -489,7 +521,6 @@ static struct parent_child splay( struct node *root, size_t size ) // NOLINT (*c
             }
             right->links[L] = root; /* link right */
             right = root;
-            parent = root;
             root = root->links[L];
         } else if ( size > get_size( root->header ) ) {
             if ( root->links[R] == free_nodes.nil ) {
@@ -498,9 +529,10 @@ static struct parent_child splay( struct node *root, size_t size ) // NOLINT (*c
             if ( size > get_size( root->links[R]->header ) ) {
                 finger = root->links[R]; /* rotate left */
                 root->links[R] = finger->links[L];
-                finger->links[L]->list_start->parent = root;
+                if ( finger->links[L] != free_nodes.nil && finger->links[L]->list_start != free_nodes.list_tail ) {
+                    finger->links[L]->list_start->parent = root;
+                }
                 finger->links[L] = root;
-                parent = root;
                 root = finger;
                 if ( root->links[R] == free_nodes.nil ) {
                     break;
@@ -508,7 +540,6 @@ static struct parent_child splay( struct node *root, size_t size ) // NOLINT (*c
             }
             left->links[R] = root; /* link left */
             left = root;
-            parent = root;
             root = root->links[R];
         } else {
             break;
@@ -517,28 +548,104 @@ static struct parent_child splay( struct node *root, size_t size ) // NOLINT (*c
     left->links[R] = root->links[L]; /* assemble */
     right->links[L] = root->links[R];
     root->links[L] = new_tree.links[R];
+    if ( new_tree.links[R] != free_nodes.nil && new_tree.links[R]->list_start != free_nodes.list_tail ) {
+        new_tree.links[R]->list_start->parent = root;
+    }
     root->links[R] = new_tree.links[L];
-    return ( struct parent_child ){ parent, root };
+    if ( new_tree.links[L] != free_nodes.nil && new_tree.links[L]->list_start != free_nodes.list_tail ) {
+        new_tree.links[L]->list_start->parent = root;
+    }
+    return root;
+}
+
+static struct node *splay_bestfit( struct node *root, size_t size ) // NOLINT (*cognitive-complexity)
+{
+    struct node new_tree;
+    struct node *left = free_nodes.nil;
+    struct node *right = free_nodes.nil;
+    struct node *finger = free_nodes.nil;
+    if ( root == free_nodes.nil ) {
+        return free_nodes.nil;
+    }
+    new_tree.links[L] = free_nodes.nil;
+    new_tree.links[R] = free_nodes.nil;
+    left = &new_tree;
+    right = &new_tree;
+
+    for ( ;; ) {
+        if ( size < get_size( root->header ) ) {
+            if ( root->links[L] == free_nodes.nil || get_size( root->links[L]->header ) < size ) {
+                break;
+            }
+            if ( size < get_size( root->links[L]->header ) ) {
+                finger = root->links[L]; /* rotate right */
+                root->links[L] = finger->links[R];
+                if ( finger->links[R] != free_nodes.nil && finger->links[R]->list_start != free_nodes.list_tail ) {
+                    finger->links[R]->list_start->parent = root;
+                }
+                finger->links[R] = root;
+                root = finger;
+                if ( root->links[L] == free_nodes.nil || get_size( root->links[L]->header ) < size ) {
+                    break;
+                }
+            }
+            right->links[L] = root; /* link right */
+            right = root;
+            root = root->links[L];
+        } else if ( size > get_size( root->header ) ) {
+            if ( root->links[R] == free_nodes.nil ) {
+                break;
+            }
+            if ( size > get_size( root->links[R]->header ) ) {
+                finger = root->links[R]; /* rotate left */
+                root->links[R] = finger->links[L];
+                if ( finger->links[L] != free_nodes.nil && finger->links[L]->list_start != free_nodes.list_tail ) {
+                    finger->links[L]->list_start->parent = root;
+                }
+                finger->links[L] = root;
+                root = finger;
+                if ( root->links[R] == free_nodes.nil ) {
+                    break;
+                }
+            }
+            left->links[R] = root; /* link left */
+            left = root;
+            root = root->links[R];
+        } else {
+            break;
+        }
+    }
+    left->links[R] = root->links[L]; /* assemble */
+    right->links[L] = root->links[R];
+    root->links[L] = new_tree.links[R];
+    if ( new_tree.links[R] != free_nodes.nil && new_tree.links[R]->list_start != free_nodes.list_tail ) {
+        new_tree.links[R]->list_start->parent = root;
+    }
+    root->links[R] = new_tree.links[L];
+    if ( new_tree.links[L] != free_nodes.nil && new_tree.links[L]->list_start != free_nodes.list_tail ) {
+        new_tree.links[L]->list_start->parent = root;
+    }
+    return root;
 }
 
 /// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
 ///                       rotation of duplicates in the tree. This adds the duplicate node to the
 ///                       linked list of the node already present.
-static void add_duplicate( struct parent_child pc, struct duplicate_node *add )
+static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
 {
-    add->header = pc.child->header;
+    add->header = head->header;
     // The first node in the list can store the tree nodes parent for faster coalescing later.
-    if ( pc.child->list_start == free_nodes.list_tail ) {
-        add->parent = pc.parent;
+    if ( head->list_start == free_nodes.list_tail ) {
+        add->parent = parent;
     } else {
-        add->parent = pc.child->list_start->parent;
-        pc.child->list_start->parent = NULL;
+        add->parent = head->list_start->parent;
+        head->list_start->parent = NULL;
     }
     // Get the first next node in the doubly linked list, invariant and correct its left field.
-    pc.child->list_start->links[P] = add;
-    add->links[N] = pc.child->list_start;
-    pc.child->list_start = add;
-    add->links[P] = (struct duplicate_node *)pc.child;
+    head->list_start->links[P] = add;
+    add->links[N] = head->list_start;
+    head->list_start = add;
+    add->links[P] = (struct duplicate_node *)head;
     ++free_nodes.total;
 }
 
@@ -748,6 +855,36 @@ static bool is_binary_tree( const struct node *root, const struct node *nil )
         return false;
     }
     return is_binary_tree( root->links[L], nil ) && is_binary_tree( root->links[R], nil );
+}
+
+static bool bfs_cmp( const struct node *root, size_t root_size, enum tree_link dir )
+{
+    if ( root == free_nodes.nil ) {
+        return true;
+    }
+    size_t node_size = get_size( root->header );
+    if ( dir == L && node_size > root_size ) {
+        BREAKPOINT();
+        return false;
+    }
+    if ( dir == R && node_size < root_size ) {
+        BREAKPOINT();
+        return false;
+    }
+    return bfs_cmp( root->links[L], root_size, dir ) && bfs_cmp( root->links[R], root_size, dir );
+}
+
+static bool are_subtrees_valid( const struct node *root, const struct node *nil )
+{
+    if ( root == nil ) {
+        return true;
+    }
+    size_t root_size = get_size( root->header );
+    if ( !bfs_cmp( root->links[L], root_size, L ) || !bfs_cmp( root->links[R], root_size, R ) ) {
+        BREAKPOINT();
+        return false;
+    }
+    return are_subtrees_valid( root->links[L], nil ) && are_subtrees_valid( root->links[R], nil );
 }
 
 /// @brief is_parent_valid  for duplicate node operations it is important to check the parents
