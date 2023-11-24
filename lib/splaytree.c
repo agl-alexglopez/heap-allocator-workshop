@@ -191,7 +191,7 @@ static bool check_init( struct heap_range r, size_t heap_size );
 static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, struct size_total s );
 static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail );
 static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail, size_t total_free_mem );
-static bool is_binary_tree( const struct node *root, const struct node *nil );
+static bool are_subtrees_valid( const struct node *root, const struct node *nil );
 static bool is_duplicate_storing_parent( const struct node *parent, const struct node *root,
                                          const void *nil_and_tail );
 static void print_tree( const struct node *root, const void *nil_and_tail, enum print_style style );
@@ -296,7 +296,7 @@ bool validate_heap( void )
     if ( !is_tree_mem_valid( free_nodes.root, free_nodes.nil, total_free_mem ) ) {
         return false;
     }
-    if ( !is_binary_tree( free_nodes.root, free_nodes.nil ) ) {
+    if ( !are_subtrees_valid( free_nodes.root, free_nodes.nil ) ) {
         return false;
     }
     if ( !is_duplicate_storing_parent( free_nodes.nil, free_nodes.root, free_nodes.nil ) ) {
@@ -887,26 +887,50 @@ static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail
     return true;
 }
 
-/// @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left
-///                        should be less than the root and nodes to the right should be greater.
-/// @param *root           the root of the tree from which we examine children.
-/// @param *nil      the sentinel node at the bottom of the tree that is always black.
-/// @return                true if the tree is valid, false if not.
-static bool is_binary_tree( const struct node *root, const struct node *nil )
+/// @brief strict_bounds_met  all nodes to the left of the root of a binary tree must be strictly less than the
+///                           root. All nodes to the right must be strictly greater than the root. If you mess
+///                           rotations you may have a valid binary tree in terms of a root and its two direct
+///                           children but are violating some bound on a root further up the tree.
+/// @param root               the recursive root we will check as we descend.
+/// @param root_size          the original root size to which all nodes in the subtrees must obey.
+/// @param dir                if we check the right subtree all nodes are greater, left subtree lesser.
+/// @param nil                the nil of the tree. could be NULL or some dedicated address.
+static bool strict_bound_met( const struct node *root, size_t root_size, enum tree_link dir,
+                              const struct node *nil )
 {
     if ( root == nil ) {
         return true;
     }
-    size_t root_value = get_size( root->header );
-    if ( root->links[L] != nil && root_value < get_size( root->links[L]->header ) ) {
+    size_t node_size = get_size( root->header );
+    if ( dir == L && node_size > root_size ) {
         BREAKPOINT();
         return false;
     }
-    if ( root->links[R] != nil && root_value > get_size( root->links[R]->header ) ) {
+    if ( dir == R && node_size < root_size ) {
         BREAKPOINT();
         return false;
     }
-    return is_binary_tree( root->links[L], nil ) && is_binary_tree( root->links[R], nil );
+    return strict_bound_met( root->links[L], root_size, dir, nil )
+           && strict_bound_met( root->links[R], root_size, dir, nil );
+}
+
+/// @brief are_subtrees_valid  fully checks the size of all subtrees to the left and right of the current node.
+///                            There must not be a node lesser than the root size in the right subtrees and no node
+///                            exceeding the root size in the left subtree.
+/// @param root                the recursive root we are checking as we traverse the tree dfs-style.
+/// @param nil                 the nil of the tree either NULL or a dedicated address.
+static bool are_subtrees_valid( const struct node *root, const struct node *nil )
+{
+    if ( root == nil ) {
+        return true;
+    }
+    size_t root_size = get_size( root->header );
+    if ( !strict_bound_met( root->links[L], root_size, L, nil )
+         || !strict_bound_met( root->links[R], root_size, R, nil ) ) {
+        BREAKPOINT();
+        return false;
+    }
+    return are_subtrees_valid( root->links[L], nil ) && are_subtrees_valid( root->links[R], nil );
 }
 
 /// @brief is_parent_valid  for duplicate node operations it is important to check the parents

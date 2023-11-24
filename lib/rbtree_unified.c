@@ -158,7 +158,7 @@ static bool is_rbtree_mem_valid( const struct rb_node *root, const struct rb_nod
                                  size_t total_free_mem );
 static bool is_parent_valid( const struct rb_node *root, const struct rb_node *black_nil );
 static bool is_bheight_valid_v2( const struct rb_node *root, const struct rb_node *black_nil );
-static bool is_binary_tree( const struct rb_node *root, const struct rb_node *black_nil );
+static bool are_subtrees_valid( const struct rb_node *root, const struct rb_node *nil );
 static void print_rb_tree( const struct rb_node *root, const struct rb_node *black_nil, enum print_style style );
 static void print_all( struct heap_range r, size_t heap_size, struct rb_node *root, struct rb_node *black_nil );
 
@@ -281,7 +281,7 @@ bool validate_heap( void )
     if ( !is_bheight_valid_v2( tree.root, tree.black_nil ) ) {
         return false;
     }
-    if ( !is_binary_tree( tree.root, tree.black_nil ) ) {
+    if ( !are_subtrees_valid( tree.root, tree.black_nil ) ) {
         return false;
     }
     return true;
@@ -851,26 +851,50 @@ static bool is_bheight_valid_v2( const struct rb_node *root, const struct rb_nod
     return calculate_bheight_v2( root, black_nil ) != 0;
 }
 
-/// @brief is_binary_tree  confirms the validity of a binary search tree. Nodes to the left
-///                        should be less than the root and nodes to the right should be greater.
-/// @param *root           the root of the tree from which we examine children.
-/// @param *black_nil      the sentinel node at the bottom of the tree that is always black.
-/// @return                true if the tree is valid, false if not.
-static bool is_binary_tree( const struct rb_node *root, const struct rb_node *black_nil )
+/// @brief strict_bounds_met  all rb_nodes to the left of the root of a binary tree must be strictly less than the
+///                           root. All rb_nodes to the right must be strictly greater than the root. If you mess
+///                           rotations you may have a valid binary tree in terms of a root and its two direct
+///                           children but are violating some bound on a root further up the tree.
+/// @param root               the recursive root we will check as we descend.
+/// @param root_size          the original root size to which all rb_nodes in the subtrees must obey.
+/// @param dir                if we check the right subtree all rb_nodes are greater, left subtree lesser.
+/// @param nil                the nil of the tree. could be NULL or some dedicated address.
+static bool strict_bound_met( const struct rb_node *root, size_t root_size, enum tree_link dir,
+                              const struct rb_node *nil )
 {
-    if ( root == black_nil ) {
+    if ( root == nil ) {
         return true;
     }
-    size_t root_value = get_size( root->header );
-    if ( root->links[L] != black_nil && root_value < get_size( root->links[L]->header ) ) {
+    size_t rb_node_size = get_size( root->header );
+    if ( dir == L && rb_node_size > root_size ) {
         BREAKPOINT();
         return false;
     }
-    if ( root->links[R] != black_nil && root_value > get_size( root->links[R]->header ) ) {
+    if ( dir == R && rb_node_size < root_size ) {
         BREAKPOINT();
         return false;
     }
-    return is_binary_tree( root->links[L], black_nil ) && is_binary_tree( root->links[R], black_nil );
+    return strict_bound_met( root->links[L], root_size, dir, nil )
+           && strict_bound_met( root->links[R], root_size, dir, nil );
+}
+
+/// @brief are_subtrees_valid  fully checks the size of all subtrees to the left and right of the current rb_node.
+///                            There must not be a rb_node lesser than the root size in the right subtrees and no
+///                            rb_node exceeding the root size in the left subtree.
+/// @param root                the recursive root we are checking as we traverse the tree dfs-style.
+/// @param nil                 the nil of the tree either NULL or a dedicated address.
+static bool are_subtrees_valid( const struct rb_node *root, const struct rb_node *nil )
+{
+    if ( root == nil ) {
+        return true;
+    }
+    size_t root_size = get_size( root->header );
+    if ( !strict_bound_met( root->links[L], root_size, L, nil )
+         || !strict_bound_met( root->links[R], root_size, R, nil ) ) {
+        BREAKPOINT();
+        return false;
+    }
+    return are_subtrees_valid( root->links[L], nil ) && are_subtrees_valid( root->links[R], nil );
 }
 
 /////////////////////////////        Printing Functions            //////////////////////////////////
