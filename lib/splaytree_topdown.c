@@ -502,73 +502,53 @@ static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive
     }
     struct node new_tree
         = { .header = 0, .links = { free_nodes.nil, free_nodes.nil }, .list_start = free_nodes.list_tail };
-    struct node *left = &new_tree;
-    struct node *right = &new_tree;
+    // Putting the pointers in an array lets us choose the "opposite" subtree for our enum index coding pattern.
+    struct node *left_right_trees[2] = { &new_tree, &new_tree };
     struct node *finger = free_nodes.nil;
     for ( ;; ) {
-        if ( key < get_size( root->header ) ) {
-            if ( root->links[L] == free_nodes.nil ) {
-                break;
-            }
-            if ( key < get_size( root->links[L]->header ) ) {
-                finger = root->links[L]; /* rotate right */
-                root->links[L] = finger->links[R];
-                if ( finger->links[R] != free_nodes.nil && finger->links[R]->list_start != free_nodes.list_tail ) {
-                    finger->links[R]->list_start->parent = root;
-                }
-                finger->links[R] = root;
-                if ( root->list_start != free_nodes.list_tail ) {
-                    root->list_start->parent = finger;
-                }
-                root = finger;
-                if ( root->links[L] == free_nodes.nil ) {
-                    break;
-                }
-            }
-            right->links[L] = root; /* link right */
-            if ( root->list_start != free_nodes.list_tail ) {
-                root->list_start->parent = right;
-            }
-            right = root;
-            root = root->links[L];
-        } else if ( key > get_size( root->header ) ) {
-            if ( root->links[R] == free_nodes.nil ) {
-                break;
-            }
-            if ( key > get_size( root->links[R]->header ) ) {
-                finger = root->links[R]; /* rotate left */
-                root->links[R] = finger->links[L];
-                if ( finger->links[L] != free_nodes.nil && finger->links[L]->list_start != free_nodes.list_tail ) {
-                    finger->links[L]->list_start->parent = root;
-                }
-                finger->links[L] = root;
-                if ( root->list_start != free_nodes.list_tail ) {
-                    root->list_start->parent = finger;
-                }
-                root = finger;
-                if ( root->links[R] == free_nodes.nil ) {
-                    break;
-                }
-            }
-            left->links[R] = root; /* link left */
-            if ( root->list_start != free_nodes.list_tail ) {
-                root->list_start->parent = left;
-            }
-            left = root;
-            root = root->links[R];
-        } else {
+        size_t root_size = get_size( root->header );
+        if ( key == root_size ) {
             break;
         }
+
+        enum tree_link next_link_to_descend = root_size < key;
+        if ( root->links[next_link_to_descend] == free_nodes.nil ) {
+            break;
+        }
+        size_t child_size = get_size( root->links[next_link_to_descend]->header );
+        enum tree_link next_link_to_descend_from_child = child_size < key;
+        if ( key != child_size && next_link_to_descend == next_link_to_descend_from_child ) {
+            finger = root->links[next_link_to_descend];
+            root->links[next_link_to_descend] = finger->links[!next_link_to_descend];
+            if ( finger->links[!next_link_to_descend] != free_nodes.nil
+                 && finger->links[!next_link_to_descend]->list_start != free_nodes.list_tail ) {
+                finger->links[!next_link_to_descend]->list_start->parent = root;
+            }
+            finger->links[!next_link_to_descend] = root;
+            if ( root->list_start != free_nodes.list_tail ) {
+                root->list_start->parent = finger;
+            }
+            root = finger;
+            if ( root->links[next_link_to_descend] == free_nodes.nil ) {
+                break;
+            }
+        }
+        left_right_trees[!next_link_to_descend]->links[next_link_to_descend] = root;
+        if ( root->list_start != free_nodes.list_tail ) {
+            root->list_start->parent = left_right_trees[!next_link_to_descend];
+        }
+        left_right_trees[!next_link_to_descend] = root;
+        root = root->links[next_link_to_descend];
     }
-    left->links[R] = root->links[L]; /* assemble */
-    if ( left != &new_tree && root->links[L] != free_nodes.nil
+    left_right_trees[L]->links[R] = root->links[L]; /* assemble */
+    if ( left_right_trees[L] != &new_tree && root->links[L] != free_nodes.nil
          && root->links[L]->list_start != free_nodes.list_tail ) {
-        root->links[L]->list_start->parent = left;
+        root->links[L]->list_start->parent = left_right_trees[L];
     }
-    right->links[L] = root->links[R];
-    if ( right != &new_tree && root->links[R] != free_nodes.nil
+    left_right_trees[R]->links[L] = root->links[R];
+    if ( left_right_trees[R] != &new_tree && root->links[R] != free_nodes.nil
          && root->links[R]->list_start != free_nodes.list_tail ) {
-        root->links[R]->list_start->parent = right;
+        root->links[R]->list_start->parent = left_right_trees[R];
     }
     root->links[L] = new_tree.links[R];
     if ( new_tree.links[R] != free_nodes.nil && new_tree.links[R]->list_start != free_nodes.list_tail ) {
@@ -588,86 +568,62 @@ static struct node *splay_bestfit( struct node *root, size_t key ) // NOLINT (*c
     }
     struct node new_tree
         = { .header = 0, .links = { free_nodes.nil, free_nodes.nil }, .list_start = free_nodes.list_tail };
-    struct node *left = &new_tree;
-    struct node *right = &new_tree;
+    // Putting the pointers in an array lets us choose the "opposite" subtree for our enum index coding pattern.
+    struct node *left_right_trees[2] = { &new_tree, &new_tree };
     struct node *finger = free_nodes.nil;
     size_t best_fit = ULLONG_MAX;
     for ( ;; ) {
         size_t root_size = get_size( root->header );
-        if ( root_size < best_fit && root_size >= key ) {
+        if ( key == root_size ) {
             best_fit = root_size;
-        }
-        size_t left_child_size = get_size( root->links[L]->header );
-        if ( left_child_size < best_fit && left_child_size >= key ) {
-            best_fit = left_child_size;
-        }
-        size_t right_child_size = get_size( root->links[R]->header );
-        if ( right_child_size < best_fit && right_child_size >= key ) {
-            best_fit = right_child_size;
-        }
-        if ( key < root_size ) {
-            if ( root->links[L] == free_nodes.nil ) {
-                break;
-            }
-            if ( key < get_size( root->links[L]->header ) ) {
-                finger = root->links[L]; /* rotate right */
-                root->links[L] = finger->links[R];
-                if ( finger->links[R] != free_nodes.nil && finger->links[R]->list_start != free_nodes.list_tail ) {
-                    finger->links[R]->list_start->parent = root;
-                }
-                finger->links[R] = root;
-                if ( root->list_start != free_nodes.list_tail ) {
-                    root->list_start->parent = finger;
-                }
-                root = finger;
-                if ( root->links[L] == free_nodes.nil ) {
-                    break;
-                }
-            }
-            right->links[L] = root; /* link right */
-            if ( root->list_start != free_nodes.list_tail ) {
-                root->list_start->parent = right;
-            }
-            right = root;
-            root = root->links[L];
-        } else if ( key > root_size ) {
-            if ( root->links[R] == free_nodes.nil ) {
-                break;
-            }
-            if ( key > get_size( root->links[R]->header ) ) {
-                finger = root->links[R]; /* rotate left */
-                root->links[R] = finger->links[L];
-                if ( finger->links[L] != free_nodes.nil && finger->links[L]->list_start != free_nodes.list_tail ) {
-                    finger->links[L]->list_start->parent = root;
-                }
-                finger->links[L] = root;
-                if ( root->list_start != free_nodes.list_tail ) {
-                    root->list_start->parent = finger;
-                }
-                root = finger;
-                if ( root->links[R] == free_nodes.nil ) {
-                    break;
-                }
-            }
-            left->links[R] = root; /* link left */
-            if ( root->list_start != free_nodes.list_tail ) {
-                root->list_start->parent = left;
-            }
-            left = root;
-            root = root->links[R];
-        } else {
             break;
         }
+        // Because topdown rotations may move the best fit to the left or right subtrees we are building we
+        // need to check if the best fit is one of the children before potentially rotating/linking them away.
+        best_fit = root_size < best_fit && root_size >= key ? root_size : best_fit;
+        size_t left_child_size = get_size( root->links[L]->header );
+        best_fit = left_child_size < best_fit && left_child_size >= key ? left_child_size : best_fit;
+        size_t right_child_size = get_size( root->links[R]->header );
+        best_fit = right_child_size < best_fit && right_child_size >= key ? right_child_size : best_fit;
+
+        enum tree_link next_link_to_descend = root_size < key;
+        if ( root->links[next_link_to_descend] == free_nodes.nil ) {
+            break;
+        }
+        size_t child_size = get_size( root->links[next_link_to_descend]->header );
+        enum tree_link next_link_to_descend_from_child = child_size < key;
+        if ( key != child_size && next_link_to_descend == next_link_to_descend_from_child ) {
+            finger = root->links[next_link_to_descend];
+            root->links[next_link_to_descend] = finger->links[!next_link_to_descend];
+            if ( finger->links[!next_link_to_descend] != free_nodes.nil
+                 && finger->links[!next_link_to_descend]->list_start != free_nodes.list_tail ) {
+                finger->links[!next_link_to_descend]->list_start->parent = root;
+            }
+            finger->links[!next_link_to_descend] = root;
+            if ( root->list_start != free_nodes.list_tail ) {
+                root->list_start->parent = finger;
+            }
+            root = finger;
+            if ( root->links[next_link_to_descend] == free_nodes.nil ) {
+                break;
+            }
+        }
+        left_right_trees[!next_link_to_descend]->links[next_link_to_descend] = root;
+        if ( root->list_start != free_nodes.list_tail ) {
+            root->list_start->parent = left_right_trees[!next_link_to_descend];
+        }
+        left_right_trees[!next_link_to_descend] = root;
+        root = root->links[next_link_to_descend];
     }
-    left->links[R] = root->links[L]; /* assemble */
-    if ( left != &new_tree && root->links[L] != free_nodes.nil
+    left_right_trees[L]->links[R] = root->links[L]; /* assemble */
+    if ( left_right_trees[L] != &new_tree && root->links[L] != free_nodes.nil
          && root->links[L]->list_start != free_nodes.list_tail ) {
-        root->links[L]->list_start->parent = left;
+        root->links[L]->list_start->parent = left_right_trees[L];
     }
-    right->links[L] = root->links[R];
-    if ( right != &new_tree && root->links[R] != free_nodes.nil
+    left_right_trees[R]->links[L] = root->links[R];
+    if ( left_right_trees[R] != &new_tree && root->links[R] != free_nodes.nil
          && root->links[R]->list_start != free_nodes.list_tail ) {
-        root->links[R]->list_start->parent = right;
+        root->links[R]->list_start->parent = left_right_trees[R];
     }
     root->links[L] = new_tree.links[R];
     if ( new_tree.links[R] != free_nodes.nil && new_tree.links[R]->list_start != free_nodes.list_tail ) {
@@ -677,6 +633,10 @@ static struct node *splay_bestfit( struct node *root, size_t key ) // NOLINT (*c
     if ( new_tree.links[L] != free_nodes.nil && new_tree.links[L]->list_start != free_nodes.list_tail ) {
         new_tree.links[L]->list_start->parent = root;
     }
+    // Here is the HUGE problem with a bestfit allocator and a splay tree. Topdown splaytrees are intended to
+    // find an exact match for a key. We don't need that but we can't rewind all the fixups we did or cherry pick
+    // the best fit that is now somewhere else in the tree. Instead we will run another search for that specific
+    // bestfit value. This should be rare, but in the worst case we only have two traversals.
     if ( get_size( root->header ) < key ) {
         return splay( root, best_fit );
     }
