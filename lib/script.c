@@ -27,6 +27,7 @@ typedef unsigned char byte;
 // Amount by which we resize ops when needed when reading in from file
 const int ops_resize_amount = 500;
 const int max_script_line_len = 1024;
+const double millisecond_scale = 1000;
 
 ///  Parse File and Create Script
 
@@ -74,9 +75,9 @@ static bool read_script_line( char buffer[], size_t buffer_size, FILE *fp, int *
 /// @return                   the request_t for the individual line parsed.
 /// @warning                  if the line is malformed, this function throws an error.
 /// @citation                 jzelenski and ntroccoli Stanford University.
-static request parse_script_line( char *buffer, int lineno, char *script_name )
+static struct request parse_script_line( char *buffer, int lineno, char *script_name )
 {
-    request r = { .lineno = lineno, .op = 0, .size = 0 };
+    struct request r = { .lineno = lineno, .op = 0, .size = 0 };
     char request_char = 0;
     int nscanned = sscanf( buffer, " %c %zu %zu", &request_char, &r.id, &r.size ); // NOLINT
     if ( request_char == 'a' && nscanned == 3 ) {
@@ -86,16 +87,14 @@ static request parse_script_line( char *buffer, int lineno, char *script_name )
     } else if ( request_char == 'f' && nscanned == 2 ) {
         r.op = FREE;
     }
-
     if ( !r.op || r.size > MAX_REQUEST_SIZE ) {
         printf( "Line %d of script file '%s' is malformed.", lineno, script_name );
         abort();
     }
-
     return r;
 }
 
-script parse_script( const char *path )
+struct script parse_script( const char *path )
 {
     FILE *fp = fopen( path, "re" );
     if ( fp == NULL ) {
@@ -103,7 +102,7 @@ script parse_script( const char *path )
     }
 
     // Initialize a script object to store the information about this script
-    script s = { .ops = NULL, .blocks = NULL, .num_ops = 0, .peak_size = 0 };
+    struct script s = { .ops = NULL, .blocks = NULL, .num_ops = 0, .peak_size = 0 };
     const char *basename = strrchr( path, '/' ) ? strrchr( path, '/' ) + 1 : path;
     strncpy( s.name, basename, sizeof( s.name ) - 1 ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
     s.name[sizeof( s.name ) - 1] = '\0';
@@ -118,7 +117,7 @@ script parse_script( const char *path )
         // Resize script->ops if we need more space for lines
         if ( i == nallocated ) {
             nallocated += ops_resize_amount;
-            void *new_memory = realloc( s.ops, nallocated * sizeof( request ) );
+            void *new_memory = realloc( s.ops, nallocated * sizeof( struct request ) );
             if ( NULL == new_memory ) {
                 free( s.ops );
                 printf( "Libc heap exhausted. Cannot continue." );
@@ -139,7 +138,7 @@ script parse_script( const char *path )
     (void)fclose( fp );
     s.num_ids = maxid + 1;
 
-    s.blocks = calloc( s.num_ids, sizeof( block ) );
+    s.blocks = calloc( s.num_ids, sizeof( struct block ) );
     if ( !s.blocks ) {
         printf( "Libc heap exhausted. Cannot continue." );
         abort();
@@ -152,10 +151,10 @@ script parse_script( const char *path )
 
 /// @breif exec_malloc     executes a call to mymalloc of the given size.
 /// @param req             the request zero indexed within the script.
-/// @param requested_size  the block size requested from the client.
+/// @param requested_size  the struct block size requested from the client.
 /// @param *script         the script_t with information we track from the script file requests.
 /// @return                the generic memory provided by malloc for the client. NULL on failure.
-static void *exec_malloc( int req, size_t requested_size, script *s )
+static void *exec_malloc( int req, size_t requested_size, struct script *s )
 {
     size_t id = s->ops[req].id;
     void *p = mymalloc( requested_size );
@@ -165,16 +164,16 @@ static void *exec_malloc( int req, size_t requested_size, script *s )
         abort();
     }
 
-    s->blocks[id] = ( block ){ .ptr = p, .size = requested_size };
+    s->blocks[id] = ( struct block ){ .ptr = p, .size = requested_size };
     return p;
 }
 
 /// @brief exec_realloc    executes a call to myrealloc of the given size.
 /// @param req             the request zero indexed within the script.
-/// @param requested_size  the block size requested from the client.
+/// @param requested_size  the struct block size requested from the client.
 /// @param *script         the script_t with information we track from the script file requests.
 /// @return                the generic memory provided by realloc for the client. NULL on failure.
-static void *exec_realloc( int req, size_t requested_size, script *s )
+static void *exec_realloc( int req, size_t requested_size, struct script *s )
 {
     size_t id = s->ops[req].id;
     void *oldp = s->blocks[id].ptr;
@@ -186,11 +185,11 @@ static void *exec_realloc( int req, size_t requested_size, script *s )
     }
 
     s->blocks[id].size = 0;
-    s->blocks[id] = ( block ){ .ptr = newp, .size = requested_size };
+    s->blocks[id] = ( struct block ){ .ptr = newp, .size = requested_size };
     return newp;
 }
 
-int exec_request( script *s, int req, size_t *cur_size, void **heap_end )
+int exec_request( struct script *s, int req, size_t *cur_size, void **heap_end )
 {
     size_t id = s->ops[req].id;
     size_t requested_size = s->ops[req].size;
@@ -213,7 +212,7 @@ int exec_request( script *s, int req, size_t *cur_size, void **heap_end )
     } else if ( s->ops[req].op == FREE ) {
         size_t old_size = s->blocks[id].size;
         void *p = s->blocks[id].ptr;
-        s->blocks[id] = ( block ){ .ptr = NULL, .size = 0 };
+        s->blocks[id] = ( struct block ){ .ptr = NULL, .size = 0 };
         myfree( p );
         *cur_size -= old_size;
     }
@@ -231,7 +230,7 @@ int exec_request( script *s, int req, size_t *cur_size, void **heap_end )
 /// @param requested_size  the size in bytes from the script line.
 /// @param *script         the script object we are working through for our requests.
 /// @param **p             the generic pointer we will use to determine a successfull malloc.
-static double time_malloc( size_t req, size_t requested_size, script *s, void **p )
+static double time_malloc( size_t req, size_t requested_size, struct script *s, void **p )
 {
     size_t id = s->ops[req].id;
 
@@ -248,8 +247,8 @@ static double time_malloc( size_t req, size_t requested_size, script *s, void **
         abort();
     }
 
-    s->blocks[id] = ( block ){ .ptr = *p, .size = requested_size };
-    return ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * 1000;
+    s->blocks[id] = ( struct block ){ .ptr = *p, .size = requested_size };
+    return ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * millisecond_scale;
 }
 
 /// @brief time_realloc    a function that times the speed of one request to realloc on my heap.
@@ -257,7 +256,7 @@ static double time_malloc( size_t req, size_t requested_size, script *s, void **
 /// @param requested_size  the size in bytes from the script line.
 /// @param *script         the script object we are working through for our requests.
 /// @param **newp          the generic pointer we will use to determine a successfull realloc
-static double time_realloc( size_t req, size_t requested_size, script *s, void **newp )
+static double time_realloc( size_t req, size_t requested_size, struct script *s, void **newp )
 {
     size_t id = s->ops[req].id;
     void *oldp = s->blocks[id].ptr;
@@ -276,11 +275,11 @@ static double time_realloc( size_t req, size_t requested_size, script *s, void *
     }
 
     s->blocks[id].size = 0;
-    s->blocks[id] = ( block ){ .ptr = *newp, .size = requested_size };
-    return ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * 1000;
+    s->blocks[id] = ( struct block ){ .ptr = *newp, .size = requested_size };
+    return ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * millisecond_scale;
 }
 
-double time_request( script *s, int req, size_t *cur_size, void **heap_end )
+double time_request( struct script *s, int req, size_t *cur_size, void **heap_end )
 {
     size_t id = s->ops[req].id;
     size_t requested_size = s->ops[req].size;
@@ -306,7 +305,7 @@ double time_request( script *s, int req, size_t *cur_size, void **heap_end )
     } else if ( s->ops[req].op == FREE ) {
         size_t old_size = s->blocks[id].size;
         void *p = s->blocks[id].ptr;
-        s->blocks[id] = ( block ){ .ptr = NULL, .size = 0 };
+        s->blocks[id] = ( struct block ){ .ptr = NULL, .size = 0 };
 
         // When measurement times are very low gnuplot points have trouble marking terminal graphs.
         clock_t request_start = 0;
@@ -314,7 +313,7 @@ double time_request( script *s, int req, size_t *cur_size, void **heap_end )
         request_start = clock();
         myfree( p );
         request_end = clock();
-        cpu_time = ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * 1000;
+        cpu_time = ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * millisecond_scale;
         *cur_size -= old_size;
     }
 
@@ -324,7 +323,7 @@ double time_request( script *s, int req, size_t *cur_size, void **heap_end )
     return cpu_time;
 }
 
-void allocator_error( script *s, int lineno, char *format, ... )
+void allocator_error( struct script *s, int lineno, char *format, ... )
 {
     va_list args;
     (void)fprintf( stdout, "\nALLOCATOR FAILURE [%s, line %d]: ", s->name, lineno );

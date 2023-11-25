@@ -26,15 +26,17 @@
 
 // Amount by which we resize ops when needed when reading in from file
 const long heap_size = 1L << 32;
+const size_t scale_to_whole_num = 100;
+const size_t lowest_byte = 0xFFUL;
 
 /// FUNCTION PROTOTYPES
 
 static int test_scripts( char *script_names[], int num_script_names, bool quiet );
-static size_t eval_correctness( script *s, bool quiet, bool *success );
-static void *eval_malloc( int req, size_t requested_size, script *s, bool *failptr );
-static void *eval_realloc( int req, size_t requested_size, script *s, bool *failptr );
-static bool verify_block( void *ptr, size_t size, script *s, int lineno );
-static bool verify_payload( void *ptr, size_t size, size_t id, script *s, int lineno, char *op );
+static size_t eval_correctness( struct script *s, bool quiet, bool *success );
+static void *eval_malloc( int req, size_t requested_size, struct script *s, bool *failptr );
+static void *eval_realloc( int req, size_t requested_size, struct script *s, bool *failptr );
+static bool verify_block( void *ptr, size_t size, struct script *s, int lineno );
+static bool verify_payload( void *ptr, size_t size, size_t id, struct script *s, int lineno, char *op );
 
 /// CORRECTNESS EVALUATION IMPLEMENTATION
 
@@ -83,7 +85,7 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
     size_t total_util = 0;
 
     for ( int i = 0; i < num_script_names; i++ ) {
-        script s = parse_script( script_names[i] );
+        struct script s = parse_script( script_names[i] );
 
         // Evaluate this script and record the results
         printf( "\nEvaluating allocator on %s...", s.name );
@@ -93,7 +95,7 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
             printf( "successfully serviced %d requests. (payload/segment = %zu/%zu)", s.num_ops, s.peak_size,
                     used_segment );
             if ( used_segment > 0 ) {
-                total_util += ( 100 * s.peak_size ) / used_segment;
+                total_util += ( scale_to_whole_num * s.peak_size ) / used_segment;
             }
             nsuccesses++;
         } else {
@@ -116,7 +118,7 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
 /// script operation-by-operation and reports if it detects any "obvious"
 /// errors (returning blocks outside the heap, unaligned,
 /// overlapping blocks, etc.)
-static size_t eval_correctness( script *s, bool quiet, bool *success ) // NOLINT(*-cognitive-complexity)
+static size_t eval_correctness( struct script *s, bool quiet, bool *success ) // NOLINT(*-cognitive-complexity)
 {
     *success = false;
 
@@ -173,7 +175,7 @@ static size_t eval_correctness( script *s, bool quiet, bool *success ) // NOLINT
             if ( !verify_payload( p, old_size, id, s, s->ops[req].lineno, "freeing" ) ) {
                 return -1;
             }
-            s->blocks[id] = ( block ){ .ptr = NULL, .size = 0 };
+            s->blocks[id] = ( struct block ){ .ptr = NULL, .size = 0 };
             myfree( p );
             cur_size -= old_size;
         }
@@ -209,7 +211,7 @@ static size_t eval_correctness( script *s, bool quiet, bool *success ) // NOLINT
 /// failptr is set to true - otherwise, it is set to false.  If it is set to
 /// true this function returns NULL; otherwise, it returns what was returned
 /// by mymalloc.
-static void *eval_malloc( int req, size_t requested_size, script *s, bool *failptr )
+static void *eval_malloc( int req, size_t requested_size, struct script *s, bool *failptr )
 {
 
     size_t id = s->ops[req].id;
@@ -232,8 +234,8 @@ static void *eval_malloc( int req, size_t requested_size, script *s, bool *failp
     /// Fill new block with the low-order byte of new id
     /// can be used later to verify data copied when realloc'ing.
 
-    memset( p, (int)( id & 0xFFUL ), requested_size ); // NOLINT
-    s->blocks[id] = ( block ){ .ptr = p, .size = requested_size };
+    memset( p, (int)( id & lowest_byte ), requested_size ); // NOLINT
+    s->blocks[id] = ( struct block ){ .ptr = p, .size = requested_size };
     *failptr = false;
     return p;
 }
@@ -247,7 +249,7 @@ static void *eval_malloc( int req, size_t requested_size, script *s, bool *failp
 /// failptr is set to true - otherwise, it is set to false.  If it is set to true
 /// this function returns NULL; otherwise, it returns what was returned by
 /// myrealloc.
-static void *eval_realloc( int req, size_t requested_size, script *s, bool *failptr )
+static void *eval_realloc( int req, size_t requested_size, struct script *s, bool *failptr )
 {
 
     size_t id = s->ops[req].id;
@@ -280,8 +282,8 @@ static void *eval_realloc( int req, size_t requested_size, script *s, bool *fail
     }
 
     // Fill new block with the low-order byte of new id
-    memset( newp, (int)( id & 0xFFUL ), requested_size ); // NOLINT
-    s->blocks[id] = ( block ){ .ptr = newp, .size = requested_size };
+    memset( newp, (int)( id & lowest_byte ), requested_size ); // NOLINT
+    s->blocks[id] = ( struct block ){ .ptr = newp, .size = requested_size };
 
     *failptr = false;
     return newp;
@@ -295,7 +297,7 @@ static void *eval_realloc( int req, size_t requested_size, script *s, bool *fail
 ///  -- verify block address is correctly aligned
 ///  -- verify block address is within heap segment
 ///  -- verify block address + size doesn't overlap any existing allocated block
-static bool verify_block( void *ptr, size_t size, script *s, int lineno )
+static bool verify_block( void *ptr, size_t size, struct script *s, int lineno )
 {
     // address must be ALIGNMENT-byte aligned
     if ( ( (uintptr_t)ptr ) % ALIGNMENT != 0 ) {
@@ -341,11 +343,11 @@ static bool verify_block( void *ptr, size_t size, script *s, int lineno )
 /// pattern based on its id.  Check the payload to verify those contents are
 /// still intact, otherwise raise allocator error.
 // NOLINTNEXTLINE (*-swappable-parameters)
-static bool verify_payload( void *ptr, size_t size, size_t id, script *s, int lineno, char *op )
+static bool verify_payload( void *ptr, size_t size, size_t id, struct script *s, int lineno, char *op )
 {
 
     for ( size_t i = 0; i < size; i++ ) {
-        if ( *( (unsigned char *)ptr + i ) != ( id & 0xFFUL ) ) {
+        if ( *( (unsigned char *)ptr + i ) != ( id & lowest_byte ) ) {
             allocator_error( s, lineno, "invalid payload data detected when %s address %p", op, ptr );
             return false;
         }

@@ -80,6 +80,26 @@ target_link_libraries(test_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 
+########## Splay Tree Stack #############
+
+
+add_executable(test_splaytree_stack test_harness.c)
+target_link_libraries(test_splaytree_stack PUBLIC
+                      segment
+                      script
+                      splaytree_stack
+)
+
+########## Splay Tree Topdown #############
+
+
+add_executable(test_splaytree_topdown test_harness.c)
+target_link_libraries(test_splaytree_topdown PUBLIC
+                      segment
+                      script
+                      splaytree_topdown
+)
+
 
 ################################# TIME HARNESS PROGRAM ############################################
 
@@ -170,6 +190,28 @@ target_link_libraries(time_rbtree_topdown PUBLIC
                       print_utility
                       script
                       rbtree_topdown
+)
+
+############ Splay Tree Stack ###############
+
+
+add_executable(time_splaytree_stack time_harness.c)
+target_link_libraries(time_splaytree_stack PUBLIC
+                      segment
+                      print_utility
+                      script
+                      splaytree_stack
+)
+
+############ Splay Tree Topdown ###############
+
+
+add_executable(time_splaytree_topdown time_harness.c)
+target_link_libraries(time_splaytree_topdown PUBLIC
+                      segment
+                      print_utility
+                      script
+                      splaytree_topdown
 )
 
 
@@ -264,6 +306,28 @@ target_link_libraries(print_peaks_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 
+######## Splay Tree Stack ###########
+
+
+add_executable(print_peaks_splaytree_stack print_peaks.c)
+target_link_libraries(print_peaks_splaytree_stack PUBLIC
+                      segment
+                      print_utility
+                      script
+                      splaytree_stack
+)
+
+######## Splay Tree Topdown ###########
+
+
+add_executable(print_peaks_splaytree_topdown print_peaks.c)
+target_link_libraries(print_peaks_splaytree_topdown PUBLIC
+                      segment
+                      print_utility
+                      script
+                      splaytree_topdown
+)
+
 ################################# OPTIONAL PROGRAM ############################################
 
 
@@ -345,5 +409,25 @@ target_link_libraries(my_optional_program_rbtree_topdown PUBLIC
                       segment
                       script
                       rbtree_topdown
+)
+
+#######  Splay Tree Stack ##########
+
+
+add_executable(my_optional_program_splaytree_stack my_optional_program.c)
+target_link_libraries(my_optional_program_splaytree_stack PUBLIC
+                      segment
+                      script
+                      splaytree_stack
+)
+
+#######  Splay Tree Topdown ##########
+
+
+add_executable(my_optional_program_splaytree_topdown my_optional_program.c)
+target_link_libraries(my_optional_program_splaytree_topdown PUBLIC
+                      segment
+                      script
+                      splaytree_topdown
 )
 
