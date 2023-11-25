@@ -527,11 +527,7 @@ static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive
             }
             right->links[L] = root; /* link right */
             if ( root->list_start != free_nodes.list_tail ) {
-                if ( right == &new_tree ) {
-                    root->list_start->parent = free_nodes.nil;
-                } else {
-                    root->list_start->parent = right;
-                }
+                root->list_start->parent = right;
             }
             right = root;
             root = root->links[L];
@@ -555,12 +551,8 @@ static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive
                 }
             }
             left->links[R] = root; /* link left */
-            if ( left != &new_tree && root->list_start != free_nodes.list_tail ) {
-                if ( left == &new_tree ) {
-                    root->list_start->parent = free_nodes.nil;
-                } else {
-                    root->list_start->parent = left;
-                }
+            if ( root->list_start != free_nodes.list_tail ) {
+                root->list_start->parent = left;
             }
             left = root;
             root = root->links[R];
@@ -634,11 +626,7 @@ static struct node *splay_bestfit( struct node *root, size_t key ) // NOLINT (*c
             }
             right->links[L] = root; /* link right */
             if ( root->list_start != free_nodes.list_tail ) {
-                if ( right == &new_tree ) {
-                    root->list_start->parent = free_nodes.nil;
-                } else {
-                    root->list_start->parent = right;
-                }
+                root->list_start->parent = right;
             }
             right = root;
             root = root->links[L];
@@ -663,11 +651,7 @@ static struct node *splay_bestfit( struct node *root, size_t key ) // NOLINT (*c
             }
             left->links[R] = root; /* link left */
             if ( root->list_start != free_nodes.list_tail ) {
-                if ( left == &new_tree ) {
-                    root->list_start->parent = free_nodes.nil;
-                } else {
-                    root->list_start->parent = left;
-                }
+                root->list_start->parent = left;
             }
             left = root;
             root = root->links[R];
