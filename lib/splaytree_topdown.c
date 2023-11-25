@@ -125,8 +125,8 @@ static void remove_head( struct node *head, struct node *lft_child, struct node 
 static void *free_coalesced_node( void *to_coalesce );
 static struct node *find_best_fit( size_t key );
 static void insert_node( struct node *current );
-static struct node *splay( struct node *root, size_t size );
-static struct node *splay_bestfit( struct node *root, size_t size );
+static struct node *splay( struct node *root, size_t key );
+static struct node *splay_bestfit( struct node *root, size_t key );
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent );
 static struct node *delete_duplicate( struct node *head );
 static bool check_init( struct heap_range r, size_t heap_size );
@@ -405,8 +405,11 @@ static struct node *coalesce_splay( size_t key )
     if ( to_return->links[L] == free_nodes.nil ) {
         free_nodes.root = to_return->links[R];
     } else {
-        free_nodes.root = splay( to_return->links[L], key );
+        free_nodes.root = splay_bestfit( to_return->links[L], key );
         free_nodes.root->links[R] = to_return->links[R];
+        if ( to_return->links[R] != free_nodes.nil && to_return->links[R]->list_start != free_nodes.list_tail ) {
+            to_return->links[R]->list_start->parent = free_nodes.root;
+        }
     }
     if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
         free_nodes.root->list_start->parent = free_nodes.nil;
@@ -424,7 +427,7 @@ static struct node *find_best_fit( size_t key )
     struct node *to_return = splay_bestfit( free_nodes.root, key );
     if ( to_return->list_start != free_nodes.list_tail ) {
         free_nodes.root = to_return;
-        if ( free_nodes.root != free_nodes.nil ) {
+        if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
             free_nodes.root->list_start->parent = free_nodes.nil;
         }
         return delete_duplicate( to_return );
@@ -434,6 +437,9 @@ static struct node *find_best_fit( size_t key )
     } else {
         free_nodes.root = splay_bestfit( to_return->links[L], key );
         free_nodes.root->links[R] = to_return->links[R];
+        if ( to_return->links[R] != free_nodes.nil && to_return->links[R]->list_start != free_nodes.list_tail ) {
+            to_return->links[R]->list_start->parent = free_nodes.root;
+        }
     }
     if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
         free_nodes.root->list_start->parent = free_nodes.nil;
@@ -458,6 +464,9 @@ static void insert_node( struct node *current )
     free_nodes.root = splay( free_nodes.root, current_key );
     size_t found_size = get_size( free_nodes.root->header );
     if ( current_key == found_size ) {
+        if ( free_nodes.root->list_start != free_nodes.list_tail ) {
+            free_nodes.root->list_start->parent = free_nodes.nil;
+        }
         add_duplicate( free_nodes.root, (struct duplicate_node *)current, free_nodes.nil );
         return;
     }
@@ -467,6 +476,9 @@ static void insert_node( struct node *current )
             current->links[L]->list_start->parent = current;
         }
         current->links[R] = free_nodes.root;
+        if ( free_nodes.root->list_start != free_nodes.list_tail ) {
+            free_nodes.root->list_start->parent = current;
+        }
         free_nodes.root->links[L] = free_nodes.nil;
     } else {
         current->links[R] = free_nodes.root->links[R];
@@ -474,66 +486,82 @@ static void insert_node( struct node *current )
             current->links[R]->list_start->parent = current;
         }
         current->links[L] = free_nodes.root;
+        if ( free_nodes.root->list_start != free_nodes.list_tail ) {
+            free_nodes.root->list_start->parent = current;
+        }
         free_nodes.root->links[R] = free_nodes.nil;
-    }
-    if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
-        free_nodes.root->list_start->parent = current;
     }
     free_nodes.root = current;
     ++free_nodes.total;
 }
 
-static struct node *splay( struct node *root, size_t size ) // NOLINT (*cognitive-complexity)
+static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive-complexity)
 {
-    struct node new_tree;
-    struct node *left = free_nodes.nil;
-    struct node *right = free_nodes.nil;
-    struct node *finger = free_nodes.nil;
     if ( root == free_nodes.nil ) {
         return free_nodes.nil;
     }
-    new_tree.links[L] = free_nodes.nil;
-    new_tree.links[R] = free_nodes.nil;
-    left = &new_tree;
-    right = &new_tree;
-
+    struct node new_tree
+        = { .header = 0, .links = { free_nodes.nil, free_nodes.nil }, .list_start = free_nodes.list_tail };
+    struct node *left = &new_tree;
+    struct node *right = &new_tree;
+    struct node *finger = free_nodes.nil;
     for ( ;; ) {
-        if ( size < get_size( root->header ) ) {
+        if ( key < get_size( root->header ) ) {
             if ( root->links[L] == free_nodes.nil ) {
                 break;
             }
-            if ( size < get_size( root->links[L]->header ) ) {
+            if ( key < get_size( root->links[L]->header ) ) {
                 finger = root->links[L]; /* rotate right */
                 root->links[L] = finger->links[R];
                 if ( finger->links[R] != free_nodes.nil && finger->links[R]->list_start != free_nodes.list_tail ) {
                     finger->links[R]->list_start->parent = root;
                 }
                 finger->links[R] = root;
+                if ( root->list_start != free_nodes.list_tail ) {
+                    root->list_start->parent = finger;
+                }
                 root = finger;
                 if ( root->links[L] == free_nodes.nil ) {
                     break;
                 }
             }
             right->links[L] = root; /* link right */
+            if ( root->list_start != free_nodes.list_tail ) {
+                if ( right == &new_tree ) {
+                    root->list_start->parent = free_nodes.nil;
+                } else {
+                    root->list_start->parent = right;
+                }
+            }
             right = root;
             root = root->links[L];
-        } else if ( size > get_size( root->header ) ) {
+        } else if ( key > get_size( root->header ) ) {
             if ( root->links[R] == free_nodes.nil ) {
                 break;
             }
-            if ( size > get_size( root->links[R]->header ) ) {
+            if ( key > get_size( root->links[R]->header ) ) {
                 finger = root->links[R]; /* rotate left */
                 root->links[R] = finger->links[L];
                 if ( finger->links[L] != free_nodes.nil && finger->links[L]->list_start != free_nodes.list_tail ) {
                     finger->links[L]->list_start->parent = root;
                 }
                 finger->links[L] = root;
+                if ( root->list_start != free_nodes.list_tail ) {
+                    root->list_start->parent = finger;
+                }
                 root = finger;
                 if ( root->links[R] == free_nodes.nil ) {
                     break;
                 }
             }
             left->links[R] = root; /* link left */
+            if ( left != &new_tree && root->list_start != free_nodes.list_tail ) {
+                if ( left == &new_tree ) {
+                    root->list_start->parent = free_nodes.nil;
+                } else {
+                    root->list_start->parent = left;
+                }
+            }
             left = root;
             root = root->links[R];
         } else {
@@ -541,7 +569,15 @@ static struct node *splay( struct node *root, size_t size ) // NOLINT (*cognitiv
         }
     }
     left->links[R] = root->links[L]; /* assemble */
+    if ( left != &new_tree && root->links[L] != free_nodes.nil
+         && root->links[L]->list_start != free_nodes.list_tail ) {
+        root->links[L]->list_start->parent = left;
+    }
     right->links[L] = root->links[R];
+    if ( right != &new_tree && root->links[R] != free_nodes.nil
+         && root->links[R]->list_start != free_nodes.list_tail ) {
+        root->links[R]->list_start->parent = right;
+    }
     root->links[L] = new_tree.links[R];
     if ( new_tree.links[R] != free_nodes.nil && new_tree.links[R]->list_start != free_nodes.list_tail ) {
         new_tree.links[R]->list_start->parent = root;
@@ -553,57 +589,86 @@ static struct node *splay( struct node *root, size_t size ) // NOLINT (*cognitiv
     return root;
 }
 
-static struct node *splay_bestfit( struct node *root, size_t size ) // NOLINT (*cognitive-complexity)
+static struct node *splay_bestfit( struct node *root, size_t key ) // NOLINT (*cognitive-complexity)
 {
-    struct node new_tree;
-    struct node *left = free_nodes.nil;
-    struct node *right = free_nodes.nil;
-    struct node *finger = free_nodes.nil;
     if ( root == free_nodes.nil ) {
         return free_nodes.nil;
     }
-    new_tree.links[L] = free_nodes.nil;
-    new_tree.links[R] = free_nodes.nil;
-    left = &new_tree;
-    right = &new_tree;
-
+    struct node new_tree
+        = { .header = 0, .links = { free_nodes.nil, free_nodes.nil }, .list_start = free_nodes.list_tail };
+    struct node *left = &new_tree;
+    struct node *right = &new_tree;
+    struct node *finger = free_nodes.nil;
+    size_t best_fit = ULLONG_MAX;
     for ( ;; ) {
-        if ( size < get_size( root->header ) ) {
-            if ( root->links[L] == free_nodes.nil || get_size( root->links[L]->header ) < size ) {
+        size_t root_size = get_size( root->header );
+        if ( root_size < best_fit && root_size >= key ) {
+            best_fit = root_size;
+        }
+        size_t left_child_size = get_size( root->links[L]->header );
+        if ( left_child_size < best_fit && left_child_size >= key ) {
+            best_fit = left_child_size;
+        }
+        size_t right_child_size = get_size( root->links[R]->header );
+        if ( right_child_size < best_fit && right_child_size >= key ) {
+            best_fit = right_child_size;
+        }
+        if ( key < root_size ) {
+            if ( root->links[L] == free_nodes.nil ) {
                 break;
             }
-            if ( size < get_size( root->links[L]->header ) ) {
+            if ( key < get_size( root->links[L]->header ) ) {
                 finger = root->links[L]; /* rotate right */
                 root->links[L] = finger->links[R];
                 if ( finger->links[R] != free_nodes.nil && finger->links[R]->list_start != free_nodes.list_tail ) {
                     finger->links[R]->list_start->parent = root;
                 }
                 finger->links[R] = root;
+                if ( root->list_start != free_nodes.list_tail ) {
+                    root->list_start->parent = finger;
+                }
                 root = finger;
-                if ( root->links[L] == free_nodes.nil || get_size( root->links[L]->header ) < size ) {
+                if ( root->links[L] == free_nodes.nil ) {
                     break;
                 }
             }
             right->links[L] = root; /* link right */
+            if ( root->list_start != free_nodes.list_tail ) {
+                if ( right == &new_tree ) {
+                    root->list_start->parent = free_nodes.nil;
+                } else {
+                    root->list_start->parent = right;
+                }
+            }
             right = root;
             root = root->links[L];
-        } else if ( size > get_size( root->header ) ) {
+        } else if ( key > root_size ) {
             if ( root->links[R] == free_nodes.nil ) {
                 break;
             }
-            if ( size > get_size( root->links[R]->header ) ) {
+            if ( key > get_size( root->links[R]->header ) ) {
                 finger = root->links[R]; /* rotate left */
                 root->links[R] = finger->links[L];
                 if ( finger->links[L] != free_nodes.nil && finger->links[L]->list_start != free_nodes.list_tail ) {
                     finger->links[L]->list_start->parent = root;
                 }
                 finger->links[L] = root;
+                if ( root->list_start != free_nodes.list_tail ) {
+                    root->list_start->parent = finger;
+                }
                 root = finger;
                 if ( root->links[R] == free_nodes.nil ) {
                     break;
                 }
             }
             left->links[R] = root; /* link left */
+            if ( root->list_start != free_nodes.list_tail ) {
+                if ( left == &new_tree ) {
+                    root->list_start->parent = free_nodes.nil;
+                } else {
+                    root->list_start->parent = left;
+                }
+            }
             left = root;
             root = root->links[R];
         } else {
@@ -611,7 +676,15 @@ static struct node *splay_bestfit( struct node *root, size_t size ) // NOLINT (*
         }
     }
     left->links[R] = root->links[L]; /* assemble */
+    if ( left != &new_tree && root->links[L] != free_nodes.nil
+         && root->links[L]->list_start != free_nodes.list_tail ) {
+        root->links[L]->list_start->parent = left;
+    }
     right->links[L] = root->links[R];
+    if ( right != &new_tree && root->links[R] != free_nodes.nil
+         && root->links[R]->list_start != free_nodes.list_tail ) {
+        root->links[R]->list_start->parent = right;
+    }
     root->links[L] = new_tree.links[R];
     if ( new_tree.links[R] != free_nodes.nil && new_tree.links[R]->list_start != free_nodes.list_tail ) {
         new_tree.links[R]->list_start->parent = root;
@@ -619,6 +692,9 @@ static struct node *splay_bestfit( struct node *root, size_t size ) // NOLINT (*
     root->links[R] = new_tree.links[L];
     if ( new_tree.links[L] != free_nodes.nil && new_tree.links[L]->list_start != free_nodes.list_tail ) {
         new_tree.links[L]->list_start->parent = root;
+    }
+    if ( get_size( root->header ) < key ) {
+        return splay( root, best_fit );
     }
     return root;
 }
