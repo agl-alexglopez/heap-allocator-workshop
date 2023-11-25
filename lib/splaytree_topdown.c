@@ -542,24 +542,24 @@ static struct node *splay( struct node *root, size_t key )
     for ( ;; ) {
         size_t root_size = get_size( root->header );
         // We will now unite the left and right cases of a standard topdown splay. Flip this enum when needed.
-        enum tree_link next_link_to_descend = root_size < key;
-        if ( key == root_size || root->links[next_link_to_descend] == free_nodes.nil ) {
+        enum tree_link link_to_descend = root_size < key;
+        if ( key == root_size || root->links[link_to_descend] == free_nodes.nil ) {
             break;
         }
-        size_t child_size = get_size( root->links[next_link_to_descend]->header );
-        enum tree_link next_link_to_descend_from_child = child_size < key;
-        if ( key != child_size && next_link_to_descend == next_link_to_descend_from_child ) {
-            finger = root->links[next_link_to_descend];
-            link_parent_to_subtree( root, next_link_to_descend, finger->links[!next_link_to_descend] );
-            link_parent_to_subtree( finger, !next_link_to_descend, root );
+        size_t child_size = get_size( root->links[link_to_descend]->header );
+        enum tree_link link_to_descend_from_child = child_size < key;
+        if ( key != child_size && link_to_descend == link_to_descend_from_child ) {
+            finger = root->links[link_to_descend];
+            link_parent_to_subtree( root, link_to_descend, finger->links[!link_to_descend] );
+            link_parent_to_subtree( finger, !link_to_descend, root );
             root = finger;
-            if ( root->links[next_link_to_descend] == free_nodes.nil ) {
+            if ( root->links[link_to_descend] == free_nodes.nil ) {
                 break;
             }
         }
-        link_parent_to_subtree( left_right_subtrees[!next_link_to_descend], next_link_to_descend, root );
-        left_right_subtrees[!next_link_to_descend] = root;
-        root = root->links[next_link_to_descend];
+        link_parent_to_subtree( left_right_subtrees[!link_to_descend], link_to_descend, root );
+        left_right_subtrees[!link_to_descend] = root;
+        root = root->links[link_to_descend];
     }
     link_parent_to_subtree( left_right_subtrees[L], R, root->links[L] );
     link_parent_to_subtree( left_right_subtrees[R], L, root->links[R] );
