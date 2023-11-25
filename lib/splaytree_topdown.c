@@ -405,7 +405,7 @@ static struct node *coalesce_splay( size_t key )
     if ( to_return->links[L] == free_nodes.nil ) {
         free_nodes.root = to_return->links[R];
     } else {
-        free_nodes.root = splay_bestfit( to_return->links[L], key );
+        free_nodes.root = splay( to_return->links[L], key );
         free_nodes.root->links[R] = to_return->links[R];
         if ( to_return->links[R] != free_nodes.nil && to_return->links[R]->list_start != free_nodes.list_tail ) {
             to_return->links[R]->list_start->parent = free_nodes.root;
