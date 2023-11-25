@@ -80,14 +80,14 @@ target_link_libraries(test_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 
-########## Splay Tree #############
+########## Splay Tree Bottomup #############
 
 
-add_executable(test_splaytree test_harness.c)
-target_link_libraries(test_splaytree PUBLIC
+add_executable(test_splaytree_bottomup test_harness.c)
+target_link_libraries(test_splaytree_bottomup PUBLIC
                       segment
                       script
-                      splaytree
+                      splaytree_bottomup
 )
 
 ########## Splay Tree Topdown #############
@@ -192,15 +192,15 @@ target_link_libraries(time_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 
-############ Splay Tree ###############
+############ Splay Tree Bottomup ###############
 
 
-add_executable(time_splaytree time_harness.c)
-target_link_libraries(time_splaytree PUBLIC
+add_executable(time_splaytree_bottomup time_harness.c)
+target_link_libraries(time_splaytree_bottomup PUBLIC
                       segment
                       print_utility
                       script
-                      splaytree
+                      splaytree_bottomup
 )
 
 ############ Splay Tree Topdown ###############
@@ -306,15 +306,15 @@ target_link_libraries(print_peaks_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 
-######## Splay Tree ###########
+######## Splay Tree Bottomup ###########
 
 
-add_executable(print_peaks_splaytree print_peaks.c)
-target_link_libraries(print_peaks_splaytree PUBLIC
+add_executable(print_peaks_splaytree_bottomup print_peaks.c)
+target_link_libraries(print_peaks_splaytree_bottomup PUBLIC
                       segment
                       print_utility
                       script
-                      splaytree
+                      splaytree_bottomup
 )
 
 ######## Splay Tree Topdown ###########
@@ -411,14 +411,14 @@ target_link_libraries(my_optional_program_rbtree_topdown PUBLIC
                       rbtree_topdown
 )
 
-#######  Splay Tree ##########
+#######  Splay Tree Bottomup ##########
 
 
-add_executable(my_optional_program_splaytree my_optional_program.c)
-target_link_libraries(my_optional_program_splaytree PUBLIC
+add_executable(my_optional_program_splaytree_bottomup my_optional_program.c)
+target_link_libraries(my_optional_program_splaytree_bottomup PUBLIC
                       segment
                       script
-                      splaytree
+                      splaytree_bottomup
 )
 
 #######  Splay Tree Topdown ##########
