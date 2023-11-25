@@ -20,7 +20,8 @@
 /// 2. Algorithm Tutors. https://algorithmtutor.com/Data-Structures/Tree/Splay-Trees/
 ///    The pseudocode is a good jumping off point for splay trees. However, significant
 ///    modification is required to abandon the parent pointer, contextualize the data
-///    structure to a heap allocator, support coalescing, and optimize for duplicate nodes.
+///    structure to a heap allocator, support coalescing, optimize for duplicate nodes,
+///    and unite left and right symmetrical cases into one happy code path.
 #include "allocator.h"
 #include "debug_break.h"
 #include "print_utility.h"
@@ -184,7 +185,7 @@ static void *free_coalesced_node( void *to_coalesce );
 static struct node *find_best_fit( size_t key );
 static void insert_node( struct node *current );
 static void splay( struct node *cur, struct path_slice p );
-static struct node *join( struct tree_pair pair, struct path_slice p );
+static struct node *join( struct tree_pair subtrees, struct path_slice p );
 static struct tree_pair split( struct node *remove, struct path_slice p );
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent );
 static struct node *delete_duplicate( struct node *head );
@@ -310,7 +311,7 @@ bool validate_heap( void )
 //////////////////////////       Printing Public Helpers    //////////////////////////////////
 
 /// @note  the red and blue links represent the heavy/light decomposition of a splay tree. For more
-///        information on this interpretation see any Stanford 166 lecture on splay trees.
+///        information on this interpretation see any Stanford 166 lecture slides on splay trees.
 void print_free_nodes( enum print_style style )
 {
     printf( "%s(X)%s", COLOR_CYN, COLOR_NIL );
@@ -504,12 +505,12 @@ static struct node *find_best_fit( size_t key )
         assert( remove == free_nodes.root );
         return delete_duplicate( remove );
     }
-    struct tree_pair lg = split( remove, ( struct path_slice ){ path, len_to_best_fit } );
-    if ( lg.lesser->links[L] != free_nodes.nil ) {
-        lg.lesser->links[L]->list_start->parent = free_nodes.nil;
+    struct tree_pair subtrees = split( remove, ( struct path_slice ){ path, len_to_best_fit } );
+    if ( subtrees.lesser->links[L] != free_nodes.nil ) {
+        subtrees.lesser->links[L]->list_start->parent = free_nodes.nil;
     }
-    free_nodes.root
-        = join( ( struct tree_pair ){ lg.lesser->links[L], lg.greater }, ( struct path_slice ){ path, 1 } );
+    free_nodes.root = join( ( struct tree_pair ){ subtrees.lesser->links[L], subtrees.greater },
+                            ( struct path_slice ){ path, 1 } );
     --free_nodes.total;
     return remove;
 }
@@ -534,21 +535,21 @@ static struct tree_pair split( struct node *remove, struct path_slice p )
 /// @brief join  when joining, we have just splayed a node we wish to remove to the root of a tree, then split.
 ///              We now must make a new root and join the two trees split trees. The smaller tree contains the
 ///              maximum we will use. This maximum then takes the larger tree as its right child.
-static struct node *join( struct tree_pair pair, struct path_slice p )
+static struct node *join( struct tree_pair subtrees, struct path_slice p )
 {
-    if ( pair.lesser == free_nodes.nil ) {
-        return pair.greater;
+    if ( subtrees.lesser == free_nodes.nil ) {
+        return subtrees.greater;
     }
-    if ( pair.greater == free_nodes.nil ) {
-        return pair.lesser;
+    if ( subtrees.greater == free_nodes.nil ) {
+        return subtrees.lesser;
     }
-    for ( struct node *seeker = pair.lesser; seeker != free_nodes.nil; seeker = seeker->links[R] ) {
+    for ( struct node *seeker = subtrees.lesser; seeker != free_nodes.nil; seeker = seeker->links[R] ) {
         p.nodes[p.len++] = seeker;
     }
     struct node *inorder_predecessor = p.nodes[p.len - 1];
     splay( inorder_predecessor, p );
-    inorder_predecessor->links[R] = pair.greater;
-    pair.greater->list_start->parent = inorder_predecessor;
+    inorder_predecessor->links[R] = subtrees.greater;
+    subtrees.greater->list_start->parent = inorder_predecessor;
     return inorder_predecessor;
 }
 
@@ -692,6 +693,7 @@ static void rotate( enum tree_link rotation, struct node *current, struct path_s
 ///                       This adds the duplicate node to the linked list of the node already present.
 /// @param *head          the node currently organized in the tree. We will add to its list.
 /// @param *to_add        the node to add to the linked list.
+/// @param *parent        the parent node that we may need to update.
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
 {
     add->header = head->header;
@@ -987,15 +989,22 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
     printf( "\n" );
 }
 
-/// @brief print_inner_tree  recursively prints the contents of a red black tree with color
-///                          and in a style similar to a directory structure to be read from
-///                          left to right.
-/// @param *root             the root node to start at.
-/// @param *prefix           the string we print spacing and characters across recursive calls.
-/// @param node_type         the node to print can either be a leaf or internal branch.
-/// @param dir               no parent field so we need to track where we came from.
-/// @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
-/// @warning                 this function is hideous/slow but it prints the edge colors correctly.
+/// @brief print_inner_tree      recursively prints the contents of a red black tree with color
+///                              and in a style similar to a directory structure to be read from
+///                              left to right. The edges are colored either red or blue to indicate the
+///                              heavy/light decomposition of a splay tree. If a child node has X nodes rooted
+///                              at child such that X < ((nodes rooted at parent) / 2), the edge is blue. If
+///                              a child has X nodes rooted at child such that X >= ((nodes rooted at parent) / 2)
+///                              the edge is red. Splay trees seek to bound the cost of blue edges and amortize
+///                              the cost of red edges away.
+/// @param *root                 the root node to start at.
+/// @param parent_size           the heavy light decomposition of a splaytree requires we compare tree totals.
+/// @param *prefix               the string we print spacing and characters across recursive calls.
+/// @param *prefix_branch_color  if we were branching left in our prefix the vertical bar needs this edge color.
+/// @param node_type             the node to print can either be a leaf or internal branch.
+/// @param dir                   no parent field so we need to track where we came from.
+/// @param style                 the print style: PLAIN or VERBOSE(displays memory addresses).
+/// @note                        this function is hideous/slow but it prints the edge colors correctly.
 static void print_inner_tree( const struct node *root, size_t parent_size, const char *prefix,
                               const char *prefix_branch_color, const enum print_link node_type,
                               const enum tree_link dir, enum print_style style )
@@ -1038,7 +1047,8 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
     free( str );
 }
 
-/// @brief print_tree     prints the contents of an entire tree in a directory tree style.
+/// @brief print_tree     prints the contents of an entire tree in a directory tree style with a red/blue
+///                       heavy/light decomposition.
 /// @param *root          the root node to begin at for printing recursively.
 /// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
 /// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).

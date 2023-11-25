@@ -65,10 +65,10 @@ enum list_link
     N = 1
 };
 
-/// A node in this splay tree does not track its parent so we will manage a stack.
-/// We also have the additional optimization of tracking duplicates in a linked
-/// list of duplicate_node members. We can access that list via the list_start.
-/// If the list is empty it will point to our placeholder node that acts as nil.
+/// A node in this splay tree does not track its parent. We also have the additional
+/// optimization of tracking duplicates in a linked list of duplicate_node members.
+/// We can access that list via the list_start. If the list is empty it will point
+/// to our placeholder node that acts as nil.
 struct node
 {
     header header;
@@ -537,11 +537,12 @@ static struct node *splay( struct node *root, size_t key )
     }
     // Pointers in an array and we can use the symmetric enum and flip it to choose the Left or Right subtree.
     // Another benefit of our nil node: use it as our helper tree because we don't need its Left Right fields.
+    free_nodes.nil->links[L] = free_nodes.nil;
+    free_nodes.nil->links[R] = free_nodes.nil;
     struct node *left_right_subtrees[2] = { free_nodes.nil, free_nodes.nil };
     struct node *finger = NULL;
     for ( ;; ) {
         size_t root_size = get_size( root->header );
-        // We will now unite the left and right cases of a standard topdown splay. Flip this enum when needed.
         enum tree_link link_to_descend = root_size < key;
         if ( key == root_size || root->links[link_to_descend] == free_nodes.nil ) {
             break;
@@ -585,6 +586,8 @@ static struct node *splay_bestfit( struct node *root, size_t key )
     }
     // Pointers in an array and we can use the symmetric enum and flip it to choose the Left or Right subtree.
     // Another benefit of our nil node: use it as our helper tree because we don't need its Left Right fields.
+    free_nodes.nil->links[L] = free_nodes.nil;
+    free_nodes.nil->links[R] = free_nodes.nil;
     struct node *left_right_subtrees[2] = { free_nodes.nil, free_nodes.nil };
     struct node *finger = NULL;
     size_t best_fit = ULLONG_MAX;
@@ -597,7 +600,6 @@ static struct node *splay_bestfit( struct node *root, size_t key )
         best_fit = left_child_size < best_fit && left_child_size >= key ? left_child_size : best_fit;
         size_t right_child_size = get_size( root->links[R]->header );
         best_fit = right_child_size < best_fit && right_child_size >= key ? right_child_size : best_fit;
-        // We will now unite the left and right cases of a standard topdown splay. Flip this enum when needed.
         enum tree_link link_to_descend = root_size < key;
         if ( key == root_size || root->links[link_to_descend] == free_nodes.nil ) {
             break;
@@ -622,10 +624,9 @@ static struct node *splay_bestfit( struct node *root, size_t key )
     link_parent_to_subtree( left_right_subtrees[R], L, root->links[R] );
     link_parent_to_subtree( root, L, free_nodes.nil->links[R] );
     link_parent_to_subtree( root, R, free_nodes.nil->links[L] );
-    // Here is the HUGE problem with a bestfit allocator and a splay tree. Topdown splaytrees are intended to
-    // find an exact match for a key. We don't need that but we can't rewind all the fixups we did or cherry pick
-    // the best fit that is now somewhere else in the tree. Instead we will run another search for that specific
-    // bestfit value. This should be rare, but in the worst case we only have two traversals.
+    // We need bestfit which is not what splaytrees are made for. We can't rewind all the fixups or
+    // cherry pick the best fit; we need splay operations to fixup the tree for our selection. So,
+    // we will run another search for that specific bestfit value. Worst case 2 traversals.
     if ( get_size( root->header ) < key ) {
         return splay( root, best_fit );
     }
@@ -961,15 +962,22 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
     printf( "\n" );
 }
 
-/// @brief print_inner_tree  recursively prints the contents of a red black tree with color
-///                          and in a style similar to a directory structure to be read from
-///                          left to right.
-/// @param *root             the root node to start at.
-/// @param *prefix           the string we print spacing and characters across recursive calls.
-/// @param node_type         the node to print can either be a leaf or internal branch.
-/// @param dir               no parent field so we need to track where we came from.
-/// @param style             the print style: PLAIN or VERBOSE(displays memory addresses).
-/// @warning                 this function is hideous/slow but it prints the edge colors correctly.
+/// @brief print_inner_tree      recursively prints the contents of a red black tree with color
+///                              and in a style similar to a directory structure to be read from
+///                              left to right. The edges are colored either red or blue to indicate the
+///                              heavy/light decomposition of a splay tree. If a child node has X nodes rooted
+///                              at child such that X < ((nodes rooted at parent) / 2), the edge is blue. If
+///                              a child has X nodes rooted at child such that X >= ((nodes rooted at parent) / 2)
+///                              the edge is red. Splay trees seek to bound the cost of blue edges and amortize
+///                              the cost of red edges away.
+/// @param *root                 the root node to start at.
+/// @param parent_size           the heavy light decomposition of a splaytree requires we compare tree totals.
+/// @param *prefix               the string we print spacing and characters across recursive calls.
+/// @param *prefix_branch_color  if we were branching left in our prefix the vertical bar needs this edge color.
+/// @param node_type             the node to print can either be a leaf or internal branch.
+/// @param dir                   no parent field so we need to track where we came from.
+/// @param style                 the print style: PLAIN or VERBOSE(displays memory addresses).
+/// @note                        this function is hideous/slow but it prints the edge colors correctly.
 static void print_inner_tree( const struct node *root, size_t parent_size, const char *prefix,
                               const char *prefix_branch_color, const enum print_link node_type,
                               const enum tree_link dir, enum print_style style )
@@ -1012,7 +1020,8 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
     free( str );
 }
 
-/// @brief print_tree     prints the contents of an entire tree in a directory tree style.
+/// @brief print_tree     prints the contents of an entire tree in a directory tree style with a red/blue
+///                       heavy/light decomposition.
 /// @param *root          the root node to begin at for printing recursively.
 /// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
 /// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
@@ -1119,7 +1128,7 @@ static void print_bad_jump( const struct node *current, struct bad_jump j, const
 /// @param hr           start and end of the heap
 /// @param heap_size    the size in bytes of the
 /// @param *root        the root of the tree we start at for printing.
-/// @param *nil   the sentinel node that waits at the bottom of the tree for all leaves.
+/// @param *nil         the sentinel node that waits at the bottom of the tree for all leaves.
 static void print_all( struct heap_range r, size_t heap_size, struct node *tree_root, struct node *nil )
 {
     struct node *node = r.start;
