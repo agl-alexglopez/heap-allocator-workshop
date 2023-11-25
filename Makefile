@@ -31,7 +31,7 @@ format:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) format
 
 tidy:
-	$(MAKE) --no-print-directory -C $(BUILD_DIR) tidy
+	$(MAKE) --no-print-directory -C $(BUILD_DIR) tidy $(JOBS)
 
 debug-tests:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
@@ -43,6 +43,8 @@ debug-tests:
 	$(BUILD_DIR)debug/test_rbtree_linked $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_rbtree_stack $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_rbtree_topdown $(TEST_ARGS)
+	$(BUILD_DIR)debug/test_splaytree $(TEST_ARGS)
+	$(BUILD_DIR)debug/test_splaytree_topdown $(TEST_ARGS)
 
 release-tests:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
@@ -54,6 +56,8 @@ release-tests:
 	$(BUILD_DIR)release/test_rbtree_linked $(TEST_ARGS)
 	$(BUILD_DIR)release/test_rbtree_stack $(TEST_ARGS)
 	$(BUILD_DIR)release/test_rbtree_topdown $(TEST_ARGS)
+	$(BUILD_DIR)release/test_splaytree $(TEST_ARGS)
+	$(BUILD_DIR)release/test_splaytree_topdown $(TEST_ARGS)
 
 clean:
 	rm -rf build/

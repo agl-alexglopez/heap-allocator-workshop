@@ -446,7 +446,7 @@ static struct rb_node *single_rotation( struct rotation root_parent, enum tree_l
 /// @brief double_rotation  performs two rotations to a red-black tree, one in a direction and the
 ///                         other the opposite direction. A grandchild moves into root position.
 /// @param *root            the root around which we will double rotate.
-/// @param struct rotation         the first direction for the first rotation. Its opposite is next.
+/// @param rotation         the first direction for the first rotation. Its opposite is next.
 /// @return                 the grandchild that has moved into the root position.
 static struct rb_node *double_rotation( struct rotation root_parent, enum tree_link dir )
 {
@@ -455,7 +455,7 @@ static struct rb_node *double_rotation( struct rotation root_parent, enum tree_l
     return single_rotation( root_parent, dir );
 }
 
-///    Static Red-Black Tree Insertion Helper Function
+///////////////////    Static Red-Black Tree Insertion Helper Function   ////////////////////////////
 
 /// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
 ///                       struct rotation of duplicates in the tree. This adds the duplicate node to the

@@ -1,3 +1,34 @@
+/// Author: Alexander Griffin Lopez
+/// File: splaytree_topdown.c
+/// ------------------------------------------
+/// This file contains my implementation of a splay tree heap allocator. A splay tree
+/// is an interesting data structure to support the free nodes of a heap allocator
+/// because perhaps we can benefit from the frequencies in access patterns. This is
+/// just experimental, as I do not often here splay trees enter the discussion when
+/// considering allocator schemes. This is a topdown splay tree implementation based
+/// on the work of Daniel Sleator (Carnegie Mellon University). There are significant
+/// modifications to consider in the context of a heap allocator, however. Firstly,
+/// splay trees do not support duplicates yet we must do so for a heap allocator.
+/// Secondly, we must track parents even though topdown splay trees do not require
+/// us to do so. We will save space by combining the duplicate logic with the parent
+/// tracking logic. This is required because of coalescing and the possibility of
+/// a child node changing as a result of a coalesce requiring an update for the parent.
+/// There are many optimizations focused on speeding up coalescing and handling duplicates.
+/// See the detailed writeup for more information or explore the code.
+/// Citations:
+/// ------------------------------------------
+/// 1. Bryant and O'Hallaron, Computer Systems: A Programmer's Perspective, Chapter 9.
+///    I used the explicit free list outline from the textbook, specifically
+///    regarding how to implement left and right coalescing. I even used their
+///    suggested optimization of an extra control bit so that the footers to the left
+///    can be overwritten if the block is allocated so the user can have more space.
+/// 2. Daniel Sleator, Carnegie Mellon University. Sleator's implementation of a
+///    topdown splay tree was instrumental in starting things off, but required
+///    extensive modification. I had to add the ability to track duplicates, update
+///    parent and child tracking, and unite the left and right cases for fun. See
+///    the code for a generalizable strategy to eliminate symmetric left and right
+///    cases for any binary tree code.
+///    https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 #include "allocator.h"
 #include "debug_break.h"
 #include "print_utility.h"
@@ -5,6 +36,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef size_t header;
@@ -117,6 +150,7 @@ static struct node *get_right_neighbor( const struct node *current, size_t paylo
 static struct node *get_left_neighbor( const struct node *node );
 static void *get_client_space( const struct node *node_header );
 static struct node *get_node( const void *client_space );
+static void link_parent_to_subtree( struct node *parent, enum tree_link dir, struct node *subtree );
 static void init_free_node( struct node *to_free, size_t block_size );
 static void *split_alloc( struct node *free_block, size_t request, size_t block_space );
 static struct node *coalesce( struct node *leftmost_node );
@@ -398,28 +432,19 @@ static void *free_coalesced_node( void *to_coalesce )
 ///                        freed or reallocated we know that such a node exists in our tree. Therefore a best
 ///                        fit search is not required and we can use normal topdown splay operations.
 /// @param key             the size we know to exist for a node in our splay tree.
-/// @note                 this is a heavily modified version of Daniel Sleator's splaying insertion logic from
-///                       1992 at Carnegie Mellon University. Modifications required include adding managing
-///                       parent fields in duplicate nodes and uniting left and right branches.
-///                       https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 static struct node *coalesce_splay( size_t key )
 {
     struct node *to_return = splay( free_nodes.root, key );
     if ( to_return->list_start != free_nodes.list_tail ) {
         free_nodes.root = to_return;
-        if ( free_nodes.root != free_nodes.nil ) {
-            free_nodes.root->list_start->parent = free_nodes.nil;
-        }
+        free_nodes.root->list_start->parent = free_nodes.nil;
         return delete_duplicate( to_return );
     }
     if ( to_return->links[L] == free_nodes.nil ) {
         free_nodes.root = to_return->links[R];
     } else {
         free_nodes.root = splay( to_return->links[L], key );
-        free_nodes.root->links[R] = to_return->links[R];
-        if ( to_return->links[R] != free_nodes.nil && to_return->links[R]->list_start != free_nodes.list_tail ) {
-            to_return->links[R]->list_start->parent = free_nodes.root;
-        }
+        link_parent_to_subtree( free_nodes.root, R, to_return->links[R] );
     }
     if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
         free_nodes.root->list_start->parent = free_nodes.nil;
@@ -433,29 +458,19 @@ static struct node *coalesce_splay( size_t key )
 ///                       the options in our tree of free nodes.
 /// @param key            the size_t number of bytes we are searching for in our tree.
 /// @return               the pointer to the struct node that is the best fit for our need.
-/// @note                 this is a heavily modified version of Daniel Sleator's splaying insertion logic from
-///                       1992 at Carnegie Mellon University. Modifications required include adding managing
-///                       parent fields in duplicate nodes, uniting left and right branches, and adapting all
-///                       to a bestfit search.
-///                       https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 static struct node *find_best_fit( size_t key )
 {
     struct node *to_return = splay_bestfit( free_nodes.root, key );
     if ( to_return->list_start != free_nodes.list_tail ) {
         free_nodes.root = to_return;
-        if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
-            free_nodes.root->list_start->parent = free_nodes.nil;
-        }
-        return delete_duplicate( to_return );
+        free_nodes.root->list_start->parent = free_nodes.nil;
+        return delete_duplicate( free_nodes.root );
     }
     if ( to_return->links[L] == free_nodes.nil ) {
         free_nodes.root = to_return->links[R];
     } else {
         free_nodes.root = splay_bestfit( to_return->links[L], key );
-        free_nodes.root->links[R] = to_return->links[R];
-        if ( to_return->links[R] != free_nodes.nil && to_return->links[R]->list_start != free_nodes.list_tail ) {
-            to_return->links[R]->list_start->parent = free_nodes.root;
-        }
+        link_parent_to_subtree( free_nodes.root, R, to_return->links[R] );
     }
     if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
         free_nodes.root->list_start->parent = free_nodes.nil;
@@ -467,16 +482,13 @@ static struct node *find_best_fit( size_t key )
 /// @brief insert_node  a modified insertion with additional logic to add duplicates if the
 ///                     size in bytes of the block is already in the tree.
 /// @param *current     we must insert to tree or add to a list as duplicate.
-/// @note               this is a heavily modified of Daniel Sleator's top-down splaying insertion logic from
-///                     1992 at Carnegie Mellon University. Modifications required include adding managing
-///                     parent fields in duplicate nodes and uniting left and right branches.
-///                     https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 static void insert_node( struct node *current )
 {
     size_t current_key = get_size( current->header );
     if ( free_nodes.root == free_nodes.nil ) {
         current->links[L] = free_nodes.nil;
         current->links[R] = free_nodes.nil;
+        current->list_start = free_nodes.list_tail;
         free_nodes.root = current;
         free_nodes.total = 1;
         return;
@@ -491,14 +503,8 @@ static void insert_node( struct node *current )
         return;
     }
     enum tree_link link = found_size < current_key;
-    current->links[link] = free_nodes.root->links[link];
-    if ( current->links[link] != free_nodes.nil && current->links[link]->list_start != free_nodes.list_tail ) {
-        current->links[link]->list_start->parent = current;
-    }
-    current->links[!link] = free_nodes.root;
-    if ( free_nodes.root->list_start != free_nodes.list_tail ) {
-        free_nodes.root->list_start->parent = current;
-    }
+    link_parent_to_subtree( current, link, free_nodes.root->links[link] );
+    link_parent_to_subtree( current, !link, free_nodes.root );
     free_nodes.root->links[link] = free_nodes.nil;
     free_nodes.root = current;
     ++free_nodes.total;
@@ -512,26 +518,23 @@ static void insert_node( struct node *current )
 /// @param root           the node we start our search from, usually the root of our heap free nodes.
 /// @param key            the value in bytes we will try to find the best fit for.
 /// @return               the node that matches our requested value or the closest value to it.
-/// @note                 this is a implementation of Daniel Sleator's top-down splaying from
-///                       1992 at Carnegie Mellon University. Modifications required include adding managing
-///                       parent fields in duplicate nodes and uniting left and right branches.
-///                       https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
-static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive-complexity)
+static struct node *splay( struct node *root, size_t key )
 {
     if ( root == free_nodes.nil ) {
         return free_nodes.nil;
     }
-    struct node new_tree
+    struct node left_right_tree
         = { .header = 0, .links = { free_nodes.nil, free_nodes.nil }, .list_start = free_nodes.list_tail };
     // Putting the pointers in an array lets us choose the "opposite" subtree for our enum index coding pattern.
-    struct node *left_right_trees[2] = { &new_tree, &new_tree };
-    struct node *finger = free_nodes.nil;
+    struct node *left_right_subtrees[2] = { &left_right_tree, &left_right_tree };
+    struct node *finger = NULL;
     for ( ;; ) {
         size_t root_size = get_size( root->header );
         if ( key == root_size ) {
             break;
         }
 
+        // We will now unite the left and right cases of a standard topdown splay. Flip this enum when needed.
         enum tree_link next_link_to_descend = root_size < key;
         if ( root->links[next_link_to_descend] == free_nodes.nil ) {
             break;
@@ -540,45 +543,21 @@ static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive
         enum tree_link next_link_to_descend_from_child = child_size < key;
         if ( key != child_size && next_link_to_descend == next_link_to_descend_from_child ) {
             finger = root->links[next_link_to_descend];
-            root->links[next_link_to_descend] = finger->links[!next_link_to_descend];
-            if ( finger->links[!next_link_to_descend] != free_nodes.nil
-                 && finger->links[!next_link_to_descend]->list_start != free_nodes.list_tail ) {
-                finger->links[!next_link_to_descend]->list_start->parent = root;
-            }
-            finger->links[!next_link_to_descend] = root;
-            if ( root->list_start != free_nodes.list_tail ) {
-                root->list_start->parent = finger;
-            }
+            link_parent_to_subtree( root, next_link_to_descend, finger->links[!next_link_to_descend] );
+            link_parent_to_subtree( finger, !next_link_to_descend, root );
             root = finger;
             if ( root->links[next_link_to_descend] == free_nodes.nil ) {
                 break;
             }
         }
-        left_right_trees[!next_link_to_descend]->links[next_link_to_descend] = root;
-        if ( root->list_start != free_nodes.list_tail ) {
-            root->list_start->parent = left_right_trees[!next_link_to_descend];
-        }
-        left_right_trees[!next_link_to_descend] = root;
+        link_parent_to_subtree( left_right_subtrees[!next_link_to_descend], next_link_to_descend, root );
+        left_right_subtrees[!next_link_to_descend] = root;
         root = root->links[next_link_to_descend];
     }
-    left_right_trees[L]->links[R] = root->links[L]; /* assemble */
-    if ( left_right_trees[L] != &new_tree && root->links[L] != free_nodes.nil
-         && root->links[L]->list_start != free_nodes.list_tail ) {
-        root->links[L]->list_start->parent = left_right_trees[L];
-    }
-    left_right_trees[R]->links[L] = root->links[R];
-    if ( left_right_trees[R] != &new_tree && root->links[R] != free_nodes.nil
-         && root->links[R]->list_start != free_nodes.list_tail ) {
-        root->links[R]->list_start->parent = left_right_trees[R];
-    }
-    root->links[L] = new_tree.links[R];
-    if ( new_tree.links[R] != free_nodes.nil && new_tree.links[R]->list_start != free_nodes.list_tail ) {
-        new_tree.links[R]->list_start->parent = root;
-    }
-    root->links[R] = new_tree.links[L];
-    if ( new_tree.links[L] != free_nodes.nil && new_tree.links[L]->list_start != free_nodes.list_tail ) {
-        new_tree.links[L]->list_start->parent = root;
-    }
+    link_parent_to_subtree( left_right_subtrees[L], R, root->links[L] );
+    link_parent_to_subtree( left_right_subtrees[R], L, root->links[R] );
+    link_parent_to_subtree( root, L, left_right_tree.links[R] );
+    link_parent_to_subtree( root, R, left_right_tree.links[L] );
     return root;
 }
 
@@ -592,21 +571,16 @@ static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive
 /// @param root           the node we start our search from, usually the root of our heap free nodes.
 /// @param key            the value in bytes we will try to find the best fit for.
 /// @return               the node that serves as the bestfit in our entire heap.
-/// @note                 this is a heavily modified implementation of Daniel Sleator's top-down splaying from
-///                       1992 at Carnegie Mellon University. Modifications required include adding managing
-///                       parent fields in duplicate nodes, uniting left and right branches, and running a best
-///                       fit rather than exact fit search.
-///                       https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
-static struct node *splay_bestfit( struct node *root, size_t key ) // NOLINT (*cognitive-complexity)
+static struct node *splay_bestfit( struct node *root, size_t key )
 {
     if ( root == free_nodes.nil ) {
         return free_nodes.nil;
     }
-    struct node new_tree
+    struct node left_right_tree
         = { .header = 0, .links = { free_nodes.nil, free_nodes.nil }, .list_start = free_nodes.list_tail };
-    // Putting the pointers in an array lets us choose the "opposite" subtree for our enum index coding pattern.
-    struct node *left_right_trees[2] = { &new_tree, &new_tree };
-    struct node *finger = free_nodes.nil;
+    // Putting the pointers in an array lets us choose L and R or direction and !direction indices with an enum.
+    struct node *left_right_subtrees[2] = { &left_right_tree, &left_right_tree };
+    struct node *finger = NULL;
     size_t best_fit = ULLONG_MAX;
     for ( ;; ) {
         size_t root_size = get_size( root->header );
@@ -622,53 +596,29 @@ static struct node *splay_bestfit( struct node *root, size_t key ) // NOLINT (*c
         size_t right_child_size = get_size( root->links[R]->header );
         best_fit = right_child_size < best_fit && right_child_size >= key ? right_child_size : best_fit;
 
-        enum tree_link next_link_to_descend = root_size < key;
-        if ( root->links[next_link_to_descend] == free_nodes.nil ) {
+        enum tree_link link_to_descend = root_size < key;
+        if ( root->links[link_to_descend] == free_nodes.nil ) {
             break;
         }
-        size_t child_size = get_size( root->links[next_link_to_descend]->header );
-        enum tree_link next_link_to_descend_from_child = child_size < key;
-        if ( key != child_size && next_link_to_descend == next_link_to_descend_from_child ) {
-            finger = root->links[next_link_to_descend];
-            root->links[next_link_to_descend] = finger->links[!next_link_to_descend];
-            if ( finger->links[!next_link_to_descend] != free_nodes.nil
-                 && finger->links[!next_link_to_descend]->list_start != free_nodes.list_tail ) {
-                finger->links[!next_link_to_descend]->list_start->parent = root;
-            }
-            finger->links[!next_link_to_descend] = root;
-            if ( root->list_start != free_nodes.list_tail ) {
-                root->list_start->parent = finger;
-            }
+        size_t child_size = get_size( root->links[link_to_descend]->header );
+        enum tree_link link_to_descend_from_child = child_size < key;
+        if ( key != child_size && link_to_descend == link_to_descend_from_child ) {
+            finger = root->links[link_to_descend];
+            link_parent_to_subtree( root, link_to_descend, finger->links[!link_to_descend] );
+            link_parent_to_subtree( finger, !link_to_descend, root );
             root = finger;
-            if ( root->links[next_link_to_descend] == free_nodes.nil ) {
+            if ( root->links[link_to_descend] == free_nodes.nil ) {
                 break;
             }
         }
-        left_right_trees[!next_link_to_descend]->links[next_link_to_descend] = root;
-        if ( root->list_start != free_nodes.list_tail ) {
-            root->list_start->parent = left_right_trees[!next_link_to_descend];
-        }
-        left_right_trees[!next_link_to_descend] = root;
-        root = root->links[next_link_to_descend];
+        link_parent_to_subtree( left_right_subtrees[!link_to_descend], link_to_descend, root );
+        left_right_subtrees[!link_to_descend] = root;
+        root = root->links[link_to_descend];
     }
-    left_right_trees[L]->links[R] = root->links[L]; /* assemble */
-    if ( left_right_trees[L] != &new_tree && root->links[L] != free_nodes.nil
-         && root->links[L]->list_start != free_nodes.list_tail ) {
-        root->links[L]->list_start->parent = left_right_trees[L];
-    }
-    left_right_trees[R]->links[L] = root->links[R];
-    if ( left_right_trees[R] != &new_tree && root->links[R] != free_nodes.nil
-         && root->links[R]->list_start != free_nodes.list_tail ) {
-        root->links[R]->list_start->parent = left_right_trees[R];
-    }
-    root->links[L] = new_tree.links[R];
-    if ( new_tree.links[R] != free_nodes.nil && new_tree.links[R]->list_start != free_nodes.list_tail ) {
-        new_tree.links[R]->list_start->parent = root;
-    }
-    root->links[R] = new_tree.links[L];
-    if ( new_tree.links[L] != free_nodes.nil && new_tree.links[L]->list_start != free_nodes.list_tail ) {
-        new_tree.links[L]->list_start->parent = root;
-    }
+    link_parent_to_subtree( left_right_subtrees[L], R, root->links[L] );
+    link_parent_to_subtree( left_right_subtrees[R], L, root->links[R] );
+    link_parent_to_subtree( root, L, left_right_tree.links[R] );
+    link_parent_to_subtree( root, R, left_right_tree.links[L] );
     // Here is the HUGE problem with a bestfit allocator and a splay tree. Topdown splaytrees are intended to
     // find an exact match for a key. We don't need that but we can't rewind all the fixups we did or cherry pick
     // the best fit that is now somewhere else in the tree. Instead we will run another search for that specific
@@ -716,7 +666,22 @@ static struct node *delete_duplicate( struct node *head )
     return (struct node *)next_node;
 }
 
-/////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
+/////////////////////////////   Basic Block, Header, and Tree Operations  //////////////////////////////////
+
+/// @brief link_parent_to_subtree  links a parent to the specified arbitrary tree rooted at *subtree via the
+///                                provided tree_link direction. A direction can be left(L) or right(R), but
+///                                you can also pass !L and !R. And with a variable name like dir you have:
+///                                dir and !dir.
+/// @param parent                  the node that is picking up a new arbitrary subtree as a child.
+/// @param dir                     the link direction that the parent will use to pick up the subtree.
+/// @param subtree                 the arbitrary subtree who's root will now be the child of parent.
+static inline void link_parent_to_subtree( struct node *parent, enum tree_link dir, struct node *subtree )
+{
+    parent->links[dir] = subtree;
+    if ( subtree != free_nodes.nil && subtree->list_start != free_nodes.list_tail ) {
+        subtree->list_start->parent = parent;
+    }
+}
 
 /// @brief roundup         rounds up size to the nearest multiple of two to be aligned in the heap.
 /// @param requested_size  size given to us by the client.
@@ -1019,12 +984,12 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
     print_node( root, free_nodes.nil, style );
 
     char *str = NULL;
-    int string_length = snprintf( NULL, 0, "%s%s%s", prefix, prefix_branch_color,
-                                  node_type == LEAF ? "     " : " │   " ); // NOLINT
+    int string_length = snprintf( NULL, 0, "%s%s%s", prefix, prefix_branch_color, // NOLINT
+                                  node_type == LEAF ? "     " : " │   " );
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        (void)snprintf( str, string_length, "%s%s%s", prefix, prefix_branch_color,
-                        node_type == LEAF ? "     " : " │   " ); // NOLINT
+        (void)snprintf( str, string_length, "%s%s%s", prefix, prefix_branch_color, // NOLINT
+                        node_type == LEAF ? "     " : " │   " );
     }
     if ( str == NULL ) {
         printf( COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL );

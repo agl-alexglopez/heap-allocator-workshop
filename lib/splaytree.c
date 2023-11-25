@@ -29,6 +29,8 @@
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 typedef size_t header;
@@ -483,15 +485,14 @@ static struct node *find_best_fit( size_t key )
             len_to_best_fit = path_len;
             break;
         }
-        enum tree_link search_direction = seeker_size < key;
         // The key is less than the current found size but let's remember this size on the way down
         // as a candidate for the best fit. The closest fit will have won when we reach the bottom.
-        if ( search_direction == L && seeker_size < best_fit_size ) {
+        if ( seeker_size < best_fit_size && seeker_size >= key ) {
             remove = seeker;
             best_fit_size = seeker_size;
             len_to_best_fit = path_len;
         }
-        seeker = seeker->links[search_direction];
+        seeker = seeker->links[seeker_size < key];
     }
     // While removing and we encounter a duplicate, we should still fixup the tree with a
     // splay operation before removing the duplicate. We will then leave it at the root.
@@ -542,11 +543,11 @@ static struct node *join( struct tree_pair pair, struct path_slice p )
     for ( struct node *seeker = pair.lesser; seeker != free_nodes.nil; seeker = seeker->links[R] ) {
         p.nodes[p.len++] = seeker;
     }
-    struct node *max_lesser = p.nodes[p.len - 1];
-    splay( max_lesser, p );
-    max_lesser->links[R] = pair.greater;
-    pair.greater->list_start->parent = max_lesser;
-    return max_lesser;
+    struct node *inorder_predecessor = p.nodes[p.len - 1];
+    splay( inorder_predecessor, p );
+    inorder_predecessor->links[R] = pair.greater;
+    pair.greater->list_start->parent = inorder_predecessor;
+    return inorder_predecessor;
 }
 
 /// @brief delete_duplicate  will remove a duplicate node from the tree when the request is coming
@@ -625,39 +626,29 @@ static void splay( struct node *cur, struct path_slice p )
             --p.len;
             continue;
         }
-        if ( cur == parent->links[L] && parent == gparent->links[L] ) {
-            // Zig-Zig branch
-            rotate( R, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
+        enum tree_link parent_to_current = cur == parent->links[R];
+        enum tree_link gparent_to_parent = parent == gparent->links[R];
+        // The Zag-Zag and Zig-Zig cases are symmetrical and easily united into a case of a direction and opposite.
+        if ( parent_to_current == gparent_to_parent ) {
+            rotate( !parent_to_current, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = parent;
             p.nodes[p.len - 2] = cur;
-            rotate( R, parent, ( struct path_slice ){ p.nodes, p.len - 2 } );
+            rotate( !parent_to_current, parent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = cur;
             p.len -= 2;
             continue;
         }
-        if ( cur == parent->links[R] && parent == gparent->links[R] ) {
-            // Zag-Zag branch
-            rotate( L, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
-            p.nodes[p.len - 3] = parent;
-            p.nodes[p.len - 2] = cur;
-            rotate( L, parent, ( struct path_slice ){ p.nodes, p.len - 2 } );
-            p.nodes[p.len - 3] = cur;
-            p.len -= 2;
-            continue;
-        }
-        if ( cur == parent->links[R] && parent == gparent->links[L] ) {
-            // Zig-Zag branch
-            rotate( L, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
-            p.nodes[p.len - 2] = cur;
-            rotate( R, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
-            p.nodes[p.len - 3] = cur;
-            p.len -= 2;
-            continue;
-        }
-        // Zag-Zig branch
-        rotate( R, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
+        // Zig-Zag and Zag-Zig branches are also easily united. Think of the shapes we have.
+        //  gparent          gparent       gparent         gparent        current             current
+        //   \              /              \               /               |    |             |     |
+        //    parent   or   parent     ->   current   or  current   -> gparent parent or  parent   gparent
+        //   /              \                \           /
+        //  current          current          parent     parent
+        // We want the parent-child link to rotate the same direction as the grandparent-parent link
+        // and then for the gparent-rotatedchild link to rotate the same direction as the original parent-child.
+        rotate( gparent_to_parent, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
         p.nodes[p.len - 2] = cur;
-        rotate( L, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
+        rotate( parent_to_current, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
         p.nodes[p.len - 3] = cur;
         p.len -= 2;
     }
@@ -1020,12 +1011,12 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
     print_node( root, free_nodes.nil, style );
 
     char *str = NULL;
-    int string_length = snprintf( NULL, 0, "%s%s%s", prefix, prefix_branch_color,
-                                  node_type == LEAF ? "     " : " │   " ); // NOLINT
+    int string_length = snprintf( NULL, 0, "%s%s%s", prefix, prefix_branch_color, // NOLINT
+                                  node_type == LEAF ? "     " : " │   " );
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        (void)snprintf( str, string_length, "%s%s%s", prefix, prefix_branch_color,
-                        node_type == LEAF ? "     " : " │   " ); // NOLINT
+        (void)snprintf( str, string_length, "%s%s%s", prefix, prefix_branch_color, // NOLINT
+                        node_type == LEAF ? "     " : " │   " );
     }
     if ( str == NULL ) {
         printf( COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL );

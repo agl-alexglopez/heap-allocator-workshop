@@ -550,14 +550,13 @@ static struct rb_node *find_best_fit( size_t key )
             remove = seeker;
             break;
         }
-        enum tree_link search_direction = seeker_size < key;
         // The key is less than the current found size but let's remember this size on the way down
         // as a candidate for the best fit. The closest fit will have won when we reach the bottom.
-        if ( search_direction == L && seeker_size < best_fit_size ) {
+        if ( seeker_size < best_fit_size && seeker_size >= key ) {
             remove = seeker;
             best_fit_size = seeker_size;
         }
-        seeker = seeker->links[search_direction];
+        seeker = seeker->links[seeker_size < key];
     }
     return delete_rb_node( remove );
 }
