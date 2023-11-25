@@ -842,7 +842,7 @@ static size_t extract_tree_mem( const struct node *root, const void *nil_and_tai
            + extract_tree_mem( root->links[L], nil_and_tail );
 }
 
-/// @brief is_rbtree_mem_valid  a wrapper for tree memory sum function used to check correctness.
+/// @brief is_tree_mem_valid    a wrapper for tree memory sum function used to check correctness.
 /// @param *root                the root node to begin at for the recursive summing search.
 /// @param *nil_and_tail        address of a sentinel node serving as both list tail and black nil.
 /// @param total_free_mem       the total free memory collected from a linear heap search.
@@ -1014,7 +1014,7 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
     free( str );
 }
 
-/// @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
+/// @brief print_tree     prints the contents of an entire tree in a directory tree style.
 /// @param *root          the root node to begin at for printing recursively.
 /// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
 /// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).

@@ -481,7 +481,7 @@ static struct node *find_best_fit( size_t key )
     while ( seeker != free_nodes.nil ) {
         size_t seeker_size = get_size( seeker->header );
         path[path_len++] = seeker;
-        assert( path_len < MAX_TREE_HEIGHT );
+        assert( path_len <= MAX_TREE_HEIGHT );
         if ( key == seeker_size ) {
             remove = seeker;
             len_to_best_fit = path_len;
@@ -628,14 +628,15 @@ static void splay( struct node *cur, struct path_slice p )
             --p.len;
             continue;
         }
-        enum tree_link parent_to_current = cur == parent->links[R];
-        enum tree_link gparent_to_parent = parent == gparent->links[R];
+        enum tree_link parent_to_cur_link = cur == parent->links[R];
+        enum tree_link gparent_to_parent_link = parent == gparent->links[R];
         // The Zag-Zag and Zig-Zig cases are symmetrical and easily united into a case of a direction and opposite.
-        if ( parent_to_current == gparent_to_parent ) {
-            rotate( !parent_to_current, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
+        if ( parent_to_cur_link == gparent_to_parent_link ) {
+            // The choice of enum is arbitrary here because they are either both L or both R.
+            rotate( !parent_to_cur_link, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = parent;
             p.nodes[p.len - 2] = cur;
-            rotate( !parent_to_current, parent, ( struct path_slice ){ p.nodes, p.len - 2 } );
+            rotate( !parent_to_cur_link, parent, ( struct path_slice ){ p.nodes, p.len - 2 } );
             p.nodes[p.len - 3] = cur;
             p.len -= 2;
             continue;
@@ -648,9 +649,9 @@ static void splay( struct node *cur, struct path_slice p )
         //  current          current          parent     parent
         // We want the parent-child link to rotate the same direction as the grandparent-parent link
         // and then for the gparent-rotatedchild link to rotate the same direction as the original parent-child.
-        rotate( gparent_to_parent, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
+        rotate( gparent_to_parent_link, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
         p.nodes[p.len - 2] = cur;
-        rotate( parent_to_current, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
+        rotate( parent_to_cur_link, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
         p.nodes[p.len - 3] = cur;
         p.len -= 2;
     }
@@ -687,9 +688,8 @@ static void rotate( enum tree_link rotation, struct node *current, struct path_s
     current->list_start->parent = child;
 }
 
-/// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to prevent the
-///                       rotation of duplicates in the tree. This adds the duplicate node to the
-///                       linked list of the node already present.
+/// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to allow use of a splay tree.
+///                       This adds the duplicate node to the linked list of the node already present.
 /// @param *head          the node currently organized in the tree. We will add to its list.
 /// @param *to_add        the node to add to the linked list.
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
@@ -866,7 +866,7 @@ static size_t extract_tree_mem( const struct node *root, const void *nil_and_tai
            + extract_tree_mem( root->links[L], nil_and_tail );
 }
 
-/// @brief is_rbtree_mem_valid  a wrapper for tree memory sum function used to check correctness.
+/// @brief is_tree_mem_valid    a wrapper for tree memory sum function used to check correctness.
 /// @param *root                the root node to begin at for the recursive summing search.
 /// @param *nil_and_tail        address of a sentinel node serving as both list tail and black nil.
 /// @param total_free_mem       the total free memory collected from a linear heap search.
@@ -1038,7 +1038,7 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
     free( str );
 }
 
-/// @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
+/// @brief print_tree     prints the contents of an entire tree in a directory tree style.
 /// @param *root          the root node to begin at for printing recursively.
 /// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
 /// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
