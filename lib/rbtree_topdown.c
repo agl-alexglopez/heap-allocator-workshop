@@ -480,7 +480,7 @@ static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add, 
     to_add->links[P] = (struct duplicate_node *)head;
 }
 
-///     Static Red-Black Tree Insertion Logic
+//////////////////////     Static Red-Black Tree Insertion Logic    ///////////////////////////////
 
 /// @brief insert_rb_topdown  performs a topdown insertion of a node into a redblack tree, fixing
 ///                           violations that have occured on the way down. If the node is a
@@ -545,7 +545,7 @@ static void insert_rb_topdown( struct rb_node *current )
     free_nodes.total++;
 }
 
-///    Red-Black Tree Deletion Helper Functions
+///////////////////    Red-Black Tree Deletion Helper Functions    ///////////////////////////
 
 /// @brief rb_transplant  replaces node with the appropriate node to start balancing the tree.
 /// @param *parent        the parent of the node we are removing.
@@ -588,7 +588,7 @@ static struct rb_node *delete_duplicate( struct rb_node *head )
 /// @param parent              the parent of the node we will be removing.
 /// @param remove              the node we will remove and return.
 /// @param replacement_parent  the parent of the node we will use to replace remove.
-/// @param struct replacement         the indorder predecessor of the node to be removed.
+/// @param replacement         the indorder predecessor of the node to be removed.
 /// @return                    the node that has been removed from the tree or doubly linked list.
 static struct rb_node *remove_node( struct rb_node *parent, struct replacement r )
 {
@@ -625,6 +625,8 @@ static struct rb_node *remove_node( struct rb_node *parent, struct replacement r
 ///                           duplicate from a doubly linked list if a duplicate is waiting.
 /// @param key                the size_t representing the node size in bytes we are in search of.
 /// @return                   the node we have removed from the tree or doubly linked list.
+/// @note                     I really don't like this function maybe I can learn something from
+///                           splay trees to make topdown fixups simpler.
 static struct rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-complexity)
 {
     struct rb_node *child = free_nodes.black_nil;
@@ -646,7 +648,7 @@ static struct rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-comp
         link = child_size < key;
 
         // Best fit approximation and the best choice will win by the time we reach bottom.
-        if ( link == L && child_size < best_fit_size ) {
+        if ( child_size < best_fit_size && child_size >= key ) {
             best_parent = parent;
             best = child;
         }
