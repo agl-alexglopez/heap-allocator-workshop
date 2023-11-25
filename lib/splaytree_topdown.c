@@ -282,10 +282,18 @@ bool validate_heap( void )
 }
 
 /// @note  the red and blue links represent the heavy/light decomposition of a splay tree. For more
-///        information on this interpretation see any Stanford 161 lecture on splay trees.
+///        information on this interpretation see any Stanford 166 lecture on splay trees.
 void print_free_nodes( enum print_style style )
 {
-    printf( COLOR_CYN "(+X)" COLOR_NIL );
+    printf( "%s(X)%s", COLOR_CYN, COLOR_NIL );
+    printf( " Indicates number of nodes in the subtree rooted at X.\n" );
+    printf( "%sBlue%s edge means total nodes rooted at X %s<=%s ((number of nodes rooted at Parent) / 2).\n",
+            COLOR_BLU_BOLD, COLOR_NIL, COLOR_BLU_BOLD, COLOR_NIL );
+    printf( "%sRed%s edge means total nodes rooted at X %s>%s ((number of nodes rooted at Parent) / 2).\n",
+            COLOR_RED_BOLD, COLOR_NIL, COLOR_RED_BOLD, COLOR_NIL );
+    printf( "This is the %sheavy%s/%slight%s decomposition of a Splay Tree.\n", COLOR_RED_BOLD, COLOR_NIL,
+            COLOR_BLU_BOLD, COLOR_NIL );
+    printf( "%s(+X)%s", COLOR_CYN, COLOR_NIL );
     printf( " Indicates duplicate nodes in the tree linked by a doubly-linked list.\n" );
     print_tree( free_nodes.root, free_nodes.nil, style );
 }
@@ -297,18 +305,6 @@ void dump_heap( void )
 }
 
 /////////////////////    Static Heap Helper Functions    //////////////////////////////////
-
-/// @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
-/// @param *to_free        the heap_node to add to the red black tree.
-/// @param block_size      the size we use to initialize the node and find the right place in tree.
-static void init_free_node( struct node *to_free, size_t block_size )
-{
-    to_free->header = block_size | LEFT_ALLOCATED;
-    to_free->list_start = free_nodes.list_tail;
-    init_footer( to_free, block_size );
-    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
-    insert_node( to_free );
-}
 
 /// @brief *split_alloc  determines if a block should be taken entirely or split into two blocks. If
 ///                      split, it will add the newly freed split block to the free red black tree.
@@ -426,6 +422,18 @@ static void *free_coalesced_node( void *to_coalesce )
     return to_coalesce;
 }
 
+/// @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
+/// @param *to_free        the heap_node to add to the red black tree.
+/// @param block_size      the size we use to initialize the node and find the right place in tree.
+static void init_free_node( struct node *to_free, size_t block_size )
+{
+    to_free->header = block_size | LEFT_ALLOCATED;
+    to_free->list_start = free_nodes.list_tail;
+    init_footer( to_free, block_size );
+    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
+    insert_node( to_free );
+}
+
 /////////////////////////////      Splay Tree Implementation       //////////////////////////////////
 
 /// @brief coalesce_splay  when we are coalescing free nodes next to an allocated node that is about to be
@@ -510,11 +518,10 @@ static void insert_node( struct node *current )
     ++free_nodes.total;
 }
 
-/// @brief splay_bestfit  a modified topdown splay operation with the left and right cases united into one
+/// @brief splay          a modified topdown splay operation with the left and right cases united into one
 ///                       code path. There is an added requirement for a heap allocator that duplicates are
 ///                       managed and that those duplicate nodes of the same size store parent node information
-///                       for possible coalescing.
-///                       but we may end up at a node that is too small. So if this case occurs we will perform
+///                       for possible coalescing in the future.
 /// @param root           the node we start our search from, usually the root of our heap free nodes.
 /// @param key            the value in bytes we will try to find the best fit for.
 /// @return               the node that matches our requested value or the closest value to it.
@@ -523,10 +530,9 @@ static struct node *splay( struct node *root, size_t key )
     if ( root == free_nodes.nil ) {
         return free_nodes.nil;
     }
-    struct node left_right_tree
-        = { .header = 0, .links = { free_nodes.nil, free_nodes.nil }, .list_start = free_nodes.list_tail };
-    // Putting the pointers in an array lets us choose the "opposite" subtree for our enum index coding pattern.
-    struct node *left_right_subtrees[2] = { &left_right_tree, &left_right_tree };
+    // Pointers in an array and we can use the symmetric enum and flip it to choose the Left or Right subtree.
+    // Another benefit of our nil node: use it as our helper tree because we don't need its Left Right fields.
+    struct node *left_right_subtrees[2] = { free_nodes.nil, free_nodes.nil };
     struct node *finger = NULL;
     for ( ;; ) {
         size_t root_size = get_size( root->header );
@@ -556,8 +562,8 @@ static struct node *splay( struct node *root, size_t key )
     }
     link_parent_to_subtree( left_right_subtrees[L], R, root->links[L] );
     link_parent_to_subtree( left_right_subtrees[R], L, root->links[R] );
-    link_parent_to_subtree( root, L, left_right_tree.links[R] );
-    link_parent_to_subtree( root, R, left_right_tree.links[L] );
+    link_parent_to_subtree( root, L, free_nodes.nil->links[R] );
+    link_parent_to_subtree( root, R, free_nodes.nil->links[L] );
     return root;
 }
 
@@ -576,10 +582,9 @@ static struct node *splay_bestfit( struct node *root, size_t key )
     if ( root == free_nodes.nil ) {
         return free_nodes.nil;
     }
-    struct node left_right_tree
-        = { .header = 0, .links = { free_nodes.nil, free_nodes.nil }, .list_start = free_nodes.list_tail };
-    // Putting the pointers in an array lets us choose L and R or direction and !direction indices with an enum.
-    struct node *left_right_subtrees[2] = { &left_right_tree, &left_right_tree };
+    // Pointers in an array and we can use the symmetric enum and flip it to choose the Left or Right subtree.
+    // Another benefit of our nil node: use it as our helper tree because we don't need its Left Right fields.
+    struct node *left_right_subtrees[2] = { free_nodes.nil, free_nodes.nil };
     struct node *finger = NULL;
     size_t best_fit = ULLONG_MAX;
     for ( ;; ) {
@@ -617,8 +622,8 @@ static struct node *splay_bestfit( struct node *root, size_t key )
     }
     link_parent_to_subtree( left_right_subtrees[L], R, root->links[L] );
     link_parent_to_subtree( left_right_subtrees[R], L, root->links[R] );
-    link_parent_to_subtree( root, L, left_right_tree.links[R] );
-    link_parent_to_subtree( root, R, left_right_tree.links[L] );
+    link_parent_to_subtree( root, L, free_nodes.nil->links[R] );
+    link_parent_to_subtree( root, R, free_nodes.nil->links[L] );
     // Here is the HUGE problem with a bestfit allocator and a splay tree. Topdown splaytrees are intended to
     // find an exact match for a key. We don't need that but we can't rewind all the fixups we did or cherry pick
     // the best fit that is now somewhere else in the tree. Instead we will run another search for that specific

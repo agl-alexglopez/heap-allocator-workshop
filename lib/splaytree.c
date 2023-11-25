@@ -309,6 +309,8 @@ bool validate_heap( void )
 
 //////////////////////////       Printing Public Helpers    //////////////////////////////////
 
+/// @note  the red and blue links represent the heavy/light decomposition of a splay tree. For more
+///        information on this interpretation see any Stanford 166 lecture on splay trees.
 void print_free_nodes( enum print_style style )
 {
     printf( "%s(X)%s", COLOR_CYN, COLOR_NIL );
