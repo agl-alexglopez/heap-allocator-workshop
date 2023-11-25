@@ -247,6 +247,8 @@ bool validate_heap( void )
     return true;
 }
 
+/// @note  the red and blue links represent the heavy/light decomposition of a splay tree. For more
+///        information on this interpretation see any Stanford 161 lecture on splay trees.
 void print_free_nodes( enum print_style style )
 {
     printf( COLOR_CYN "(+X)" COLOR_NIL );
@@ -392,6 +394,14 @@ static void *free_coalesced_node( void *to_coalesce )
 
 /////////////////////////////      Splay Tree Implementation       //////////////////////////////////
 
+/// @brief coalesce_splay  when we are coalescing free nodes next to an allocated node that is about to be
+///                        freed or reallocated we know that such a node exists in our tree. Therefore a best
+///                        fit search is not required and we can use normal topdown splay operations.
+/// @param key             the size we know to exist for a node in our splay tree.
+/// @note                 this is a heavily modified version of Daniel Sleator's splaying insertion logic from
+///                       1992 at Carnegie Mellon University. Modifications required include adding managing
+///                       parent fields in duplicate nodes and uniting left and right branches.
+///                       https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 static struct node *coalesce_splay( size_t key )
 {
     struct node *to_return = splay( free_nodes.root, key );
@@ -418,10 +428,16 @@ static struct node *coalesce_splay( size_t key )
     return to_return;
 }
 
-/// @brief find_best_fit  a splay tree is well suited to best fit search in O(logN) time. We
-///                       will find the best fitting node possible given the options in our tree.
+/// @brief find_best_fit  a topdown splay tree can acheive a best fit search but it requires significant
+///                       modification of implementation. This will find the best fitting node possible given
+///                       the options in our tree of free nodes.
 /// @param key            the size_t number of bytes we are searching for in our tree.
 /// @return               the pointer to the struct node that is the best fit for our need.
+/// @note                 this is a heavily modified version of Daniel Sleator's splaying insertion logic from
+///                       1992 at Carnegie Mellon University. Modifications required include adding managing
+///                       parent fields in duplicate nodes, uniting left and right branches, and adapting all
+///                       to a bestfit search.
+///                       https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 static struct node *find_best_fit( size_t key )
 {
     struct node *to_return = splay_bestfit( free_nodes.root, key );
@@ -451,6 +467,10 @@ static struct node *find_best_fit( size_t key )
 /// @brief insert_node  a modified insertion with additional logic to add duplicates if the
 ///                     size in bytes of the block is already in the tree.
 /// @param *current     we must insert to tree or add to a list as duplicate.
+/// @note               this is a heavily modified of Daniel Sleator's top-down splaying insertion logic from
+///                     1992 at Carnegie Mellon University. Modifications required include adding managing
+///                     parent fields in duplicate nodes and uniting left and right branches.
+///                     https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 static void insert_node( struct node *current )
 {
     size_t current_key = get_size( current->header );
@@ -470,31 +490,32 @@ static void insert_node( struct node *current )
         add_duplicate( free_nodes.root, (struct duplicate_node *)current, free_nodes.nil );
         return;
     }
-    if ( current_key < found_size ) {
-        current->links[L] = free_nodes.root->links[L];
-        if ( current->links[L] != free_nodes.nil && current->links[L]->list_start != free_nodes.list_tail ) {
-            current->links[L]->list_start->parent = current;
-        }
-        current->links[R] = free_nodes.root;
-        if ( free_nodes.root->list_start != free_nodes.list_tail ) {
-            free_nodes.root->list_start->parent = current;
-        }
-        free_nodes.root->links[L] = free_nodes.nil;
-    } else {
-        current->links[R] = free_nodes.root->links[R];
-        if ( current->links[R] != free_nodes.nil && current->links[R]->list_start != free_nodes.list_tail ) {
-            current->links[R]->list_start->parent = current;
-        }
-        current->links[L] = free_nodes.root;
-        if ( free_nodes.root->list_start != free_nodes.list_tail ) {
-            free_nodes.root->list_start->parent = current;
-        }
-        free_nodes.root->links[R] = free_nodes.nil;
+    enum tree_link link = found_size < current_key;
+    current->links[link] = free_nodes.root->links[link];
+    if ( current->links[link] != free_nodes.nil && current->links[link]->list_start != free_nodes.list_tail ) {
+        current->links[link]->list_start->parent = current;
     }
+    current->links[!link] = free_nodes.root;
+    if ( free_nodes.root->list_start != free_nodes.list_tail ) {
+        free_nodes.root->list_start->parent = current;
+    }
+    free_nodes.root->links[link] = free_nodes.nil;
     free_nodes.root = current;
     ++free_nodes.total;
 }
 
+/// @brief splay_bestfit  a modified topdown splay operation with the left and right cases united into one
+///                       code path. There is an added requirement for a heap allocator that duplicates are
+///                       managed and that those duplicate nodes of the same size store parent node information
+///                       for possible coalescing.
+///                       but we may end up at a node that is too small. So if this case occurs we will perform
+/// @param root           the node we start our search from, usually the root of our heap free nodes.
+/// @param key            the value in bytes we will try to find the best fit for.
+/// @return               the node that matches our requested value or the closest value to it.
+/// @note                 this is a implementation of Daniel Sleator's top-down splaying from
+///                       1992 at Carnegie Mellon University. Modifications required include adding managing
+///                       parent fields in duplicate nodes and uniting left and right branches.
+///                       https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive-complexity)
 {
     if ( root == free_nodes.nil ) {
@@ -561,6 +582,21 @@ static struct node *splay( struct node *root, size_t key ) // NOLINT (*cognitive
     return root;
 }
 
+/// @brief splay_bestfit  a modified topdown splay operation with the added restriction that a heap allocator
+///                       is required to provide the best fit if one exists not the exact key value. This means
+///                       the topdown fixups we do pose a problem. We can't undo the work we do on the way down
+///                       but we may end up at a node that is too small. So if this case occurs we will perform
+///                       a second splay operation for the bestfit value to move it to the root. We also have
+///                       a significant requirement to maintain duplicate nodes and ensure those duplicates store
+///                       parent information in case they are coalesced in the future.
+/// @param root           the node we start our search from, usually the root of our heap free nodes.
+/// @param key            the value in bytes we will try to find the best fit for.
+/// @return               the node that serves as the bestfit in our entire heap.
+/// @note                 this is a heavily modified implementation of Daniel Sleator's top-down splaying from
+///                       1992 at Carnegie Mellon University. Modifications required include adding managing
+///                       parent fields in duplicate nodes, uniting left and right branches, and running a best
+///                       fit rather than exact fit search.
+///                       https://www.link.cs.cmu.edu/link/ftp-site/splaying/top-down-splay.c
 static struct node *splay_bestfit( struct node *root, size_t key ) // NOLINT (*cognitive-complexity)
 {
     if ( root == free_nodes.nil ) {

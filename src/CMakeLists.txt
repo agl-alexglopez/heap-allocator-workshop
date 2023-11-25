@@ -203,6 +203,17 @@ target_link_libraries(time_splaytree PUBLIC
                       splaytree
 )
 
+############ Splay Tree Topdown ###############
+
+
+add_executable(time_splaytree_topdown time_harness.c)
+target_link_libraries(time_splaytree_topdown PUBLIC
+                      segment
+                      print_utility
+                      script
+                      splaytree_topdown
+)
+
 
 ################################# PRINTER PROGRAM ############################################
 
@@ -306,6 +317,17 @@ target_link_libraries(print_peaks_splaytree PUBLIC
                       splaytree
 )
 
+######## Splay Tree Topdown ###########
+
+
+add_executable(print_peaks_splaytree_topdown print_peaks.c)
+target_link_libraries(print_peaks_splaytree_topdown PUBLIC
+                      segment
+                      print_utility
+                      script
+                      splaytree_topdown
+)
+
 ################################# OPTIONAL PROGRAM ############################################
 
 
@@ -397,5 +419,15 @@ target_link_libraries(my_optional_program_splaytree PUBLIC
                       segment
                       script
                       splaytree
+)
+
+#######  Splay Tree Topdown ##########
+
+
+add_executable(my_optional_program_splaytree_topdown my_optional_program.c)
+target_link_libraries(my_optional_program_splaytree_topdown PUBLIC
+                      segment
+                      script
+                      splaytree_topdown
 )
 
