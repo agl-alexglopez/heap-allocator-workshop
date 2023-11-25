@@ -52,9 +52,9 @@ add_library(rbtree_stack allocator.h rbtree_stack.c)
 
 add_library(rbtree_topdown allocator.h rbtree_topdown.c)
 
-############################# Splay Tree Allocator ########################################
+############################# Splay Tree Stack Allocator ########################################
 
-add_library(splaytree_bottomup allocator.h splaytree_bottomup.c)
+add_library(splaytree_stack allocator.h splaytree_stack.c)
 
 ############################# Splay Tree Topdown ########################################
 

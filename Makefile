@@ -43,7 +43,7 @@ debug-tests:
 	$(BUILD_DIR)debug/test_rbtree_linked $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_rbtree_stack $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_rbtree_topdown $(TEST_ARGS)
-	$(BUILD_DIR)debug/test_splaytree_bottomup $(TEST_ARGS)
+	$(BUILD_DIR)debug/test_splaytree_stack $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_splaytree_topdown $(TEST_ARGS)
 
 release-tests:
@@ -56,7 +56,7 @@ release-tests:
 	$(BUILD_DIR)release/test_rbtree_linked $(TEST_ARGS)
 	$(BUILD_DIR)release/test_rbtree_stack $(TEST_ARGS)
 	$(BUILD_DIR)release/test_rbtree_topdown $(TEST_ARGS)
-	$(BUILD_DIR)release/test_splaytree_bottomup $(TEST_ARGS)
+	$(BUILD_DIR)release/test_splaytree_stack $(TEST_ARGS)
 	$(BUILD_DIR)release/test_splaytree_topdown $(TEST_ARGS)
 
 clean:
