@@ -42,18 +42,33 @@
 
 typedef size_t header;
 
+/// The children of a node in a tree can be an array *nodes[2]. I prefer to
+/// code binary trees this way because when the opportunity arrises you
+/// can unite symmetric code cases for Left and Right into one piece of code
+/// that uses a `tree_link dir = parent->links[R] == cur;` approach. Then
+/// you have a `dir` and a `!dir` without needing to write code for each case
+/// of the dir being left or right, just invert the direction you stored.
 enum tree_link
 {
     L = 0,
     R = 1
 };
 
+/// Duplicate nodes of the same size are attached to the representitive head
+/// node in the tree. They are organized with a Previous and Next scheme to
+/// avoid confusion and make it type-clear that we are dealing with list nodes
+/// not tree nodes. This requires some limited and intentional casting but
+/// is worth it for clarity/sanity while coding up these complicated cases.
 enum list_link
 {
     P = 0,
     N = 1
 };
 
+/// A node in this splay tree does not track its parent so we will manage a stack.
+/// We also have the additional optimization of tracking duplicates in a linked
+/// list of duplicate_node members. We can access that list via the list_start.
+/// If the list is empty it will point to our placeholder node that acts as nil.
 struct node
 {
     header header;
@@ -61,6 +76,13 @@ struct node
     struct duplicate_node *list_start;
 };
 
+/// A node in the duplicate_node list contains the same number of payload bytes
+/// as its duplicate in the tree. However, these nodes only point to duplicate
+/// nodes to their left or right. The head node in this list after the node
+/// in the tree is responsible for tracking the parent of the node in the tree.
+/// This helps in the case of a tree node being coalesced or removed from the
+/// tree. The duplicate can take its place, update the parent of the new node
+/// as its child and no splaying operations take place saving many instructions.
 struct duplicate_node
 {
     header header;
@@ -68,46 +90,26 @@ struct duplicate_node
     struct node *parent;
 };
 
-struct join_pair
-{
-    struct node *a;
-    struct node *b;
-};
-
+/// Mainly for internal validation and bookeeping. Run over the heap with this.
 struct heap_range
 {
     void *start;
     void *end;
 };
 
+/// If a header is corrupted why trying to jump through the heap headers this
+/// will help us catch errors.
 struct bad_jump
 {
     struct node *prev;
     struct node *root;
 };
 
+/// Generic struct for tracking a size in bytes and quantity that makes up those bytes.
 struct size_total
 {
     size_t size;
     size_t total;
-};
-
-struct path_view
-{
-    struct node **nodes;
-    int len;
-};
-
-struct tree_split
-{
-    struct node *s;
-    struct node *t;
-};
-
-struct parent_child
-{
-    struct node *parent;
-    struct node *child;
 };
 
 #define SIZE_MASK ~0x7UL
@@ -121,7 +123,9 @@ struct parent_child
 
 // NOLINTBEGIN(*-non-const-global-variables)
 
-/// Implemented as a splay tree of free nodes.
+/// Implemented as a splay tree of free nodes. I use an explicit nil node rather
+/// than NULL, similar to what CLRS recommends for a Red-Black Tree. This helps
+/// with some invariant coding patterns that I like especially for the duplicate list.
 static struct free_nodes
 {
     struct node *root;
@@ -131,6 +135,7 @@ static struct free_nodes
     size_t total;
 } free_nodes;
 
+/// Useful for internal tracking and validating of the heap to speedup development.
 static struct heap
 {
     void *client_start;
