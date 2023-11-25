@@ -1,24 +1,5 @@
 ################################# TEST HARNESS PROGRAM ############################################
 
-########## List Addressorder #############
-
-
-add_executable(test_list_addressorder test_harness.c)
-target_link_libraries(test_list_addressorder PUBLIC
-                      segment
-                      script
-                      list_addressorder
-)
-
-########## List Bestfit #############
-
-
-add_executable(test_list_bestfit test_harness.c)
-target_link_libraries(test_list_bestfit PUBLIC
-                      segment
-                      script
-                      list_bestfit
-)
 
 ########## List Segregated #############
 
@@ -103,28 +84,6 @@ target_link_libraries(test_splaytree_topdown PUBLIC
 
 ################################# TIME HARNESS PROGRAM ############################################
 
-
-########## List Addressorder #############
-
-
-add_executable(time_list_addressorder time_harness.c)
-target_link_libraries(time_list_addressorder PUBLIC
-                      segment
-                      print_utility
-                      script
-                      list_addressorder
-)
-
-########## List Bestfit #############
-
-
-add_executable(time_list_bestfit time_harness.c)
-target_link_libraries(time_list_bestfit PUBLIC
-                      segment
-                      print_utility
-                      script
-                      list_bestfit
-)
 
 ########## List Segregated #############
 
@@ -218,28 +177,6 @@ target_link_libraries(time_splaytree_topdown PUBLIC
 ################################# PRINTER PROGRAM ############################################
 
 
-########## List Addressorder #############
-
-
-add_executable(print_peaks_list_addressorder print_peaks.c)
-target_link_libraries(print_peaks_list_addressorder PUBLIC
-                      segment
-                      print_utility
-                      script
-                      list_addressorder
-)
-
-########## List Bestfit #############
-
-
-add_executable(print_peaks_list_bestfit print_peaks.c)
-target_link_libraries(print_peaks_list_bestfit PUBLIC
-                      segment
-                      print_utility
-                      script
-                      list_bestfit
-)
-
 ####### List Segregated ############
 
 
@@ -330,26 +267,6 @@ target_link_libraries(print_peaks_splaytree_topdown PUBLIC
 
 ################################# OPTIONAL PROGRAM ############################################
 
-
-########## List Addressorder #############
-
-
-add_executable(my_optional_program_list_addressorder my_optional_program.c)
-target_link_libraries(my_optional_program_list_addressorder PUBLIC
-                      segment
-                      script
-                      list_addressorder
-)
-
-########## List Bestfit #############
-
-
-add_executable(my_optional_program_list_bestfit my_optional_program.c)
-target_link_libraries(my_optional_program_list_bestfit PUBLIC
-                      segment
-                      script
-                      list_bestfit
-)
 
 ####### List Segregated ############
 

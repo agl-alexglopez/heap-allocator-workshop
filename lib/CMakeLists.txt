@@ -11,17 +11,6 @@ add_library(script script.h script.c)
 
 add_library(segment segment.h segment.c)
 
-############################# List Addressorder Allocator ########################################
-
-
-add_library(list_addressorder allocator.h list_addressorder.c)
-
-
-############################# List Bestfit Allocator ########################################
-
-
-add_library(list_bestfit allocator.h list_bestfit.c)
-
 ############################# List Segregated Allocator ########################################
 
 
