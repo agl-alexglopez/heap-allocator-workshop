@@ -190,7 +190,7 @@ bool myinit( void *heap_start, size_t heap_size )
     // This helps us clarify if we are referring to tree or duplicates in a list. Use same address.
     free_nodes.list_tail = heap.client_end;
     free_nodes.nil = heap.client_end;
-    free_nodes.nil->header = 1UL;
+    free_nodes.nil->header = 0UL;
     free_nodes.root = heap.client_start;
     init_header_size( free_nodes.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE );
     init_footer( free_nodes.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE );
@@ -536,13 +536,9 @@ static struct node *splay( struct node *root, size_t key )
     struct node *finger = NULL;
     for ( ;; ) {
         size_t root_size = get_size( root->header );
-        if ( key == root_size ) {
-            break;
-        }
-
         // We will now unite the left and right cases of a standard topdown splay. Flip this enum when needed.
         enum tree_link next_link_to_descend = root_size < key;
-        if ( root->links[next_link_to_descend] == free_nodes.nil ) {
+        if ( key == root_size || root->links[next_link_to_descend] == free_nodes.nil ) {
             break;
         }
         size_t child_size = get_size( root->links[next_link_to_descend]->header );
@@ -589,10 +585,6 @@ static struct node *splay_bestfit( struct node *root, size_t key )
     size_t best_fit = ULLONG_MAX;
     for ( ;; ) {
         size_t root_size = get_size( root->header );
-        if ( key == root_size ) {
-            best_fit = root_size;
-            break;
-        }
         // Because topdown rotations may move the best fit to the left or right subtrees we are building we
         // need to check if the best fit is one of the children before potentially rotating/linking them away.
         best_fit = root_size < best_fit && root_size >= key ? root_size : best_fit;
@@ -600,11 +592,12 @@ static struct node *splay_bestfit( struct node *root, size_t key )
         best_fit = left_child_size < best_fit && left_child_size >= key ? left_child_size : best_fit;
         size_t right_child_size = get_size( root->links[R]->header );
         best_fit = right_child_size < best_fit && right_child_size >= key ? right_child_size : best_fit;
-
+        // We will now unite the left and right cases of a standard topdown splay. Flip this enum when needed.
         enum tree_link link_to_descend = root_size < key;
-        if ( root->links[link_to_descend] == free_nodes.nil ) {
+        if ( key == root_size || root->links[link_to_descend] == free_nodes.nil ) {
             break;
         }
+
         size_t child_size = get_size( root->links[link_to_descend]->header );
         enum tree_link link_to_descend_from_child = child_size < key;
         if ( key != child_size && link_to_descend == link_to_descend_from_child ) {

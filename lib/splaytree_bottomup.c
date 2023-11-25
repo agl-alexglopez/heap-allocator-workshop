@@ -216,7 +216,7 @@ bool myinit( void *heap_start, size_t heap_size )
     // This helps us clarify if we are referring to tree or duplicates in a list. Use same address.
     free_nodes.list_tail = heap.client_end;
     free_nodes.nil = heap.client_end;
-    free_nodes.nil->header = 1UL;
+    free_nodes.nil->header = 0UL;
     free_nodes.root = heap.client_start;
     init_header_size( free_nodes.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE );
     init_footer( free_nodes.root, heap.heap_size - HEAP_NODE_WIDTH - HEADERSIZE );
