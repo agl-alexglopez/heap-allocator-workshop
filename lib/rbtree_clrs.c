@@ -1004,7 +1004,7 @@ static void print_node( const struct rb_node *root, const struct rb_node *black_
     printf( COLOR_NIL );
     if ( style == VERBOSE ) {
         // print the black-height
-        printf( "(bh: %d)", get_black_height( root, black_nil ) );
+        printf( "%s(bh: %d)%s", COLOR_BLK, get_black_height( root, black_nil ), COLOR_NIL );
     }
     printf( "\n" );
 }
@@ -1045,6 +1045,28 @@ static void print_inner_tree( const struct rb_node *root, const struct rb_node *
         printf( COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL );
     }
     free( str );
+}
+
+/// @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
+/// @param *root          the root node to begin at for printing recursively.
+/// @param *black_nil     the sentinel node at the bottom of the tree that is always black.
+/// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
+static void print_rb_tree( const struct rb_node *root, const struct rb_node *black_nil, enum print_style style )
+{
+    if ( root == black_nil ) {
+        return;
+    }
+    printf( " " );
+    print_node( root, black_nil, style );
+
+    if ( root->right == black_nil ) {
+        print_inner_tree( root->left, black_nil, "", LEAF, style );
+    } else if ( root->left == black_nil ) {
+        print_inner_tree( root->right, black_nil, "", LEAF, style );
+    } else {
+        print_inner_tree( root->right, black_nil, "", BRANCH, style );
+        print_inner_tree( root->left, black_nil, "", LEAF, style );
+    }
 }
 
 /// @brief print_alloc_block  prints the contents of an allocated block of memory.
@@ -1139,28 +1161,6 @@ static void print_bad_jump( const struct rb_node *current, const struct bad_jump
     printf( "\nJump by %zubytes...\n", cur_size );
     printf( "Current state of the free tree:\n" );
     print_rb_tree( j.root, black_nil, VERBOSE );
-}
-
-/// @brief print_rb_tree  prints the contents of an entire rb tree in a directory tree style.
-/// @param *root          the root node to begin at for printing recursively.
-/// @param *black_nil     the sentinel node at the bottom of the tree that is always black.
-/// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
-static void print_rb_tree( const struct rb_node *root, const struct rb_node *black_nil, enum print_style style )
-{
-    if ( root == black_nil ) {
-        return;
-    }
-    printf( " " );
-    print_node( root, black_nil, style );
-
-    if ( root->right == black_nil ) {
-        print_inner_tree( root->left, black_nil, "", LEAF, style );
-    } else if ( root->left == black_nil ) {
-        print_inner_tree( root->right, black_nil, "", LEAF, style );
-    } else {
-        print_inner_tree( root->right, black_nil, "", BRANCH, style );
-        print_inner_tree( root->left, black_nil, "", LEAF, style );
-    }
 }
 
 /// @brief print_all    prints our the complete status of the heap, all of its blocks, and

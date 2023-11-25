@@ -933,7 +933,7 @@ static void print_node( const struct rb_node *root, const struct rb_node *black_
     printf( COLOR_NIL );
     if ( style == VERBOSE ) {
         // print the black-height
-        printf( "(bh: %d)", get_black_height( root, black_nil ) );
+        printf( "%s(bh: %d)%s", COLOR_BLK, get_black_height( root, black_nil ), COLOR_NIL );
     }
     printf( "\n" );
 }

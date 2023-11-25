@@ -1137,7 +1137,7 @@ static void print_node( const struct rb_node *root, const void *nil_and_tail, en
     printf( COLOR_NIL );
 
     if ( style == VERBOSE ) {
-        printf( "(bh: %d)", get_black_height( root, nil_and_tail ) );
+        printf( "%s(bh: %d)%s", COLOR_BLK, get_black_height( root, nil_and_tail ), COLOR_NIL );
     }
 
     printf( COLOR_CYN );
