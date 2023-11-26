@@ -183,7 +183,6 @@ static void *exec_realloc( int req, size_t requested_size, struct script *s )
                          "heap exhausted, realloc returned NULL. Script too large or allocator error.\n" );
         abort();
     }
-
     s->blocks[id].size = 0;
     s->blocks[id] = ( struct block ){ .ptr = newp, .size = requested_size };
     return newp;
@@ -238,12 +237,15 @@ static double time_malloc( size_t req, size_t requested_size, struct script *s, 
     clock_t request_start = 0;
     clock_t request_end = 0;
     request_start = clock();
+    volatile void *start_address_report = p;
     *p = mymalloc( requested_size );
+    volatile void *end_address_report = p;
     request_end = clock();
-
     if ( *p == NULL && requested_size != 0 ) {
-        allocator_error( s, s->ops[req].lineno,
-                         "heap exhausted, malloc returned NULL. Script too large or allocator error.\n" );
+        allocator_error(
+            s, s->ops[req].lineno,
+            "heap exhausted, malloc returned NULL: 0x%016zX. Was: 0x%016zX Script too large or allocator error.\n",
+            end_address_report, start_address_report );
         abort();
     }
 
@@ -265,12 +267,16 @@ static double time_realloc( size_t req, size_t requested_size, struct script *s,
     clock_t request_start = 0;
     clock_t request_end = 0;
     request_start = clock();
+    volatile void *start_address_report = newp;
     *newp = myrealloc( oldp, requested_size );
+    volatile void *end_address_report = newp;
     request_end = clock();
 
     if ( *newp == NULL && requested_size != 0 ) {
-        allocator_error( s, s->ops[req].lineno,
-                         "heap exhausted, realloc returned NULL. Script too large or allocator error.\n" );
+        allocator_error(
+            s, s->ops[req].lineno,
+            "heap exhausted, realloc returned NULL: 0x%016zX. Was: 0x%016zX Script too large or allocator error.\n",
+            end_address_report, start_address_report );
         abort();
     }
 
@@ -311,10 +317,12 @@ double time_request( struct script *s, int req, size_t *cur_size, void **heap_en
         clock_t request_start = 0;
         clock_t request_end = 0;
         request_start = clock();
+        volatile size_t old_size_volatile = 0;
         myfree( p );
+        old_size_volatile = old_size;
         request_end = clock();
         cpu_time = ( ( (double)( request_end - request_start ) ) / CLOCKS_PER_SEC ) * millisecond_scale;
-        *cur_size -= old_size;
+        *cur_size -= old_size_volatile;
     }
 
     if ( *cur_size > s->peak_size ) {
