@@ -4,7 +4,7 @@
 
  *Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I interacted with them through the programs in this repository.*
 
-> **Notice:** This repository contains **no heap allocator implementation that I submitted for CS107 at Stanford University**. All implementations are original written in my own free time, with sources cited when appropriate. The data structures and algorithms far exceed the requirements of any introductory classes of which I am aware, limiting their helpfulness in implementing one's own first allocator. This is simply an exploration of the tradeoffs in heap allocator implementations. Please contact me if you feel otherwise. I hope you enjoy! 
+> **Notice:** This repository contains **no heap allocator implementation that I submitted for CS107 at Stanford University**. All implementations are original and written in my own free time, with sources cited when appropriate. The data structures and algorithms far exceed the requirements of any introductory classes of which I am aware, limiting their helpfulness in implementing one's own first allocator. This is simply an exploration of the tradeoffs in heap allocator implementations. Please contact me if you feel otherwise. I hope you enjoy! 
 
 ## Navigation
 
