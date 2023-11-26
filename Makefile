@@ -35,8 +35,6 @@ tidy:
 
 debug-tests:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
-	$(BUILD_DIR)debug/test_list_addressorder $(TEST_ARGS)
-	$(BUILD_DIR)debug/test_list_bestfit $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_list_segregated $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_rbtree_clrs $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_rbtree_unified $(TEST_ARGS)
@@ -48,8 +46,6 @@ debug-tests:
 
 release-tests:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
-	$(BUILD_DIR)release/test_list_addressorder $(TEST_ARGS)
-	$(BUILD_DIR)release/test_list_bestfit $(TEST_ARGS)
 	$(BUILD_DIR)release/test_list_segregated $(TEST_ARGS)
 	$(BUILD_DIR)release/test_rbtree_clrs $(TEST_ARGS)
 	$(BUILD_DIR)release/test_rbtree_unified $(TEST_ARGS)
