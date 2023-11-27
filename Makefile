@@ -1,4 +1,4 @@
-.PHONY: default gcc-release gcc-debug build format tidy clean debug-tests release-tests
+.PHONY: default gcc-rel gcc-deb build format tidy clean deb-test rel-test deb-gtest rel-gtest
 
 MAKE := $(MAKE)
 # Adjust parallel build jobs based on your available cores.
@@ -8,19 +8,19 @@ TEST_ARGS := ./scripts/example* ./scripts/pattern* ./scripts/robust* ./scripts/t
 
 default: build
 
-gcc-release:
+gcc-rel:
 	cmake --preset=gcc-release
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 
-gcc-debug:
+gcc-deb:
 	cmake --preset=gcc-debug
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 
-clang-release:
+clang-rel:
 	cmake --preset=clang-release
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 
-clang-debug:
+clang-deb:
 	cmake --preset=clang-debug
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 
@@ -33,7 +33,7 @@ format:
 tidy:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) tidy $(JOBS)
 
-debug-tests:
+deb-test:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 	$(BUILD_DIR)debug/test_list_segregated $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_rbtree_clrs $(TEST_ARGS)
@@ -43,8 +43,9 @@ debug-tests:
 	$(BUILD_DIR)debug/test_rbtree_topdown $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_splaytree_stack $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_splaytree_topdown $(TEST_ARGS)
+	@echo "Ran DEBUG Script Tests"
 
-release-tests:
+rel-test:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 	$(BUILD_DIR)release/test_list_segregated $(TEST_ARGS)
 	$(BUILD_DIR)release/test_rbtree_clrs $(TEST_ARGS)
@@ -54,6 +55,17 @@ release-tests:
 	$(BUILD_DIR)release/test_rbtree_topdown $(TEST_ARGS)
 	$(BUILD_DIR)release/test_splaytree_stack $(TEST_ARGS)
 	$(BUILD_DIR)release/test_splaytree_topdown $(TEST_ARGS)
+	@echo "Ran RELEASE Script Tests"
+
+deb-gtest:
+	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
+	$(BUILD_DIR)debug/gtest*
+	@echo "Ran DEBUG GTests"
+
+rel-gtest:
+	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
+	$(BUILD_DIR)debug/gtest*
+	@echo "Ran RELEASE GTests"
 
 clean:
 	rm -rf build/
