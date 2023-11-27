@@ -214,6 +214,9 @@ void *mymalloc( size_t requested_size )
     size_t client_request = roundup( requested_size, ALIGNMENT );
     // Search the tree for the best possible fitting node.
     struct node *found_node = find_best_fit( client_request );
+    if ( found_node == free_nodes.nil ) {
+        return NULL;
+    }
     return split_alloc( found_node, client_request, get_size( found_node->header ) );
 }
 
@@ -488,6 +491,9 @@ static void init_free_node( struct node *to_free, size_t block_size )
 /// @param key             the size we know to exist for a node in our splay tree.
 static struct node *coalesce_splay( size_t key )
 {
+    if ( free_nodes.root == free_nodes.nil ) {
+        return free_nodes.nil;
+    }
     struct node *to_return = splay( free_nodes.root, key );
     if ( to_return->list_start != free_nodes.list_tail ) {
         free_nodes.root = to_return;
@@ -514,6 +520,9 @@ static struct node *coalesce_splay( size_t key )
 /// @return               the pointer to the struct node that is the best fit for our need.
 static struct node *find_best_fit( size_t key )
 {
+    if ( free_nodes.root == free_nodes.nil ) {
+        return free_nodes.nil;
+    }
     struct node *to_return = splay_bestfit( free_nodes.root, key );
     if ( to_return->list_start != free_nodes.list_tail ) {
         free_nodes.root = to_return;
@@ -573,9 +582,6 @@ static void insert_node( struct node *current )
 /// @return               the node that matches our requested value or the closest value to it.
 static struct node *splay( struct node *root, size_t key )
 {
-    if ( root == free_nodes.nil ) {
-        return free_nodes.nil;
-    }
     // Pointers in an array and we can use the symmetric enum and flip it to choose the Left or Right subtree.
     // Another benefit of our nil node: use it as our helper tree because we don't need its Left Right fields.
     free_nodes.nil->links[L] = free_nodes.nil;
@@ -622,9 +628,6 @@ static struct node *splay( struct node *root, size_t key )
 /// @return               the node that serves as the bestfit in our entire heap.
 static struct node *splay_bestfit( struct node *root, size_t key )
 {
-    if ( root == free_nodes.nil ) {
-        return free_nodes.nil;
-    }
     // Pointers in an array and we can use the symmetric enum and flip it to choose the Left or Right subtree.
     // Another benefit of our nil node: use it as our helper tree because we don't need its Left Right fields.
     free_nodes.nil->links[L] = free_nodes.nil;
