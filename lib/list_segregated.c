@@ -103,8 +103,8 @@ enum bucket_bytes
 /// Unsigned bitwise helpers we can't put into enums.
 #define SIZE_MASK ~0x7UL
 #define STATUS_CHECK 0x4UL
-#define FREE_NODE_WIDTH (uint16_t)16
-#define HEADER_AND_FREE_NODE (uint16_t)24
+#define FREE_NODE_WIDTH sizeof( struct free_node )
+#define HEADER_AND_FREE_NODE ( sizeof( header ) + sizeof( struct free_node ) )
 #define HEADERSIZE sizeof( size_t )
 #define MIN_BLOCK_SIZE (uint16_t)32
 #define FREED 0x0UL
@@ -299,6 +299,58 @@ void myfree( void *ptr )
     }
 }
 
+///////////////////////     Shared Debugger      ///////////////////////////////////////////
+
+bool validate_heap( void )
+{
+    if ( !check_init( fits.table, fits.nil, heap.client_size ) ) {
+        return false;
+    }
+    size_t total_free_mem = 0;
+    if ( !is_memory_balanced( &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
+                              ( struct size_total ){ heap.client_size, fits.total } ) ) {
+        return false;
+    }
+    if ( !are_fits_valid( total_free_mem, fits.table, fits.nil ) ) {
+        return false;
+    }
+    return true;
+}
+
+size_t align( size_t request ) { return roundup( request + HEADER_AND_FREE_NODE, ALIGNMENT ); }
+
+size_t capacity( void )
+{
+    size_t total_free_mem = 0;
+    size_t block_size_check = 0;
+    for ( header *cur = heap.client_start; cur != heap.client_end;
+          cur = get_right_header( cur, block_size_check ) ) {
+        block_size_check = get_size( *cur );
+        if ( !is_block_allocated( *cur ) ) {
+            total_free_mem += block_size_check;
+        }
+    }
+    return total_free_mem;
+}
+
+void validate_heap_state( const struct heap_block expected[], struct heap_block actual[], size_t len )
+{
+    (void)expected;
+    (void)actual;
+    (void)len;
+    UNIMPLEMENTED();
+}
+
+////////////////////////////     Shared Printer       ///////////////////////////////////////
+
+void print_free_nodes( enum print_style style ) { print_fits( style, fits.table, fits.nil ); }
+
+void dump_heap( void )
+{
+    print_all( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.client_size, fits.table,
+               fits.nil );
+}
+
 //////////////////////////////   Static Helper Functions  ////////////////////////////////////
 
 /// @brief *coalesce           performs an in place coalesce to the right and left on free and
@@ -419,34 +471,6 @@ static inline size_t find_index( size_t any_block_size )
         return index_from_floored_log2 > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : index_from_floored_log2;
     }
     }
-}
-
-///////////////////////     Shared Debugger      ///////////////////////////////////////////
-
-bool validate_heap( void )
-{
-    if ( !check_init( fits.table, fits.nil, heap.client_size ) ) {
-        return false;
-    }
-    size_t total_free_mem = 0;
-    if ( !is_memory_balanced( &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
-                              ( struct size_total ){ heap.client_size, fits.total } ) ) {
-        return false;
-    }
-    if ( !are_fits_valid( total_free_mem, fits.table, fits.nil ) ) {
-        return false;
-    }
-    return true;
-}
-
-////////////////////////////     Shared Printer       ///////////////////////////////////////
-
-void print_free_nodes( enum print_style style ) { print_fits( style, fits.table, fits.nil ); }
-
-void dump_heap( void )
-{
-    print_all( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.client_size, fits.table,
-               fits.nil );
 }
 
 /////////////////////////////   Basic Block and Header Operations   ////////////////////////////

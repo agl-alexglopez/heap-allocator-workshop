@@ -113,12 +113,12 @@ struct size_total
 };
 
 #define SIZE_MASK ~0x7UL
-#define BLOCK_SIZE 40UL
 #define HEADERSIZE sizeof( size_t )
+#define BLOCK_SIZE ( sizeof( struct node ) + HEADERSIZE )
 #define FREED 0x0UL
 #define ALLOCATED 0x1UL
 #define LEFT_ALLOCATED 0x2UL
-#define HEAP_NODE_WIDTH 32UL
+#define HEAP_NODE_WIDTH sizeof( struct node )
 #define LEFT_FREE ~0x2UL
 
 // NOLINTBEGIN(*-non-const-global-variables)
@@ -211,7 +211,7 @@ void *mymalloc( size_t requested_size )
     if ( requested_size == 0 || requested_size > MAX_REQUEST_SIZE ) {
         return NULL;
     }
-    size_t client_request = roundup( requested_size + HEAP_NODE_WIDTH, ALIGNMENT );
+    size_t client_request = roundup( requested_size, ALIGNMENT );
     // Search the tree for the best possible fitting node.
     struct node *found_node = find_best_fit( client_request );
     return split_alloc( found_node, client_request, get_size( found_node->header ) );
@@ -229,7 +229,7 @@ void *myrealloc( void *old_ptr, size_t new_size )
         myfree( old_ptr );
         return NULL;
     }
-    size_t request = roundup( new_size + HEAP_NODE_WIDTH, ALIGNMENT );
+    size_t request = roundup( new_size, ALIGNMENT );
     struct node *old_node = get_node( old_ptr );
     size_t old_size = get_size( old_node->header );
 
@@ -261,6 +261,8 @@ void myfree( void *ptr )
     init_free_node( to_insert, get_size( to_insert->header ) );
 }
 
+//////////////////////////////////      Public Validation        /////////////////////////////////////////
+
 bool validate_heap( void )
 {
 
@@ -285,6 +287,45 @@ bool validate_heap( void )
     }
     return true;
 }
+
+size_t align( size_t request ) { return roundup( request, ALIGNMENT ); }
+
+size_t capacity( void )
+{
+    size_t total_free_mem = 0;
+    size_t block_size_check = 0;
+    for ( struct node *cur_node = heap.client_start; cur_node != heap.client_end;
+          cur_node = get_right_neighbor( cur_node, block_size_check ) ) {
+        block_size_check = get_size( cur_node->header );
+        if ( !is_block_allocated( cur_node->header ) ) {
+            total_free_mem += block_size_check;
+        }
+    }
+    return total_free_mem;
+}
+
+void validate_heap_state( const struct heap_block expected[], struct heap_block actual[], size_t len )
+{
+    struct node *cur_node = heap.client_start;
+    size_t i = 0;
+    for ( ; i < len && cur_node != heap.client_end; ++i ) {
+        bool is_allocated = is_block_allocated( cur_node->header );
+        size_t cur_size = get_size( cur_node->header );
+        actual[i] = ( struct heap_block ){ is_allocated, cur_size, OK };
+        if ( expected[i].allocated != is_allocated || expected[i].payload_bytes > cur_size ) {
+            actual[i].err = MISMATCH;
+            continue;
+        }
+        cur_node = get_right_neighbor( cur_node, cur_size );
+    }
+    if ( i < len ) {
+        actual[i].err = HEAP_HAS_FEWER_BLOCKS;
+    } else if ( cur_node != heap.client_end ) {
+        actual[i].err = HEAP_HAS_MORE_BLOCKS;
+    }
+}
+
+//////////////////////////////////   Public Printers        /////////////////////////////////////////
 
 /// @note  the red and blue links represent the heavy/light decomposition of a splay tree. For more
 ///        information on this interpretation see any Stanford 166 lecture on splay trees.
@@ -687,13 +728,14 @@ static inline void link_parent_to_subtree( struct node *parent, enum tree_link d
     }
 }
 
-/// @brief roundup         rounds up size to the nearest multiple of two to be aligned in the heap.
+/// @brief roundup         rounds up size to the nearest multiple of multiple to be aligned in the heap.
 /// @param requested_size  size given to us by the client.
 /// @param multiple        the nearest multiple to raise our number to.
 /// @return                rounded number.
 static inline size_t roundup( size_t requested_size, size_t multiple )
 {
-    return ( requested_size + multiple - 1 ) & ~( multiple - 1 );
+    return requested_size <= HEAP_NODE_WIDTH ? HEAP_NODE_WIDTH
+                                             : ( requested_size + multiple - 1 ) & ~( multiple - 1 );
 }
 
 /// @brief get_size    returns size in bytes as a size_t from the value of node's header.

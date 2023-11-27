@@ -1,12 +1,15 @@
 /// File: allocator.h
 /// -----------------
 /// Interface file for the custom heap allocator.
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
 #include "print_utility.h"
 #include <stdbool.h>
-#include <stddef.h> // for size_t
+#include <stddef.h>
 
 enum
 {
@@ -14,6 +17,34 @@ enum
     ALIGNMENT = 8,
     // maximum size of block that must be accommodated
     MAX_REQUEST_SIZE = ( 1 << 30 )
+};
+
+enum status_error
+{
+    OK,
+    MISMATCH,
+    HEAP_HAS_MORE_BLOCKS,
+    HEAP_HAS_FEWER_BLOCKS,
+};
+
+struct heap_block
+{
+    bool allocated;
+    size_t payload_bytes;
+    enum status_error err;
+};
+
+struct mismatch
+{
+    size_t fail_index;
+    bool actual_status;
+    size_t actual_payload_bytes;
+};
+
+struct state_check
+{
+    bool passed;
+    struct mismatch log;
 };
 
 /// @brief myinit
@@ -64,4 +95,14 @@ size_t get_free_total( void );
 /// tree allocators, the black height of the tree as well.
 void print_free_nodes( enum print_style style );
 
+size_t align( size_t request );
+
+size_t capacity( void );
+
+void validate_heap_state( const struct heap_block expected[], struct heap_block actual[], size_t len );
+
+#endif
+
+#ifdef __cplusplus
+}
 #endif

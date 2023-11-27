@@ -5,7 +5,10 @@ Checks: >
    -llvmlibc-*,
    -readability-identifier-length,
    -concurrency-mt-unsafe,
+   -modernize*,
+   -*magic-numbers,
    -llvm-header-guard,
+   -fuchsia-overloaded-operator,
    -fuchsia-default-arguments-calls,
    -fuchsia-default-arguments-declarations,
 
