@@ -157,6 +157,7 @@ static struct heap
 // This way you can read through the core implementation and helpers go to bottom.
 
 static size_t roundup( size_t requested_size, size_t multiple );
+static size_t multiple( size_t requested_size, size_t multiple );
 static size_t get_size( header header_val );
 static header *get_right_header( header *cur_header, size_t block_size );
 static header *get_left_header( header *cur_header );
@@ -187,7 +188,7 @@ bool myinit( void *heap_start, size_t heap_size )
         return false;
     }
 
-    heap.client_size = ( heap_size + HEADERSIZE - 1 ) & ~( HEADERSIZE - 1 );
+    heap.client_size = multiple( heap_size, ALIGNMENT );
     // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
     size_t size = MIN_BLOCK_SIZE;
     for ( size_t index = 0; index < NUM_SMALL_BUCKETS; index++, size += ALIGNMENT ) {
@@ -480,6 +481,15 @@ static inline size_t roundup( size_t requested_size, size_t multiple )
     return ( requested_size + HEADERSIZE ) <= ( HEADER_AND_FREE_NODE + HEADERSIZE )
                ? HEADER_AND_FREE_NODE + HEADERSIZE
                : ( ( requested_size + multiple - 1 ) & ~( multiple - 1 ) ) + HEADERSIZE;
+}
+
+/// @brief roundup         rounds up a size to the nearest multiple of multiple to be aligned in the heap.
+/// @param requested_size  size given to us by the client.
+/// @param multiple        the nearest multiple to raise our number to.
+/// @return                rounded number.
+static inline size_t multiple( size_t requested_size, size_t multiple )
+{
+    return ( requested_size + multiple - 1 ) & ~( multiple - 1 );
 }
 
 /// @brief get_size     given a valid header find the total size of the header and block.
