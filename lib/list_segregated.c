@@ -167,7 +167,7 @@ static void init_header( header *cur_header, size_t block_size, header header_st
 static void init_footer( header *cur_header, size_t block_size );
 static bool is_left_space( const header *cur_header );
 static size_t find_index( size_t any_block_size );
-static void splice_free_node( struct free_node *to_splice, size_t block_size );
+static void splice_at_index( struct free_node *to_splice, size_t i );
 static void init_free_node( header *to_add, size_t block_size );
 static void *split_alloc( header *free_block, size_t request, size_t block_space );
 static header *coalesce( header *leftmost_header );
@@ -187,12 +187,7 @@ bool myinit( void *heap_start, size_t heap_size )
         return false;
     }
 
-    heap.client_size = roundup( heap_size, ALIGNMENT );
-    // This costs some memory in exchange for ease of use and low instruction counts.
-    fits.nil.prev = NULL;
-    fits.nil.next = NULL;
-
-    // Initialize array of free list sizes.
+    heap.client_size = ( heap_size + HEADERSIZE - 1 ) & ~( HEADERSIZE - 1 );
     // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
     size_t size = MIN_BLOCK_SIZE;
     for ( size_t index = 0; index < NUM_SMALL_BUCKETS; index++, size += ALIGNMENT ) {
@@ -225,6 +220,8 @@ bool myinit( void *heap_start, size_t heap_size )
     heap.client_start = first_block;
     heap.client_end = dummy_header;
     fits.total = 1;
+    fits.nil.prev = NULL;
+    fits.nil.next = NULL;
     return true;
 }
 
@@ -233,14 +230,14 @@ void *mymalloc( size_t requested_size )
     if ( requested_size == 0 || requested_size > MAX_REQUEST_SIZE ) {
         return NULL;
     }
-    const size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
+    const size_t rounded_request = roundup( requested_size, ALIGNMENT );
     // We are starting with a pretty good guess thanks to log2 properties but we might not find anything.
     for ( size_t i = find_index( rounded_request ); i < NUM_BUCKETS; ++i ) {
         for ( struct free_node *node = fits.table[i].start; node != &fits.nil; node = node->next ) {
             header *cur_header = get_block_header( node );
             size_t free_space = get_size( *cur_header );
             if ( free_space >= rounded_request ) {
-                splice_free_node( node, free_space );
+                splice_at_index( node, i );
                 return split_alloc( cur_header, rounded_request, free_space );
             }
         }
@@ -262,7 +259,7 @@ void *myrealloc( void *old_ptr, size_t new_size )
         myfree( old_ptr );
         return NULL;
     }
-    size_t size_needed = roundup( new_size + HEADER_AND_FREE_NODE, ALIGNMENT );
+    size_t size_needed = roundup( new_size, ALIGNMENT );
     header *old_header = get_block_header( old_ptr );
     size_t old_space = get_size( *old_header );
 
@@ -317,7 +314,7 @@ bool validate_heap( void )
     return true;
 }
 
-size_t align( size_t request ) { return roundup( request + HEADER_AND_FREE_NODE, ALIGNMENT ); }
+size_t align( size_t request ) { return roundup( request, ALIGNMENT ) - HEADERSIZE; }
 
 size_t capacity( void )
 {
@@ -369,34 +366,17 @@ static header *coalesce( header *leftmost_header )
     if ( right_space != heap.client_end && !is_block_allocated( *right_space ) ) {
         size_t block_size = get_size( *right_space );
         coalesced_space += block_size;
-        splice_free_node( get_free_node( right_space ), block_size );
+        splice_at_index( get_free_node( right_space ), find_index( block_size ) );
     }
 
     if ( is_left_space( leftmost_header ) ) {
         leftmost_header = get_left_header( leftmost_header );
         size_t block_size = get_size( *leftmost_header );
         coalesced_space += block_size;
-        splice_free_node( get_free_node( leftmost_header ), block_size );
+        splice_at_index( get_free_node( leftmost_header ), find_index( block_size ) );
     }
     init_header( leftmost_header, coalesced_space, FREED );
     return leftmost_header;
-}
-
-/// @brief splice_free_node  removes a free node out of the free node list.
-/// @param *to_splice        the heap node that we are either allocating or splitting.
-/// @param *block_size       number of bytes that is used by the block we are splicing.
-static void splice_free_node( struct free_node *to_splice, size_t block_size )
-{
-    // Catch if we are the first node pointed to by the lookup table.
-    if ( &fits.nil == to_splice->prev ) {
-        fits.table[find_index( block_size )].start = to_splice->next;
-        to_splice->next->prev = &fits.nil;
-    } else {
-        // Because we have a sentinel we don't need to worry about middle or last node or NULL.
-        to_splice->next->prev = to_splice->prev;
-        to_splice->prev->next = to_splice->next;
-    }
-    fits.total--;
 }
 
 /// @brief init_free_node  initializes the header and footer of a free node, informs the right
@@ -474,13 +454,32 @@ static inline size_t find_index( size_t any_block_size )
 
 /////////////////////////////   Basic Block and Header Operations   ////////////////////////////
 
+/// @brief splice_block_size removes a free node out of the free node list with known starting index.
+/// @param *to_splice        the heap node that we are either allocating or splitting.
+/// @param i                 table index for the power of two to which we know this block belongs.
+static inline void splice_at_index( struct free_node *to_splice, size_t i )
+{
+    // Catch if we are the first node pointed to by the lookup table.
+    if ( &fits.nil == to_splice->prev ) {
+        fits.table[i].start = to_splice->next;
+        to_splice->next->prev = &fits.nil;
+    } else {
+        // Because we have a sentinel we don't need to worry about middle or last node or NULL.
+        to_splice->next->prev = to_splice->prev;
+        to_splice->prev->next = to_splice->next;
+    }
+    fits.total--;
+}
+
 /// @brief roundup         rounds up a size to the nearest multiple of two to be aligned in the heap.
 /// @param requested_size  size given to us by the client.
 /// @param multiple        the nearest multiple to raise our number to.
 /// @return                rounded number.
 static inline size_t roundup( size_t requested_size, size_t multiple )
 {
-    return ( requested_size + multiple - 1 ) & ~( multiple - 1 );
+    return ( requested_size + HEADERSIZE ) <= ( HEADER_AND_FREE_NODE + HEADERSIZE )
+               ? HEADER_AND_FREE_NODE + HEADERSIZE
+               : ( ( requested_size + multiple - 1 ) & ~( multiple - 1 ) ) + HEADERSIZE;
 }
 
 /// @brief get_size     given a valid header find the total size of the header and block.
