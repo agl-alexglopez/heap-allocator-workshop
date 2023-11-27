@@ -95,11 +95,11 @@ size_t get_free_total( void );
 /// tree allocators, the black height of the tree as well.
 void print_free_nodes( enum print_style style );
 
-size_t align( size_t request );
+size_t myheap_align( size_t request );
 
-size_t capacity( void );
+size_t myheap_capacity( void );
 
-void validate_heap_state( const struct heap_block expected[], struct heap_block actual[], size_t len );
+void myheap_state( const struct heap_block expected[], struct heap_block actual[], size_t len );
 
 #endif
 

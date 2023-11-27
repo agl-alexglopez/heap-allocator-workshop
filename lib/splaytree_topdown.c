@@ -291,9 +291,9 @@ bool validate_heap( void )
     return true;
 }
 
-size_t align( size_t request ) { return roundup( request, ALIGNMENT ); }
+size_t myheap_align( size_t request ) { return roundup( request, ALIGNMENT ); }
 
-size_t capacity( void )
+size_t myheap_capacity( void )
 {
     size_t total_free_mem = 0;
     size_t block_size_check = 0;
@@ -307,7 +307,7 @@ size_t capacity( void )
     return total_free_mem;
 }
 
-void validate_heap_state( const struct heap_block expected[], struct heap_block actual[], size_t len )
+void myheap_state( const struct heap_block expected[], struct heap_block actual[], size_t len )
 {
     struct node *cur_node = heap.client_start;
     size_t i = 0;

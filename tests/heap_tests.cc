@@ -67,9 +67,9 @@ TEST( MallocTests, SingleMalloc )
     void *segment = init_heap_segment( small_heap_size );
     ASSERT_EQ( true, myinit( segment, small_heap_size ) );
     void *request = mymalloc( bytes );
-    std::vector<heap_block> expected{ { a, align( bytes ), OK }, { f, capacity(), OK } };
+    std::vector<heap_block> expected{ { a, myheap_align( bytes ), OK }, { f, myheap_capacity(), OK } };
     std::vector<heap_block> actual( expected.size() );
-    validate_heap_state( expected.data(), actual.data(), expected.size() );
+    myheap_state( expected.data(), actual.data(), expected.size() );
     EXPECT_EQ( expected, actual );
     EXPECT_EQ( validate_heap(), true );
 }
@@ -86,9 +86,9 @@ TEST( MallocTests, SingleMallocGivesAdvertisedSpace )
     std::copy( chars.begin(), chars.end(), request );
     EXPECT_EQ( std::string( chars.data() ), std::string( request ) );
     // Now that we have copied our string into the bytes they gave us lets check the heap is not overwritten.
-    std::vector<heap_block> expected{ { a, align( bytes ), OK }, { f, capacity(), OK } };
+    std::vector<heap_block> expected{ { a, myheap_align( bytes ), OK }, { f, myheap_capacity(), OK } };
     std::vector<heap_block> actual( expected.size() );
-    validate_heap_state( expected.data(), actual.data(), expected.size() );
+    myheap_state( expected.data(), actual.data(), expected.size() );
     EXPECT_EQ( expected, actual );
     EXPECT_EQ( validate_heap(), true );
 }
@@ -118,17 +118,17 @@ TEST( MallocFreeTests, SingleMallocSingleFree )
     chars.back() = '\0';
     void *segment = init_heap_segment( small_heap_size );
     ASSERT_EQ( true, myinit( segment, small_heap_size ) );
-    const size_t original_capacity = capacity();
+    const size_t original_capacity = myheap_capacity();
     auto *request = static_cast<char *>( mymalloc( 32 ) );
     std::copy( chars.begin(), chars.end(), request );
     EXPECT_EQ( std::string( chars.data() ), std::string( request ) );
     // Now that we have copied our string into the bytes they gave us lets check the heap is not overwritten.
-    std::vector<heap_block> expected{ { a, align( bytes ), OK }, { f, capacity(), OK } };
+    std::vector<heap_block> expected{ { a, myheap_align( bytes ), OK }, { f, myheap_capacity(), OK } };
     std::vector<heap_block> actual( expected.size() );
-    validate_heap_state( expected.data(), actual.data(), expected.size() );
+    myheap_state( expected.data(), actual.data(), expected.size() );
     EXPECT_EQ( expected, actual );
     EXPECT_EQ( validate_heap(), true );
     myfree( request );
     EXPECT_EQ( validate_heap(), true );
-    EXPECT_EQ( original_capacity, capacity() );
+    EXPECT_EQ( original_capacity, myheap_capacity() );
 }
