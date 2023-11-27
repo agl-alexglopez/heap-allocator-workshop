@@ -9,6 +9,7 @@ Checks: >
    -*magic-numbers,
    -llvm-header-guard,
    -fuchsia-overloaded-operator,
+   -fuchsia-statically-constructed-objects,
    -fuchsia-default-arguments-calls,
    -fuchsia-default-arguments-declarations,
 

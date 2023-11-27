@@ -315,16 +315,18 @@ void myheap_state( const struct heap_block expected[], struct heap_block actual[
         bool is_allocated = is_block_allocated( cur_node->header );
         size_t cur_size = get_size( cur_node->header );
         actual[i] = ( struct heap_block ){ is_allocated, cur_size, OK };
-        if ( expected[i].allocated != is_allocated || expected[i].payload_bytes > cur_size ) {
+        if ( expected[i].allocated != is_allocated || expected[i].payload_bytes != cur_size ) {
             actual[i].err = MISMATCH;
-            continue;
         }
         cur_node = get_right_neighbor( cur_node, cur_size );
     }
     if ( i < len ) {
-        actual[i].err = HEAP_HAS_FEWER_BLOCKS;
+        actual[i].err = OUT_OF_BOUNDS;
+        for ( size_t fill = i; fill < len; ++fill ) {
+            actual[i].err = OUT_OF_BOUNDS;
+        }
     } else if ( cur_node != heap.client_end ) {
-        actual[i].err = HEAP_HAS_MORE_BLOCKS;
+        actual[i].err = HEAP_CONTINUES;
     }
 }
 

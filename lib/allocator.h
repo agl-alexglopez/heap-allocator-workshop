@@ -19,13 +19,21 @@ enum
     MAX_REQUEST_SIZE = ( 1 << 30 )
 };
 
+#define FOREACH_ERR( ERR ) /*NOLINT*/                                                                              \
+    ERR( OK )                                                                                                      \
+    ERR( MISMATCH )                                                                                                \
+    ERR( HEAP_CONTINUES )                                                                                          \
+    ERR( OUT_OF_BOUNDS )
+#define GENERATE_ENUM( ENUM ) ENUM,        /*NOLINT*/
+#define GENERATE_STRING( STRING ) #STRING, /*NOLINT*/
+
 enum status_error
 {
-    OK,
-    MISMATCH,
-    HEAP_HAS_MORE_BLOCKS,
-    HEAP_HAS_FEWER_BLOCKS,
+    FOREACH_ERR( GENERATE_ENUM )
 };
+
+static const char *const err_string[] = { // NOLINT
+    FOREACH_ERR( GENERATE_STRING ) };
 
 struct heap_block
 {
