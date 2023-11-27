@@ -133,9 +133,9 @@ enum bucket_bytes
 ///     size.
 static struct fits
 {
-    struct seg_node *table;
+    struct seg_node table[NUM_BUCKETS];
     // One node can serve as the head and tail of all lists to allow some invariant code patterns.
-    struct free_node *nil;
+    struct free_node nil;
     size_t total;
 } fits;
 
@@ -171,7 +171,7 @@ static void splice_free_node( struct free_node *to_splice, size_t block_size );
 static void init_free_node( header *to_add, size_t block_size );
 static void *split_alloc( header *free_block, size_t request, size_t block_space );
 static header *coalesce( header *leftmost_header );
-static bool check_init( struct seg_node table[], struct free_node *nil, size_t client_size );
+static bool check_init( struct seg_node table[], size_t client_size );
 static bool is_memory_balanced( size_t *total_free_mem, struct heap_range hr, struct size_total st );
 static bool are_fits_valid( size_t total_free_mem, struct seg_node table[], struct free_node *nil );
 static void print_all( struct heap_range hr, size_t client_size, struct seg_node table[], struct free_node *nil );
@@ -189,41 +189,41 @@ bool myinit( void *heap_start, size_t heap_size )
 
     heap.client_size = roundup( heap_size, ALIGNMENT );
     // This costs some memory in exchange for ease of use and low instruction counts.
-    fits.nil = (struct free_node *)( (uint8_t *)heap_start + ( heap.client_size - FREE_NODE_WIDTH ) );
-    fits.nil->prev = NULL;
-    fits.nil->next = NULL;
+    fits.nil.prev = NULL;
+    fits.nil.next = NULL;
 
     // Initialize array of free list sizes.
-    heap_start = (struct seg_node( * )[NUM_BUCKETS])heap_start;
-    fits.table = heap_start;
     // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
     size_t size = MIN_BLOCK_SIZE;
     for ( size_t index = 0; index < NUM_SMALL_BUCKETS; index++, size += ALIGNMENT ) {
         fits.table[index].size = size;
-        fits.table[index].start = fits.nil;
+        fits.table[index].start = &fits.nil;
     }
     // Large sizes double until end of array except last index needs special attention.
     size = LARGE_TABLE_MIN_BYTES;
     for ( size_t index = NUM_SMALL_BUCKETS; index < NUM_BUCKETS - 1; index++, size *= 2 ) {
         fits.table[index].size = size;
-        fits.table[index].start = fits.nil;
+        fits.table[index].start = &fits.nil;
     }
     // Be careful here. We can't double to get 14th index. USHRT_MAX=65535 not 65536.
     fits.table[NUM_BUCKETS - 1].size = USHRT_MAX;
-    fits.table[NUM_BUCKETS - 1].start = fits.nil;
+    fits.table[NUM_BUCKETS - 1].start = &fits.nil;
 
-    header *first_block = (header *)( (uint8_t *)heap_start + TOTAL_TABLE_BYTES );
-    init_header( first_block, heap.client_size - TOTAL_TABLE_BYTES - FREE_NODE_WIDTH, FREED );
-    init_footer( first_block, heap.client_size - TOTAL_TABLE_BYTES - FREE_NODE_WIDTH );
+    header *first_block = (header *)( heap_start );
+    // This makes it so we don't have to check for an edge case when coalescing right. It will always be allocated.
+    header *dummy_header = (header *)( (uint8_t *)( heap_start ) + heap.client_size - sizeof( header ) );
+    *dummy_header = ALLOCATED;
+    init_header( first_block, heap.client_size - sizeof( header ), FREED );
+    init_footer( first_block, heap.client_size - sizeof( header ) );
 
     struct free_node *first_free = (struct free_node *)( (uint8_t *)first_block + ALIGNMENT );
-    first_free->next = fits.nil;
-    first_free->prev = fits.nil;
+    first_free->next = &fits.nil;
+    first_free->prev = &fits.nil;
     // Insert this first free into the appropriately sized list.
-    init_free_node( first_block, heap.client_size - TOTAL_TABLE_BYTES - FREE_NODE_WIDTH );
+    init_free_node( first_block, heap.client_size - sizeof( header ) );
 
     heap.client_start = first_block;
-    heap.client_end = fits.nil;
+    heap.client_end = dummy_header;
     fits.total = 1;
     return true;
 }
@@ -236,7 +236,7 @@ void *mymalloc( size_t requested_size )
     const size_t rounded_request = roundup( requested_size + HEADER_AND_FREE_NODE, ALIGNMENT );
     // We are starting with a pretty good guess thanks to log2 properties but we might not find anything.
     for ( size_t i = find_index( rounded_request ); i < NUM_BUCKETS; ++i ) {
-        for ( struct free_node *node = fits.table[i].start; node != fits.nil; node = node->next ) {
+        for ( struct free_node *node = fits.table[i].start; node != &fits.nil; node = node->next ) {
             header *cur_header = get_block_header( node );
             size_t free_space = get_size( *cur_header );
             if ( free_space >= rounded_request ) {
@@ -303,7 +303,7 @@ void myfree( void *ptr )
 
 bool validate_heap( void )
 {
-    if ( !check_init( fits.table, fits.nil, heap.client_size ) ) {
+    if ( !check_init( fits.table, heap.client_size ) ) {
         return false;
     }
     size_t total_free_mem = 0;
@@ -311,7 +311,7 @@ bool validate_heap( void )
                               ( struct size_total ){ heap.client_size, fits.total } ) ) {
         return false;
     }
-    if ( !are_fits_valid( total_free_mem, fits.table, fits.nil ) ) {
+    if ( !are_fits_valid( total_free_mem, fits.table, &fits.nil ) ) {
         return false;
     }
     return true;
@@ -343,12 +343,12 @@ void validate_heap_state( const struct heap_block expected[], struct heap_block 
 
 ////////////////////////////     Shared Printer       ///////////////////////////////////////
 
-void print_free_nodes( enum print_style style ) { print_fits( style, fits.table, fits.nil ); }
+void print_free_nodes( enum print_style style ) { print_fits( style, fits.table, &fits.nil ); }
 
 void dump_heap( void )
 {
     print_all( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.client_size, fits.table,
-               fits.nil );
+               &fits.nil );
 }
 
 //////////////////////////////   Static Helper Functions  ////////////////////////////////////
@@ -388,9 +388,9 @@ static header *coalesce( header *leftmost_header )
 static void splice_free_node( struct free_node *to_splice, size_t block_size )
 {
     // Catch if we are the first node pointed to by the lookup table.
-    if ( fits.nil == to_splice->prev ) {
+    if ( &fits.nil == to_splice->prev ) {
         fits.table[find_index( block_size )].start = to_splice->next;
-        to_splice->next->prev = fits.nil;
+        to_splice->next->prev = &fits.nil;
     } else {
         // Because we have a sentinel we don't need to worry about middle or last node or NULL.
         to_splice->next->prev = to_splice->prev;
@@ -412,12 +412,11 @@ static void init_free_node( header *to_add, size_t block_size )
     *neighbor &= LEFT_FREE;
     struct free_node *free_add = get_free_node( to_add );
 
-    size_t index = 0;
-    for ( ; index < NUM_BUCKETS - 1 && block_size >= fits.table[index + 1].size; ++index ) {}
+    size_t index = find_index( block_size );
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
     struct free_node *cur = fits.table[index].start;
     fits.table[index].start = free_add;
-    free_add->prev = fits.nil;
+    free_add->prev = &fits.nil;
     free_add->next = cur;
     cur->prev = free_add;
     fits.total++;
@@ -586,11 +585,10 @@ static bool is_small_table_valid( struct seg_node table[] )
 /// @param *nil         a special free_node that serves as a sentinel for logic and edgecases.
 /// @param client_size  the total space available for client.
 /// @return             true if everything is in order otherwise false.
-static bool check_init( struct seg_node table[], struct free_node *nil, size_t client_size )
+static bool check_init( struct seg_node table[], size_t client_size )
 {
-    void *first_address = table;
-    void *last_address = (uint8_t *)nil + FREE_NODE_WIDTH;
-    if ( (size_t)( (uint8_t *)last_address - (uint8_t *)first_address ) != client_size ) {
+    if ( (size_t)( ( (uint8_t *)heap.client_end + sizeof( header ) ) - (uint8_t *)heap.client_start )
+         != client_size ) {
         BREAKPOINT();
         return false;
     }
@@ -621,12 +619,15 @@ static bool is_valid_header( struct header_size hs, size_t client_size )
 {
     // Most definitely impossible and our header is corrupted. Pointer arithmetic would fail.
     if ( hs.size > client_size ) {
+        BREAKPOINT();
         return false;
     }
     if ( is_header_corrupted( hs.header ) ) {
+        BREAKPOINT();
         return false;
     }
     if ( hs.size % HEADERSIZE != 0 ) {
+        BREAKPOINT();
         return false;
     }
     return true;
@@ -642,7 +643,7 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range hr, st
 {
     // Check that after checking all headers we end on size 0 tail and then end of address space.
     header *cur_header = hr.start;
-    size_t size_used = FREE_NODE_WIDTH + TOTAL_TABLE_BYTES;
+    size_t size_used = sizeof( header );
     size_t total_free_nodes = 0;
     while ( cur_header != hr.end ) {
         size_t block_size_check = get_size( *cur_header );
@@ -765,6 +766,9 @@ static void print_fits( enum print_style style, struct seg_node table[], struct 
         printf( "<=>[%p]\n", nil );
         printf( COLOR_NIL );
     }
+    printf( COLOR_RED );
+    printf( "<-%p:SENTINEL->\n", nil );
+    printf( COLOR_NIL );
 }
 
 /// @brief print_alloc_block  prints the contents of an allocated block of memory.
@@ -862,9 +866,6 @@ static void print_all( struct heap_range hr, size_t client_size, struct seg_node
         cur_header = get_right_header( cur_header, full_size );
     }
     printf( "%p: END OF HEAP\n", hr.end );
-    printf( COLOR_RED );
-    printf( "<-%p:SENTINEL->\n", nil );
-    printf( COLOR_NIL );
     printf( "%p: LAST ADDRESS\n", (uint8_t *)nil + FREE_NODE_WIDTH );
     printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
     printf( "\nSEGREGATED LIST OF FREE NODES AND BLOCK SIZES.\n" );
