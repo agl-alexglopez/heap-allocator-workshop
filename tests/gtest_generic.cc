@@ -100,12 +100,11 @@ std::ostream &operator<<( std::ostream &os, const heap_block &b )
 {
     switch ( b.err ) {
     case OK:
-        os << "{ " << ( b.address == nullptr ? "FREE" : "ALOC" ) << ", "
-           << ( b.payload_bytes == NA ? "NA" : std::to_string( b.payload_bytes ) ) << ", " << err_string[OK];
+        os << "{ " << b.address << ", " << ( b.payload_bytes == NA ? "NA" : std::to_string( b.payload_bytes ) )
+           << ", " << err_string[OK];
         break;
     case ER:
-        os << "{ " << ( b.address == nullptr ? "FREE" : "ALOC" ) << ", " << b.payload_bytes << ", "
-           << err_string[ER];
+        os << "{ " << b.address << ", " << b.payload_bytes << ", " << err_string[ER];
         break;
     case OUT_OF_BOUNDS:
         os << "{ " << err_string[OUT_OF_BOUNDS];
@@ -560,7 +559,7 @@ TEST( ReallocTests, ReallocFindsSpaceElsewhere )
     assert_init( medium_heap_size, expect::pass );
     const size_t bytes = 64;
     const size_t aligned = myheap_align( bytes );
-    std::array<void *, 5> mymallocs{ {
+    std::array<void *, 4> mymallocs{ {
         expect_malloc( aligned, expect::pass ),
         expect_malloc( aligned, expect::pass ),
         expect_malloc( aligned, expect::pass ),
@@ -590,5 +589,74 @@ TEST( ReallocTests, ReallocFindsSpaceElsewhere )
         { mymallocs[3], aligned, OK },
         { new_addr, myheap_align( new_req ), OK },
         { nullptr, NA, OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocExhaustiveSearchFailureInPlace )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 4> mymallocs{ {
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    } };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    // Upon failure NULL is returned and original memory is left intact though coalescing may have occured.
+    const size_t overload_req = medium_heap_size << 1;
+    void *new_addr = expect_realloc( mymallocs[1], overload_req, expect::fail );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocFailsIdempotently )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 4> mymallocs{ {
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    } };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned - aligned, OK },
+    } );
+    const size_t overload_req = medium_heap_size << 1;
+    void *new_addr = expect_realloc( mymallocs[1], overload_req, expect::fail );
+    // We should not alter anything if we fail a reallocation. The user should still have their pointer.
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned - aligned, OK },
     } );
 }

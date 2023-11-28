@@ -89,6 +89,14 @@ struct size_total
     size_t count_total;
 };
 
+struct coalesce_report
+{
+    struct rb_node *left;
+    struct rb_node *current;
+    struct rb_node *right;
+    size_t available;
+};
+
 enum rb_color
 {
     BLACK = 0,
@@ -172,7 +180,8 @@ static struct heap
 
 static void init_free_node( struct rb_node *to_free, size_t block_size );
 static void *split_alloc( struct rb_node *free_block, size_t request, size_t block_space );
-static struct rb_node *coalesce( struct rb_node *leftmost_node );
+static struct coalesce_report check_neighbors( const void *old_ptr );
+static void apply_coalesce_report( struct coalesce_report *report );
 static struct rb_node *single_rotation( struct rotation root_parent, enum tree_link dir );
 static struct rb_node *double_rotation( struct rotation root_parent, enum tree_link dir );
 static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add, struct rb_node *parent );
@@ -249,6 +258,9 @@ void *mymalloc( size_t requested_size )
     size_t client_request = roundup( requested_size, ALIGNMENT );
     // Search the tree for the best possible fitting node.
     struct rb_node *found_node = delete_rb_topdown( client_request );
+    if ( found_node == free_nodes.black_nil ) {
+        return NULL;
+    }
     return split_alloc( found_node, client_request, get_size( found_node->header ) );
 }
 
@@ -265,26 +277,24 @@ void *myrealloc( void *old_ptr, size_t new_size )
         return NULL;
     }
     size_t request = roundup( new_size, ALIGNMENT );
-    struct rb_node *old_node = get_rb_node( old_ptr );
-    size_t old_size = get_size( old_node->header );
-
-    struct rb_node *leftmost_node = coalesce( old_node );
-    size_t coalesced_space = get_size( leftmost_node->header );
-    void *client_space = get_client_space( leftmost_node );
-
-    if ( coalesced_space >= request ) {
-        // Better to memmove than not coalesce left, give up, and leave possible space behind.
-        if ( leftmost_node != old_node ) {
-            memmove( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
+    struct coalesce_report report = check_neighbors( old_ptr );
+    size_t old_size = get_size( report.current->header );
+    if ( report.available >= request ) {
+        apply_coalesce_report( &report );
+        if ( report.current == report.left ) {
+            memmove( get_client_space( report.current ), old_ptr, old_size ); // NOLINT(*UnsafeBufferHandling)
         }
-        return split_alloc( leftmost_node, request, coalesced_space );
+        return split_alloc( report.current, request, report.available );
     }
-    client_space = mymalloc( request );
-    if ( client_space ) {
-        memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
-        init_free_node( leftmost_node, coalesced_space );
+    void *elsewhere = mymalloc( request );
+    // No data has moved or been modified at this point we will will just do nothing.
+    if ( !elsewhere ) {
+        return NULL;
     }
-    return client_space;
+    memcpy( elsewhere, old_ptr, old_size ); // NOLINT(*UnsafeBufferHandling)
+    apply_coalesce_report( &report );
+    init_free_node( report.current, report.available );
+    return elsewhere;
 }
 
 void myfree( void *ptr )
@@ -292,9 +302,9 @@ void myfree( void *ptr )
     if ( ptr == NULL ) {
         return;
     }
-    struct rb_node *to_insert = get_rb_node( ptr );
-    to_insert = coalesce( to_insert );
-    init_free_node( to_insert, get_size( to_insert->header ) );
+    struct coalesce_report report = check_neighbors( ptr );
+    apply_coalesce_report( &report );
+    init_free_node( report.current, get_size( report.current->header ) );
 }
 
 ///////////////////////////      Shared Debugging    ////////////////////////////////
@@ -410,34 +420,42 @@ static void *split_alloc( struct rb_node *free_block, size_t request, size_t blo
     return get_client_space( free_block );
 }
 
-/// @brief coalesce        attempts to coalesce left and right if the left and right rb_node
-///                        are free. Runs the search to free the specific free node in O(logN) + d
-///                        where d is the number of duplicate nodes of the same size.
-/// @param *leftmost_node  the current node that will move left if left is free to coalesce.
-/// @return                the leftmost node from attempts to coalesce left and right. The leftmost
-///                        node is initialized to reflect the correct size for the space it now has.
-/// @warning               this function does not overwrite the data that may be in the middle if we
-///                        expand left and write. The user may wish to move elsewhere if reallocing.
-static struct rb_node *coalesce( struct rb_node *leftmost_node )
+/// @brief check_neighbors  checks for coalescing left and right if the left and right node are free.
+/// @param *old_ptr         the starting node the user has asked to coalesce from.
+/// @return                 a report neighbors for coalescing and space. Neighbor fields are NULL if allocated.
+static struct coalesce_report check_neighbors( const void *old_ptr )
 {
-    size_t coalesced_space = get_size( leftmost_node->header );
-    struct rb_node *rightmost_node = get_right_neighbor( leftmost_node, coalesced_space );
+    struct rb_node *current_node = get_rb_node( old_ptr );
+    const size_t original_space = get_size( current_node->header );
+    struct coalesce_report result = { NULL, current_node, NULL, original_space };
 
-    // The black_nil is the right boundary. We set it to always be allocated with size 0.
+    struct rb_node *rightmost_node = get_right_neighbor( current_node, original_space );
     if ( !is_block_allocated( rightmost_node->header ) ) {
-        coalesced_space += get_size( rightmost_node->header ) + HEADERSIZE;
-        (void)free_coalesced_node( rightmost_node );
-    }
-    // We use our static struct for convenience here to tell where our segment start is.
-    if ( leftmost_node != heap.client_start && is_left_space( leftmost_node ) ) {
-        leftmost_node = get_left_neighbor( leftmost_node );
-        coalesced_space += get_size( leftmost_node->header ) + HEADERSIZE;
-        leftmost_node = free_coalesced_node( leftmost_node );
+        result.available += get_size( rightmost_node->header ) + HEADERSIZE;
+        result.right = rightmost_node;
     }
 
-    // We do not initialize a footer here because we don't want to overwrite user data.
-    init_header_size( leftmost_node, coalesced_space );
-    return leftmost_node;
+    if ( current_node != heap.client_start && is_left_space( current_node ) ) {
+        result.left = get_left_neighbor( current_node );
+        result.available += get_size( result.left->header ) + HEADERSIZE;
+    }
+    return result;
+}
+
+/// @brief apply_coalesce_report  frees any neighbors from the free node data structure of the heap, combining
+///                               the space into one larger node if such combination is possible. After all
+///                               coalescing has been performed the current field will hold the current address
+///                               and headersize of this new node. Insert it back, give to user, or split. This
+///                               function leaves it to the user to decide what to do with .current.
+static inline void apply_coalesce_report( struct coalesce_report *report )
+{
+    if ( report->left ) {
+        report->current = free_coalesced_node( report->left );
+    }
+    if ( report->right ) {
+        report->right = free_coalesced_node( report->right );
+    }
+    init_header_size( report->current, report->available );
 }
 
 //////////////////////    Static Red-Black Tree Implementation   /////////////////////////////
@@ -475,7 +493,11 @@ static struct rb_node *single_rotation( struct rotation root_parent, enum tree_l
 static struct rb_node *double_rotation( struct rotation root_parent, enum tree_link dir )
 {
     root_parent.root->links[!dir] = single_rotation(
-        ( struct rotation ){ .root = root_parent.root->links[!dir], .parent = root_parent.root }, !dir );
+        ( struct rotation ){
+            .root = root_parent.root->links[!dir],
+            .parent = root_parent.root,
+        },
+        !dir );
     return single_rotation( root_parent, dir );
 }
 
@@ -550,11 +572,19 @@ static void insert_rb_topdown( struct rb_node *current )
         if ( get_color( parent->header ) == RED && get_color( child->header ) == RED ) {
             enum tree_link ancestor_link = ancestor->links[R] == gparent;
             if ( child == parent->links[prev_link] ) {
-                ancestor->links[ancestor_link]
-                    = single_rotation( ( struct rotation ){ .root = gparent, .parent = ancestor }, !prev_link );
+                ancestor->links[ancestor_link] = single_rotation(
+                    ( struct rotation ){
+                        .root = gparent,
+                        .parent = ancestor,
+                    },
+                    !prev_link );
             } else {
-                ancestor->links[ancestor_link]
-                    = double_rotation( ( struct rotation ){ .root = gparent, .parent = ancestor }, !prev_link );
+                ancestor->links[ancestor_link] = double_rotation(
+                    ( struct rotation ){
+                        .root = gparent,
+                        .parent = ancestor,
+                    },
+                    !prev_link );
             }
         }
         if ( child_size == key ) {
@@ -604,7 +634,7 @@ static struct rb_node *delete_duplicate( struct rb_node *head )
     return (struct rb_node *)next_node;
 }
 
-///      Static Red-Black Tree Deletion Logic
+//////////////////      Static Red-Black Tree Deletion Logic    ////////////////////////////////
 
 /// @brief remove_node         checks for conditions necessary to remove a node with its inorder
 ///                            predecessor down the free_nodes. Removes a duplicate if one is
@@ -653,6 +683,9 @@ static struct rb_node *remove_node( struct rb_node *parent, struct replacement r
 ///                           splay trees to make topdown fixups simpler.
 static struct rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-complexity)
 {
+    if ( free_nodes.tree_root == free_nodes.black_nil ) {
+        return free_nodes.black_nil;
+    }
     struct rb_node *child = free_nodes.black_nil;
     struct rb_node *parent = free_nodes.black_nil;
     struct rb_node *gparent = NULL;
@@ -723,6 +756,9 @@ static struct rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-comp
                 paint_node( gparent->links[to_parent]->links[R], BLACK );
             }
         }
+    }
+    if ( get_size( best->header ) < key ) {
+        return free_nodes.black_nil;
     }
     return remove_node( best_parent, ( struct replacement ){ best, parent, child } );
 }

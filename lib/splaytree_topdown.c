@@ -112,6 +112,14 @@ struct size_total
     size_t total;
 };
 
+struct coalesce_report
+{
+    struct node *left;
+    struct node *current;
+    struct node *right;
+    size_t available;
+};
+
 #define SIZE_MASK ~0x7UL
 #define HEADERSIZE sizeof( size_t )
 #define BLOCK_SIZE ( sizeof( struct node ) + HEADERSIZE )
@@ -158,7 +166,8 @@ static struct node *get_node( const void *client_space );
 static void link_parent_to_subtree( struct node *parent, enum tree_link dir, struct node *subtree );
 static void init_free_node( struct node *to_free, size_t block_size );
 static void *split_alloc( struct node *free_block, size_t request, size_t block_space );
-static struct node *coalesce( struct node *leftmost_node );
+static struct coalesce_report check_neighbors( const void *old_ptr );
+static void apply_coalesce_report( struct coalesce_report *report );
 static struct node *coalesce_splay( size_t key );
 static void remove_head( struct node *head, struct node *lft_child, struct node *rgt_child );
 static void *free_coalesced_node( void *to_coalesce );
@@ -233,25 +242,24 @@ void *myrealloc( void *old_ptr, size_t new_size )
         return NULL;
     }
     size_t request = roundup( new_size, ALIGNMENT );
-    struct node *old_node = get_node( old_ptr );
-    size_t old_size = get_size( old_node->header );
-
-    struct node *leftmost_node = coalesce( old_node );
-    size_t coalesced_space = get_size( leftmost_node->header );
-    void *client_space = get_client_space( leftmost_node );
-
-    if ( coalesced_space >= request ) {
-        if ( leftmost_node != old_node ) {
-            memmove( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
+    struct coalesce_report report = check_neighbors( old_ptr );
+    size_t old_size = get_size( report.current->header );
+    if ( report.available >= request ) {
+        apply_coalesce_report( &report );
+        if ( report.current == report.left ) {
+            memmove( get_client_space( report.current ), old_ptr, old_size ); // NOLINT(*UnsafeBufferHandling)
         }
-        return split_alloc( leftmost_node, request, coalesced_space );
+        return split_alloc( report.current, request, report.available );
     }
-    client_space = mymalloc( request );
-    if ( client_space ) {
-        memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
-        init_free_node( leftmost_node, coalesced_space );
+    void *elsewhere = mymalloc( request );
+    // No data has moved or been modified at this point we will will just do nothing.
+    if ( !elsewhere ) {
+        return NULL;
     }
-    return client_space;
+    memcpy( elsewhere, old_ptr, old_size ); // NOLINT(*UnsafeBufferHandling)
+    apply_coalesce_report( &report );
+    init_free_node( report.current, report.available );
+    return elsewhere;
 }
 
 void myfree( void *ptr )
@@ -259,9 +267,9 @@ void myfree( void *ptr )
     if ( ptr == NULL ) {
         return;
     }
-    struct node *to_insert = get_node( ptr );
-    to_insert = coalesce( to_insert );
-    init_free_node( to_insert, get_size( to_insert->header ) );
+    struct coalesce_report report = check_neighbors( ptr );
+    apply_coalesce_report( &report );
+    init_free_node( report.current, get_size( report.current->header ) );
 }
 
 //////////////////////////////////      Public Validation        /////////////////////////////////////////
@@ -402,34 +410,42 @@ static void *split_alloc( struct node *free_block, size_t request, size_t block_
     return get_client_space( free_block );
 }
 
-/// @brief coalesce        attempts to coalesce left and right if the left and right node
-///                        are free. Runs the search to free the specific free node in O(logN) + d
-///                        where d is the number of duplicate nodes of the same size.
-/// @param *leftmost_node  the current node that will move left if left is free to coalesce.
-/// @return                the leftmost node from attempts to coalesce left and right. The leftmost
-///                        node is initialized to reflect the correct size for the space it now has.
-/// @warning               this function does not overwrite the data that may be in the middle if we
-///                        expand left and write. The user may wish to move elsewhere if reallocing.
-static struct node *coalesce( struct node *leftmost_node )
+/// @brief check_neighbors  checks for coalescing left and right if the left and right node are free.
+/// @param *old_ptr         the starting node the user has asked to coalesce from.
+/// @return                 a report neighbors for coalescing and space. Neighbor fields are NULL if allocated.
+static struct coalesce_report check_neighbors( const void *old_ptr )
 {
-    size_t coalesced_space = get_size( leftmost_node->header );
-    struct node *rightmost_node = get_right_neighbor( leftmost_node, coalesced_space );
+    struct node *current_node = get_node( old_ptr );
+    const size_t original_space = get_size( current_node->header );
+    struct coalesce_report result = { NULL, current_node, NULL, original_space };
 
-    // The nil is the right boundary. We set it to always be allocated with size 0.
+    struct node *rightmost_node = get_right_neighbor( current_node, original_space );
     if ( !is_block_allocated( rightmost_node->header ) ) {
-        coalesced_space += get_size( rightmost_node->header ) + HEADERSIZE;
-        (void)free_coalesced_node( rightmost_node );
-    }
-    // We use our static struct for convenience here to tell where our segment start is.
-    if ( leftmost_node != heap.client_start && is_left_space( leftmost_node ) ) {
-        leftmost_node = get_left_neighbor( leftmost_node );
-        coalesced_space += get_size( leftmost_node->header ) + HEADERSIZE;
-        leftmost_node = free_coalesced_node( leftmost_node );
+        result.available += get_size( rightmost_node->header ) + HEADERSIZE;
+        result.right = rightmost_node;
     }
 
-    // We do not initialize a footer here because we don't want to overwrite user data.
-    init_header_size( leftmost_node, coalesced_space );
-    return leftmost_node;
+    if ( current_node != heap.client_start && is_left_space( current_node ) ) {
+        result.left = get_left_neighbor( current_node );
+        result.available += get_size( result.left->header ) + HEADERSIZE;
+    }
+    return result;
+}
+
+/// @brief apply_coalesce_report  frees any neighbors from the free node data structure of the heap, combining
+///                               the space into one larger node if such combination is possible. After all
+///                               coalescing has been performed the current field will hold the current address
+///                               and headersize of this new node. Insert it back, give to user, or split. This
+///                               function leaves it to the user to decide what to do with .current.
+static inline void apply_coalesce_report( struct coalesce_report *report )
+{
+    if ( report->left ) {
+        report->current = free_coalesced_node( report->left );
+    }
+    if ( report->right ) {
+        report->right = free_coalesced_node( report->right );
+    }
+    init_header_size( report->current, report->available );
 }
 
 /// @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
@@ -521,8 +537,11 @@ static struct node *coalesce_splay( size_t key )
         return free_nodes.nil;
     }
     struct node *to_return = splay( free_nodes.root, key );
+    free_nodes.root = to_return;
+    if ( get_size( to_return->header ) < key ) {
+        return free_nodes.nil;
+    }
     if ( to_return->list_start != free_nodes.list_tail ) {
-        free_nodes.root = to_return;
         free_nodes.root->list_start->parent = free_nodes.nil;
         return delete_duplicate( to_return );
     }
@@ -550,8 +569,11 @@ static struct node *find_best_fit( size_t key )
         return free_nodes.nil;
     }
     struct node *to_return = splay_bestfit( free_nodes.root, key );
+    free_nodes.root = to_return;
+    if ( get_size( to_return->header ) < key ) {
+        return free_nodes.nil;
+    }
     if ( to_return->list_start != free_nodes.list_tail ) {
-        free_nodes.root = to_return;
         free_nodes.root->list_start->parent = free_nodes.nil;
         return delete_duplicate( free_nodes.root );
     }

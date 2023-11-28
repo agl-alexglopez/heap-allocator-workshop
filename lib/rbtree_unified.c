@@ -80,6 +80,14 @@ struct size_total
     size_t count_total;
 };
 
+struct coalesce_report
+{
+    struct rb_node *left;
+    struct rb_node *current;
+    struct rb_node *right;
+    size_t available;
+};
+
 enum rb_color
 {
     BLACK = 0,
@@ -128,7 +136,8 @@ static struct heap
 
 static void init_free_node( struct rb_node *to_free, size_t block_size );
 static void *split_alloc( struct rb_node *free_block, size_t request, size_t block_space );
-static struct rb_node *coalesce( struct rb_node *leftmost_node );
+static struct coalesce_report check_neighbors( const void *old_ptr );
+static void apply_coalesce_report( struct coalesce_report *report );
 static void rotate( struct rb_node *current, enum tree_link rotation );
 static void fix_rb_insert( struct rb_node *current );
 static void insert_rb_node( struct rb_node *current );
@@ -201,6 +210,9 @@ void *mymalloc( size_t requested_size )
     size_t client_request = roundup( requested_size, ALIGNMENT );
     // Search the tree for the best possible fitting node.
     struct rb_node *found_node = find_best_fit( client_request );
+    if ( found_node == tree.black_nil ) {
+        return NULL;
+    }
     return split_alloc( found_node, client_request, get_size( found_node->header ) );
 }
 
@@ -217,26 +229,24 @@ void *myrealloc( void *old_ptr, size_t new_size )
         return NULL;
     }
     size_t request = roundup( new_size, ALIGNMENT );
-    struct rb_node *old_node = get_rb_node( old_ptr );
-    size_t old_size = get_size( old_node->header );
-
-    struct rb_node *leftmost_node = coalesce( old_node );
-    size_t coalesced_space = get_size( leftmost_node->header );
-    void *client_space = get_client_space( leftmost_node );
-
-    if ( coalesced_space >= request ) {
-        // A simple memmove is better than giving up on the space to the left to search for more.
-        if ( leftmost_node != old_node ) {
-            memmove( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
+    struct coalesce_report report = check_neighbors( old_ptr );
+    size_t old_size = get_size( report.current->header );
+    if ( report.available >= request ) {
+        apply_coalesce_report( &report );
+        if ( report.current == report.left ) {
+            memmove( get_client_space( report.current ), old_ptr, old_size ); // NOLINT(*UnsafeBufferHandling)
         }
-        return split_alloc( leftmost_node, request, coalesced_space );
+        return split_alloc( report.current, request, report.available );
     }
-    client_space = mymalloc( request );
-    if ( client_space ) {
-        memcpy( client_space, old_ptr, old_size ); // NOLINT(*DeprecatedOrUnsafeBufferHandling)
-        init_free_node( leftmost_node, coalesced_space );
+    void *elsewhere = mymalloc( request );
+    // No data has moved or been modified at this point we will will just do nothing.
+    if ( !elsewhere ) {
+        return NULL;
     }
-    return client_space;
+    memcpy( elsewhere, old_ptr, old_size ); // NOLINT(*UnsafeBufferHandling)
+    apply_coalesce_report( &report );
+    init_free_node( report.current, report.available );
+    return elsewhere;
 }
 
 void myfree( void *ptr )
@@ -244,9 +254,9 @@ void myfree( void *ptr )
     if ( ptr == NULL ) {
         return;
     }
-    struct rb_node *to_insert = get_rb_node( ptr );
-    to_insert = coalesce( to_insert );
-    init_free_node( to_insert, get_size( to_insert->header ) );
+    struct coalesce_report report = check_neighbors( ptr );
+    apply_coalesce_report( &report );
+    init_free_node( report.current, get_size( report.current->header ) );
 }
 
 ///////////////////////////////     Shared Debugger    /////////////////////////////////////////
@@ -355,34 +365,42 @@ static void *split_alloc( struct rb_node *free_block, size_t request, size_t blo
     return get_client_space( free_block );
 }
 
-/// @brief coalesce        attempts to coalesce left and right if the left and right rb_node
-///                        are free. Runs the search to free the specific free node in O(logN) + d
-///                        where d is the number of duplicate nodes of the same size.
-/// @param *leftmost_node  the current node that will move left if left is free to coalesce.
-/// @return                the leftmost node from attempts to coalesce left and right. The leftmost
-///                        node is initialized to reflect the correct size for the space it now has.
-/// @warning               this function does not overwrite the data that may be in the middle if we
-///                        expand left and write. The user may wish to move elsewhere if reallocing.
-static struct rb_node *coalesce( struct rb_node *leftmost_node )
+/// @brief check_neighbors  checks for coalescing left and right if the left and right node are free.
+/// @param *old_ptr         the starting node the user has asked to coalesce from.
+/// @return                 a report neighbors for coalescing and space. Neighbor fields are NULL if allocated.
+static struct coalesce_report check_neighbors( const void *old_ptr )
 {
-    size_t coalesced_space = get_size( leftmost_node->header );
-    struct rb_node *rightmost_node = get_right_neighbor( leftmost_node, coalesced_space );
+    struct rb_node *current_node = get_rb_node( old_ptr );
+    const size_t original_space = get_size( current_node->header );
+    struct coalesce_report result = { NULL, current_node, NULL, original_space };
 
-    // The black_nil is the right boundary. We set it to always be allocated with size 0.
+    struct rb_node *rightmost_node = get_right_neighbor( current_node, original_space );
     if ( !is_block_allocated( rightmost_node->header ) ) {
-        coalesced_space += get_size( rightmost_node->header ) + HEADERSIZE;
-        (void)delete_rb_node( rightmost_node );
-    }
-    // We use our static struct for convenience here to tell where our segment start is.
-    if ( leftmost_node != heap.client_start && is_left_space( leftmost_node ) ) {
-        leftmost_node = get_left_neighbor( leftmost_node );
-        coalesced_space += get_size( leftmost_node->header ) + HEADERSIZE;
-        leftmost_node = delete_rb_node( leftmost_node );
+        result.available += get_size( rightmost_node->header ) + HEADERSIZE;
+        result.right = rightmost_node;
     }
 
-    // Do not initialize footer here because we may coalesce during realloc. Preserve user data.
-    init_header_size( leftmost_node, coalesced_space );
-    return leftmost_node;
+    if ( current_node != heap.client_start && is_left_space( current_node ) ) {
+        result.left = get_left_neighbor( current_node );
+        result.available += get_size( result.left->header ) + HEADERSIZE;
+    }
+    return result;
+}
+
+/// @brief apply_coalesce_report  frees any neighbors from the free node data structure of the heap, combining
+///                               the space into one larger node if such combination is possible. After all
+///                               coalescing has been performed the current field will hold the current address
+///                               and headersize of this new node. Insert it back, give to user, or split. This
+///                               function leaves it to the user to decide what to do with .current.
+static inline void apply_coalesce_report( struct coalesce_report *report )
+{
+    if ( report->left ) {
+        report->current = delete_rb_node( report->left );
+    }
+    if ( report->right ) {
+        report->right = delete_rb_node( report->right );
+    }
+    init_header_size( report->current, report->available );
 }
 
 ////////////////////////////   Static RBTree Implementation  /////////////////////////////////
@@ -564,6 +582,9 @@ static struct rb_node *delete_rb_node( struct rb_node *remove )
 /// @return               the pointer to the struct rb_node that is the best fit for our need.
 static struct rb_node *find_best_fit( size_t key )
 {
+    if ( tree.root == tree.black_nil ) {
+        return tree.black_nil;
+    }
     struct rb_node *seeker = tree.root;
     // We will use this sentinel to start our competition while we search for best fit.
     size_t best_fit_size = ULLONG_MAX;
@@ -581,6 +602,9 @@ static struct rb_node *find_best_fit( size_t key )
             best_fit_size = seeker_size;
         }
         seeker = seeker->links[seeker_size < key];
+    }
+    if ( best_fit_size < key ) {
+        return tree.black_nil;
     }
     return delete_rb_node( remove );
 }
