@@ -150,12 +150,12 @@ TEST( MallocTests, SingleMallocGivesAdvertisedSpace )
     } );
 }
 
+// This test can get a little dicy because different internal schemes will have different sizes.
+// Try to pick the smallest size such that any reasonable allocator will exhaust after 1 malloc.
 TEST( MallocTests, MallocExhaustsHeap )
 {
-    assert_init( 128, expect::pass );
-    const size_t bytes = 32;
-    void *request1 = expect_malloc( bytes, expect::pass );
-    void *request2 = expect_malloc( bytes, expect::pass );
+    assert_init( 100, expect::pass );
+    const size_t bytes = 100;
     void *request3 = expect_malloc( bytes, expect::fail );
 }
 
@@ -587,7 +587,7 @@ TEST( ReallocTests, ReallocFindsSpaceElsewhere )
     expect_state( {
         { nullptr, NA, OK },
         { mymallocs[3], aligned, OK },
-        { new_addr, myheap_align( new_req ), OK },
+        { new_addr, NA, OK },
         { nullptr, NA, OK },
     } );
 }

@@ -59,12 +59,16 @@ rel-test:
 
 deb-gtest:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
-	$(BUILD_DIR)debug/gtest*
+	$(BUILD_DIR)debug/gtest_generic_list_segregated
+	$(BUILD_DIR)debug/gtest_generic_rbtree_linked
+	$(BUILD_DIR)debug/gtest_generic_splaytree_topdown
 	@echo "Ran DEBUG GTests"
 
 rel-gtest:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
-	$(BUILD_DIR)debug/gtest*
+	$(BUILD_DIR)release/gtest_generic_list_segregated
+	$(BUILD_DIR)release/gtest_generic_rbtree_linked
+	$(BUILD_DIR)release/gtest_generic_splaytree_topdown
 	@echo "Ran RELEASE GTests"
 
 clean:

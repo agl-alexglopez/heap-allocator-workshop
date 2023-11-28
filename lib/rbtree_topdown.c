@@ -757,7 +757,7 @@ static struct rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-comp
             }
         }
     }
-    if ( get_size( best->header ) < key ) {
+    if ( get_size( best->header ) < key || best == free_nodes.black_nil ) {
         return free_nodes.black_nil;
     }
     return remove_node( best_parent, ( struct replacement ){ best, parent, child } );

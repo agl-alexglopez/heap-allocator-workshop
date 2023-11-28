@@ -603,7 +603,7 @@ static struct rb_node *find_best_fit( size_t key )
         }
         seeker = seeker->links[seeker_size < key];
     }
-    if ( best_fit_size < key ) {
+    if ( best_fit_size < key || best_fit_size == ULLONG_MAX ) {
         return tree.black_nil;
     }
     return delete_rb_node( remove );

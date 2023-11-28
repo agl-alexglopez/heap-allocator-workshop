@@ -323,12 +323,11 @@ size_t myheap_align( size_t request ) { return roundup( request, ALIGNMENT ) - H
 size_t myheap_capacity( void )
 {
     size_t total_free_mem = 0;
-    size_t block_size_check = 0;
-    for ( header *cur = heap.client_start; cur != heap.client_end;
-          cur = get_right_header( cur, block_size_check ) ) {
-        block_size_check = get_size( *cur );
+    size_t block_payload = 0;
+    for ( header *cur = heap.client_start; cur != heap.client_end; cur = get_right_header( cur, block_payload ) ) {
+        block_payload = get_size( *cur );
         if ( !is_block_allocated( *cur ) ) {
-            total_free_mem += block_size_check;
+            total_free_mem += ( block_payload - HEADERSIZE );
         }
     }
     return total_free_mem;
@@ -336,10 +335,49 @@ size_t myheap_capacity( void )
 
 void myheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
 {
-    (void)expected;
-    (void)actual;
-    (void)len;
-    UNIMPLEMENTED();
+    header *cur_node = heap.client_start;
+    size_t i = 0;
+    for ( ; i < len && cur_node != heap.client_end; ++i ) {
+        bool is_allocated = is_block_allocated( *cur_node );
+        const size_t next_jump = get_size( *cur_node );
+        size_t cur_payload = get_size( *cur_node ) - HEADERSIZE;
+        void *client_addr = get_free_node( cur_node );
+        if ( !expected[i].address && is_allocated ) {
+            actual[i] = ( struct heap_block ){
+                client_addr,
+                cur_payload,
+                ER,
+            };
+        } else if ( NA == expected[i].payload_bytes ) {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                NA,
+                OK,
+            };
+        } else if ( expected[i].payload_bytes != cur_payload ) {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                cur_payload,
+                ER,
+            };
+        } else {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                cur_payload,
+                OK,
+            };
+        }
+        cur_node = get_right_header( cur_node, next_jump );
+    }
+    if ( i < len ) {
+        for ( size_t fill = i; fill < len; ++fill ) {
+            actual[fill].err = OUT_OF_BOUNDS;
+        }
+        return;
+    }
+    if ( cur_node != heap.client_end ) {
+        actual[i].err = HEAP_CONTINUES;
+    }
 }
 
 ////////////////////////////     Shared Printer       ///////////////////////////////////////
