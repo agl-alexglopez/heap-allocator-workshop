@@ -303,7 +303,7 @@ size_t myheap_capacity( void )
     return total_free_mem;
 }
 
-void myheap_state( const struct heap_block expected[], struct heap_block actual[], size_t len )
+void myheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
 {
     (void)expected;
     (void)actual;

@@ -307,25 +307,49 @@ size_t myheap_capacity( void )
     return total_free_mem;
 }
 
-void myheap_state( const struct heap_block expected[], struct heap_block actual[], size_t len )
+void myheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
 {
     struct node *cur_node = heap.client_start;
     size_t i = 0;
     for ( ; i < len && cur_node != heap.client_end; ++i ) {
         bool is_allocated = is_block_allocated( cur_node->header );
+        const size_t next_jump = get_size( cur_node->header );
         size_t cur_size = get_size( cur_node->header );
-        actual[i] = ( struct heap_block ){ is_allocated, cur_size, OK };
-        if ( expected[i].allocated != is_allocated || expected[i].payload_bytes != cur_size ) {
-            actual[i].err = MISMATCH;
+        void *client_addr = get_client_space( cur_node );
+        if ( !expected[i].address && is_allocated ) {
+            actual[i] = ( struct heap_block ){
+                client_addr,
+                cur_size,
+                ER,
+            };
+        } else if ( NA == expected[i].payload_bytes ) {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                NA,
+                OK,
+            };
+        } else if ( expected[i].payload_bytes != cur_size ) {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                cur_size,
+                ER,
+            };
+        } else {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                cur_size,
+                OK,
+            };
         }
-        cur_node = get_right_neighbor( cur_node, cur_size );
+        cur_node = get_right_neighbor( cur_node, next_jump );
     }
     if ( i < len ) {
-        actual[i].err = OUT_OF_BOUNDS;
         for ( size_t fill = i; fill < len; ++fill ) {
-            actual[i].err = OUT_OF_BOUNDS;
+            actual[fill].err = OUT_OF_BOUNDS;
         }
-    } else if ( cur_node != heap.client_end ) {
+        return;
+    }
+    if ( cur_node != heap.client_end ) {
         actual[i].err = HEAP_CONTINUES;
     }
 }
@@ -623,8 +647,8 @@ static struct node *splay( struct node *root, size_t key )
 ///                       the topdown fixups we do pose a problem. We can't undo the work we do on the way down
 ///                       but we may end up at a node that is too small. So if this case occurs we will perform
 ///                       a second splay operation for the bestfit value to move it to the root. We also have
-///                       a significant requirement to maintain duplicate nodes and ensure those duplicates store
-///                       parent information in case they are coalesced in the future.
+///                       a significant requirement to maintain duplicate nodes and ensure those duplicates
+///                       store parent information in case they are coalesced in the future.
 /// @param root           the node we start our search from, usually the root of our heap free nodes.
 /// @param key            the value in bytes we will try to find the best fit for.
 /// @return               the node that serves as the bestfit in our entire heap.
@@ -930,8 +954,8 @@ static bool strict_bound_met( const struct node *root, size_t root_size, enum tr
 }
 
 /// @brief are_subtrees_valid  fully checks the size of all subtrees to the left and right of the current node.
-///                            There must not be a node lesser than the root size in the right subtrees and no node
-///                            exceeding the root size in the left subtree.
+///                            There must not be a node lesser than the root size in the right subtrees and no
+///                            node exceeding the root size in the left subtree.
 /// @param root                the recursive root we are checking as we traverse the tree dfs-style.
 /// @param nil                 the nil of the tree either NULL or a dedicated address.
 static bool are_subtrees_valid( const struct node *root, const struct node *nil )
@@ -1014,9 +1038,9 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
 ///                              left to right. The edges are colored either red or blue to indicate the
 ///                              heavy/light decomposition of a splay tree. If a child node has X nodes rooted
 ///                              at child such that X < ((nodes rooted at parent) / 2), the edge is blue. If
-///                              a child has X nodes rooted at child such that X >= ((nodes rooted at parent) / 2)
-///                              the edge is red. Splay trees seek to bound the cost of blue edges and amortize
-///                              the cost of red edges away.
+///                              a child has X nodes rooted at child such that X >= ((nodes rooted at parent) /
+///                              2) the edge is red. Splay trees seek to bound the cost of blue edges and
+///                              amortize the cost of red edges away.
 /// @param *root                 the root node to start at.
 /// @param parent_size           the heavy light decomposition of a splaytree requires we compare tree totals.
 /// @param *prefix               the string we print spacing and characters across recursive calls.

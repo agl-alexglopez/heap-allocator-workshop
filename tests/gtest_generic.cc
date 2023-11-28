@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <iostream>
 #include <numeric>
 #include <string>
 
@@ -23,22 +24,7 @@ constexpr size_t max_heap_size = 1 << 30;
 constexpr bool a = true;
 constexpr bool f = false;
 
-void *expect_malloc( size_t size, enum expect e )
-{
-    void *m = mymalloc( size );
-    switch ( e ) {
-    case expect::pass:
-        EXPECT_NE( nullptr, m );
-        break;
-    case expect::fail:
-        EXPECT_EQ( nullptr, m );
-        break;
-    }
-    EXPECT_EQ( true, validate_heap() );
-    return m;
-}
-
-void expect_init( size_t size, expect e ) // NOLINT(*cognitive-complexity)
+void assert_init( size_t size, expect e ) // NOLINT(*cognitive-complexity)
 {
     void *segment = init_heap_segment( size );
     switch ( e ) {
@@ -56,21 +42,70 @@ void expect_init( size_t size, expect e ) // NOLINT(*cognitive-complexity)
     }
 }
 
+void *expect_malloc( size_t size, enum expect e )
+{
+    void *m = mymalloc( size );
+    switch ( e ) {
+    case expect::pass:
+        EXPECT_NE( nullptr, m );
+        break;
+    case expect::fail:
+        EXPECT_EQ( nullptr, m );
+        break;
+    }
+    EXPECT_EQ( true, validate_heap() );
+    return m;
+}
+
+void *expect_realloc( void *old_ptr, size_t new_size, enum expect e )
+{
+    void *newptr = myrealloc( old_ptr, new_size );
+    if ( new_size == 0 ) {
+        EXPECT_EQ( nullptr, newptr );
+        return nullptr;
+    }
+    switch ( e ) {
+    case expect::pass:
+        EXPECT_NE( nullptr, newptr );
+        break;
+    case expect::fail:
+        EXPECT_EQ( nullptr, newptr );
+        break;
+    }
+    EXPECT_EQ( true, validate_heap() );
+    return newptr;
+}
+
+void expect_free( void *addr )
+{
+    myfree( addr );
+    EXPECT_EQ( true, validate_heap() );
+}
+
+void expect_state( const std::vector<heap_block> &expected )
+{
+    std::vector<heap_block> actual( expected.size() );
+    myheap_diff( expected.data(), actual.data(), expected.size() );
+    EXPECT_EQ( expected, actual );
+}
+
 } // namespace
 
 bool operator==( const heap_block &lhs, const heap_block &rhs )
 {
-    return lhs.allocated == rhs.allocated && lhs.payload_bytes == rhs.payload_bytes && lhs.err == rhs.err;
+    return lhs.address == rhs.address && lhs.payload_bytes == rhs.payload_bytes && lhs.err == rhs.err;
 }
 
 std::ostream &operator<<( std::ostream &os, const heap_block &b )
 {
     switch ( b.err ) {
     case OK:
-        os << "{ " << ( b.allocated ? "a" : "f" ) << ", " << b.payload_bytes << ", " << err_string[OK];
+        os << "{ " << ( b.address == nullptr ? "FREE" : "ALOC" ) << ", "
+           << ( b.payload_bytes == NA ? "NA" : std::to_string( b.payload_bytes ) ) << ", " << err_string[OK];
         break;
-    case MISMATCH:
-        os << "{ " << ( b.allocated ? "a" : "f" ) << ", " << b.payload_bytes << ", " << err_string[MISMATCH];
+    case ER:
+        os << "{ " << ( b.address == nullptr ? "FREE" : "ALOC" ) << ", " << b.payload_bytes << ", "
+           << err_string[ER];
         break;
     case OUT_OF_BOUNDS:
         os << "{ " << err_string[OUT_OF_BOUNDS];
@@ -82,26 +117,26 @@ std::ostream &operator<<( std::ostream &os, const heap_block &b )
     return os << " }";
 }
 
-TEST( InitTests, SmallInitialization ) { expect_init( small_heap_size, expect::pass ); }
+TEST( InitTests, SmallInitialization ) { assert_init( small_heap_size, expect::pass ); }
 
-TEST( InitTests, MaxInitialization ) { expect_init( max_heap_size, expect::pass ); }
+TEST( InitTests, MaxInitialization ) { assert_init( max_heap_size, expect::pass ); }
 
-TEST( InitTests, FailInitializationTooSmall ) { expect_init( 8, expect::fail ); }
+TEST( InitTests, FailInitializationTooSmall ) { assert_init( 8, expect::fail ); }
 
 TEST( MallocTests, SingleMalloc )
 {
-    expect_init( small_heap_size, expect::pass );
+    assert_init( small_heap_size, expect::pass );
     const size_t bytes = 32;
     void *request = expect_malloc( bytes, expect::pass );
-    std::array<heap_block, 2> expected{ { { a, myheap_align( bytes ), OK }, { f, myheap_capacity(), OK } } };
-    std::array<heap_block, 2> actual{};
-    myheap_state( expected.data(), actual.data(), expected.size() );
-    EXPECT_EQ( expected, actual );
+    expect_state( {
+        { request, myheap_align( bytes ), OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
 }
 
 TEST( MallocTests, SingleMallocGivesAdvertisedSpace )
 {
-    expect_init( small_heap_size, expect::pass );
+    assert_init( small_heap_size, expect::pass );
     const size_t bytes = 32;
     std::array<char, bytes> chars{};
     std::iota( chars.begin(), chars.end(), '@' );
@@ -110,15 +145,15 @@ TEST( MallocTests, SingleMallocGivesAdvertisedSpace )
     std::copy( chars.begin(), chars.end(), request );
     EXPECT_EQ( std::string( chars.data() ), std::string( request ) );
     // Now that we have copied our string into the bytes they gave us lets check the heap is not overwritten.
-    std::array<heap_block, 2> expected{ { { a, myheap_align( bytes ), OK }, { f, myheap_capacity(), OK } } };
-    std::array<heap_block, 2> actual{};
-    myheap_state( expected.data(), actual.data(), expected.size() );
-    EXPECT_EQ( expected, actual );
+    expect_state( {
+        { request, myheap_align( bytes ), OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
 }
 
 TEST( MallocTests, MallocExhaustsHeap )
 {
-    expect_init( 128, expect::pass );
+    assert_init( 128, expect::pass );
     const size_t bytes = 32;
     void *request1 = expect_malloc( bytes, expect::pass );
     void *request2 = expect_malloc( bytes, expect::pass );
@@ -127,7 +162,7 @@ TEST( MallocTests, MallocExhaustsHeap )
 
 TEST( MallocFreeTests, SingleMallocSingleFree )
 {
-    expect_init( small_heap_size, expect::pass );
+    assert_init( small_heap_size, expect::pass );
     const size_t bytes = 32;
     std::array<char, 32> chars{};
     std::iota( chars.begin(), chars.end(), '@' );
@@ -137,37 +172,423 @@ TEST( MallocFreeTests, SingleMallocSingleFree )
     std::copy( chars.begin(), chars.end(), request );
     EXPECT_EQ( std::string( chars.data() ), std::string( request ) );
     // Now that we have copied our string into the bytes they gave us lets check the heap is not overwritten.
-    std::array<heap_block, 2> expected{ { { a, myheap_align( bytes ), OK }, { f, myheap_capacity(), OK } } };
-    std::array<heap_block, 2> actual{};
-    myheap_state( expected.data(), actual.data(), expected.size() );
-    EXPECT_EQ( expected, actual );
-    EXPECT_EQ( validate_heap(), true );
-    myfree( request );
-    EXPECT_EQ( validate_heap(), true );
+    expect_state( {
+        { request, myheap_align( bytes ), OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( request );
     EXPECT_EQ( original_capacity, myheap_capacity() );
 }
 
 TEST( MallocFreeTests, ThreeMallocMiddleFree )
 {
-    expect_init( small_heap_size, expect::pass );
+    assert_init( medium_heap_size, expect::pass );
     const size_t bytes = 64;
     const size_t aligned1 = myheap_align( bytes );
     const size_t aligned2 = aligned1;
     const size_t aligned3 = aligned1;
-    std::array<void *, 3> mymallocs{ expect_malloc( aligned1, expect::pass ),
-                                     expect_malloc( aligned2, expect::pass ),
-                                     expect_malloc( aligned3, expect::pass ) };
-    std::array<heap_block, 4> expected{
-        { { a, aligned1, OK }, { a, aligned2, OK }, { a, aligned3, OK }, { f, myheap_capacity(), OK } } };
-    std::array<heap_block, 4> actual{};
-    myheap_state( expected.data(), actual.data(), expected.size() );
-    EXPECT_EQ( expected, actual );
-    myfree( mymallocs[1] );
-    EXPECT_EQ( true, validate_heap() );
-    expected = { { { a, aligned1, OK },
-                   { f, aligned2, OK },
-                   { a, aligned3, OK },
-                   { f, myheap_capacity() - aligned2, OK } } };
-    myheap_state( expected.data(), actual.data(), expected.size() );
-    EXPECT_EQ( expected, actual );
+    std::array<void *, 3> mymallocs{
+        expect_malloc( aligned1, expect::pass ),
+        expect_malloc( aligned2, expect::pass ),
+        expect_malloc( aligned3, expect::pass ),
+    };
+    expect_state( {
+        { mymallocs[0], aligned1, OK },
+        { mymallocs[1], aligned2, OK },
+        { mymallocs[2], aligned3, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[1] );
+    expect_state( {
+        { mymallocs[0], aligned1, OK },
+        { nullptr, aligned2, OK },
+        { mymallocs[2], aligned3, OK },
+        { nullptr, myheap_capacity() - aligned2, OK },
+    } );
+}
+
+TEST( MallocFreeTests, ThreeMallocLeftEndFree )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned1 = myheap_align( bytes );
+    const size_t aligned2 = aligned1;
+    const size_t aligned3 = aligned1;
+    std::array<void *, 3> mymallocs{
+        expect_malloc( aligned1, expect::pass ),
+        expect_malloc( aligned2, expect::pass ),
+        expect_malloc( aligned3, expect::pass ),
+    };
+    expect_state( {
+        { mymallocs[0], aligned1, OK },
+        { mymallocs[1], aligned2, OK },
+        { mymallocs[2], aligned3, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_state( {
+        { nullptr, aligned1, OK },
+        { mymallocs[1], aligned2, OK },
+        { mymallocs[2], aligned3, OK },
+        { nullptr, myheap_capacity() - aligned1, OK },
+    } );
+}
+
+TEST( CoalesceTests, CoalesceRightWithPool )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned1 = myheap_align( bytes );
+    const size_t aligned2 = aligned1;
+    const size_t aligned3 = aligned1;
+    std::array<void *, 3> mymallocs{
+        expect_malloc( aligned1, expect::pass ),
+        expect_malloc( aligned2, expect::pass ),
+        expect_malloc( aligned3, expect::pass ),
+    };
+    expect_state( {
+        { mymallocs[0], aligned1, OK },
+        { mymallocs[1], aligned2, OK },
+        { mymallocs[2], aligned3, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { mymallocs[0], aligned1, OK },
+        { mymallocs[1], aligned2, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( CoalesceTests, CoalesceRightWhileSurrounded )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 4> mymallocs{
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[1] );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned, OK },
+    } );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { nullptr, NA, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, NA, OK },
+    } );
+}
+
+TEST( CoalesceTests, CoalesceLeftHeapStart )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 3> mymallocs{
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { nullptr, myheap_capacity() - aligned, OK },
+    } );
+    expect_free( mymallocs[1] );
+    expect_state( {
+        { nullptr, NA, OK },
+        { mymallocs[2], aligned },
+        { nullptr, NA, OK },
+    } );
+}
+
+TEST( CoalesceTests, CoalesceLeftWhileSurrounded )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 4> mymallocs{
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[1] );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned, OK },
+    } );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { nullptr, NA, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, NA, OK },
+    } );
+}
+
+TEST( CoalesceTests, CoalesceEntireHeap )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 2> mymallocs{
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    };
+    std::array<heap_block, 3> expected{ {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } };
+    expect_free( mymallocs[0] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, myheap_capacity() - aligned, OK },
+    } );
+    expect_free( mymallocs[1] );
+    expect_state( {
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( CoalesceTests, CoalesceLeftRightWhileSurrounded )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 5> mymallocs{ {
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    } };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { mymallocs[4], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[1] );
+    expect_free( mymallocs[3] );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[4], aligned, OK },
+        { nullptr, myheap_capacity() - aligned - aligned, OK },
+    } );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { nullptr, NA, OK },
+        { mymallocs[4], aligned, OK },
+        { nullptr, NA, OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocCanMalloc )
+{
+    assert_init( small_heap_size, expect::pass );
+    const size_t aligned = myheap_align( 64 );
+    void *req = nullptr;
+    req = expect_realloc( req, aligned, expect::pass );
+    expect_state( {
+        { req, aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocCanFree )
+{
+    assert_init( small_heap_size, expect::pass );
+    const size_t aligned = myheap_align( 64 );
+    void *req = nullptr;
+    req = expect_realloc( req, aligned, expect::pass );
+    expect_state( {
+        { req, aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    EXPECT_EQ( expect_realloc( req, 0, expect::pass ), nullptr );
+    expect_state( {
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocDoesNotMoveWhenShrinking )
+{
+    assert_init( small_heap_size, expect::pass );
+    const size_t aligned = myheap_align( 64 );
+    void *req = expect_malloc( aligned, expect::pass );
+    expect_state( {
+        { req, aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    req = expect_realloc( req, 32, expect::pass );
+    expect_state( {
+        { req, myheap_align( 32 ), OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocDoesNotMoveWhenGrowing )
+{
+    assert_init( small_heap_size, expect::pass );
+    const size_t aligned = myheap_align( 64 );
+    void *req = expect_malloc( aligned, expect::pass );
+    expect_state( {
+        { req, aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    req = expect_realloc( req, 128, expect::pass );
+    expect_state( {
+        { req, myheap_align( 128 ), OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocPrefersShortMoveEvenIfMemmoveRequired )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 3> mymallocs{ {
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    } };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { nullptr, myheap_capacity() - aligned, OK },
+    } );
+    void *new_addr = expect_realloc( mymallocs[1], aligned + aligned, expect::pass );
+    // Our new address is the old address of malloc[0] because we coalesced left and took their space.
+    EXPECT_EQ( new_addr, mymallocs[0] );
+    expect_state( {
+        { new_addr, NA, OK },
+        { mymallocs[2], NA, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocCoalescesLeftAndRight )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 5> mymallocs{ {
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    } };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned - aligned, OK },
+    } );
+    void *new_addr = expect_realloc( mymallocs[1], aligned + aligned + aligned, expect::pass );
+    EXPECT_EQ( new_addr, mymallocs[0] );
+    expect_state( {
+        { new_addr, NA, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+}
+
+TEST( ReallocTests, ReallocFindsSpaceElsewhere )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<void *, 5> mymallocs{ {
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+        expect_malloc( aligned, expect::pass ),
+    } };
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned - aligned, OK },
+    } );
+    // We will try to coalesce but that is still not enough space so we must search elsewhere.
+    const size_t new_req = aligned * 4;
+    void *new_addr = expect_realloc( mymallocs[1], new_req, expect::pass );
+    expect_state( {
+        { nullptr, NA, OK },
+        { mymallocs[3], aligned, OK },
+        { new_addr, myheap_align( new_req ), OK },
+        { nullptr, NA, OK },
+    } );
 }
