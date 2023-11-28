@@ -1,4 +1,4 @@
-.PHONY: default gcc-rel gcc-deb build format tidy clean deb-test rel-test deb-gtest rel-gtest
+.PHONY: default gcc-rel gcc-deb build format tidy clean test-deb test-rel gtest-deb gtest-rel
 
 MAKE := $(MAKE)
 # Adjust parallel build jobs based on your available cores.
@@ -33,7 +33,7 @@ format:
 tidy:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) tidy $(JOBS)
 
-deb-test:
+test-deb:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 	$(BUILD_DIR)debug/test_list_segregated $(TEST_ARGS)
 	$(BUILD_DIR)debug/test_rbtree_clrs $(TEST_ARGS)
@@ -45,7 +45,7 @@ deb-test:
 	$(BUILD_DIR)debug/test_splaytree_topdown $(TEST_ARGS)
 	@echo "Ran DEBUG Script Tests"
 
-rel-test:
+test-rel:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 	$(BUILD_DIR)release/test_list_segregated $(TEST_ARGS)
 	$(BUILD_DIR)release/test_rbtree_clrs $(TEST_ARGS)
@@ -57,18 +57,28 @@ rel-test:
 	$(BUILD_DIR)release/test_splaytree_topdown $(TEST_ARGS)
 	@echo "Ran RELEASE Script Tests"
 
-deb-gtest:
+gtest-deb:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 	$(BUILD_DIR)debug/gtest_generic_list_segregated
+	$(BUILD_DIR)debug/gtest_generic_rbtree_clrs
+	$(BUILD_DIR)debug/gtest_generic_rbtree_unified
 	$(BUILD_DIR)debug/gtest_generic_rbtree_linked
+	$(BUILD_DIR)debug/gtest_generic_rbtree_stack
+	$(BUILD_DIR)debug/gtest_generic_rbtree_topdown
 	$(BUILD_DIR)debug/gtest_generic_splaytree_topdown
+	$(BUILD_DIR)debug/gtest_generic_splaytree_stack
 	@echo "Ran DEBUG GTests"
 
-rel-gtest:
+gtest-rel:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
 	$(BUILD_DIR)release/gtest_generic_list_segregated
+	$(BUILD_DIR)release/gtest_generic_rbtree_clrs
+	$(BUILD_DIR)release/gtest_generic_rbtree_unified
 	$(BUILD_DIR)release/gtest_generic_rbtree_linked
+	$(BUILD_DIR)release/gtest_generic_rbtree_stack
+	$(BUILD_DIR)release/gtest_generic_rbtree_topdown
 	$(BUILD_DIR)release/gtest_generic_splaytree_topdown
+	$(BUILD_DIR)release/gtest_generic_splaytree_stack
 	@echo "Ran RELEASE GTests"
 
 clean:

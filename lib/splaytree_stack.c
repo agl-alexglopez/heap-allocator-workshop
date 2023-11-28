@@ -339,10 +339,49 @@ size_t myheap_capacity( void )
 
 void myheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
 {
-    (void)expected;
-    (void)actual;
-    (void)len;
-    UNIMPLEMENTED();
+    struct node *cur_node = heap.client_start;
+    size_t i = 0;
+    for ( ; i < len && cur_node != heap.client_end; ++i ) {
+        bool is_allocated = is_block_allocated( cur_node->header );
+        const size_t next_jump = get_size( cur_node->header );
+        size_t cur_size = get_size( cur_node->header );
+        void *client_addr = get_client_space( cur_node );
+        if ( !expected[i].address && is_allocated ) {
+            actual[i] = ( struct heap_block ){
+                client_addr,
+                cur_size,
+                ER,
+            };
+        } else if ( NA == expected[i].payload_bytes ) {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                NA,
+                OK,
+            };
+        } else if ( expected[i].payload_bytes != cur_size ) {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                cur_size,
+                ER,
+            };
+        } else {
+            actual[i] = ( struct heap_block ){
+                is_allocated ? client_addr : NULL,
+                cur_size,
+                OK,
+            };
+        }
+        cur_node = get_right_neighbor( cur_node, next_jump );
+    }
+    if ( i < len ) {
+        for ( size_t fill = i; fill < len; ++fill ) {
+            actual[fill].err = OUT_OF_BOUNDS;
+        }
+        return;
+    }
+    if ( cur_node != heap.client_end ) {
+        actual[i].err = HEAP_CONTINUES;
+    }
 }
 
 //////////////////////////       Printing Public Helpers    //////////////////////////////////
@@ -533,6 +572,7 @@ static struct node *find_best_fit( size_t key )
         path[path_len++] = seeker;
         assert( path_len <= MAX_TREE_HEIGHT );
         if ( key == seeker_size ) {
+            best_fit_size = seeker_size;
             remove = seeker;
             len_to_best_fit = path_len;
             break;
@@ -546,7 +586,7 @@ static struct node *find_best_fit( size_t key )
         }
         seeker = seeker->links[seeker_size < key];
     }
-    if ( best_fit_size < key ) {
+    if ( best_fit_size == ULLONG_MAX || best_fit_size < key ) {
         return free_nodes.nil;
     }
     // While removing and we encounter a duplicate, we should still fixup the tree with a
