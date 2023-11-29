@@ -8,7 +8,7 @@
 #include <cstddef>
 #include <iostream>
 #include <numeric>
-#include <string>
+#include <string_view>
 
 namespace {
 
@@ -23,6 +23,9 @@ constexpr size_t medium_heap_size = 1 << 15;
 constexpr size_t max_heap_size = 1 << 30;
 constexpr bool a = true;
 constexpr bool f = false;
+constexpr std::string_view red_err = "\033[38;5;9m";
+constexpr std::string_view green_ok = "\033[38;5;10m";
+constexpr std::string_view nil = "\033[0m";
 
 void assert_init( size_t size, expect e ) // NOLINT(*cognitive-complexity)
 {
@@ -100,17 +103,17 @@ std::ostream &operator<<( std::ostream &os, const heap_block &b )
 {
     switch ( b.err ) {
     case OK:
-        os << "{ " << b.address << ", " << ( b.payload_bytes == NA ? "NA" : std::to_string( b.payload_bytes ) )
-           << ", " << err_string[OK];
+        os << "{ " << green_ok << b.address << ", "
+           << ( b.payload_bytes == NA ? "NA" : std::to_string( b.payload_bytes ) ) << ", " << err_string[OK] << nil;
         break;
     case ER:
-        os << "{ " << b.address << ", " << b.payload_bytes << ", " << err_string[ER];
+        os << "{ " << red_err << b.address << ", " << b.payload_bytes << ", " << err_string[ER] << nil;
         break;
     case OUT_OF_BOUNDS:
-        os << "{ " << err_string[OUT_OF_BOUNDS];
+        os << "{ " << red_err << err_string[OUT_OF_BOUNDS] << nil;
         break;
     case HEAP_CONTINUES:
-        os << "{ " << err_string[HEAP_CONTINUES] << "...";
+        os << "{ " << red_err << err_string[HEAP_CONTINUES] << "..." << nil;
         break;
     }
     return os << " }";
@@ -151,7 +154,7 @@ TEST( MallocTests, SingleMallocGivesAdvertisedSpace )
     chars.back() = '\0';
     auto *request = static_cast<char *>( expect_malloc( bytes, expect::pass ) );
     std::copy( chars.begin(), chars.end(), request );
-    EXPECT_EQ( std::string( chars.data() ), std::string( request ) );
+    EXPECT_EQ( std::string_view( chars.data(), bytes ), std::string_view( request, bytes ) );
     // Now that we have copied our string into the bytes they gave us lets check the heap is not overwritten.
     expect_state( {
         { request, myheap_align( bytes ), OK },
@@ -178,7 +181,7 @@ TEST( MallocFreeTests, SingleMallocSingleFree )
     const size_t original_capacity = myheap_capacity();
     auto *request = static_cast<char *>( expect_malloc( 32, expect::pass ) );
     std::copy( chars.begin(), chars.end(), request );
-    EXPECT_EQ( std::string( chars.data() ), std::string( request ) );
+    EXPECT_EQ( std::string_view( chars.data(), bytes ), std::string_view( request, bytes ) );
     // Now that we have copied our string into the bytes they gave us lets check the heap is not overwritten.
     expect_state( {
         { request, myheap_align( bytes ), OK },
@@ -668,4 +671,155 @@ TEST( ReallocTests, ReallocFailsIdempotently )
         { mymallocs[3], aligned, OK },
         { nullptr, myheap_capacity() - aligned - aligned, OK },
     } );
+}
+
+TEST( ReallocTests, ReallocPreservesDataWhenCoalescingRight )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<char, bytes> chars{};
+    std::iota( chars.begin(), chars.end(), '!' );
+    chars.back() = '\0';
+    const size_t original_capacity = myheap_capacity();
+    std::array<char *, 4> mymallocs{ {
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+    } };
+    // Fill surroundings with terminator because we want the string views to keep looking until a null is found
+    // This may help us spot errors in how we move bytes around while reallocing.
+    std::fill( mymallocs[0], mymallocs[0] + bytes, '\0' );
+    std::copy( chars.begin(), chars.end(), mymallocs[1] );
+    std::fill( mymallocs[2], mymallocs[2] + bytes, '\0' );
+    std::fill( mymallocs[3], mymallocs[3] + bytes, '\0' );
+    EXPECT_EQ( std::string_view( chars.data() ), std::string_view( mymallocs[1] ) );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned, OK },
+    } );
+    char *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], aligned + aligned, expect::pass ) );
+    // Realloc will take the space to the right but not move the data so data should be in original state.
+    // Check old pointer rather than new_addr.
+    EXPECT_EQ( new_addr, mymallocs[1] );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], NA, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, NA, OK },
+    } );
+    EXPECT_EQ( std::string_view( chars.data() ), std::string_view( mymallocs[1] ) );
+}
+
+TEST( ReallocTests, ReallocPreservesDataWhenCoalescingLeft )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<char, bytes> chars{};
+    std::iota( chars.begin(), chars.end(), '!' );
+    chars.back() = '\0';
+    const size_t original_capacity = myheap_capacity();
+    std::array<char *, 4> mymallocs{ {
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+    } };
+    // Fill surroundings with terminator because we want the string views to keep looking until a null is found
+    // This may help us spot errors in how we move bytes around while reallocing.
+    std::fill( mymallocs[0], mymallocs[0] + bytes, '\0' );
+    std::copy( chars.begin(), chars.end(), mymallocs[1] );
+    std::fill( mymallocs[2], mymallocs[2] + bytes, '\0' );
+    std::fill( mymallocs[3], mymallocs[3] + bytes, '\0' );
+    EXPECT_EQ( std::string_view( chars.data() ), std::string_view( mymallocs[1] ) );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned, OK },
+    } );
+    char *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], aligned + aligned, expect::pass ) );
+    // Realloc must move the data to the left so old pointer will not be valid. Probably memmoved.
+    EXPECT_NE( new_addr, mymallocs[1] );
+    expect_state( {
+        { new_addr, NA, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, NA, OK },
+    } );
+    EXPECT_EQ( std::string_view( chars.data() ), std::string_view( new_addr ) );
+}
+
+TEST( ReallocTests, ReallocPreservesDataWhenCoalescingElsewhere )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<char, bytes> chars{};
+    std::iota( chars.begin(), chars.end(), '!' );
+    chars.back() = '\0';
+    const size_t original_capacity = myheap_capacity();
+    std::array<char *, 4> mymallocs{ {
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+    } };
+    // Fill surroundings with terminator because we want the string views to keep looking until a null is found
+    // This may help us spot errors in how we move bytes around while reallocing.
+    std::fill( mymallocs[0], mymallocs[0] + bytes, '\0' );
+    std::copy( chars.begin(), chars.end(), mymallocs[1] );
+    std::fill( mymallocs[2], mymallocs[2] + bytes, '\0' );
+    std::fill( mymallocs[3], mymallocs[3] + bytes, '\0' );
+    EXPECT_EQ( std::string_view( chars.data() ), std::string_view( mymallocs[1] ) );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned - aligned, OK },
+    } );
+    size_t new_req = aligned * 4;
+    char *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], new_req, expect::pass ) );
+    // Realloc must move the data to the elsewhere so old pointer will not be valid. Probably memcopy.
+    EXPECT_NE( new_addr, mymallocs[1] );
+    expect_state( {
+        // Left behind space should always be coalesced to reduce fragmentation.
+        { nullptr, NA, OK },
+        { mymallocs[3], aligned, OK },
+        { new_addr, new_req, OK },
+        { nullptr, NA, OK },
+    } );
+    EXPECT_EQ( std::string_view( chars.data() ), std::string_view( new_addr ) );
 }

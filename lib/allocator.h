@@ -21,7 +21,7 @@ enum
 
 enum ignore_bytes
 {
-    /// If you are running some testing checks and don't care about payload bytes
+    /// NA=Not Applicable. If you are running some testing checks and don't care about payload bytes
     /// insert this value as the payload. It is impossible to have a payload of
     /// zero. This is helpful when you want to unit test general coalescing
     /// behavior and don't care about the specific byte overhead of a heap allocator.
@@ -29,6 +29,7 @@ enum ignore_bytes
     NA = 0,
 };
 
+/// The preproccesor will keep our error enum and strings in sync for printing from the testing suite.
 #define FOREACH_ERR( ERR ) /*NOLINT*/                                                                              \
     ERR( OK )                                                                                                      \
     ERR( ER )                                                                                                      \

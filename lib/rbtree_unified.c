@@ -434,77 +434,69 @@ static inline void coalesce( struct coalesce_report *report )
     init_header_size( report->current, report->available );
 }
 
-////////////////////////////   Static RBTree Implementation  /////////////////////////////////
+////////////////////////////   RBTree Best Fit Implementation  /////////////////////////////////
 
-static void rotate( struct rb_node *current, enum tree_link rotation )
+static struct rb_node *find_best_fit( size_t key )
 {
-    struct rb_node *child = current->links[!rotation];
-    current->links[!rotation] = child->links[rotation];
-    if ( child->links[rotation] != tree.black_nil ) {
-        child->links[rotation]->parent = current;
+    if ( tree.root == tree.black_nil ) {
+        return tree.black_nil;
     }
-    child->parent = current->parent;
-    if ( current->parent == tree.black_nil ) {
-        tree.root = child;
-    } else {
-        // True == 1 == R, otherwise False == 0 == L
-        current->parent->links[current->parent->links[R] == current] = child;
-    }
-    child->links[rotation] = current;
-    current->parent = child;
-}
-
-////////////////     Static Red-Black Tree Insertion Logic   ////////////////////////
-
-static void fix_rb_insert( struct rb_node *current )
-{
-    while ( get_color( current->parent->header ) == RED ) {
-        // Store the link from ancestor to parent. True == 1 == R, otherwise False == 0 == L
-        enum tree_link symmetric_case = current->parent->parent->links[R] == current->parent;
-        struct rb_node *aunt = current->parent->parent->links[!symmetric_case];
-        if ( get_color( aunt->header ) == RED ) {
-            paint_node( aunt, BLACK );
-            paint_node( current->parent, BLACK );
-            paint_node( current->parent->parent, RED );
-            current = current->parent->parent;
-        } else {
-            if ( current == current->parent->links[!symmetric_case] ) {
-                current = current->parent;
-                rotate( current, symmetric_case );
-            }
-            paint_node( current->parent, BLACK );
-            paint_node( current->parent->parent, RED );
-            rotate( current->parent->parent, !symmetric_case );
-        }
-    }
-    paint_node( tree.root, BLACK );
-}
-
-static void insert_rb_node( struct rb_node *current )
-{
     struct rb_node *seeker = tree.root;
-    struct rb_node *parent = tree.black_nil;
-    size_t current_key = get_size( current->header );
+    // We will use this sentinel to start our competition while we search for best fit.
+    size_t best_fit_size = ULLONG_MAX;
+    struct rb_node *remove = seeker;
     while ( seeker != tree.black_nil ) {
-        parent = seeker;
-        size_t parent_size = get_size( seeker->header );
-        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
-        seeker = seeker->links[parent_size < current_key];
+        size_t seeker_size = get_size( seeker->header );
+        if ( key == seeker_size ) {
+            best_fit_size = key;
+            remove = seeker;
+            break;
+        }
+        // The key is less than the current found size but let's remember this size on the way down
+        // as a candidate for the best fit. The closest fit will have won when we reach the bottom.
+        if ( seeker_size < best_fit_size && seeker_size >= key ) {
+            remove = seeker;
+            best_fit_size = seeker_size;
+        }
+        seeker = seeker->links[seeker_size < key];
     }
-    current->parent = parent;
-    if ( parent == tree.black_nil ) {
-        tree.root = current;
-    } else {
-        parent->links[get_size( parent->header ) < current_key] = current;
+    if ( best_fit_size < key || best_fit_size == ULLONG_MAX ) {
+        return tree.black_nil;
     }
-    current->links[L] = tree.black_nil;
-    current->links[R] = tree.black_nil;
-    paint_node( current, RED );
-    fix_rb_insert( current );
-    tree.total++;
+    return delete_rb_node( remove );
 }
 
-///////////////////////////////     Static Red-Black Tree Deletion Helper   ////////////////////
+static struct rb_node *delete_rb_node( struct rb_node *remove )
+{
+    enum rb_color fixup_color_check = get_color( remove->header );
+
+    struct rb_node *extra_black = NULL;
+    if ( remove->links[L] == tree.black_nil || remove->links[R] == tree.black_nil ) {
+        enum tree_link nil_link = remove->links[L] != tree.black_nil;
+        rb_transplant( remove, ( extra_black = remove->links[!nil_link] ) );
+    } else {
+        struct rb_node *right_min = get_min( remove->links[R], tree.black_nil );
+        fixup_color_check = get_color( right_min->header );
+        extra_black = right_min->links[R];
+        if ( right_min != remove->links[R] ) {
+            rb_transplant( right_min, right_min->links[R] );
+            right_min->links[R] = remove->links[R];
+            right_min->links[R]->parent = right_min;
+        } else {
+            extra_black->parent = right_min;
+        }
+        rb_transplant( remove, right_min );
+        right_min->links[L] = remove->links[L];
+        right_min->links[L]->parent = right_min;
+        paint_node( right_min, get_color( remove->header ) );
+    }
+    // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
+    if ( fixup_color_check == BLACK ) {
+        fix_rb_delete( extra_black );
+    }
+    tree.total--;
+    return remove;
+}
 
 static void rb_transplant( const struct rb_node *remove, struct rb_node *replacement )
 {
@@ -516,8 +508,6 @@ static void rb_transplant( const struct rb_node *remove, struct rb_node *replace
     }
     replacement->parent = remove->parent;
 }
-
-/////////////////     Static Red-Black Tree Deletion Logic   //////////////////////////////
 
 static void fix_rb_delete( struct rb_node *extra_black )
 {
@@ -553,66 +543,74 @@ static void fix_rb_delete( struct rb_node *extra_black )
     paint_node( extra_black, BLACK );
 }
 
-static struct rb_node *delete_rb_node( struct rb_node *remove )
-{
-    enum rb_color fixup_color_check = get_color( remove->header );
+/////////////////////     Red-Black Tree Insertion Logic   ////////////////////////
 
-    struct rb_node *extra_black = NULL;
-    if ( remove->links[L] == tree.black_nil || remove->links[R] == tree.black_nil ) {
-        enum tree_link nil_link = remove->links[L] != tree.black_nil;
-        rb_transplant( remove, ( extra_black = remove->links[!nil_link] ) );
+static void insert_rb_node( struct rb_node *current )
+{
+    struct rb_node *seeker = tree.root;
+    struct rb_node *parent = tree.black_nil;
+    size_t current_key = get_size( current->header );
+    while ( seeker != tree.black_nil ) {
+        parent = seeker;
+        size_t parent_size = get_size( seeker->header );
+        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
+        seeker = seeker->links[parent_size < current_key];
+    }
+    current->parent = parent;
+    if ( parent == tree.black_nil ) {
+        tree.root = current;
     } else {
-        struct rb_node *right_min = get_min( remove->links[R], tree.black_nil );
-        fixup_color_check = get_color( right_min->header );
-        extra_black = right_min->links[R];
-        if ( right_min != remove->links[R] ) {
-            rb_transplant( right_min, right_min->links[R] );
-            right_min->links[R] = remove->links[R];
-            right_min->links[R]->parent = right_min;
-        } else {
-            extra_black->parent = right_min;
-        }
-        rb_transplant( remove, right_min );
-        right_min->links[L] = remove->links[L];
-        right_min->links[L]->parent = right_min;
-        paint_node( right_min, get_color( remove->header ) );
+        parent->links[get_size( parent->header ) < current_key] = current;
     }
-    // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
-    if ( fixup_color_check == BLACK ) {
-        fix_rb_delete( extra_black );
-    }
-    tree.total--;
-    return remove;
+    current->links[L] = tree.black_nil;
+    current->links[R] = tree.black_nil;
+    paint_node( current, RED );
+    fix_rb_insert( current );
+    tree.total++;
 }
 
-static struct rb_node *find_best_fit( size_t key )
+static void fix_rb_insert( struct rb_node *current )
 {
-    if ( tree.root == tree.black_nil ) {
-        return tree.black_nil;
-    }
-    struct rb_node *seeker = tree.root;
-    // We will use this sentinel to start our competition while we search for best fit.
-    size_t best_fit_size = ULLONG_MAX;
-    struct rb_node *remove = seeker;
-    while ( seeker != tree.black_nil ) {
-        size_t seeker_size = get_size( seeker->header );
-        if ( key == seeker_size ) {
-            best_fit_size = key;
-            remove = seeker;
-            break;
+    while ( get_color( current->parent->header ) == RED ) {
+        // Store the link from ancestor to parent. True == 1 == R, otherwise False == 0 == L
+        enum tree_link symmetric_case = current->parent->parent->links[R] == current->parent;
+        struct rb_node *aunt = current->parent->parent->links[!symmetric_case];
+        if ( get_color( aunt->header ) == RED ) {
+            paint_node( aunt, BLACK );
+            paint_node( current->parent, BLACK );
+            paint_node( current->parent->parent, RED );
+            current = current->parent->parent;
+        } else {
+            if ( current == current->parent->links[!symmetric_case] ) {
+                current = current->parent;
+                rotate( current, symmetric_case );
+            }
+            paint_node( current->parent, BLACK );
+            paint_node( current->parent->parent, RED );
+            rotate( current->parent->parent, !symmetric_case );
         }
-        // The key is less than the current found size but let's remember this size on the way down
-        // as a candidate for the best fit. The closest fit will have won when we reach the bottom.
-        if ( seeker_size < best_fit_size && seeker_size >= key ) {
-            remove = seeker;
-            best_fit_size = seeker_size;
-        }
-        seeker = seeker->links[seeker_size < key];
     }
-    if ( best_fit_size < key || best_fit_size == ULLONG_MAX ) {
-        return tree.black_nil;
+    paint_node( tree.root, BLACK );
+}
+
+///////////////////////////      Rotation Helper   ////////////////////////////
+
+static void rotate( struct rb_node *current, enum tree_link rotation )
+{
+    struct rb_node *child = current->links[!rotation];
+    current->links[!rotation] = child->links[rotation];
+    if ( child->links[rotation] != tree.black_nil ) {
+        child->links[rotation]->parent = current;
     }
-    return delete_rb_node( remove );
+    child->parent = current->parent;
+    if ( current->parent == tree.black_nil ) {
+        tree.root = child;
+    } else {
+        // True == 1 == R, otherwise False == 0 == L
+        current->parent->links[current->parent->links[R] == current] = child;
+    }
+    child->links[rotation] = current;
+    current->parent = child;
 }
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////

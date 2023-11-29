@@ -386,6 +386,29 @@ void dump_heap( void )
 
 ///////////////////////    Static Heap Helper Functions   /////////////////////////////////
 
+static void *split_alloc( struct rb_node *free_block, size_t request, size_t block_space )
+{
+    if ( block_space >= request + MIN_BLOCK_SIZE ) {
+        // This takes care of the neighbor and ITS neighbor with appropriate updates.
+        init_free_node( get_right_neighbor( free_block, request ), block_space - request - HEADERSIZE );
+        init_header_size( free_block, request );
+        free_block->header |= ALLOCATED;
+        return get_client_space( free_block );
+    }
+    get_right_neighbor( free_block, block_space )->header |= LEFT_ALLOCATED;
+    init_header_size( free_block, block_space );
+    free_block->header |= ALLOCATED;
+    return get_client_space( free_block );
+}
+
+static void init_free_node( struct rb_node *to_free, size_t block_size )
+{
+    to_free->header = block_size | LEFT_ALLOCATED | RED_PAINT;
+    init_footer( to_free, block_size );
+    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
+    insert_rb_node( to_free );
+}
+
 static struct coalesce_report check_neighbors( const void *old_ptr )
 {
     struct rb_node *current_node = get_rb_node( old_ptr );
@@ -416,138 +439,75 @@ static inline void coalesce( struct coalesce_report *report )
     init_header_size( report->current, report->available );
 }
 
-static void init_free_node( struct rb_node *to_free, size_t block_size )
+///////////////////   Red Black Tree Best Fit Search and Deletion   /////////////////////////////
+
+static struct rb_node *find_best_fit( size_t key )
 {
-    to_free->header = block_size | LEFT_ALLOCATED | RED_PAINT;
-    init_footer( to_free, block_size );
-    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
-    insert_rb_node( to_free );
-}
-
-static void *split_alloc( struct rb_node *free_block, size_t request, size_t block_space )
-{
-    if ( block_space >= request + MIN_BLOCK_SIZE ) {
-        // This takes care of the neighbor and ITS neighbor with appropriate updates.
-        init_free_node( get_right_neighbor( free_block, request ), block_space - request - HEADERSIZE );
-        init_header_size( free_block, request );
-        free_block->header |= ALLOCATED;
-        return get_client_space( free_block );
+    if ( tree.root == tree.black_nil ) {
+        return tree.black_nil;
     }
-    get_right_neighbor( free_block, block_space )->header |= LEFT_ALLOCATED;
-    init_header_size( free_block, block_space );
-    free_block->header |= ALLOCATED;
-    return get_client_space( free_block );
-}
-
-////////////////////////   Red Black Tree Implementation   /////////////////////////////
-
-static void left_rotate( struct rb_node *current )
-{
-    struct rb_node *right_child = current->right;
-    current->right = right_child->left;
-    if ( right_child->left != tree.black_nil ) {
-        right_child->left->parent = current;
-    }
-    right_child->parent = current->parent;
-    if ( current->parent == tree.black_nil ) {
-        tree.root = right_child;
-    } else if ( current == current->parent->left ) {
-        current->parent->left = right_child;
-    } else {
-        current->parent->right = right_child;
-    }
-    right_child->left = current;
-    current->parent = right_child;
-}
-
-static void right_rotate( struct rb_node *current )
-{
-    struct rb_node *left_child = current->left;
-    current->left = left_child->right;
-    if ( left_child->right != tree.black_nil ) {
-        left_child->right->parent = current;
-    }
-    left_child->parent = current->parent;
-    if ( current->parent == tree.black_nil ) {
-        tree.root = left_child;
-    } else if ( current == current->parent->right ) {
-        current->parent->right = left_child;
-    } else {
-        current->parent->left = left_child;
-    }
-    left_child->right = current;
-    current->parent = left_child;
-}
-
-///     Static Red-Black Tree Insertion Logic
-
-static void fix_rb_insert( struct rb_node *current )
-{
-    while ( get_color( current->parent->header ) == RED ) {
-        if ( current->parent == current->parent->parent->left ) {
-            struct rb_node *uncle = current->parent->parent->right;
-            if ( get_color( uncle->header ) == RED ) {
-                paint_node( current->parent, BLACK );
-                paint_node( uncle, BLACK );
-                paint_node( current->parent->parent, RED );
-                current = current->parent->parent;
-            } else { // uncle is BLACK
-                if ( current == current->parent->right ) {
-                    current = current->parent;
-                    left_rotate( current );
-                }
-                paint_node( current->parent, BLACK );
-                paint_node( current->parent->parent, RED );
-                right_rotate( current->parent->parent );
+    struct rb_node *seeker = tree.root;
+    size_t best_fit_size = ULLONG_MAX;
+    struct rb_node *remove = seeker;
+    while ( seeker != tree.black_nil ) {
+        size_t seeker_size = get_size( seeker->header );
+        if ( key == seeker_size ) {
+            best_fit_size = key;
+            remove = seeker;
+            break;
+        }
+        if ( key < seeker_size ) {
+            if ( seeker_size < best_fit_size ) {
+                remove = seeker;
+                best_fit_size = seeker_size;
             }
+            seeker = seeker->left;
         } else {
-            struct rb_node *uncle = current->parent->parent->left;
-            if ( get_color( uncle->header ) == RED ) {
-                paint_node( current->parent, BLACK );
-                paint_node( uncle, BLACK );
-                paint_node( current->parent->parent, RED );
-                current = current->parent->parent;
-            } else { // uncle is BLACK
-                if ( current == current->parent->left ) {
-                    current = current->parent;
-                    right_rotate( current );
-                }
-                paint_node( current->parent, BLACK );
-                paint_node( current->parent->parent, RED );
-                left_rotate( current->parent->parent );
-            }
+            seeker = seeker->right;
         }
     }
-    paint_node( tree.root, BLACK );
+    if ( best_fit_size < key || best_fit_size == ULLONG_MAX ) {
+        return tree.black_nil;
+    }
+    // We can decompose the Cormen et.al. deletion logic because coalesce and malloc use it.
+    return delete_rb_node( remove );
 }
 
-static void insert_rb_node( struct rb_node *current )
+static struct rb_node *delete_rb_node( struct rb_node *remove )
 {
-    struct rb_node *child = tree.root;
-    struct rb_node *parent = tree.black_nil;
-    size_t current_key = get_size( current->header );
-    while ( child != tree.black_nil ) {
-        parent = child;
-        size_t child_size = get_size( child->header );
-        if ( current_key < child_size ) {
-            child = child->left;
-        } else {
-            child = child->right;
-        }
-    }
-    current->parent = parent;
-    if ( parent == tree.black_nil ) {
-        tree.root = current;
-    } else if ( current_key < get_size( parent->header ) ) {
-        parent->left = current;
+    enum rb_color fixup_color_check = get_color( remove->header );
+
+    // We will give the replacement of the replacement an "extra" black color.
+    struct rb_node *extra_black = NULL;
+    if ( remove->left == tree.black_nil ) {
+        rb_transplant( remove, ( extra_black = remove->right ) );
+    } else if ( remove->right == tree.black_nil ) {
+        rb_transplant( remove, ( extra_black = remove->left ) );
     } else {
-        parent->right = current;
+        // The node to remove is internal with two children of unkown size subtrees.
+        struct rb_node *right_min = get_min( remove->right, tree.black_nil );
+        fixup_color_check = get_color( right_min->header );
+
+        // Possible this is black_nil and that's ok.
+        extra_black = right_min->right;
+        if ( right_min != remove->right ) {
+            rb_transplant( right_min, right_min->right );
+            right_min->right = remove->right;
+            right_min->right->parent = right_min;
+        } else {
+            extra_black->parent = right_min;
+        }
+        rb_transplant( remove, right_min );
+        right_min->left = remove->left;
+        right_min->left->parent = right_min;
+        paint_node( right_min, get_color( remove->header ) );
     }
-    current->left = tree.black_nil;
-    current->right = tree.black_nil;
-    paint_node( current, RED );
-    fix_rb_insert( current );
-    tree.total++;
+    // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
+    if ( fixup_color_check == BLACK ) {
+        fix_rb_delete( extra_black );
+    }
+    tree.total--;
+    return remove;
 }
 
 static void rb_transplant( const struct rb_node *remove, struct rb_node *replacement )
@@ -625,73 +585,115 @@ static void fix_rb_delete( struct rb_node *extra_black )
     paint_node( extra_black, BLACK );
 }
 
-static struct rb_node *delete_rb_node( struct rb_node *remove )
+////////////////////////     Red-Black Tree Insertion Logic   ////////////////////////////
+
+static void insert_rb_node( struct rb_node *current )
 {
-    enum rb_color fixup_color_check = get_color( remove->header );
-
-    // We will give the replacement of the replacement an "extra" black color.
-    struct rb_node *extra_black = NULL;
-    if ( remove->left == tree.black_nil ) {
-        rb_transplant( remove, ( extra_black = remove->right ) );
-    } else if ( remove->right == tree.black_nil ) {
-        rb_transplant( remove, ( extra_black = remove->left ) );
-    } else {
-        // The node to remove is internal with two children of unkown size subtrees.
-        struct rb_node *right_min = get_min( remove->right, tree.black_nil );
-        fixup_color_check = get_color( right_min->header );
-
-        // Possible this is black_nil and that's ok.
-        extra_black = right_min->right;
-        if ( right_min != remove->right ) {
-            rb_transplant( right_min, right_min->right );
-            right_min->right = remove->right;
-            right_min->right->parent = right_min;
+    struct rb_node *child = tree.root;
+    struct rb_node *parent = tree.black_nil;
+    size_t current_key = get_size( current->header );
+    while ( child != tree.black_nil ) {
+        parent = child;
+        size_t child_size = get_size( child->header );
+        if ( current_key < child_size ) {
+            child = child->left;
         } else {
-            extra_black->parent = right_min;
+            child = child->right;
         }
-        rb_transplant( remove, right_min );
-        right_min->left = remove->left;
-        right_min->left->parent = right_min;
-        paint_node( right_min, get_color( remove->header ) );
     }
-    // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
-    if ( fixup_color_check == BLACK ) {
-        fix_rb_delete( extra_black );
+    current->parent = parent;
+    if ( parent == tree.black_nil ) {
+        tree.root = current;
+    } else if ( current_key < get_size( parent->header ) ) {
+        parent->left = current;
+    } else {
+        parent->right = current;
     }
-    tree.total--;
-    return remove;
+    current->left = tree.black_nil;
+    current->right = tree.black_nil;
+    paint_node( current, RED );
+    fix_rb_insert( current );
+    tree.total++;
 }
 
-static struct rb_node *find_best_fit( size_t key )
+static void fix_rb_insert( struct rb_node *current )
 {
-    if ( tree.root == tree.black_nil ) {
-        return tree.black_nil;
-    }
-    struct rb_node *seeker = tree.root;
-    size_t best_fit_size = ULLONG_MAX;
-    struct rb_node *remove = seeker;
-    while ( seeker != tree.black_nil ) {
-        size_t seeker_size = get_size( seeker->header );
-        if ( key == seeker_size ) {
-            best_fit_size = key;
-            remove = seeker;
-            break;
-        }
-        if ( key < seeker_size ) {
-            if ( seeker_size < best_fit_size ) {
-                remove = seeker;
-                best_fit_size = seeker_size;
+    while ( get_color( current->parent->header ) == RED ) {
+        if ( current->parent == current->parent->parent->left ) {
+            struct rb_node *uncle = current->parent->parent->right;
+            if ( get_color( uncle->header ) == RED ) {
+                paint_node( current->parent, BLACK );
+                paint_node( uncle, BLACK );
+                paint_node( current->parent->parent, RED );
+                current = current->parent->parent;
+            } else { // uncle is BLACK
+                if ( current == current->parent->right ) {
+                    current = current->parent;
+                    left_rotate( current );
+                }
+                paint_node( current->parent, BLACK );
+                paint_node( current->parent->parent, RED );
+                right_rotate( current->parent->parent );
             }
-            seeker = seeker->left;
         } else {
-            seeker = seeker->right;
+            struct rb_node *uncle = current->parent->parent->left;
+            if ( get_color( uncle->header ) == RED ) {
+                paint_node( current->parent, BLACK );
+                paint_node( uncle, BLACK );
+                paint_node( current->parent->parent, RED );
+                current = current->parent->parent;
+            } else { // uncle is BLACK
+                if ( current == current->parent->left ) {
+                    current = current->parent;
+                    right_rotate( current );
+                }
+                paint_node( current->parent, BLACK );
+                paint_node( current->parent->parent, RED );
+                left_rotate( current->parent->parent );
+            }
         }
     }
-    if ( best_fit_size < key || best_fit_size == ULLONG_MAX ) {
-        return tree.black_nil;
+    paint_node( tree.root, BLACK );
+}
+
+////////////////////////    Rotation Logic    ////////////////////////////////////
+
+static void left_rotate( struct rb_node *current )
+{
+    struct rb_node *right_child = current->right;
+    current->right = right_child->left;
+    if ( right_child->left != tree.black_nil ) {
+        right_child->left->parent = current;
     }
-    // We can decompose the Cormen et.al. deletion logic because coalesce and malloc use it.
-    return delete_rb_node( remove );
+    right_child->parent = current->parent;
+    if ( current->parent == tree.black_nil ) {
+        tree.root = right_child;
+    } else if ( current == current->parent->left ) {
+        current->parent->left = right_child;
+    } else {
+        current->parent->right = right_child;
+    }
+    right_child->left = current;
+    current->parent = right_child;
+}
+
+static void right_rotate( struct rb_node *current )
+{
+    struct rb_node *left_child = current->left;
+    current->left = left_child->right;
+    if ( left_child->right != tree.black_nil ) {
+        left_child->right->parent = current;
+    }
+    left_child->parent = current->parent;
+    if ( current->parent == tree.black_nil ) {
+        tree.root = left_child;
+    } else if ( current == current->parent->right ) {
+        current->parent->right = left_child;
+    } else {
+        current->parent->left = left_child;
+    }
+    left_child->right = current;
+    current->parent = left_child;
 }
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////

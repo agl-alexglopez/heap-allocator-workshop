@@ -399,6 +399,37 @@ void dump_heap( void )
 
 //////////////////////////////   Static Helper Functions  ////////////////////////////////////
 
+static void *split_alloc( struct free_node *free_block, size_t request, size_t block_space )
+{
+    if ( block_space >= request + MIN_BLOCK_SIZE ) {
+        // This takes care of the neighbor and ITS neighbor with appropriate updates.
+        init_free_node( get_right_neighbor( free_block, request ), block_space - request - HEADERSIZE );
+        init_header( free_block, request, ALLOCATED );
+        return get_client_space( free_block );
+    }
+    get_right_neighbor( free_block, block_space )->header |= LEFT_ALLOCATED;
+    init_header( free_block, block_space, ALLOCATED );
+    return get_client_space( free_block );
+}
+
+static void init_free_node( struct free_node *to_add, size_t block_size )
+{
+    to_add->header = LEFT_ALLOCATED | block_size;
+    header *footer = (header *)( (uint8_t *)to_add + block_size );
+    *footer = to_add->header;
+    struct free_node *neighbor = get_right_neighbor( to_add, block_size );
+    neighbor->header &= LEFT_FREE;
+
+    size_t index = find_index( block_size );
+    // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
+    struct free_node *cur = fits.table[index].start;
+    fits.table[index].start = to_add;
+    to_add->prev = &fits.nil;
+    to_add->next = cur;
+    cur->prev = to_add;
+    fits.total++;
+}
+
 static struct coalesce_report check_neighbors( const void *old_ptr )
 {
     struct free_node *current_node = get_free_node( old_ptr );
@@ -428,37 +459,6 @@ static inline void coalesce( struct coalesce_report *report )
         splice_at_index( report->right, find_index( get_size( report->right->header ) ) );
     }
     init_header( report->current, report->available, FREED );
-}
-
-static void init_free_node( struct free_node *to_add, size_t block_size )
-{
-    to_add->header = LEFT_ALLOCATED | block_size;
-    header *footer = (header *)( (uint8_t *)to_add + block_size );
-    *footer = to_add->header;
-    struct free_node *neighbor = get_right_neighbor( to_add, block_size );
-    neighbor->header &= LEFT_FREE;
-
-    size_t index = find_index( block_size );
-    // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
-    struct free_node *cur = fits.table[index].start;
-    fits.table[index].start = to_add;
-    to_add->prev = &fits.nil;
-    to_add->next = cur;
-    cur->prev = to_add;
-    fits.total++;
-}
-
-static void *split_alloc( struct free_node *free_block, size_t request, size_t block_space )
-{
-    if ( block_space >= request + MIN_BLOCK_SIZE ) {
-        // This takes care of the neighbor and ITS neighbor with appropriate updates.
-        init_free_node( get_right_neighbor( free_block, request ), block_space - request - HEADERSIZE );
-        init_header( free_block, request, ALLOCATED );
-        return get_client_space( free_block );
-    }
-    get_right_neighbor( free_block, block_space )->header |= LEFT_ALLOCATED;
-    init_header( free_block, block_space, ALLOCATED );
-    return get_client_space( free_block );
 }
 
 /// @citation cool way to get log2 from intrinsics. https://github.com/pavel-kirienko/o1heap/tree/master.

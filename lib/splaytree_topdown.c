@@ -163,7 +163,7 @@ static struct node *get_right_neighbor( const struct node *current, size_t paylo
 static struct node *get_left_neighbor( const struct node *node );
 static void *get_client_space( const struct node *node_header );
 static struct node *get_node( const void *client_space );
-static void link_parent_to_subtree( struct node *parent, enum tree_link dir, struct node *subtree );
+static void give_parent_subtree( struct node *parent, enum tree_link dir, struct node *subtree );
 static void init_free_node( struct node *to_free, size_t block_size );
 static void *split_alloc( struct node *free_block, size_t request, size_t block_space );
 static struct coalesce_report check_neighbors( const void *old_ptr );
@@ -410,6 +410,15 @@ static void *split_alloc( struct node *free_block, size_t request, size_t block_
     return get_client_space( free_block );
 }
 
+static void init_free_node( struct node *to_free, size_t block_size )
+{
+    to_free->header = block_size | LEFT_ALLOCATED;
+    to_free->list_start = free_nodes.list_tail;
+    init_footer( to_free, block_size );
+    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
+    insert_node( to_free );
+}
+
 static struct coalesce_report check_neighbors( const void *old_ptr )
 {
     struct node *current_node = get_node( old_ptr );
@@ -440,32 +449,6 @@ static inline void coalesce( struct coalesce_report *report )
     init_header_size( report->current, report->available );
 }
 
-static void remove_head( struct node *head, struct node *lft_child, struct node *rgt_child )
-{
-    // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
-    struct node *tree_parent = head->list_start->parent;
-    head->list_start->header = head->header;
-    head->list_start->links[N]->parent = head->list_start->parent;
-
-    struct node *new_tree_node = (struct node *)head->list_start;
-    new_tree_node->list_start = head->list_start->links[N];
-    new_tree_node->links[L] = lft_child;
-    new_tree_node->links[R] = rgt_child;
-
-    // We often write to fields of the nil, invariant. DO NOT use the nodes it stores!
-    if ( lft_child != free_nodes.nil ) {
-        lft_child->list_start->parent = new_tree_node;
-    }
-    if ( rgt_child != free_nodes.nil ) {
-        rgt_child->list_start->parent = new_tree_node;
-    }
-    if ( tree_parent == free_nodes.nil ) {
-        free_nodes.root = new_tree_node;
-    } else {
-        tree_parent->links[tree_parent->links[R] == head] = new_tree_node;
-    }
-}
-
 static void *free_coalesced_node( void *to_coalesce )
 {
     struct node *tree_node = to_coalesce;
@@ -494,17 +477,6 @@ static void *free_coalesced_node( void *to_coalesce )
     return to_coalesce;
 }
 
-static void init_free_node( struct node *to_free, size_t block_size )
-{
-    to_free->header = block_size | LEFT_ALLOCATED;
-    to_free->list_start = free_nodes.list_tail;
-    init_footer( to_free, block_size );
-    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
-    insert_node( to_free );
-}
-
-/////////////////////////////      Splay Tree Implementation       //////////////////////////////////
-
 static struct node *coalesce_splay( size_t key )
 {
     if ( free_nodes.root == free_nodes.nil ) {
@@ -523,7 +495,7 @@ static struct node *coalesce_splay( size_t key )
         free_nodes.root = to_return->links[R];
     } else {
         free_nodes.root = splay( to_return->links[L], key );
-        link_parent_to_subtree( free_nodes.root, R, to_return->links[R] );
+        give_parent_subtree( free_nodes.root, R, to_return->links[R] );
     }
     if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
         free_nodes.root->list_start->parent = free_nodes.nil;
@@ -531,6 +503,34 @@ static struct node *coalesce_splay( size_t key )
     --free_nodes.total;
     return to_return;
 }
+
+static void remove_head( struct node *head, struct node *lft_child, struct node *rgt_child )
+{
+    // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
+    struct node *tree_parent = head->list_start->parent;
+    head->list_start->header = head->header;
+    head->list_start->links[N]->parent = head->list_start->parent;
+
+    struct node *new_tree_node = (struct node *)head->list_start;
+    new_tree_node->list_start = head->list_start->links[N];
+    new_tree_node->links[L] = lft_child;
+    new_tree_node->links[R] = rgt_child;
+
+    // We often write to fields of the nil, invariant. DO NOT use the nodes it stores!
+    if ( lft_child != free_nodes.nil ) {
+        lft_child->list_start->parent = new_tree_node;
+    }
+    if ( rgt_child != free_nodes.nil ) {
+        rgt_child->list_start->parent = new_tree_node;
+    }
+    if ( tree_parent == free_nodes.nil ) {
+        free_nodes.root = new_tree_node;
+    } else {
+        tree_parent->links[tree_parent->links[R] == head] = new_tree_node;
+    }
+}
+
+////////////////////////      Splay Tree Best Fit Implementation       /////////////////////////////
 
 static struct node *find_best_fit( size_t key )
 {
@@ -550,7 +550,7 @@ static struct node *find_best_fit( size_t key )
         free_nodes.root = to_return->links[R];
     } else {
         free_nodes.root = splay_bestfit( to_return->links[L], key );
-        link_parent_to_subtree( free_nodes.root, R, to_return->links[R] );
+        give_parent_subtree( free_nodes.root, R, to_return->links[R] );
     }
     if ( free_nodes.root != free_nodes.nil && free_nodes.root->list_start != free_nodes.list_tail ) {
         free_nodes.root->list_start->parent = free_nodes.nil;
@@ -559,69 +559,19 @@ static struct node *find_best_fit( size_t key )
     return to_return;
 }
 
-static void insert_node( struct node *current )
+static struct node *delete_duplicate( struct node *head )
 {
-    size_t current_key = get_size( current->header );
-    if ( free_nodes.root == free_nodes.nil ) {
-        current->links[L] = free_nodes.nil;
-        current->links[R] = free_nodes.nil;
-        current->list_start = free_nodes.list_tail;
-        free_nodes.root = current;
-        free_nodes.total = 1;
-        return;
-    }
-    free_nodes.root = splay( free_nodes.root, current_key );
-    size_t found_size = get_size( free_nodes.root->header );
-    if ( current_key == found_size ) {
-        if ( free_nodes.root->list_start != free_nodes.list_tail ) {
-            free_nodes.root->list_start->parent = free_nodes.nil;
-        }
-        add_duplicate( free_nodes.root, (struct duplicate_node *)current, free_nodes.nil );
-        return;
-    }
-    enum tree_link link = found_size < current_key;
-    link_parent_to_subtree( current, link, free_nodes.root->links[link] );
-    link_parent_to_subtree( current, !link, free_nodes.root );
-    free_nodes.root->links[link] = free_nodes.nil;
-    free_nodes.root = current;
-    ++free_nodes.total;
+    struct duplicate_node *next_node = head->list_start;
+    // Take care of the possible node to the right in the doubly linked list first. This could be
+    // another node or it could be free_nodes.list_tail, it does not matter either way.
+    next_node->links[N]->parent = next_node->parent;
+    next_node->links[N]->links[P] = (struct duplicate_node *)head;
+    head->list_start = next_node->links[N];
+    --free_nodes.total;
+    return (struct node *)next_node;
 }
 
-static struct node *splay( struct node *root, size_t key )
-{
-    // Pointers in an array and we can use the symmetric enum and flip it to choose the Left or Right subtree.
-    // Another benefit of our nil node: use it as our helper tree because we don't need its Left Right fields.
-    free_nodes.nil->links[L] = free_nodes.nil;
-    free_nodes.nil->links[R] = free_nodes.nil;
-    struct node *left_right_subtrees[2] = { free_nodes.nil, free_nodes.nil };
-    struct node *finger = NULL;
-    for ( ;; ) {
-        size_t root_size = get_size( root->header );
-        enum tree_link link_to_descend = root_size < key;
-        if ( key == root_size || root->links[link_to_descend] == free_nodes.nil ) {
-            break;
-        }
-        size_t child_size = get_size( root->links[link_to_descend]->header );
-        enum tree_link link_to_descend_from_child = child_size < key;
-        if ( key != child_size && link_to_descend == link_to_descend_from_child ) {
-            finger = root->links[link_to_descend];
-            link_parent_to_subtree( root, link_to_descend, finger->links[!link_to_descend] );
-            link_parent_to_subtree( finger, !link_to_descend, root );
-            root = finger;
-            if ( root->links[link_to_descend] == free_nodes.nil ) {
-                break;
-            }
-        }
-        link_parent_to_subtree( left_right_subtrees[!link_to_descend], link_to_descend, root );
-        left_right_subtrees[!link_to_descend] = root;
-        root = root->links[link_to_descend];
-    }
-    link_parent_to_subtree( left_right_subtrees[L], R, root->links[L] );
-    link_parent_to_subtree( left_right_subtrees[R], L, root->links[R] );
-    link_parent_to_subtree( root, L, free_nodes.nil->links[R] );
-    link_parent_to_subtree( root, R, free_nodes.nil->links[L] );
-    return root;
-}
+/////////////////////   Core Splay Operations for Insertion and Deletion   ///////////////////////
 
 static struct node *splay_bestfit( struct node *root, size_t key )
 {
@@ -650,21 +600,21 @@ static struct node *splay_bestfit( struct node *root, size_t key )
         enum tree_link link_to_descend_from_child = child_size < key;
         if ( key != child_size && link_to_descend == link_to_descend_from_child ) {
             finger = root->links[link_to_descend];
-            link_parent_to_subtree( root, link_to_descend, finger->links[!link_to_descend] );
-            link_parent_to_subtree( finger, !link_to_descend, root );
+            give_parent_subtree( root, link_to_descend, finger->links[!link_to_descend] );
+            give_parent_subtree( finger, !link_to_descend, root );
             root = finger;
             if ( root->links[link_to_descend] == free_nodes.nil ) {
                 break;
             }
         }
-        link_parent_to_subtree( left_right_subtrees[!link_to_descend], link_to_descend, root );
+        give_parent_subtree( left_right_subtrees[!link_to_descend], link_to_descend, root );
         left_right_subtrees[!link_to_descend] = root;
         root = root->links[link_to_descend];
     }
-    link_parent_to_subtree( left_right_subtrees[L], R, root->links[L] );
-    link_parent_to_subtree( left_right_subtrees[R], L, root->links[R] );
-    link_parent_to_subtree( root, L, free_nodes.nil->links[R] );
-    link_parent_to_subtree( root, R, free_nodes.nil->links[L] );
+    give_parent_subtree( left_right_subtrees[L], R, root->links[L] );
+    give_parent_subtree( left_right_subtrees[R], L, root->links[R] );
+    give_parent_subtree( root, L, free_nodes.nil->links[R] );
+    give_parent_subtree( root, R, free_nodes.nil->links[L] );
     // We need bestfit which is not what splaytrees are made for. We can't rewind all the fixups or
     // cherry pick the best fit; we need splay operations to fixup the tree for our selection. So,
     // we will run another search for that specific bestfit value. Total, that's 2 traversals in worst case.
@@ -672,6 +622,72 @@ static struct node *splay_bestfit( struct node *root, size_t key )
         return splay( root, best_fit );
     }
     return root;
+}
+
+static struct node *splay( struct node *root, size_t key )
+{
+    // Pointers in an array and we can use the symmetric enum and flip it to choose the Left or Right subtree.
+    // Another benefit of our nil node: use it as our helper tree because we don't need its Left Right fields.
+    free_nodes.nil->links[L] = free_nodes.nil;
+    free_nodes.nil->links[R] = free_nodes.nil;
+    struct node *left_right_subtrees[2] = { free_nodes.nil, free_nodes.nil };
+    struct node *finger = NULL;
+    for ( ;; ) {
+        size_t root_size = get_size( root->header );
+        enum tree_link link_to_descend = root_size < key;
+        if ( key == root_size || root->links[link_to_descend] == free_nodes.nil ) {
+            break;
+        }
+        size_t child_size = get_size( root->links[link_to_descend]->header );
+        enum tree_link link_to_descend_from_child = child_size < key;
+        if ( key != child_size && link_to_descend == link_to_descend_from_child ) {
+            finger = root->links[link_to_descend];
+            give_parent_subtree( root, link_to_descend, finger->links[!link_to_descend] );
+            give_parent_subtree( finger, !link_to_descend, root );
+            root = finger;
+            if ( root->links[link_to_descend] == free_nodes.nil ) {
+                break;
+            }
+        }
+        give_parent_subtree( left_right_subtrees[!link_to_descend], link_to_descend, root );
+        left_right_subtrees[!link_to_descend] = root;
+        root = root->links[link_to_descend];
+    }
+    give_parent_subtree( left_right_subtrees[L], R, root->links[L] );
+    give_parent_subtree( left_right_subtrees[R], L, root->links[R] );
+    give_parent_subtree( root, L, free_nodes.nil->links[R] );
+    give_parent_subtree( root, R, free_nodes.nil->links[L] );
+    return root;
+}
+
+/////////////////////////    Splay Tree Insertion Logic           ////////////////////////////
+
+static void insert_node( struct node *current )
+{
+    size_t current_key = get_size( current->header );
+    if ( free_nodes.root == free_nodes.nil ) {
+        current->links[L] = free_nodes.nil;
+        current->links[R] = free_nodes.nil;
+        current->list_start = free_nodes.list_tail;
+        free_nodes.root = current;
+        free_nodes.total = 1;
+        return;
+    }
+    free_nodes.root = splay( free_nodes.root, current_key );
+    size_t found_size = get_size( free_nodes.root->header );
+    if ( current_key == found_size ) {
+        if ( free_nodes.root->list_start != free_nodes.list_tail ) {
+            free_nodes.root->list_start->parent = free_nodes.nil;
+        }
+        add_duplicate( free_nodes.root, (struct duplicate_node *)current, free_nodes.nil );
+        return;
+    }
+    enum tree_link link = found_size < current_key;
+    give_parent_subtree( current, link, free_nodes.root->links[link] );
+    give_parent_subtree( current, !link, free_nodes.root );
+    free_nodes.root->links[link] = free_nodes.nil;
+    free_nodes.root = current;
+    ++free_nodes.total;
 }
 
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
@@ -692,21 +708,9 @@ static void add_duplicate( struct node *head, struct duplicate_node *add, struct
     ++free_nodes.total;
 }
 
-static struct node *delete_duplicate( struct node *head )
-{
-    struct duplicate_node *next_node = head->list_start;
-    // Take care of the possible node to the right in the doubly linked list first. This could be
-    // another node or it could be free_nodes.list_tail, it does not matter either way.
-    next_node->links[N]->parent = next_node->parent;
-    next_node->links[N]->links[P] = (struct duplicate_node *)head;
-    head->list_start = next_node->links[N];
-    --free_nodes.total;
-    return (struct node *)next_node;
-}
-
 /////////////////////////////   Basic Block, Header, and Tree Operations  //////////////////////////////////
 
-static inline void link_parent_to_subtree( struct node *parent, enum tree_link dir, struct node *subtree )
+static inline void give_parent_subtree( struct node *parent, enum tree_link dir, struct node *subtree )
 {
     parent->links[dir] = subtree;
     if ( subtree != free_nodes.nil && subtree->list_start != free_nodes.list_tail ) {

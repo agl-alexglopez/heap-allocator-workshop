@@ -320,7 +320,7 @@ bool validate_heap( void )
     if ( !is_rbtree_mem_valid( free_nodes.tree_root, free_nodes.black_nil, total_free_mem ) ) {
         return false;
     }
-    // Two red nodes in a row are invalid for the table.
+    // Two red nodes in a row are invalid for the tree.
     if ( is_red_red( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }
@@ -479,109 +479,39 @@ static inline void coalesce( struct coalesce_report *report )
     init_header_size( report->current, report->available );
 }
 
-//////////////////////////   Static RBTree Implementation    ////////////////////////////////////
+//////////////////////////   Red Black Tree Best Fit Deletion    ////////////////////////////////////
 
-static void rotate( struct rb_node *current, enum tree_link rotation )
+static struct rb_node *find_best_fit( size_t key )
 {
-    struct rb_node *child = current->links[!rotation];
-    current->links[!rotation] = child->links[rotation];
-
-    if ( child->links[rotation] != free_nodes.black_nil ) {
-        child->links[rotation]->parent = current;
+    if ( free_nodes.tree_root == free_nodes.black_nil ) {
+        return free_nodes.black_nil;
     }
-    child->parent = current->parent;
-    if ( current->parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = child;
-    } else {
-        // True == 1 == R, otherwise False == 0 == L
-        current->parent->links[current->parent->links[R] == current] = child;
-    }
-    child->links[rotation] = current;
-    current->parent = child;
-}
-
-////////////     Static Red-Black Tree Insertion Helper Function   ////////////
-
-static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add )
-{
-    to_add->header = head->header;
-    // These fields should not matter but we should initialize them to be safe.
-    to_add->parent = NULL;
-    to_add->list_start = NULL;
-    // Get the first next node in the doubly linked list, invariant and correct its left field.
-    head->list_start->links[P] = to_add;
-    to_add->links[N] = head->list_start;
-    to_add->links[P] = (struct duplicate_node *)head;
-    head->list_start = to_add;
-    free_nodes.total++;
-}
-
-////////////////      Static Red-Black Tree Insertion Logic   ///////////////
-
-static void fix_rb_insert( struct rb_node *current )
-{
-    while ( get_color( current->parent->header ) == RED ) {
-        enum tree_link symmetric_case = current->parent->parent->links[R] == current->parent;
-        struct rb_node *aunt = current->parent->parent->links[!symmetric_case];
-        if ( get_color( aunt->header ) == RED ) {
-            paint_node( aunt, BLACK );
-            paint_node( current->parent, BLACK );
-            paint_node( current->parent->parent, RED );
-            current = current->parent->parent;
-        } else {
-            if ( current == current->parent->links[!symmetric_case] ) {
-                current = current->parent;
-                rotate( current, symmetric_case );
-            }
-            paint_node( current->parent, BLACK );
-            paint_node( current->parent->parent, RED );
-            rotate( current->parent->parent, !symmetric_case );
-        }
-    }
-    paint_node( free_nodes.tree_root, BLACK );
-}
-
-static void insert_rb_node( struct rb_node *current )
-{
     struct rb_node *seeker = free_nodes.tree_root;
-    struct rb_node *parent = free_nodes.black_nil;
-    size_t current_key = get_size( current->header );
+    size_t best_fit_size = ULLONG_MAX;
+    struct rb_node *remove = seeker;
     while ( seeker != free_nodes.black_nil ) {
-        parent = seeker;
         size_t seeker_size = get_size( seeker->header );
-
-        // Duplicates with a linked list. No duplicates in tree while staying O(1) coalescing.
-        if ( current_key == seeker_size ) {
-            add_duplicate( seeker, (struct duplicate_node *)current );
-            return;
+        if ( key == seeker_size ) {
+            best_fit_size = key;
+            remove = seeker;
+            break;
         }
-        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
-        seeker = seeker->links[seeker_size < current_key];
+        /// The key is less than the current found size but let's remember this size on the way down
+        /// as a candidate for the best fit. The closest fit will have won when we reach the bottom.
+        if ( seeker_size < best_fit_size && seeker_size >= key ) {
+            remove = seeker;
+            best_fit_size = seeker_size;
+        }
+        seeker = seeker->links[seeker_size < key];
     }
-    current->parent = parent;
-    if ( parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = current;
-    } else {
-        parent->links[get_size( parent->header ) < current_key] = current;
+    if ( best_fit_size < key || best_fit_size == ULLONG_MAX ) {
+        return free_nodes.black_nil;
     }
-    current->links[L] = current->links[R] = free_nodes.black_nil;
-    // Every node in the tree is a dummy head for a doubly linked list of duplicates.
-    current->list_start = free_nodes.list_tail;
-    paint_node( current, RED );
-    fix_rb_insert( current );
-    free_nodes.total++;
-}
-
-//////////     Static Red-Black Tree Deletion Helper Functions   //////////////////////
-
-static void rb_transplant( struct swap nodes )
-{
-    if ( nodes.remove->parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = nodes.replacement;
-    } else {
-        nodes.remove->parent->links[nodes.remove->parent->links[R] == nodes.remove] = nodes.replacement;
+    if ( remove->list_start != free_nodes.list_tail ) {
+        // We will keep remove in the tree and just get the first node in doubly linked list.
+        return delete_duplicate( remove );
     }
-    nodes.replacement->parent = nodes.remove->parent;
+    return delete_rb_node( remove );
 }
 
 static struct rb_node *delete_duplicate( struct rb_node *head )
@@ -593,7 +523,46 @@ static struct rb_node *delete_duplicate( struct rb_node *head )
     return (struct rb_node *)next_node;
 }
 
-//////////////////////      Static Red-Black Tree Deletion Logic    ///////////////////////////
+static struct rb_node *delete_rb_node( struct rb_node *remove )
+{
+    enum rb_color fixup_color_check = get_color( remove->header );
+
+    struct rb_node *extra_black = NULL;
+    if ( remove->links[L] == free_nodes.black_nil || remove->links[R] == free_nodes.black_nil ) {
+        enum tree_link nil_link = remove->links[L] != free_nodes.black_nil;
+        rb_transplant( ( struct swap ){ remove, extra_black = remove->links[!nil_link] } );
+    } else {
+        struct rb_node *replacement = get_min( remove->links[R], free_nodes.black_nil );
+        fixup_color_check = get_color( replacement->header );
+        extra_black = replacement->links[R];
+        if ( replacement != remove->links[R] ) {
+            rb_transplant( ( struct swap ){ replacement, extra_black } );
+            replacement->links[R] = remove->links[R];
+            replacement->links[R]->parent = replacement;
+        } else {
+            extra_black->parent = replacement;
+        }
+        rb_transplant( ( struct swap ){ remove, replacement } );
+        replacement->links[L] = remove->links[L];
+        replacement->links[L]->parent = replacement;
+        paint_node( replacement, get_color( remove->header ) );
+    }
+    if ( fixup_color_check == BLACK ) {
+        fix_rb_delete( extra_black );
+    }
+    free_nodes.total--;
+    return remove;
+}
+
+static void rb_transplant( struct swap nodes )
+{
+    if ( nodes.remove->parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = nodes.replacement;
+    } else {
+        nodes.remove->parent->links[nodes.remove->parent->links[R] == nodes.remove] = nodes.replacement;
+    }
+    nodes.replacement->parent = nodes.remove->parent;
+}
 
 static void fix_rb_delete( struct rb_node *extra_black )
 {
@@ -631,90 +600,6 @@ static void fix_rb_delete( struct rb_node *extra_black )
     paint_node( extra_black, BLACK );
 }
 
-static struct rb_node *delete_rb_node( struct rb_node *remove )
-{
-    enum rb_color fixup_color_check = get_color( remove->header );
-
-    struct rb_node *extra_black = NULL;
-    if ( remove->links[L] == free_nodes.black_nil || remove->links[R] == free_nodes.black_nil ) {
-        enum tree_link nil_link = remove->links[L] != free_nodes.black_nil;
-        rb_transplant( ( struct swap ){ remove, extra_black = remove->links[!nil_link] } );
-    } else {
-        struct rb_node *replacement = get_min( remove->links[R], free_nodes.black_nil );
-        fixup_color_check = get_color( replacement->header );
-        extra_black = replacement->links[R];
-        if ( replacement != remove->links[R] ) {
-            rb_transplant( ( struct swap ){ replacement, extra_black } );
-            replacement->links[R] = remove->links[R];
-            replacement->links[R]->parent = replacement;
-        } else {
-            extra_black->parent = replacement;
-        }
-        rb_transplant( ( struct swap ){ remove, replacement } );
-        replacement->links[L] = remove->links[L];
-        replacement->links[L]->parent = replacement;
-        paint_node( replacement, get_color( remove->header ) );
-    }
-    if ( fixup_color_check == BLACK ) {
-        fix_rb_delete( extra_black );
-    }
-    free_nodes.total--;
-    return remove;
-}
-
-static struct rb_node *find_best_fit( size_t key )
-{
-    if ( free_nodes.tree_root == free_nodes.black_nil ) {
-        return free_nodes.black_nil;
-    }
-    struct rb_node *seeker = free_nodes.tree_root;
-    size_t best_fit_size = ULLONG_MAX;
-    struct rb_node *remove = seeker;
-    while ( seeker != free_nodes.black_nil ) {
-        size_t seeker_size = get_size( seeker->header );
-        if ( key == seeker_size ) {
-            best_fit_size = key;
-            remove = seeker;
-            break;
-        }
-        /// The key is less than the current found size but let's remember this size on the way down
-        /// as a candidate for the best fit. The closest fit will have won when we reach the bottom.
-        if ( seeker_size < best_fit_size && seeker_size >= key ) {
-            remove = seeker;
-            best_fit_size = seeker_size;
-        }
-        seeker = seeker->links[seeker_size < key];
-    }
-    if ( best_fit_size < key || best_fit_size == ULLONG_MAX ) {
-        return free_nodes.black_nil;
-    }
-    if ( remove->list_start != free_nodes.list_tail ) {
-        // We will keep remove in the tree and just get the first node in doubly linked list.
-        return delete_duplicate( remove );
-    }
-    return delete_rb_node( remove );
-}
-
-static void remove_head( struct rb_node *head )
-{
-    struct rb_node *new_head = (struct rb_node *)head->list_start;
-    new_head->header = head->header;
-    // Make sure we set up new start of list correctly for linked list.
-    new_head->list_start = head->list_start->links[N];
-
-    // Now transition to thinking about this new_head as a node in a tree, not a list.
-    new_head->links[L] = head->links[L];
-    new_head->links[R] = head->links[R];
-    head->links[L]->parent = new_head;
-    head->links[R]->parent = new_head;
-    new_head->parent = head->parent;
-    if ( head->parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = new_head;
-    } else {
-        head->parent->links[head->parent->links[R] == head] = new_head;
-    }
-}
-
 static struct rb_node *free_coalesced_node( void *to_coalesce )
 {
     struct rb_node *tree_node = to_coalesce;
@@ -741,6 +626,117 @@ static struct rb_node *free_coalesced_node( void *to_coalesce )
     }
     free_nodes.total--;
     return to_coalesce;
+}
+
+static void remove_head( struct rb_node *head )
+{
+    struct rb_node *new_head = (struct rb_node *)head->list_start;
+    new_head->header = head->header;
+    // Make sure we set up new start of list correctly for linked list.
+    new_head->list_start = head->list_start->links[N];
+
+    // Now transition to thinking about this new_head as a node in a tree, not a list.
+    new_head->links[L] = head->links[L];
+    new_head->links[R] = head->links[R];
+    head->links[L]->parent = new_head;
+    head->links[R]->parent = new_head;
+    new_head->parent = head->parent;
+    if ( head->parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = new_head;
+    } else {
+        head->parent->links[head->parent->links[R] == head] = new_head;
+    }
+}
+
+/////////////////////      Red-Black Tree Insertion Logic   //////////////////////
+
+static void insert_rb_node( struct rb_node *current )
+{
+    struct rb_node *seeker = free_nodes.tree_root;
+    struct rb_node *parent = free_nodes.black_nil;
+    size_t current_key = get_size( current->header );
+    while ( seeker != free_nodes.black_nil ) {
+        parent = seeker;
+        size_t seeker_size = get_size( seeker->header );
+
+        // Duplicates with a linked list. No duplicates in tree while staying O(1) coalescing.
+        if ( current_key == seeker_size ) {
+            add_duplicate( seeker, (struct duplicate_node *)current );
+            return;
+        }
+        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
+        seeker = seeker->links[seeker_size < current_key];
+    }
+    current->parent = parent;
+    if ( parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = current;
+    } else {
+        parent->links[get_size( parent->header ) < current_key] = current;
+    }
+    current->links[L] = current->links[R] = free_nodes.black_nil;
+    // Every node in the tree is a dummy head for a doubly linked list of duplicates.
+    current->list_start = free_nodes.list_tail;
+    paint_node( current, RED );
+    fix_rb_insert( current );
+    free_nodes.total++;
+}
+
+static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add )
+{
+    to_add->header = head->header;
+    // These fields should not matter but we should initialize them to be safe.
+    to_add->parent = NULL;
+    to_add->list_start = NULL;
+    // Get the first next node in the doubly linked list, invariant and correct its left field.
+    head->list_start->links[P] = to_add;
+    to_add->links[N] = head->list_start;
+    to_add->links[P] = (struct duplicate_node *)head;
+    head->list_start = to_add;
+    free_nodes.total++;
+}
+
+static void fix_rb_insert( struct rb_node *current )
+{
+    while ( get_color( current->parent->header ) == RED ) {
+        enum tree_link gparent_to_parent_dir = current->parent->parent->links[R] == current->parent;
+        struct rb_node *aunt = current->parent->parent->links[!gparent_to_parent_dir];
+        if ( get_color( aunt->header ) == RED ) {
+            paint_node( aunt, BLACK );
+            paint_node( current->parent, BLACK );
+            paint_node( current->parent->parent, RED );
+            current = current->parent->parent;
+        } else {
+            if ( current == current->parent->links[!gparent_to_parent_dir] ) {
+                current = current->parent;
+                rotate( current, gparent_to_parent_dir );
+            }
+            paint_node( current->parent, BLACK );
+            paint_node( current->parent->parent, RED );
+            rotate( current->parent->parent, !gparent_to_parent_dir );
+        }
+    }
+    paint_node( free_nodes.tree_root, BLACK );
+}
+
+//////////////////////      Rotation Helper    ///////////////////////////
+
+static void rotate( struct rb_node *current, enum tree_link rotation )
+{
+    struct rb_node *child = current->links[!rotation];
+    current->links[!rotation] = child->links[rotation];
+
+    if ( child->links[rotation] != free_nodes.black_nil ) {
+        child->links[rotation]->parent = current;
+    }
+    child->parent = current->parent;
+    if ( current->parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = child;
+    } else {
+        // True == 1 == R, otherwise False == 0 == L
+        current->parent->links[current->parent->links[R] == current] = child;
+    }
+    child->links[rotation] = current;
+    current->parent = child;
 }
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////

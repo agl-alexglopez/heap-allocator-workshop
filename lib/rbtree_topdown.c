@@ -486,183 +486,7 @@ static inline void coalesce( struct coalesce_report *report )
     init_header_size( report->current, report->available );
 }
 
-//////////////////////    Static Red-Black Tree Implementation   /////////////////////////////
-
-static struct rb_node *single_rotation( struct rotation root_parent, enum tree_link dir )
-{
-    struct rb_node *save = root_parent.root->links[!dir];
-    root_parent.root->links[!dir] = save->links[dir];
-    if ( save->links[dir] != free_nodes.black_nil ) {
-        save->links[dir]->list_start->parent = root_parent.root;
-    }
-    if ( save != free_nodes.black_nil ) {
-        save->list_start->parent = root_parent.parent;
-    }
-    if ( root_parent.root == free_nodes.tree_root ) {
-        free_nodes.tree_root = save;
-    }
-    save->links[dir] = root_parent.root;
-    root_parent.root->list_start->parent = save;
-    paint_node( root_parent.root, RED );
-    paint_node( save, BLACK );
-    return save;
-}
-
-static struct rb_node *double_rotation( struct rotation root_parent, enum tree_link dir )
-{
-    root_parent.root->links[!dir] = single_rotation(
-        ( struct rotation ){
-            .root = root_parent.root->links[!dir],
-            .parent = root_parent.root,
-        },
-        !dir );
-    return single_rotation( root_parent, dir );
-}
-
-///////////////////    Static Red-Black Tree Insertion Helper Function   ////////////////////////////
-
-static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add, struct rb_node *parent )
-{
-    to_add->header = head->header;
-    // This will tell us if we are coalescing a duplicate node. Only linked list will have NULL.
-    if ( head->list_start == free_nodes.list_tail ) {
-        to_add->parent = parent;
-    } else {
-        to_add->parent = head->list_start->parent;
-        head->list_start->parent = NULL;
-    }
-
-    // Get the first next node in the doubly linked list, invariant and correct its left field.
-    head->list_start->links[P] = to_add;
-    to_add->links[N] = head->list_start;
-    head->list_start = to_add;
-    to_add->links[P] = (struct duplicate_node *)head;
-}
-
-//////////////////////     Static Red-Black Tree Insertion Logic    ///////////////////////////////
-
-static void insert_rb_topdown( struct rb_node *current )
-{
-    size_t key = get_size( current->header );
-    paint_node( current, RED );
-
-    enum tree_link prev_link = L;
-    enum tree_link link = R;
-    struct rb_node *ancestor = free_nodes.black_nil;
-    struct rb_node *gparent = free_nodes.black_nil;
-    struct rb_node *parent = free_nodes.black_nil;
-    struct rb_node *child = free_nodes.tree_root;
-    size_t child_size = 0;
-
-    // Unfortunate infinite loop structure due to odd nature of topdown fixups. I kept the search
-    // and pointer updates at top of loop for clarity but can't figure out how to make proper
-    // loop conditions from this logic.
-    for ( ;; ancestor = gparent, gparent = parent, parent = child, prev_link = link,
-             child = child->links[link = child_size < key] ) {
-
-        child_size = get_size( child->header );
-        if ( child_size == key ) {
-            add_duplicate( child, (struct duplicate_node *)current, parent );
-        } else if ( child == free_nodes.black_nil ) {
-            child = current;
-            child_size = key;
-            parent->links[link] = current;
-            current->links[L] = free_nodes.black_nil;
-            current->links[R] = free_nodes.black_nil;
-            current->list_start = free_nodes.list_tail;
-        } else if ( get_color( child->links[L]->header ) == RED && get_color( child->links[R]->header ) == RED ) {
-            paint_node( child, RED );
-            // If you split a black node down the tree the black height remains constant.
-            paint_node( child->links[L], BLACK );
-            paint_node( child->links[R], BLACK );
-        }
-
-        // Our previous fix could have created a violation further up tree.
-        if ( get_color( parent->header ) == RED && get_color( child->header ) == RED ) {
-            enum tree_link ancestor_link = ancestor->links[R] == gparent;
-            if ( child == parent->links[prev_link] ) {
-                ancestor->links[ancestor_link] = single_rotation(
-                    ( struct rotation ){
-                        .root = gparent,
-                        .parent = ancestor,
-                    },
-                    !prev_link );
-            } else {
-                ancestor->links[ancestor_link] = double_rotation(
-                    ( struct rotation ){
-                        .root = gparent,
-                        .parent = ancestor,
-                    },
-                    !prev_link );
-            }
-        }
-        if ( child_size == key ) {
-            break;
-        }
-    }
-
-    if ( parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = child;
-    }
-    paint_node( free_nodes.tree_root, BLACK );
-    free_nodes.total++;
-}
-
-///////////////////    Red-Black Tree Deletion Helper Functions    ///////////////////////////
-
-static void rb_transplant( struct rb_node *parent, struct rb_node *remove, struct rb_node *replace )
-{
-    if ( parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = replace;
-    } else {
-        parent->links[parent->links[R] == remove] = replace;
-    }
-    if ( replace != free_nodes.black_nil ) {
-        replace->list_start->parent = parent;
-    }
-}
-
-static struct rb_node *delete_duplicate( struct rb_node *head )
-{
-    struct duplicate_node *next_node = head->list_start;
-    // Take care of the possible node to the right in the doubly linked list first. This could be
-    // another node or it could be free_nodes.black_nil, it does not matter either way.
-    next_node->links[N]->parent = next_node->parent;
-    next_node->links[N]->links[P] = (struct duplicate_node *)head;
-    head->list_start = next_node->links[N];
-    free_nodes.total--;
-    return (struct rb_node *)next_node;
-}
-
-//////////////////      Static Red-Black Tree Deletion Logic    ////////////////////////////////
-
-static struct rb_node *remove_node( struct rb_node *parent, struct replacement r )
-{
-    if ( r.remove->list_start != free_nodes.list_tail ) {
-        return delete_duplicate( r.remove );
-    }
-    if ( r.remove->links[L] == free_nodes.black_nil || r.remove->links[R] == free_nodes.black_nil ) {
-        enum tree_link nil_link = r.remove->links[L] != free_nodes.black_nil;
-        rb_transplant( parent, r.remove, r.remove->links[!nil_link] );
-    } else {
-        if ( r.replacement != r.remove->links[R] ) {
-            rb_transplant( r.replacement_parent, r.replacement, r.replacement->links[R] );
-            r.replacement->links[R] = r.remove->links[R];
-            r.replacement->links[R]->list_start->parent = r.replacement;
-        }
-        rb_transplant( parent, r.remove, r.replacement );
-        r.replacement->links[L] = r.remove->links[L];
-        if ( r.replacement->links[L] != free_nodes.black_nil ) {
-            r.replacement->links[L]->list_start->parent = r.replacement;
-        }
-        r.replacement->list_start->parent = parent;
-    }
-    paint_node( r.replacement, get_color( r.remove->header ) );
-    paint_node( free_nodes.black_nil, BLACK );
-    paint_node( free_nodes.tree_root, BLACK );
-    free_nodes.total--;
-    return r.remove;
-}
+//////////////////////    Red-Black Tree Best Fit Implementation   /////////////////////////////
 
 static struct rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-complexity)
 {
@@ -746,29 +570,55 @@ static struct rb_node *delete_rb_topdown( size_t key ) // NOLINT(*cognitive-comp
     return remove_node( best_parent, ( struct replacement ){ best, parent, child } );
 }
 
-static void remove_head( struct rb_node *head, struct rb_node *lft_child, struct rb_node *rgt_child )
+static struct rb_node *remove_node( struct rb_node *parent, struct replacement r )
 {
-    // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
-    struct rb_node *tree_parent = head->list_start->parent;
-    head->list_start->header = head->header;
-    head->list_start->links[N]->parent = head->list_start->parent;
-
-    struct rb_node *new_tree_node = (struct rb_node *)head->list_start;
-    new_tree_node->list_start = head->list_start->links[N];
-    new_tree_node->links[L] = lft_child;
-    new_tree_node->links[R] = rgt_child;
-
-    // We often write to fields of the black_nil, invariant. DO NOT use the nodes it stores!
-    if ( lft_child != free_nodes.black_nil ) {
-        lft_child->list_start->parent = new_tree_node;
+    if ( r.remove->list_start != free_nodes.list_tail ) {
+        return delete_duplicate( r.remove );
     }
-    if ( rgt_child != free_nodes.black_nil ) {
-        rgt_child->list_start->parent = new_tree_node;
-    }
-    if ( tree_parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = new_tree_node;
+    if ( r.remove->links[L] == free_nodes.black_nil || r.remove->links[R] == free_nodes.black_nil ) {
+        enum tree_link nil_link = r.remove->links[L] != free_nodes.black_nil;
+        rb_transplant( parent, r.remove, r.remove->links[!nil_link] );
     } else {
-        tree_parent->links[tree_parent->links[R] == head] = new_tree_node;
+        if ( r.replacement != r.remove->links[R] ) {
+            rb_transplant( r.replacement_parent, r.replacement, r.replacement->links[R] );
+            r.replacement->links[R] = r.remove->links[R];
+            r.replacement->links[R]->list_start->parent = r.replacement;
+        }
+        rb_transplant( parent, r.remove, r.replacement );
+        r.replacement->links[L] = r.remove->links[L];
+        if ( r.replacement->links[L] != free_nodes.black_nil ) {
+            r.replacement->links[L]->list_start->parent = r.replacement;
+        }
+        r.replacement->list_start->parent = parent;
+    }
+    paint_node( r.replacement, get_color( r.remove->header ) );
+    paint_node( free_nodes.black_nil, BLACK );
+    paint_node( free_nodes.tree_root, BLACK );
+    free_nodes.total--;
+    return r.remove;
+}
+
+static struct rb_node *delete_duplicate( struct rb_node *head )
+{
+    struct duplicate_node *next_node = head->list_start;
+    // Take care of the possible node to the right in the doubly linked list first. This could be
+    // another node or it could be free_nodes.black_nil, it does not matter either way.
+    next_node->links[N]->parent = next_node->parent;
+    next_node->links[N]->links[P] = (struct duplicate_node *)head;
+    head->list_start = next_node->links[N];
+    free_nodes.total--;
+    return (struct rb_node *)next_node;
+}
+
+static void rb_transplant( struct rb_node *parent, struct rb_node *remove, struct rb_node *replace )
+{
+    if ( parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = replace;
+    } else {
+        parent->links[parent->links[R] == remove] = replace;
+    }
+    if ( replace != free_nodes.black_nil ) {
+        replace->list_start->parent = parent;
     }
 }
 
@@ -799,6 +649,144 @@ static void *free_coalesced_node( void *to_coalesce )
     }
     free_nodes.total--;
     return to_coalesce;
+}
+
+static void remove_head( struct rb_node *head, struct rb_node *lft_child, struct rb_node *rgt_child )
+{
+    // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
+    struct rb_node *tree_parent = head->list_start->parent;
+    head->list_start->header = head->header;
+    head->list_start->links[N]->parent = head->list_start->parent;
+
+    struct rb_node *new_tree_node = (struct rb_node *)head->list_start;
+    new_tree_node->list_start = head->list_start->links[N];
+    new_tree_node->links[L] = lft_child;
+    new_tree_node->links[R] = rgt_child;
+
+    // We often write to fields of the black_nil, invariant. DO NOT use the nodes it stores!
+    if ( lft_child != free_nodes.black_nil ) {
+        lft_child->list_start->parent = new_tree_node;
+    }
+    if ( rgt_child != free_nodes.black_nil ) {
+        rgt_child->list_start->parent = new_tree_node;
+    }
+    if ( tree_parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = new_tree_node;
+    } else {
+        tree_parent->links[tree_parent->links[R] == head] = new_tree_node;
+    }
+}
+
+//////////////////////     Red-Black Tree Insertion Logic    ///////////////////////////////
+
+static void insert_rb_topdown( struct rb_node *current )
+{
+    size_t key = get_size( current->header );
+    paint_node( current, RED );
+
+    enum tree_link prev_link = L;
+    enum tree_link link = R;
+    struct rb_node *ancestor = free_nodes.black_nil;
+    struct rb_node *gparent = free_nodes.black_nil;
+    struct rb_node *parent = free_nodes.black_nil;
+    struct rb_node *child = free_nodes.tree_root;
+    size_t child_size = 0;
+
+    // Unfortunate infinite loop structure due to odd nature of topdown fixups. I kept the search
+    // and pointer updates at top of loop for clarity but can't figure out how to make proper
+    // loop conditions from this logic.
+    for ( ;; ancestor = gparent, gparent = parent, parent = child, prev_link = link,
+             child = child->links[link = child_size < key] ) {
+
+        child_size = get_size( child->header );
+        if ( child_size == key ) {
+            add_duplicate( child, (struct duplicate_node *)current, parent );
+        } else if ( child == free_nodes.black_nil ) {
+            child = current;
+            child_size = key;
+            parent->links[link] = current;
+            current->links[L] = free_nodes.black_nil;
+            current->links[R] = free_nodes.black_nil;
+            current->list_start = free_nodes.list_tail;
+        } else if ( get_color( child->links[L]->header ) == RED && get_color( child->links[R]->header ) == RED ) {
+            paint_node( child, RED );
+            // If you split a black node down the tree the black height remains constant.
+            paint_node( child->links[L], BLACK );
+            paint_node( child->links[R], BLACK );
+        }
+
+        // Our previous fix could have created a violation further up tree.
+        if ( get_color( parent->header ) == RED && get_color( child->header ) == RED ) {
+            enum tree_link ancestor_link = ancestor->links[R] == gparent;
+            if ( child == parent->links[prev_link] ) {
+                ancestor->links[ancestor_link]
+                    = single_rotation( ( struct rotation ){ .root = gparent, .parent = ancestor }, !prev_link );
+            } else {
+                ancestor->links[ancestor_link]
+                    = double_rotation( ( struct rotation ){ .root = gparent, .parent = ancestor }, !prev_link );
+            }
+        }
+        if ( child_size == key ) {
+            break;
+        }
+    }
+
+    if ( parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = child;
+    }
+    paint_node( free_nodes.tree_root, BLACK );
+    free_nodes.total++;
+}
+
+static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add, struct rb_node *parent )
+{
+    to_add->header = head->header;
+    // This will tell us if we are coalescing a duplicate node. Only linked list will have NULL.
+    if ( head->list_start == free_nodes.list_tail ) {
+        to_add->parent = parent;
+    } else {
+        to_add->parent = head->list_start->parent;
+        head->list_start->parent = NULL;
+    }
+
+    // Get the first next node in the doubly linked list, invariant and correct its left field.
+    head->list_start->links[P] = to_add;
+    to_add->links[N] = head->list_start;
+    head->list_start = to_add;
+    to_add->links[P] = (struct duplicate_node *)head;
+}
+
+////////////////////////////////   Rotation Logic    /////////////////////////////////
+
+static struct rb_node *single_rotation( struct rotation root_parent, enum tree_link dir )
+{
+    struct rb_node *save = root_parent.root->links[!dir];
+    root_parent.root->links[!dir] = save->links[dir];
+    if ( save->links[dir] != free_nodes.black_nil ) {
+        save->links[dir]->list_start->parent = root_parent.root;
+    }
+    if ( save != free_nodes.black_nil ) {
+        save->list_start->parent = root_parent.parent;
+    }
+    if ( root_parent.root == free_nodes.tree_root ) {
+        free_nodes.tree_root = save;
+    }
+    save->links[dir] = root_parent.root;
+    root_parent.root->list_start->parent = save;
+    paint_node( root_parent.root, RED );
+    paint_node( save, BLACK );
+    return save;
+}
+
+static struct rb_node *double_rotation( struct rotation root_parent, enum tree_link dir )
+{
+    root_parent.root->links[!dir] = single_rotation(
+        ( struct rotation ){
+            .root = root_parent.root->links[!dir],
+            .parent = root_parent.root,
+        },
+        !dir );
+    return single_rotation( root_parent, dir );
 }
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////

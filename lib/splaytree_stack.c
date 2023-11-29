@@ -526,7 +526,7 @@ static void init_free_node( struct node *to_free, size_t block_size )
     insert_node( to_free );
 }
 
-/////////////////////////////      Splay Tree Implementation       //////////////////////////////////
+/////////////////////////////      Splay Tree Best Fit Implementation       //////////////////////////////////
 
 static struct node *find_best_fit( size_t key )
 {
@@ -623,44 +623,7 @@ static struct node *delete_duplicate( struct node *head )
     return (struct node *)next_node;
 }
 
-static void insert_node( struct node *current )
-{
-    size_t current_key = get_size( current->header );
-    struct node *path[MAX_TREE_HEIGHT];
-    path[0] = free_nodes.nil;
-    int path_len = 1;
-    struct node *seeker = free_nodes.root;
-    while ( seeker != free_nodes.nil ) {
-        path[path_len++] = seeker;
-        assert( path_len < MAX_TREE_HEIGHT );
-        size_t parent_size = get_size( seeker->header );
-        // The user has just requested this amount of space but it is a duplicate. However, if we move the
-        // existing duplicate to the root via splaying before adding the new duplicate we benefit from
-        // splay fixups and we have multiple "hot" nodes at the root available in O(1) if requested again.
-        // If request patterns changes then oh well, can't win 'em all.
-        if ( current_key == parent_size ) {
-            splay( seeker, ( struct path_slice ){ path, path_len } );
-            assert( seeker == free_nodes.root );
-            add_duplicate( seeker, (struct duplicate_node *)current, free_nodes.nil );
-            return;
-        }
-        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
-        seeker = seeker->links[parent_size < current_key];
-    }
-    struct node *parent = path[path_len - 1];
-    if ( parent == free_nodes.nil ) {
-        free_nodes.root = current;
-    } else {
-        parent->links[get_size( parent->header ) < current_key] = current;
-    }
-    current->links[L] = free_nodes.nil;
-    current->links[R] = free_nodes.nil;
-    // Store the doubly linked duplicates in list. list_tail aka nil is the dummy tail.
-    current->list_start = free_nodes.list_tail;
-    path[path_len++] = current;
-    splay( current, ( struct path_slice ){ path, path_len } );
-    ++free_nodes.total;
-}
+/////////////////////////   Core Splay Operation Used by Delete and Insert   /////////////////////////
 
 static void splay( struct node *cur, struct path_slice p )
 {
@@ -687,12 +650,12 @@ static void splay( struct node *cur, struct path_slice p )
             p.len -= 2;
             continue;
         }
-        // Zig-Zag and Zag-Zig branches are also easily united. Think of the shapes we have.
-        //  gparent          gparent       gparent         gparent        current             current
-        //   \              /              \               /               |    |             |     |
-        //    parent   or   parent     ->   current   or  current   -> gparent parent or  parent   gparent
-        //   /              \                \           /
-        //  current          current          parent     parent
+        // We unite Zig-Zag and Zag-Zig branches by abstracting links. Here is one of the two symmetric cases.
+        //  gparent            gparent                      current
+        //       \\                 \\                     //     \\
+        //        parent  ->         current    ->   gparent       parent
+        //       //                       \\
+        //  current                        parent
         // We want the parent-child link to rotate the same direction as the grandparent-parent link
         // and then for the gparent-rotatedchild link to rotate the same direction as the original parent-child.
         rotate( gparent_to_parent_link, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
@@ -725,6 +688,46 @@ static void rotate( enum tree_link rotation, struct node *current, struct path_s
     }
     child->links[rotation] = current;
     current->list_start->parent = child;
+}
+
+//////////////////////////////////    Splay Tree Insertion Logic   //////////////////////////////
+
+static void insert_node( struct node *current )
+{
+    size_t current_key = get_size( current->header );
+    struct node *path[MAX_TREE_HEIGHT];
+    path[0] = free_nodes.nil;
+    int path_len = 1;
+    struct node *seeker = free_nodes.root;
+    while ( seeker != free_nodes.nil ) {
+        path[path_len++] = seeker;
+        assert( path_len < MAX_TREE_HEIGHT );
+        size_t parent_size = get_size( seeker->header );
+        // The user has just requested this amount of space but it is a duplicate. However, if we move the
+        // existing duplicate to the root via splaying before adding the new duplicate we benefit from
+        // splay fixups and we have multiple "hot" nodes near the root available in O(1) if requested again.
+        // If request patterns changes then oh well, can't win 'em all.
+        if ( current_key == parent_size ) {
+            splay( seeker, ( struct path_slice ){ path, path_len } );
+            assert( seeker == free_nodes.root );
+            add_duplicate( seeker, (struct duplicate_node *)current, free_nodes.nil );
+            return;
+        }
+        seeker = seeker->links[parent_size < current_key];
+    }
+    struct node *parent = path[path_len - 1];
+    if ( parent == free_nodes.nil ) {
+        free_nodes.root = current;
+    } else {
+        parent->links[get_size( parent->header ) < current_key] = current;
+    }
+    current->links[L] = free_nodes.nil;
+    current->links[R] = free_nodes.nil;
+    // Store the doubly linked duplicates in list. list_tail aka nil is the dummy tail.
+    current->list_start = free_nodes.list_tail;
+    path[path_len++] = current;
+    splay( current, ( struct path_slice ){ path, path_len } );
+    ++free_nodes.total;
 }
 
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
