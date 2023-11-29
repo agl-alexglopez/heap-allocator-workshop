@@ -116,11 +116,20 @@ std::ostream &operator<<( std::ostream &os, const heap_block &b )
     return os << " }";
 }
 
-TEST( InitTests, SmallInitialization ) { assert_init( small_heap_size, expect::pass ); }
+TEST( InitTests, SmallInitialization )
+{
+    assert_init( small_heap_size, expect::pass );
+}
 
-TEST( InitTests, MaxInitialization ) { assert_init( max_heap_size, expect::pass ); }
+TEST( InitTests, MaxInitialization )
+{
+    assert_init( max_heap_size, expect::pass );
+}
 
-TEST( InitTests, FailInitializationTooSmall ) { assert_init( 8, expect::fail ); }
+TEST( InitTests, FailInitializationTooSmall )
+{
+    assert_init( 8, expect::fail );
+}
 
 TEST( MallocTests, SingleMalloc )
 {
