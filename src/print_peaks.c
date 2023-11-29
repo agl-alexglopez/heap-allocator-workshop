@@ -386,4 +386,7 @@ static void binsert( const void *key, void *base, int *p_nelem, size_t width,
 /// @brief cmp_breakpoints  the compare function for our breakpoint line numbers for qsort.
 /// @param a,b              breakpoints to compare.
 /// @return                 >0 if a is larger than b, <0 if b is larger than a, =0 if same.
-static int cmp_breakpoints( const void *a, const void *b ) { return ( *(breakpoint *)a ) - ( *(breakpoint *)b ); }
+static int cmp_breakpoints( const void *a, const void *b )
+{
+    return ( *(breakpoint *)a ) - ( *(breakpoint *)b );
+}

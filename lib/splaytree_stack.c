@@ -211,7 +211,10 @@ static void print_all( struct heap_range r, size_t heap_size, struct node *tree_
 
 ///////////////////////////////   Shared Heap Functions   ////////////////////////////////
 
-size_t get_free_total( void ) { return free_nodes.total; }
+size_t get_free_total( void )
+{
+    return free_nodes.total;
+}
 
 bool myinit( void *heap_start, size_t heap_size )
 {
@@ -321,7 +324,10 @@ bool validate_heap( void )
     return true;
 }
 
-size_t myheap_align( size_t request ) { return roundup( request, ALIGNMENT ); }
+size_t myheap_align( size_t request )
+{
+    return roundup( request, ALIGNMENT );
+}
 
 size_t myheap_capacity( void )
 {
@@ -411,9 +417,6 @@ void dump_heap( void )
 
 /////////////////////    Static Heap Helper Functions    //////////////////////////////////
 
-/// @brief check_neighbors  checks for coalescing left and right if the left and right node are free.
-/// @param *old_ptr         the starting node the user has asked to coalesce from.
-/// @return                 a report neighbors for coalescing and space. Neighbor fields are NULL if allocated.
 static struct coalesce_report check_neighbors( const void *old_ptr )
 {
     struct node *current_node = get_node( old_ptr );
@@ -433,11 +436,6 @@ static struct coalesce_report check_neighbors( const void *old_ptr )
     return result;
 }
 
-/// @brief apply_coalesce_report  frees any neighbors from the free node data structure of the heap, combining
-///                               the space into one larger node if such combination is possible. After all
-///                               coalescing has been performed the current field will hold the current address
-///                               and headersize of this new node. Insert it back, give to user, or split. This
-///                               function leaves it to the user to decide what to do with .current.
 static inline void apply_coalesce_report( struct coalesce_report *report )
 {
     if ( report->left ) {
@@ -449,11 +447,6 @@ static inline void apply_coalesce_report( struct coalesce_report *report )
     init_header_size( report->current, report->available );
 }
 
-/// @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
-///                             need to free from the tree before absorbing into our coalescing. If
-///                             this node is a duplicate we can splice it from a linked list.
-/// @param *to_coalesce         the address for a node we must treat as a list or tree node.
-/// @return                     the node we have now correctly freed given all cases to find it.
 static void *free_coalesced_node( void *to_coalesce )
 {
     struct node *tree_node = to_coalesce;
@@ -483,12 +476,6 @@ static void *free_coalesced_node( void *to_coalesce )
     return to_coalesce;
 }
 
-/// @brief remove_head  frees the head of a doubly linked list of duplicates which is a node in a
-///                     red black tree. The next duplicate must become the new tree node and the
-///                     parent and children must be adjusted to track this new node.
-/// @param head         the node in the tree that must now be coalesced.
-/// @param lft_child    if the left child has a duplicate, it tracks the new tree node as parent.
-/// @param rgt_child    if the right child has a duplicate, it tracks the new tree node as parent.
 static void remove_head( struct node *head, struct node *lft_child, struct node *rgt_child )
 {
     // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
@@ -515,12 +502,6 @@ static void remove_head( struct node *head, struct node *lft_child, struct node 
     }
 }
 
-/// @brief *split_alloc  determines if a block should be taken entirely or split into two blocks. If
-///                      split, it will add the newly freed split block to the free red black tree.
-/// @param *free_block   a pointer to the node for a free block in its entirety.
-/// @param request       the user request for space.
-/// @param block_space   the entire space that we have to work with.
-/// @return              a void pointer to generic space that is now ready for the client.
 static void *split_alloc( struct node *free_block, size_t request, size_t block_space )
 {
     if ( block_space >= request + BLOCK_SIZE ) {
@@ -536,9 +517,6 @@ static void *split_alloc( struct node *free_block, size_t request, size_t block_
     return get_client_space( free_block );
 }
 
-/// @brief init_free_node  initializes a newly freed node and adds it to a red black tree.
-/// @param *to_free        the heap_node to add to the red black tree.
-/// @param block_size      the size we use to initialize the node and find the right place in tree.
 static void init_free_node( struct node *to_free, size_t block_size )
 {
     to_free->header = block_size | LEFT_ALLOCATED;
@@ -550,10 +528,6 @@ static void init_free_node( struct node *to_free, size_t block_size )
 
 /////////////////////////////      Splay Tree Implementation       //////////////////////////////////
 
-/// @brief find_best_fit  a splay tree is well suited to best fit search in O(logN) time. We
-///                       will find the best fitting node possible given the options in our tree.
-/// @param key            the size_t number of bytes we are searching for in our tree.
-/// @return               the pointer to the struct node that is the best fit for our need.
 static struct node *find_best_fit( size_t key )
 {
     if ( free_nodes.root == free_nodes.nil ) {
@@ -607,11 +581,6 @@ static struct node *find_best_fit( size_t key )
     return remove;
 }
 
-/// @brief split   splay a node and then split its arbitrary subtrees into lesser and greater trees in
-///                in preparation for removal.
-/// @param remove  the node we will splay and then split into two trees.
-/// @param p       the path_slice we will use to splay the node for removal
-/// @return        the tree_pair of a lesser and greater tree we will later join after node removal.
 static struct tree_pair split( struct node *remove, struct path_slice p )
 {
     splay( remove, p );
@@ -624,9 +593,6 @@ static struct tree_pair split( struct node *remove, struct path_slice p )
     return split;
 }
 
-/// @brief join  when joining, we have just splayed a node we wish to remove to the root of a tree, then split.
-///              We now must make a new root and join the two trees split trees. The smaller tree contains the
-///              maximum we will use. This maximum then takes the larger tree as its right child.
 static struct node *join( struct tree_pair subtrees, struct path_slice p )
 {
     if ( subtrees.lesser == free_nodes.nil ) {
@@ -645,15 +611,11 @@ static struct node *join( struct tree_pair subtrees, struct path_slice p )
     return inorder_predecessor;
 }
 
-/// @brief delete_duplicate  will remove a duplicate node from the tree when the request is coming
-///                          from a call from malloc. Address of duplicate does not matter so we
-///                          remove the first node from the linked list.
-/// @param *head             We know this node has a next node and it must be removed for malloc.
 static struct node *delete_duplicate( struct node *head )
 {
     struct duplicate_node *next_node = head->list_start;
-    /// Take care of the possible node to the right in the doubly linked list first. This could be
-    /// another node or it could be free_nodes.list_tail, it does not matter either way.
+    // Take care of the possible node to the right in the doubly linked list first. This could be
+    // another node or it could be free_nodes.list_tail, it does not matter either way.
     next_node->links[N]->parent = next_node->parent;
     next_node->links[N]->links[P] = (struct duplicate_node *)head;
     head->list_start = next_node->links[N];
@@ -661,9 +623,6 @@ static struct node *delete_duplicate( struct node *head )
     return (struct node *)next_node;
 }
 
-/// @brief insert_node  a modified insertion with additional logic to add duplicates if the
-///                     size in bytes of the block is already in the tree.
-/// @param *current     we must insert to tree or add to a list as duplicate.
 static void insert_node( struct node *current )
 {
     size_t current_key = get_size( current->header );
@@ -703,12 +662,6 @@ static void insert_node( struct node *current )
     ++free_nodes.total;
 }
 
-/// @brief splay  splays a node from its location in the tree to the root. A splay is defined by all
-///               combinations of the Zig and Zag operations. A Zig or Zag operation is a simple rotation
-///               that rotates a child node in the opposite direction from its relationship to its parent.
-///               That means we have Zag, Zig, Zig-Zig, Zag-Zag, Zig-Zag, and Zag-Zig to consider.
-/// @param cur    the current node making its way up the tree.
-/// @param p      the path_slice we will use to find the lineage of cur as it Zig and or Zags up the tree.
 static void splay( struct node *cur, struct path_slice p )
 {
     while ( p.len >= 3 && p.nodes[p.len - 2] != free_nodes.nil ) {
@@ -750,13 +703,6 @@ static void splay( struct node *cur, struct path_slice p )
     }
 }
 
-/// @brief rotate    a unified version of the traditional left and right rotation functions. The
-///                  rotation is either left or right and opposite is its opposite direction. We
-///                  take the current nodes child, and swap them and their arbitrary subtrees are
-///                  re-linked correctly depending on the direction of the rotation.
-/// @param *current  the node around which we will rotate.
-/// @param rotation  either left or right. Determines the rotation and its opposite direction.
-/// @warning         this function modifies the stack.
 static void rotate( enum tree_link rotation, struct node *current, struct path_slice p )
 {
     if ( p.len < 2 ) {
@@ -781,11 +727,6 @@ static void rotate( enum tree_link rotation, struct node *current, struct path_s
     current->list_start->parent = child;
 }
 
-/// @brief add_duplicate  this implementation stores duplicate nodes in a linked list to allow use of a splay tree.
-///                       This adds the duplicate node to the linked list of the node already present.
-/// @param *head          the node currently organized in the tree. We will add to its list.
-/// @param *to_add        the node to add to the linked list.
-/// @param *parent        the parent node that we may need to update.
 static void add_duplicate( struct node *head, struct duplicate_node *add, struct node *parent )
 {
     add->header = head->header;
@@ -806,78 +747,54 @@ static void add_duplicate( struct node *head, struct duplicate_node *add, struct
 
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
 
-/// @brief roundup         rounds up size to the nearest multiple of multiple to be aligned in the heap.
-/// @param requested_size  size given to us by the client.
-/// @param multiple        the nearest multiple to raise our number to.
-/// @return                rounded number.
 static inline size_t roundup( size_t requested_size, size_t multiple )
 {
     return requested_size <= HEAP_NODE_WIDTH ? HEAP_NODE_WIDTH
                                              : ( requested_size + multiple - 1 ) & ~( multiple - 1 );
 }
 
-/// @brief get_size    returns size in bytes as a size_t from the value of node's header.
-/// @param header_val  the value of the node in question passed by value.
-/// @return            the size in bytes as a size_t of the node.
-static inline size_t get_size( header header_val ) { return SIZE_MASK & header_val; }
+static inline size_t get_size( header header_val )
+{
+    return SIZE_MASK & header_val;
+}
 
-/// @brief is_block_allocated  determines if a node is allocated or free.
-/// @param block_header        the header value of a node passed by value.
-/// @return                    true if allocated false if not.
-static inline bool is_block_allocated( const header block_header ) { return block_header & ALLOCATED; }
+static inline bool is_block_allocated( const header block_header )
+{
+    return block_header & ALLOCATED;
+}
 
-/// @brief is_left_space  determines if the left neighbor of a block is free or allocated.
-/// @param *node          the node to check.
-/// @return               true if left is free false if left is allocated.
-static inline bool is_left_space( const struct node *node ) { return !( node->header & LEFT_ALLOCATED ); }
+static inline bool is_left_space( const struct node *node )
+{
+    return !( node->header & LEFT_ALLOCATED );
+}
 
-/// @brief init_header_size  initializes any node as the size and indicating left is allocated.
-///                          Left is allocated because we always coalesce left and right.
-/// @param *node             the region of possibly uninitialized heap we must initialize.
-/// @param payload           the payload in bytes as a size_t of the current block we initialize
 static inline void init_header_size( struct node *node, size_t payload )
 {
     node->header = LEFT_ALLOCATED | payload;
 }
 
-/// @brief init_footer  initializes footer at end of the heap block to matcht the current header.
-/// @param *node        the current node with a header field we will use to set the footer.
-/// @param payload      the size of the current nodes free memory.
 static inline void init_footer( struct node *node, size_t payload )
 {
     header *footer = (header *)( (uint8_t *)node + payload );
     *footer = node->header;
 }
 
-/// @brief get_right_neighbor  gets the address of the next struct node in the heap to the right.
-/// @param *current            the struct node we start at to then jump to the right.
-/// @param payload             the size in bytes as a size_t of the current struct node block.
-/// @return                    the struct node to the right of the current.
 static inline struct node *get_right_neighbor( const struct node *current, size_t payload )
 {
     return (struct node *)( (uint8_t *)current + HEADERSIZE + payload );
 }
 
-/// @brief *get_left_neighbor  uses the left block size gained from the footer to move to the header.
-/// @param *node               the current header at which we reside.
-/// @return                    a header pointer to the header for the block to the left.
 static inline struct node *get_left_neighbor( const struct node *node )
 {
     header *left_footer = (header *)( (uint8_t *)node - HEADERSIZE );
     return (struct node *)( (uint8_t *)node - ( *left_footer & SIZE_MASK ) - HEADERSIZE );
 }
 
-/// @brief get_client_space  steps into the client space just after the header of a node.
-/// @param *node_header      the struct node we start at before retreiving the client space.
-/// @return                  the void address of the client space they are now free to use.
 static inline void *get_client_space( const struct node *node_header )
 {
     return (uint8_t *)node_header + HEADERSIZE;
 }
 
-/// @brief get_struct node    steps to the struct node header from the space the client was using.
-/// @param *client_space  the void the client was using for their type. We step to the left.
-/// @return               a pointer to the struct node of our heap block.
 static inline struct node *get_node( const void *client_space )
 {
     return (struct node *)( (uint8_t *)client_space - HEADERSIZE );
@@ -886,11 +803,6 @@ static inline struct node *get_node( const void *client_space )
 
 // NOLINTBEGIN(misc-no-recursion)
 
-/// @breif check_init    checks the internal representation of our heap, especially the head and tail
-///                      nodes for any issues that would ruin our algorithms.
-/// @param hr            start and end of the heap
-/// @param heap_size     the total size in bytes of the heap.
-/// @return              true if everything is in order otherwise false.
 static bool check_init( struct heap_range r, size_t heap_size )
 {
     if ( is_left_space( r.start ) ) {
@@ -904,15 +816,8 @@ static bool check_init( struct heap_range r, size_t heap_size )
     return true;
 }
 
-/// @brief is_memory_balanced  loops through all blocks of memory to verify that the sizes
-///                            reported match the global bookeeping in our struct.
-/// @param hr                  start and end of the heap
-/// @param s                   size of the heap memory and total free nodes.
-/// @return                    true if our tallying is correct and our totals match.
 static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, struct size_total s )
 {
-    // Check that after checking all headers we end on size 0 tail and then end of
-    // address space.
     struct node *cur_node = r.start;
     size_t size_used = HEAP_NODE_WIDTH;
     size_t total_free_nodes = 0;
@@ -942,11 +847,6 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
     return true;
 }
 
-/// @brief extract_tree_mem  sums the total memory in the red black tree to see if it matches
-///                          the total memory we got from traversing blocks of the heap.
-/// @param *root             the root to start at for the summing recursive search.
-/// @param *nil_and_tail     the address of a sentinel node serving as both list tail and black nil.
-/// @return                  the total memory in bytes as a size_t in the red black tree.
 static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail )
 {
     if ( root == nil_and_tail ) {
@@ -961,11 +861,6 @@ static size_t extract_tree_mem( const struct node *root, const void *nil_and_tai
            + extract_tree_mem( root->links[L], nil_and_tail );
 }
 
-/// @brief is_tree_mem_valid    a wrapper for tree memory sum function used to check correctness.
-/// @param *root                the root node to begin at for the recursive summing search.
-/// @param *nil_and_tail        address of a sentinel node serving as both list tail and black nil.
-/// @param total_free_mem       the total free memory collected from a linear heap search.
-/// @return                     true if the totals match false if they do not.
 static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail, size_t total_free_mem )
 {
     if ( total_free_mem != extract_tree_mem( root, nil_and_tail ) ) {
@@ -975,14 +870,6 @@ static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail
     return true;
 }
 
-/// @brief strict_bounds_met  all nodes to the left of the root of a binary tree must be strictly less than the
-///                           root. All nodes to the right must be strictly greater than the root. If you mess
-///                           rotations you may have a valid binary tree in terms of a root and its two direct
-///                           children but are violating some bound on a root further up the tree.
-/// @param root               the recursive root we will check as we descend.
-/// @param root_size          the original root size to which all nodes in the subtrees must obey.
-/// @param dir                if we check the right subtree all nodes are greater, left subtree lesser.
-/// @param nil                the nil of the tree. could be NULL or some dedicated address.
 static bool strict_bound_met( const struct node *root, size_t root_size, enum tree_link dir,
                               const struct node *nil )
 {
@@ -1002,11 +889,6 @@ static bool strict_bound_met( const struct node *root, size_t root_size, enum tr
            && strict_bound_met( root->links[R], root_size, dir, nil );
 }
 
-/// @brief are_subtrees_valid  fully checks the size of all subtrees to the left and right of the current node.
-///                            There must not be a node lesser than the root size in the right subtrees and no node
-///                            exceeding the root size in the left subtree.
-/// @param root                the recursive root we are checking as we traverse the tree dfs-style.
-/// @param nil                 the nil of the tree either NULL or a dedicated address.
 static bool are_subtrees_valid( const struct node *root, const struct node *nil )
 {
     if ( root == nil ) {
@@ -1021,12 +903,6 @@ static bool are_subtrees_valid( const struct node *root, const struct node *nil 
     return are_subtrees_valid( root->links[L], nil ) && are_subtrees_valid( root->links[R], nil );
 }
 
-/// @brief is_parent_valid  for duplicate node operations it is important to check the parents
-///                         and fields are updated corectly so we can continue using the tree.
-/// @param *parent          the parent of the current root.
-/// @param *root            the root to start at for the recursive search.
-/// @param *nil_and_tail    address of a sentinel node serving as both list tail and black nil.
-/// @return                 true if all parent child relationships are correct.
 static bool is_duplicate_storing_parent( const struct node *parent, const struct node *root,
                                          const void *nil_and_tail )
 {
@@ -1059,10 +935,6 @@ static const char *get_edge_color( const struct node *root, size_t parent_size )
     return get_subtree_size( root ) <= parent_size / 2 ? COLOR_BLU_BOLD : COLOR_RED_BOLD;
 }
 
-/// @brief print_node     prints an individual node in its color and status as left or right child.
-/// @param *root          the root we will print with the appropriate info.
-/// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
-/// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
 static void print_node( const struct node *root, const void *nil_and_tail, enum print_style style )
 {
     size_t block_size = get_size( root->header );
@@ -1082,22 +954,6 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
     printf( "\n" );
 }
 
-/// @brief print_inner_tree      recursively prints the contents of a red black tree with color
-///                              and in a style similar to a directory structure to be read from
-///                              left to right. The edges are colored either red or blue to indicate the
-///                              heavy/light decomposition of a splay tree. If a child node has X nodes rooted
-///                              at child such that X < ((nodes rooted at parent) / 2), the edge is blue. If
-///                              a child has X nodes rooted at child such that X >= ((nodes rooted at parent) / 2)
-///                              the edge is red. Splay trees seek to bound the cost of blue edges and amortize
-///                              the cost of red edges away.
-/// @param *root                 the root node to start at.
-/// @param parent_size           the heavy light decomposition of a splaytree requires we compare tree totals.
-/// @param *prefix               the string we print spacing and characters across recursive calls.
-/// @param *prefix_branch_color  if we were branching left in our prefix the vertical bar needs this edge color.
-/// @param node_type             the node to print can either be a leaf or internal branch.
-/// @param dir                   no parent field so we need to track where we came from.
-/// @param style                 the print style: PLAIN or VERBOSE(displays memory addresses).
-/// @note                        this function is hideous/slow but it prints the edge colors correctly.
 static void print_inner_tree( const struct node *root, size_t parent_size, const char *prefix,
                               const char *prefix_branch_color, const enum print_link node_type,
                               const enum tree_link dir, enum print_style style )
@@ -1140,11 +996,6 @@ static void print_inner_tree( const struct node *root, size_t parent_size, const
     free( str );
 }
 
-/// @brief print_tree     prints the contents of an entire tree in a directory tree style with a red/blue
-///                       heavy/light decomposition.
-/// @param *root          the root node to begin at for printing recursively.
-/// @param *nil_and_tail  address of a sentinel node serving as both list tail and black nil.
-/// @param style          the print style: PLAIN or VERBOSE(displays memory addresses).
 static void print_tree( const struct node *root, const void *nil_and_tail, enum print_style style )
 {
     if ( root == nil_and_tail ) {
@@ -1166,8 +1017,6 @@ static void print_tree( const struct node *root, const void *nil_and_tail, enum 
     }
 }
 
-/// @brief print_alloc_block  prints the contents of an allocated block of memory.
-/// @param *node              a valid struct node to a block of allocated memory.
 static void print_alloc_block( const struct node *node )
 {
     size_t block_size = get_size( node->header );
@@ -1176,8 +1025,6 @@ static void print_alloc_block( const struct node *node )
     printf( COLOR_GRN "%p: HDR->0x%016zX(%zubytes)\n" COLOR_NIL, node, node->header, block_size );
 }
 
-/// @brief print_free_block  prints the contents of a free block of heap memory.
-/// @param *node             a valid header to a block of allocated memory.
 static void print_free_block( const struct node *node )
 {
     size_t block_size = get_size( node->header );
@@ -1209,21 +1056,12 @@ static void print_free_block( const struct node *node )
     printf( "FTR->0x%016zX\n", to_print );
 }
 
-/// @brief print_error_block  prints a helpful error message if a block is corrupted.
-/// @param *header            a header to a block of memory.
-/// @param full_size          the full size of a block of memory, not just the user block size.
 static void print_error_block( const struct node *node, size_t block_size )
 {
     printf( "\n%p: HDR->0x%016zX->%zubyts\n", node, node->header, block_size );
     printf( "Block size is too large and header is corrupted.\n" );
 }
 
-/// @brief print_bad_jump  If we overwrite data in a header, this print statement will help
-///                        us notice where we went wrong and what the addresses were.
-/// @param *current        the current node that is likely garbage values that don't make sense.
-/// @param *prev           the previous node that we jumped from.
-/// @param *root           the root node to begin at for printing recursively.
-/// @param *nil_and_tail   address of a sentinel node serving as both list tail and black nil.
 static void print_bad_jump( const struct node *current, struct bad_jump j, const void *nil_and_tail )
 {
     size_t prev_size = get_size( j.prev->header );
@@ -1242,13 +1080,6 @@ static void print_bad_jump( const struct node *current, struct bad_jump j, const
     print_tree( j.root, nil_and_tail, VERBOSE );
 }
 
-/// @brief print_all    prints our the complete status of the heap, all of its blocks, and
-///                     the sizes the blocks occupy. Printing should be clean with no overlap
-///                     of unique id's between heap blocks or corrupted headers.
-/// @param hr           start and end of the heap
-/// @param heap_size    the size in bytes of the
-/// @param *root        the root of the tree we start at for printing.
-/// @param *nil   the sentinel node that waits at the bottom of the tree for all leaves.
 static void print_all( struct heap_range r, size_t heap_size, struct node *tree_root, struct node *nil )
 {
     struct node *node = r.start;

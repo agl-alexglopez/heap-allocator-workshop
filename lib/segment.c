@@ -18,9 +18,15 @@
 static void *segment_start = NULL; // NOLINT(*-non-const-global-variables)
 static size_t segment_size = 0;    // NOLINT(*-non-const-global-variables)
 
-void *heap_segment_start() { return segment_start; }
+void *heap_segment_start()
+{
+    return segment_start;
+}
 
-size_t heap_segment_size() { return segment_size; }
+size_t heap_segment_size()
+{
+    return segment_size;
+}
 
 void *init_heap_segment( size_t total_size )
 {
