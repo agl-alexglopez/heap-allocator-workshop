@@ -170,8 +170,8 @@ TEST( MallocTests, SingleMallocGivesAdvertisedSpace )
     } );
 }
 
-// This test can get a little dicy because different internal schemes will have different sizes.
-// Try to pick the smallest size such that any reasonable allocator will exhaust after 1 malloc.
+// This test can get a little dicy because different internal schemes will have different sizes available.
+// Try to pick an easy malloc amount that is obviously going to fail.
 TEST( MallocTests, MallocExhaustsHeap )
 {
     assert_init( 100, expect::pass );
