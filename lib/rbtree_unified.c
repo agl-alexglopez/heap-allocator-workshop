@@ -137,7 +137,7 @@ static struct heap
 static void init_free_node( struct rb_node *to_free, size_t block_size );
 static void *split_alloc( struct rb_node *free_block, size_t request, size_t block_space );
 static struct coalesce_report check_neighbors( const void *old_ptr );
-static void apply_coalesce_report( struct coalesce_report *report );
+static void coalesce( struct coalesce_report *report );
 static void rotate( struct rb_node *current, enum tree_link rotation );
 static void fix_rb_insert( struct rb_node *current );
 static void insert_rb_node( struct rb_node *current );
@@ -235,7 +235,7 @@ void *myrealloc( void *old_ptr, size_t new_size )
     struct coalesce_report report = check_neighbors( old_ptr );
     size_t old_size = get_size( report.current->header );
     if ( report.available >= request ) {
-        apply_coalesce_report( &report );
+        coalesce( &report );
         if ( report.current == report.left ) {
             memmove( get_client_space( report.current ), old_ptr, old_size ); // NOLINT(*UnsafeBufferHandling)
         }
@@ -247,7 +247,7 @@ void *myrealloc( void *old_ptr, size_t new_size )
         return NULL;
     }
     memcpy( elsewhere, old_ptr, old_size ); // NOLINT(*UnsafeBufferHandling)
-    apply_coalesce_report( &report );
+    coalesce( &report );
     init_free_node( report.current, report.available );
     return elsewhere;
 }
@@ -258,7 +258,7 @@ void myfree( void *ptr )
         return;
     }
     struct coalesce_report report = check_neighbors( ptr );
-    apply_coalesce_report( &report );
+    coalesce( &report );
     init_free_node( report.current, get_size( report.current->header ) );
 }
 
@@ -423,7 +423,7 @@ static struct coalesce_report check_neighbors( const void *old_ptr )
     return result;
 }
 
-static inline void apply_coalesce_report( struct coalesce_report *report )
+static inline void coalesce( struct coalesce_report *report )
 {
     if ( report->left ) {
         report->current = delete_rb_node( report->left );
