@@ -27,6 +27,8 @@ constexpr std::string_view red_err = "\033[38;5;9m";
 constexpr std::string_view green_ok = "\033[38;5;10m";
 constexpr std::string_view nil = "\033[0m";
 
+//////////////////////////    Wrappers for Heap Allocator Calls with Checks    ///////////////////////////
+
 void assert_init( size_t size, expect e ) // NOLINT(*cognitive-complexity)
 {
     void *segment = init_heap_segment( size );
@@ -94,6 +96,8 @@ void expect_state( const std::vector<heap_block> &expected )
 
 } // namespace
 
+//////////////////////////    GTest Needs Operators for EXPECT/ASSERT    //////////////////////////////
+
 bool operator==( const heap_block &lhs, const heap_block &rhs )
 {
     return lhs.address == rhs.address && lhs.payload_bytes == rhs.payload_bytes && lhs.err == rhs.err;
@@ -119,6 +123,8 @@ std::ostream &operator<<( std::ostream &os, const heap_block &b )
     return os << " }";
 }
 
+/////////////////////////////////    Initialization Tests    ///////////////////////////////////////
+
 TEST( InitTests, SmallInitialization )
 {
     assert_init( small_heap_size, expect::pass );
@@ -133,6 +139,8 @@ TEST( InitTests, FailInitializationTooSmall )
 {
     assert_init( 8, expect::fail );
 }
+
+//////////////////////////////////    Malloc Tests    ///////////////////////////////////////////
 
 TEST( MallocTests, SingleMalloc )
 {
@@ -244,6 +252,8 @@ TEST( MallocFreeTests, ThreeMallocLeftEndFree )
         { nullptr, myheap_capacity() - aligned1, OK },
     } );
 }
+
+///////////////////////////////////    Coalesce Tests    ////////////////////////////////////////////
 
 TEST( CoalesceTests, CoalesceRightWithPool )
 {
@@ -436,6 +446,8 @@ TEST( CoalesceTests, CoalesceLeftRightWhileSurrounded )
         { nullptr, NA, OK },
     } );
 }
+
+////////////////////////////////    Realloc Tests    ////////////////////////////////////////////
 
 TEST( ReallocTests, ReallocCanMalloc )
 {
@@ -712,7 +724,7 @@ TEST( ReallocTests, ReallocFailsIdempotentlyPreservingData )
         { nullptr, myheap_capacity() - aligned - aligned, OK },
     } );
     const size_t overload_req = medium_heap_size << 1;
-    char *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], overload_req, expect::fail ) );
+    auto *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], overload_req, expect::fail ) );
     // We should not alter anything if we fail a reallocation. The user should still have their data
     expect_state( {
         { nullptr, aligned, OK },
@@ -761,7 +773,7 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingRight )
         { mymallocs[3], aligned, OK },
         { nullptr, myheap_capacity() - aligned, OK },
     } );
-    char *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], aligned + aligned, expect::pass ) );
+    auto *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], aligned + aligned, expect::pass ) );
     // Realloc will take the space to the right but not move the data so data should be in original state.
     // Check old pointer rather than new_addr.
     EXPECT_EQ( new_addr, mymallocs[1] );
@@ -811,7 +823,7 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingLeft )
         { mymallocs[3], aligned, OK },
         { nullptr, myheap_capacity() - aligned, OK },
     } );
-    char *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], aligned + aligned, expect::pass ) );
+    auto *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], aligned + aligned, expect::pass ) );
     // Realloc must move the data to the left so old pointer will not be valid. Probably memmoved.
     EXPECT_NE( new_addr, mymallocs[1] );
     expect_state( {
@@ -862,7 +874,7 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingElsewhere )
         { nullptr, myheap_capacity() - aligned - aligned, OK },
     } );
     size_t new_req = aligned * 4;
-    char *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], new_req, expect::pass ) );
+    auto *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], new_req, expect::pass ) );
     // Realloc must move the data to the elsewhere so old pointer will not be valid. Probably memcopy.
     EXPECT_NE( new_addr, mymallocs[1] );
     expect_state( {
