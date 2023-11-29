@@ -53,19 +53,6 @@ struct heap_block
     enum status_error err;
 };
 
-struct mismatch
-{
-    size_t fail_index;
-    bool actual_status;
-    size_t actual_payload_bytes;
-};
-
-struct state_check
-{
-    bool passed;
-    struct mismatch log;
-};
-
 /// @brief myinit
 /// ----------------
 /// This must be called by a client before making any allocation
