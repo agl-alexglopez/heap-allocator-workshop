@@ -651,11 +651,11 @@ static void splay( struct node *cur, struct path_slice p )
             continue;
         }
         // We unite Zig-Zag and Zag-Zig branches by abstracting links. Here is one of the two symmetric cases.
-        //  gparent            gparent                      current
-        //       \\                 \\                     //     \\
-        //        parent  ->         current    ->   gparent       parent
-        //       //                       \\
-        //  current                        parent
+        // | gparent            gparent                      current       |
+        // |      \                   \                     /       \      |
+        // |       parent  ->         current    ->   gparent       parent |
+        // |      /                          \                             |
+        // | current                         parent                        |
         // We want the parent-child link to rotate the same direction as the grandparent-parent link
         // and then for the gparent-rotatedchild link to rotate the same direction as the original parent-child.
         rotate( gparent_to_parent_link, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );

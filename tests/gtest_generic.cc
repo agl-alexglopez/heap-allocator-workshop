@@ -673,6 +673,57 @@ TEST( ReallocTests, ReallocFailsIdempotently )
     } );
 }
 
+TEST( ReallocTests, ReallocFailsIdempotentlyPreservingData )
+{
+    assert_init( medium_heap_size, expect::pass );
+    const size_t bytes = 64;
+    const size_t aligned = myheap_align( bytes );
+    std::array<char, bytes> chars{};
+    std::iota( chars.begin(), chars.end(), '!' );
+    chars.back() = '\0';
+    const size_t original_capacity = myheap_capacity();
+    std::array<char *, 4> mymallocs{ {
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+        static_cast<char *>( expect_malloc( aligned, expect::pass ) ),
+    } };
+    // Fill surroundings with terminator because we want the string views to keep looking until a null is found
+    // This may help us spot errors in how we move bytes around while reallocing.
+    std::fill( mymallocs[0], mymallocs[0] + bytes, '\0' );
+    std::copy( chars.begin(), chars.end(), mymallocs[1] );
+    std::fill( mymallocs[2], mymallocs[2] + bytes, '\0' );
+    std::fill( mymallocs[3], mymallocs[3] + bytes, '\0' );
+    EXPECT_EQ( std::string_view( chars.data() ), std::string_view( mymallocs[1] ) );
+    expect_state( {
+        { mymallocs[0], aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { mymallocs[2], aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity(), OK },
+    } );
+    expect_free( mymallocs[0] );
+    expect_free( mymallocs[2] );
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned - aligned, OK },
+    } );
+    const size_t overload_req = medium_heap_size << 1;
+    char *new_addr = static_cast<char *>( expect_realloc( mymallocs[1], overload_req, expect::fail ) );
+    // We should not alter anything if we fail a reallocation. The user should still have their data
+    expect_state( {
+        { nullptr, aligned, OK },
+        { mymallocs[1], aligned, OK },
+        { nullptr, aligned, OK },
+        { mymallocs[3], aligned, OK },
+        { nullptr, myheap_capacity() - aligned - aligned, OK },
+    } );
+    EXPECT_EQ( std::string_view( chars.data() ), std::string_view( mymallocs[1] ) );
+}
+
 TEST( ReallocTests, ReallocPreservesDataWhenCoalescingRight )
 {
     assert_init( medium_heap_size, expect::pass );
