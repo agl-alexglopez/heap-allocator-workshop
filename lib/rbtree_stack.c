@@ -90,6 +90,15 @@ struct coalesce_report
     size_t available;
 };
 
+/// Key struct that helps couple the path with its length. Think span in C++ or Slice
+/// in Rust. It is a slice of our path to a node and the length of that path and we
+/// use it in any functions that will splay a node to the root.
+struct path_slice
+{
+    struct rb_node **nodes;
+    int len;
+};
+
 enum rb_color
 {
     BLACK = 0,
@@ -169,14 +178,14 @@ static void init_free_node( struct rb_node *to_free, size_t block_size );
 static void *split_alloc( struct rb_node *free_block, size_t request, size_t block_space );
 static struct coalesce_report check_neighbors( const void *old_ptr );
 static void coalesce( struct coalesce_report *report );
-static void rotate( enum tree_link rotation, struct rb_node *current, struct rb_node *path[], int path_len );
+static void rotate( enum tree_link rotation, struct rb_node *current, struct path_slice path );
 static void add_duplicate( struct rb_node *head, struct duplicate_node *add, struct rb_node *parent );
-static void fix_rb_insert( struct rb_node *path[], int path_len );
+static void fix_rb_insert( struct path_slice path );
 static void insert_rb_node( struct rb_node *current );
-static void rb_transplant( struct rb_node *replacement, struct rb_node *path[], int path_len );
+static void rb_transplant( struct rb_node *replacement, struct path_slice path );
 static struct rb_node *delete_duplicate( struct rb_node *head );
-static void fix_rb_delete( struct rb_node *extra_black, struct rb_node *path[], int path_len );
-static struct rb_node *delete_rb_node( struct rb_node *remove, struct rb_node *path[], int path_len );
+static void fix_rb_delete( struct rb_node *extra_black, struct path_slice path );
+static struct rb_node *delete_rb_node( struct rb_node *remove, struct path_slice path );
 static struct rb_node *find_best_fit( size_t key );
 static void remove_head( struct rb_node *head, struct rb_node *lft_child, struct rb_node *rgt_child );
 static void *free_coalesced_node( void *to_coalesce );
@@ -184,8 +193,7 @@ static size_t roundup( size_t requested_size, size_t multiple );
 static void paint_node( struct rb_node *node, enum rb_color color );
 static enum rb_color get_color( header header_val );
 static size_t get_size( header header_val );
-static struct rb_node *get_min( struct rb_node *root, struct rb_node *black_nil, struct rb_node *path[],
-                                int *path_len );
+static struct rb_node *get_min( struct rb_node *root, struct rb_node *black_nil, struct path_slice *path );
 static bool is_block_allocated( header block_header );
 static bool is_left_space( const struct rb_node *node );
 static void init_header_size( struct rb_node *node, size_t payload );
@@ -422,15 +430,6 @@ void dump_heap( void )
 
 /////////////////////    Static Heap Helper Functions    //////////////////////////////////
 
-static void init_free_node( struct rb_node *to_free, size_t block_size )
-{
-    to_free->header = block_size | LEFT_ALLOCATED | RED_PAINT;
-    to_free->list_start = free_nodes.list_tail;
-    init_footer( to_free, block_size );
-    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
-    insert_rb_node( to_free );
-}
-
 static void *split_alloc( struct rb_node *free_block, size_t request, size_t block_space )
 {
     if ( block_space >= request + BLOCK_SIZE ) {
@@ -444,6 +443,15 @@ static void *split_alloc( struct rb_node *free_block, size_t request, size_t blo
     init_header_size( free_block, block_space );
     free_block->header |= ALLOCATED;
     return get_client_space( free_block );
+}
+
+static void init_free_node( struct rb_node *to_free, size_t block_size )
+{
+    to_free->header = block_size | LEFT_ALLOCATED | RED_PAINT;
+    to_free->list_start = free_nodes.list_tail;
+    init_footer( to_free, block_size );
+    get_right_neighbor( to_free, block_size )->header &= LEFT_FREE;
+    insert_rb_node( to_free );
 }
 
 static struct coalesce_report check_neighbors( const void *old_ptr )
@@ -476,244 +484,8 @@ static inline void coalesce( struct coalesce_report *report )
     init_header_size( report->current, report->available );
 }
 
-////////////////////////   Static RBTree Implementation   /////////////////////////////////
+////////////////////////   RBTree Best Fit Implementation   /////////////////////////////////
 
-static void rotate( enum tree_link rotation, struct rb_node *current, struct rb_node *path[], int path_len )
-{
-    if ( path_len < 2 ) {
-        printf( "Path length is %d but request for path len %d - 2 was made.", path_len, path_len );
-        abort();
-    }
-    struct rb_node *parent = path[path_len - 2];
-    struct rb_node *child = current->links[!rotation];
-    current->links[!rotation] = child->links[rotation];
-    if ( child->links[rotation] != free_nodes.black_nil ) {
-        child->links[rotation]->list_start->parent = current;
-    }
-    if ( child != free_nodes.black_nil ) {
-        child->list_start->parent = parent;
-    }
-    if ( parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = child;
-    } else {
-        parent->links[parent->links[R] == current] = child;
-    }
-    child->links[rotation] = current;
-    current->list_start->parent = child;
-    // Make sure to adjust lineage due to rotation for the path.
-    path[path_len - 1] = child;
-    path[path_len] = current;
-}
-
-///////////////////////     Static Red-Black Tree Insertion Helper Function    ////////////////////
-
-static void add_duplicate( struct rb_node *head, struct duplicate_node *add, struct rb_node *parent )
-{
-    add->header = head->header;
-    // The first node in the list can store the tree nodes parent for faster coalescing later.
-    if ( head->list_start == free_nodes.list_tail ) {
-        add->parent = parent;
-    } else {
-        add->parent = head->list_start->parent;
-        head->list_start->parent = NULL;
-    }
-    // Get the first next node in the doubly linked list, invariant and correct its left field.
-    head->list_start->links[P] = add;
-    add->links[N] = head->list_start;
-    head->list_start = add;
-    add->links[P] = (struct duplicate_node *)head;
-    free_nodes.total++;
-}
-
-////////////////////      Static Red-Black Tree Insertion Logic   //////////////////////
-
-static void fix_rb_insert( struct rb_node *path[], int path_len )
-{
-    // We always place the black_nil at 0th index in the stack as root's parent so this is safe.
-    while ( path_len >= 3 && get_color( path[path_len - 2]->header ) == RED ) {
-        struct rb_node *current = path[path_len - 1];
-        struct rb_node *parent = path[path_len - 2];
-        struct rb_node *grandparent = path[path_len - 3];
-
-        // We can store the case we need to complete and its opposite rather than repeat code.
-        enum tree_link symmetric_case = grandparent->links[R] == parent;
-        struct rb_node *aunt = grandparent->links[!symmetric_case];
-        if ( get_color( aunt->header ) == RED ) {
-            paint_node( aunt, BLACK );
-            paint_node( parent, BLACK );
-            paint_node( grandparent, RED );
-            path_len -= 2;
-        } else {
-            if ( current == parent->links[!symmetric_case] ) {
-                current = parent;
-                struct rb_node *other_child = current->links[!symmetric_case];
-                rotate( symmetric_case, current, path, path_len - 1 );
-                parent = other_child;
-            }
-            paint_node( parent, BLACK );
-            paint_node( grandparent, RED );
-            rotate( !symmetric_case, grandparent, path, path_len - 2 );
-            path_len--;
-        }
-    }
-    paint_node( free_nodes.tree_root, BLACK );
-}
-
-static void insert_rb_node( struct rb_node *current )
-{
-    size_t current_key = get_size( current->header );
-
-    struct rb_node *path[MAX_TREE_HEIGHT];
-    // This simplifies our insertion fixup logic later. See loop in the fixup function.
-    path[0] = free_nodes.black_nil;
-    int path_len = 1;
-    struct rb_node *seeker = free_nodes.tree_root;
-    while ( seeker != free_nodes.black_nil ) {
-        path[path_len++] = seeker;
-        assert( path_len < MAX_TREE_HEIGHT );
-        size_t parent_size = get_size( seeker->header );
-        // Ability to add duplicates to linked list means no fixups necessary if duplicate.
-        if ( current_key == parent_size ) {
-            add_duplicate( seeker, (struct duplicate_node *)current, path[path_len - 2] );
-            return;
-        }
-        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
-        seeker = seeker->links[parent_size < current_key];
-    }
-    struct rb_node *parent = path[path_len - 1];
-    if ( parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = current;
-    } else {
-        parent->links[get_size( parent->header ) < current_key] = current;
-    }
-    current->links[L] = free_nodes.black_nil;
-    current->links[R] = free_nodes.black_nil;
-    // Store the doubly linked duplicates in list. list_tail aka black_nil is the dummy tail.
-    current->list_start = free_nodes.list_tail;
-    paint_node( current, RED );
-    path[path_len++] = current;
-    fix_rb_insert( path, path_len );
-    free_nodes.total++;
-}
-
-///////////////////     Static Red-Black Tree Deletion Helper Functions   ///////////////////////
-
-static void rb_transplant( struct rb_node *replacement, struct rb_node *path[], int path_len )
-{
-    struct rb_node *parent = path[path_len - 2];
-    struct rb_node *remove = path[path_len - 1];
-    if ( parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = replacement;
-    } else {
-        parent->links[parent->links[R] == remove] = replacement;
-    }
-    if ( replacement != free_nodes.black_nil ) {
-        replacement->list_start->parent = parent;
-    }
-    // Delete the removed node from the path to give back correct path to fixup function.
-    path[path_len - 1] = replacement;
-}
-
-static struct rb_node *delete_duplicate( struct rb_node *head )
-{
-    struct duplicate_node *next_node = head->list_start;
-    // Take care of the possible node to the right in the doubly linked list first. This could be
-    // another node or it could be free_nodes.list_tail, it does not matter either way.
-    next_node->links[N]->parent = next_node->parent;
-    next_node->links[N]->links[P] = (struct duplicate_node *)head;
-    head->list_start = next_node->links[N];
-    free_nodes.total--;
-    return (struct rb_node *)next_node;
-}
-
-//////////////////////      Static Red-Black Tree Deletion Logic    /////////////////////////
-
-static void fix_rb_delete( struct rb_node *extra_black, struct rb_node *path[], int path_len )
-{
-    // The extra_black is "doubly black" if we enter the loop, requiring repairs.
-    while ( path_len >= 2 && extra_black != free_nodes.tree_root && get_color( extra_black->header ) == BLACK ) {
-        struct rb_node *parent = path[path_len - 2];
-
-        // We can cover left and right cases in one with simple directional link and its opposite.
-        enum tree_link symmetric_case = parent->links[R] == extra_black;
-
-        struct rb_node *sibling = parent->links[!symmetric_case];
-        if ( get_color( sibling->header ) == RED ) {
-            paint_node( sibling, BLACK );
-            paint_node( parent, RED );
-            rotate( symmetric_case, parent, path, path_len - 1 );
-            // Rotating a parent the same direction as the extra_black, moves it down the path.
-            path[path_len++] = extra_black;
-            sibling = parent->links[!symmetric_case];
-        }
-        if ( get_color( sibling->links[L]->header ) == BLACK && get_color( sibling->links[R]->header ) == BLACK ) {
-            paint_node( sibling, RED );
-            extra_black = path[path_len - 2];
-            path_len--;
-        } else {
-            if ( get_color( sibling->links[!symmetric_case]->header ) == BLACK ) {
-                paint_node( sibling->links[symmetric_case], BLACK );
-                paint_node( sibling, RED );
-                rotate( !symmetric_case, sibling, path, path_len );
-                sibling = parent->links[!symmetric_case];
-            }
-            paint_node( sibling, get_color( parent->header ) );
-            paint_node( parent, BLACK );
-            paint_node( sibling->links[!symmetric_case], BLACK );
-            rotate( symmetric_case, parent, path, path_len - 1 );
-            extra_black = free_nodes.tree_root;
-        }
-    }
-    // The extra_black has reached a red node, making it "red-and-black", or the root. Paint BLACK.
-    paint_node( extra_black, BLACK );
-}
-
-static struct rb_node *delete_rb_node( struct rb_node *remove, struct rb_node *path[], int path_len )
-{
-    if ( path_len < 2 ) {
-        printf( "Path length is %d but request for path len %d - 2 was made.", path_len, path_len );
-        abort();
-    }
-    enum rb_color fixup_color_check = get_color( remove->header );
-
-    struct rb_node *parent = path[path_len - 2];
-    struct rb_node *extra_black = NULL;
-    if ( remove->links[L] == free_nodes.black_nil || remove->links[R] == free_nodes.black_nil ) {
-        enum tree_link nil_link = remove->links[L] != free_nodes.black_nil;
-        extra_black = remove->links[!nil_link];
-        rb_transplant( extra_black, path, path_len );
-    } else {
-        int len_removed_node = path_len;
-        // Warning, path_len may have changed.
-        struct rb_node *right_min = get_min( remove->links[R], free_nodes.black_nil, path, &path_len );
-        fixup_color_check = get_color( right_min->header );
-
-        extra_black = right_min->links[R];
-        if ( right_min != remove->links[R] ) {
-            rb_transplant( extra_black, path, path_len );
-            right_min->links[R] = remove->links[R];
-            right_min->links[R]->list_start->parent = right_min;
-        } else {
-            path[path_len - 1] = extra_black;
-        }
-        rb_transplant( right_min, path, len_removed_node );
-        right_min->links[L] = remove->links[L];
-        right_min->links[L]->list_start->parent = right_min;
-        right_min->list_start->parent = parent;
-        paint_node( right_min, get_color( remove->header ) );
-    }
-    // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
-    if ( fixup_color_check == BLACK ) {
-        fix_rb_delete( extra_black, path, path_len );
-    }
-    free_nodes.total--;
-    return remove;
-}
-
-/// @brief find_best_fit  a red black tree is well suited to best fit search in O(logN) time. We
-///                       will find the best fitting node possible given the options in our tree.
-/// @param key            the size_t number of bytes we are searching for in our tree.
-/// @return               the pointer to the struct rb_node that is the best fit for our need.
 static struct rb_node *find_best_fit( size_t key )
 {
     if ( free_nodes.tree_root == free_nodes.black_nil ) {
@@ -754,33 +526,117 @@ static struct rb_node *find_best_fit( size_t key )
         // We will keep remove in the tree and just get the first node in doubly linked list.
         return delete_duplicate( remove );
     }
-    return delete_rb_node( remove, path, len_to_best_fit );
+    return delete_rb_node( remove, ( struct path_slice ){ path, len_to_best_fit } );
 }
 
-static void remove_head( struct rb_node *head, struct rb_node *lft_child, struct rb_node *rgt_child )
+static struct rb_node *delete_duplicate( struct rb_node *head )
 {
-    // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
-    struct rb_node *tree_parent = head->list_start->parent;
-    head->list_start->header = head->header;
-    head->list_start->links[N]->parent = head->list_start->parent;
+    struct duplicate_node *next_node = head->list_start;
+    // Take care of the possible node to the right in the doubly linked list first. This could be
+    // another node or it could be free_nodes.list_tail, it does not matter either way.
+    next_node->links[N]->parent = next_node->parent;
+    next_node->links[N]->links[P] = (struct duplicate_node *)head;
+    head->list_start = next_node->links[N];
+    free_nodes.total--;
+    return (struct rb_node *)next_node;
+}
 
-    struct rb_node *new_tree_node = (struct rb_node *)head->list_start;
-    new_tree_node->list_start = head->list_start->links[N];
-    new_tree_node->links[L] = lft_child;
-    new_tree_node->links[R] = rgt_child;
+static struct rb_node *delete_rb_node( struct rb_node *remove, struct path_slice path )
+{
+    if ( path.len < 2 ) {
+        printf( "Path length is %d but request for path len %d - 2 was made.", path.len, path.len );
+        abort();
+    }
+    enum rb_color fixup_color_check = get_color( remove->header );
 
-    // We often write to fields of the black_nil, invariant. DO NOT use the nodes it stores!
-    if ( lft_child != free_nodes.black_nil ) {
-        lft_child->list_start->parent = new_tree_node;
-    }
-    if ( rgt_child != free_nodes.black_nil ) {
-        rgt_child->list_start->parent = new_tree_node;
-    }
-    if ( tree_parent == free_nodes.black_nil ) {
-        free_nodes.tree_root = new_tree_node;
+    struct rb_node *parent = path.nodes[path.len - 2];
+    struct rb_node *extra_black = NULL;
+    if ( remove->links[L] == free_nodes.black_nil || remove->links[R] == free_nodes.black_nil ) {
+        enum tree_link nil_link = remove->links[L] != free_nodes.black_nil;
+        extra_black = remove->links[!nil_link];
+        rb_transplant( extra_black, path );
     } else {
-        tree_parent->links[tree_parent->links[R] == head] = new_tree_node;
+        int len_removed_node = path.len;
+        // Warning, path.len may have changed.
+        struct rb_node *right_min = get_min( remove->links[R], free_nodes.black_nil, &path );
+        fixup_color_check = get_color( right_min->header );
+
+        extra_black = right_min->links[R];
+        if ( right_min != remove->links[R] ) {
+            rb_transplant( extra_black, path );
+            right_min->links[R] = remove->links[R];
+            right_min->links[R]->list_start->parent = right_min;
+        } else {
+            path.nodes[path.len - 1] = extra_black;
+        }
+        rb_transplant( right_min, ( struct path_slice ){ path.nodes, len_removed_node } );
+        right_min->links[L] = remove->links[L];
+        right_min->links[L]->list_start->parent = right_min;
+        right_min->list_start->parent = parent;
+        paint_node( right_min, get_color( remove->header ) );
     }
+    // Nodes can only be red or black, so we need to get rid of "extra" black by fixing tree.
+    if ( fixup_color_check == BLACK ) {
+        fix_rb_delete( extra_black, path );
+    }
+    free_nodes.total--;
+    return remove;
+}
+
+static void rb_transplant( struct rb_node *replacement, struct path_slice path )
+{
+    struct rb_node *parent = path.nodes[path.len - 2];
+    struct rb_node *remove = path.nodes[path.len - 1];
+    if ( parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = replacement;
+    } else {
+        parent->links[parent->links[R] == remove] = replacement;
+    }
+    if ( replacement != free_nodes.black_nil ) {
+        replacement->list_start->parent = parent;
+    }
+    // Delete the removed node from the path to give back correct path to fixup function.
+    path.nodes[path.len - 1] = replacement;
+}
+
+static void fix_rb_delete( struct rb_node *extra_black, struct path_slice path )
+{
+    // The extra_black is "doubly black" if we enter the loop, requiring repairs.
+    while ( path.len >= 2 && extra_black != free_nodes.tree_root && get_color( extra_black->header ) == BLACK ) {
+        struct rb_node *parent = path.nodes[path.len - 2];
+
+        // We can cover left and right cases in one with simple directional link and its opposite.
+        enum tree_link symmetric_case = parent->links[R] == extra_black;
+
+        struct rb_node *sibling = parent->links[!symmetric_case];
+        if ( get_color( sibling->header ) == RED ) {
+            paint_node( sibling, BLACK );
+            paint_node( parent, RED );
+            rotate( symmetric_case, parent, ( struct path_slice ){ path.nodes, path.len - 1 } );
+            // Rotating a parent the same direction as the extra_black, moves it down the path.
+            path.nodes[path.len++] = extra_black;
+            sibling = parent->links[!symmetric_case];
+        }
+        if ( get_color( sibling->links[L]->header ) == BLACK && get_color( sibling->links[R]->header ) == BLACK ) {
+            paint_node( sibling, RED );
+            extra_black = path.nodes[path.len - 2];
+            path.len--;
+        } else {
+            if ( get_color( sibling->links[!symmetric_case]->header ) == BLACK ) {
+                paint_node( sibling->links[symmetric_case], BLACK );
+                paint_node( sibling, RED );
+                rotate( !symmetric_case, sibling, path );
+                sibling = parent->links[!symmetric_case];
+            }
+            paint_node( sibling, get_color( parent->header ) );
+            paint_node( parent, BLACK );
+            paint_node( sibling->links[!symmetric_case], BLACK );
+            rotate( symmetric_case, parent, ( struct path_slice ){ path.nodes, path.len - 1 } );
+            extra_black = free_nodes.tree_root;
+        }
+    }
+    // The extra_black has reached a red node, making it "red-and-black", or the root. Paint BLACK.
+    paint_node( extra_black, BLACK );
 }
 
 static void *free_coalesced_node( void *to_coalesce )
@@ -812,6 +668,149 @@ static void *free_coalesced_node( void *to_coalesce )
     return to_coalesce;
 }
 
+static void remove_head( struct rb_node *head, struct rb_node *lft_child, struct rb_node *rgt_child )
+{
+    // Store the parent in an otherwise unused field for a major O(1) coalescing speed boost.
+    struct rb_node *tree_parent = head->list_start->parent;
+    head->list_start->header = head->header;
+    head->list_start->links[N]->parent = head->list_start->parent;
+
+    struct rb_node *new_tree_node = (struct rb_node *)head->list_start;
+    new_tree_node->list_start = head->list_start->links[N];
+    new_tree_node->links[L] = lft_child;
+    new_tree_node->links[R] = rgt_child;
+
+    // We often write to fields of the black_nil, invariant. DO NOT use the nodes it stores!
+    if ( lft_child != free_nodes.black_nil ) {
+        lft_child->list_start->parent = new_tree_node;
+    }
+    if ( rgt_child != free_nodes.black_nil ) {
+        rgt_child->list_start->parent = new_tree_node;
+    }
+    if ( tree_parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = new_tree_node;
+    } else {
+        tree_parent->links[tree_parent->links[R] == head] = new_tree_node;
+    }
+}
+
+/////////////////////////      Red-Black Tree Insertion Logic   //////////////////////////////
+
+static void fix_rb_insert( struct path_slice path )
+{
+    while ( path.len >= 3 && get_color( path.nodes[path.len - 2]->header ) == RED ) {
+        struct rb_node *current = path.nodes[path.len - 1];
+        struct rb_node *parent = path.nodes[path.len - 2];
+        struct rb_node *grandparent = path.nodes[path.len - 3];
+
+        // We can store the case we need to complete and its opposite rather than repeat code.
+        enum tree_link symmetric_case = grandparent->links[R] == parent;
+        struct rb_node *aunt = grandparent->links[!symmetric_case];
+        if ( get_color( aunt->header ) == RED ) {
+            paint_node( aunt, BLACK );
+            paint_node( parent, BLACK );
+            paint_node( grandparent, RED );
+            path.len -= 2;
+        } else {
+            if ( current == parent->links[!symmetric_case] ) {
+                current = parent;
+                struct rb_node *other_child = current->links[!symmetric_case];
+                rotate( symmetric_case, current, ( struct path_slice ){ path.nodes, path.len - 1 } );
+                parent = other_child;
+            }
+            paint_node( parent, BLACK );
+            paint_node( grandparent, RED );
+            rotate( !symmetric_case, grandparent, ( struct path_slice ){ path.nodes, path.len - 2 } );
+            path.len--;
+        }
+    }
+    paint_node( free_nodes.tree_root, BLACK );
+}
+
+static void insert_rb_node( struct rb_node *current )
+{
+    size_t current_key = get_size( current->header );
+
+    struct rb_node *path[MAX_TREE_HEIGHT];
+    // This simplifies our insertion fixup logic later. See loop in the fixup function.
+    path[0] = free_nodes.black_nil;
+    int path_len = 1;
+    struct rb_node *seeker = free_nodes.tree_root;
+    while ( seeker != free_nodes.black_nil ) {
+        path[path_len++] = seeker;
+        assert( path_len < MAX_TREE_HEIGHT );
+        size_t parent_size = get_size( seeker->header );
+        // Ability to add duplicates to linked list means no fixups necessary if duplicate.
+        if ( current_key == parent_size ) {
+            add_duplicate( seeker, (struct duplicate_node *)current, path[path_len - 2] );
+            return;
+        }
+        // You may see this idiom throughout. L(0) if key fits in tree to left, R(1) if not.
+        seeker = seeker->links[parent_size < current_key];
+    }
+    struct rb_node *parent = path[path_len - 1];
+    if ( parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = current;
+    } else {
+        parent->links[get_size( parent->header ) < current_key] = current;
+    }
+    current->links[L] = free_nodes.black_nil;
+    current->links[R] = free_nodes.black_nil;
+    // Store the doubly linked duplicates in list. list_tail aka black_nil is the dummy tail.
+    current->list_start = free_nodes.list_tail;
+    paint_node( current, RED );
+    path[path_len++] = current;
+    fix_rb_insert( ( struct path_slice ){ path, path_len } );
+    free_nodes.total++;
+}
+
+static void add_duplicate( struct rb_node *head, struct duplicate_node *add, struct rb_node *parent )
+{
+    add->header = head->header;
+    // The first node in the list can store the tree nodes parent for faster coalescing later.
+    if ( head->list_start == free_nodes.list_tail ) {
+        add->parent = parent;
+    } else {
+        add->parent = head->list_start->parent;
+        head->list_start->parent = NULL;
+    }
+    // Get the first next node in the doubly linked list, invariant and correct its left field.
+    head->list_start->links[P] = add;
+    add->links[N] = head->list_start;
+    head->list_start = add;
+    add->links[P] = (struct duplicate_node *)head;
+    free_nodes.total++;
+}
+
+//////////////////////     Stack Based Rotation Helper   //////////////////////////
+
+static void rotate( enum tree_link rotation, struct rb_node *current, struct path_slice path )
+{
+    if ( path.len < 2 ) {
+        printf( "Path length is %d but request for path len %d - 2 was made.", path.len, path.len );
+        abort();
+    }
+    struct rb_node *parent = path.nodes[path.len - 2];
+    struct rb_node *child = current->links[!rotation];
+    current->links[!rotation] = child->links[rotation];
+    if ( child->links[rotation] != free_nodes.black_nil ) {
+        child->links[rotation]->list_start->parent = current;
+    }
+    if ( child != free_nodes.black_nil ) {
+        child->list_start->parent = parent;
+    }
+    if ( parent == free_nodes.black_nil ) {
+        free_nodes.tree_root = child;
+    } else {
+        parent->links[parent->links[R] == current] = child;
+    }
+    child->links[rotation] = current;
+    current->list_start->parent = child;
+    // Make sure to adjust lineage due to rotation for the path.
+    path.nodes[path.len - 1] = child;
+    path.nodes[path.len] = current;
+}
+
 /////////////////////////////   Basic Block and Header Operations  //////////////////////////////////
 
 static inline size_t roundup( size_t requested_size, size_t multiple )
@@ -835,13 +834,12 @@ static inline size_t get_size( header header_val )
     return SIZE_MASK & header_val;
 }
 
-static inline struct rb_node *get_min( struct rb_node *root, struct rb_node *black_nil, struct rb_node *path[],
-                                       int *path_len )
+static inline struct rb_node *get_min( struct rb_node *root, struct rb_node *black_nil, struct path_slice *path )
 {
     for ( ; root->links[L] != black_nil; root = root->links[L] ) {
-        path[( *path_len )++] = root;
+        path->nodes[path->len++] = root;
     }
-    path[( *path_len )++] = root;
+    path->nodes[path->len++] = root;
     return root;
 }
 
