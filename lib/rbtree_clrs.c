@@ -673,6 +673,7 @@ static struct rb_node *find_best_fit( size_t key )
     while ( seeker != tree.black_nil ) {
         size_t seeker_size = get_size( seeker->header );
         if ( key == seeker_size ) {
+            best_fit_size = key;
             remove = seeker;
             break;
         }
