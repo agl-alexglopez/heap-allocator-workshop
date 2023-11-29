@@ -113,10 +113,6 @@ int main( int argc, char *argv[] )
 
 // NOLINTEND(*include-cleaner)
 
-/// @brief time_script     completes a series of 1 or more time requests for a script file and
-///                        outputs the times for the lines and overall utilization.
-/// @param *script_name    the script we are tasked with timing.
-/// @param *user_requests  the struct containing user requests for timings and how many.
 static int time_script( char *script_name, struct interval_reqs *user_requests )
 {
     struct script s = parse_script( script_name );
@@ -150,11 +146,6 @@ static int time_script( char *script_name, struct interval_reqs *user_requests )
     return 0;
 }
 
-/// @brief time_allocator  times all requested interval line numbers from the script file.
-/// @param *script         the script_t with all info for the script file to execute.
-/// @param *user_requests  the struct containing user requested intervals and how many.
-/// @param *graphs         the struct containing arrays we will fill with execution info to plot.
-/// @return                the size of the heap overall.
 static size_t time_allocator( struct script *s, struct interval_reqs *user_requests, struct gnuplots *graphs )
 {
     init_heap_segment( heap_size );
@@ -205,9 +196,6 @@ static size_t time_allocator( struct script *s, struct interval_reqs *user_reque
     return (uint8_t *)heap_end - (uint8_t *)heap_segment_start();
 }
 
-/// @brief report_interval_averages  prints the average time per request for a user requested
-///                                  interval of line numbers.
-/// @param *user_requests            a pointer to the struct containing user interval information.
 static void report_interval_averages( struct interval_reqs *user_requests )
 {
     for ( size_t i = 0; i < user_requests->num_intervals; i++ ) {
@@ -217,11 +205,6 @@ static void report_interval_averages( struct interval_reqs *user_requests )
     }
 }
 
-/// @brief validate_intervals  checks the array of line intervals the user wants timed for validity.
-///                            Valid intervals do not overlap and start within the file line range.
-/// @param *script             the script_t passed in with information about the file we parsed.
-/// @param intervals[]         the array of lines to time for the user. Check all O(N).
-/// @param num_intervals       lenghth of the lines to time array.
 static void validate_intervals( struct script *s, struct interval_reqs *user_requests )
 {
     // We can tidy up lazy user input by making sure the end of the time interval makes sense.

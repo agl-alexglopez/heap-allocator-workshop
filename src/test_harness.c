@@ -72,11 +72,6 @@ int main( int argc, char *argv[] )
 
 // NOLINTEND(*include-cleaner)
 
-/// @brief test_scripts
-/// ----------------------
-/// Runs the scripts with names in the specified array, with more or less output
-/// depending on the value of `quiet`.  Returns the number of failures during all
-/// the tests.
 static int test_scripts( char *script_names[], int num_script_names, bool quiet )
 {
     int nsuccesses = 0;
@@ -108,12 +103,6 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
     return nfailures;
 }
 
-/// @brief eval_correctness
-/// --------------------------
-/// Check the allocator for correctness on given script. Interprets the
-/// script operation-by-operation and reports if it detects any "obvious"
-/// errors (returning blocks outside the heap, unaligned,
-/// overlapping blocks, etc.)
 static size_t eval_correctness( struct script *s, bool quiet, bool *success )
 {
     *success = false;
@@ -176,15 +165,6 @@ static size_t eval_correctness( struct script *s, bool quiet, bool *success )
     return (uint8_t *)heap_end - (uint8_t *)heap_segment_start();
 }
 
-/// @brief eval_malloc
-/// ---------------------
-/// Performs a test of a call to mymalloc of the given size.  The req number
-/// specifies the operation's index within the script.  This function verifies
-/// the entire malloc'ed block and fills in the payload with a low-order byte
-/// of the request id.  If the request fails, the boolean pointed to by
-/// failptr is set to true - otherwise, it is set to false.  If it is set to
-/// true this function returns NULL; otherwise, it returns what was returned
-/// by mymalloc.
 static bool eval_malloc( int req, size_t requested_size, struct script *s, void **heap_end )
 {
     size_t id = s->ops[req].id;
@@ -206,15 +186,6 @@ static bool eval_malloc( int req, size_t requested_size, struct script *s, void 
     return true;
 }
 
-/// @brief eval_realloc
-/// ---------------------
-/// Performs a test of a call to myrealloc of the given size.  The req number
-/// specifies the operation's index within the script.  This function verifies
-/// the entire realloc'ed block and fills in the payload with a low-order byte
-/// of the request id.  If the request fails, the boolean pointed to by
-/// failptr is set to true - otherwise, it is set to false.  If it is set to true
-/// this function returns NULL; otherwise, it returns what was returned by
-/// myrealloc.
 static bool eval_realloc( int req, size_t requested_size, struct script *s, void **heap_end )
 {
     size_t id = s->ops[req].id;
@@ -246,14 +217,6 @@ static bool eval_realloc( int req, size_t requested_size, struct script *s, void
     return true;
 }
 
-/// @brief verify_block
-/// ----------------------
-/// Does some checks on the block returned by allocator to try to
-/// verify correctness.  If any problem shows up, reports an allocator error
-/// with details and line from script file. The checks it performs are:
-///  -- verify block address is correctly aligned
-///  -- verify block address is within heap segment
-///  -- verify block address + size doesn't overlap any existing allocated block
 static bool verify_block( void *ptr, size_t size, struct script *s, int lineno )
 {
     // address must be ALIGNMENT-byte aligned
@@ -324,11 +287,6 @@ static bool verify_block( void *ptr, size_t size, struct script *s, int lineno )
     return true;
 }
 
-/// @brief verify_payload
-/// ------------------------
-/// When a block is allocated, the payload is filled with a simple repeating
-/// pattern based on its id.  Check the payload to verify those contents are
-/// still intact, otherwise raise allocator error.
 // NOLINTNEXTLINE (*-swappable-parameters)
 static bool verify_payload( void *ptr, size_t size, size_t id, struct script *s, int lineno, char *op )
 {

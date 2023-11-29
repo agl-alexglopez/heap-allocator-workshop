@@ -12,7 +12,6 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-/// @brief print_gnuplots  returns the file descriptor for a pipe write end we can send to a gnuplot process.
 static int gnuplot_process( void )
 {
     int fds[2];
@@ -34,9 +33,6 @@ static int gnuplot_process( void )
     return -1;
 }
 
-/// @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information in
-///                        case someone is waiting for large data. It can take time.
-/// @brief *graphs         the gnuplots struct containing all the graphs to print.
 void print_gnuplots( struct gnuplots *graphs )
 {
     if ( graphs->num_ops == 0 ) {

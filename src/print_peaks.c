@@ -106,12 +106,6 @@ int main( int argc, char *argv[] )
 
 // NOLINTEND(*include-cleaner)
 
-/// @brief print_peaks      prints the peak number of free nodes present in a heap allocator during
-///                         execution of a script. Prints the state of free nodes breakpoints
-///                         requested by the user as well.
-/// @param script_name      the pointer to the script name we will execute.
-/// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
-/// @return                 0 upon successful execution 1 upon error.
 int print_peaks( char *script_name, struct user_breaks *user_reqs )
 {
     struct script s = parse_script( script_name );
@@ -143,12 +137,6 @@ int print_peaks( char *script_name, struct user_breaks *user_reqs )
     return 0;
 }
 
-/// @brief print_allocator  runs an allocator twice, gathering the peak number of free nodes and
-///                         printint any breakpoints the user requests from the script. The second
-///                         execution will print the peak size of the free nodes.
-/// @param *script          the script_t with all info for the script file to execute.
-/// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
-/// @return                 the size of the heap overall as helpful utilization info.
 static size_t print_allocator( struct script *s, struct user_breaks *user_reqs, struct gnuplots *graphs )
 {
     init_heap_segment( heap_size );
@@ -197,9 +185,9 @@ static size_t print_allocator( struct script *s, struct user_breaks *user_reqs, 
         }
     }
 
-    /// We could track a persistent dynamic set of the free data structure but that would be slow
-    /// and I don't want to expose heap internals to this program or make copies of the nodes. Just
-    /// run it twice and use the allocator's provided printer function to find max nodes.
+    // We could track a persistent dynamic set of the free data structure but that would be slow
+    // and I don't want to expose heap internals to this program or make copies of the nodes. Just
+    // run it twice and use the allocator's provided printer function to find max nodes.
 
     init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
@@ -232,12 +220,6 @@ static void consume_remaining_input( int *c )
     while ( ( *c = getchar() ) != '\n' && *c != EOF ) {}
 }
 
-/// @brief handle_user_breakpoints  interacts with user regarding breakpoints they have requested.
-///                                 and will step with the user through requests and print nodes.
-///                                 The user may continue to next breakpoint, add another
-///                                 breakpoint, or skip remaining.
-/// @param *user_reqs               pointer to the struct with user style, and possible breaks.
-/// @param max                      the upper limit of user input and script range.
 static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_break, int max )
 {
     int min = user_reqs->breakpoints[curr_break] + 1;
@@ -287,10 +269,6 @@ static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_bre
     }
 }
 
-/// @breif get_user_int  retreives an int from the user if they wish to add another breakpoint.
-/// @param min           the lower range allowable for the int.
-/// @param max           the upper range for the int.
-/// @return              the valid integer entered by the user.
 static int get_user_int( int min, int max )
 {
     char *buff = malloc( sizeof( char ) * max_digits );
@@ -332,9 +310,6 @@ static int get_user_int( int min, int max )
     return input_int;
 }
 
-/// @brief validate_breakpoints  checks any requested breakpoints to make sure they are in range.
-/// @param script                the parsed script with information we need to verify ranges.
-/// @param *user_reqs            struct containing user print style, and possible breaks.
 static void validate_breakpoints( struct script *s, struct user_breaks *user_reqs )
 {
     // It's easier if the breakpoints are in order and can run along with our script execution.
@@ -349,15 +324,6 @@ static void validate_breakpoints( struct script *s, struct user_breaks *user_req
     }
 }
 
-/// @brief *binsert  performs binary insertion sort on an array, finding an element if it already
-///                  present or inserting it in sorted place if it not yet present. It will update
-///                  the size of the array if it inserts an element.
-/// @param *key      the element we are searching for in the array.
-/// @param *p_nelem  the number of elements present in the array.
-/// @param width     the size in bytes of each entry in the array.
-/// @param *compar   the comparison function used to determine if an element matches our key.
-/// @warning         this function will update the array size as an output parameter and assumes the
-///                  user has provided enough space for one additional element in the array.
 static void binsert( const void *key, void *base, int *p_nelem, size_t width,
                      int ( *compar )( const void *, const void * ) )
 {
@@ -383,9 +349,6 @@ static void binsert( const void *key, void *base, int *p_nelem, size_t width,
     ++*p_nelem;
 }
 
-/// @brief cmp_breakpoints  the compare function for our breakpoint line numbers for qsort.
-/// @param a,b              breakpoints to compare.
-/// @return                 >0 if a is larger than b, <0 if b is larger than a, =0 if same.
 static int cmp_breakpoints( const void *a, const void *b )
 {
     return ( *(breakpoint *)a ) - ( *(breakpoint *)b );
