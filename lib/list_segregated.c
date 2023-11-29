@@ -102,6 +102,7 @@ enum bucket_bytes
     I5 = 5,
     I6 = 6,
     SMALL_TABLE_MAX_BYTES = INDEX_6_BYTES,
+    SMALL_TABLE_STEP = 8,
     /// This means our first log2 bucket index calculation yeilds 7 for the 0b1000_0000 bit.
     /// We then start doubling from here. 128, 256, 512, etc. Probably should profile to pick sizes.
     LARGE_TABLE_MIN_BYTES = 128,
@@ -202,7 +203,7 @@ bool myinit( void *heap_start, size_t heap_size )
     fits.nil.next = NULL;
     // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
     size_t size = INDEX_0_BYTES;
-    for ( size_t index = 0; index < NUM_SMALL_BUCKETS; index++, size += ALIGNMENT ) {
+    for ( size_t index = 0; index < NUM_SMALL_BUCKETS; index++, size += SMALL_TABLE_STEP ) {
         fits.table[index].size = size;
         fits.table[index].start = &fits.nil;
     }
@@ -608,7 +609,7 @@ static bool is_small_table_valid( struct seg_node table[] )
 {
     // Check our lookup table. Sizes should never be altered and pointers should never be NULL.
     uint16_t size = INDEX_0_BYTES;
-    for ( size_t i = 0; i < NUM_SMALL_BUCKETS; i++, size += HEADERSIZE ) {
+    for ( size_t i = 0; i < NUM_SMALL_BUCKETS; i++, size += SMALL_TABLE_STEP ) {
         if ( table[i].size != size ) {
             BREAKPOINT();
             return false;
