@@ -153,6 +153,8 @@ static struct heap
 
 // NOLINTEND(*-non-const-global-variables)
 
+/////////////////////////////   Forward Declarations    //////////////////////////////////
+
 static size_t roundup( size_t requested_size, size_t multiple );
 static size_t get_size( header header_val );
 static bool is_block_allocated( header block_header );
@@ -947,6 +949,7 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
     printf( "\n" );
 }
 
+/// I know this function is rough but it's tricky to focus on edge color rather than node color.
 static void print_inner_tree(
     const struct node *root,
     size_t parent_size,
@@ -1035,8 +1038,7 @@ static void print_tree( const struct node *root, const void *nil_and_tail, enum 
 static void print_alloc_block( const struct node *node )
 {
     size_t block_size = get_size( node->header );
-    // We will see from what direction our header is messed up by printing 16
-    // digits.
+    // We will see from what direction our header is messed up by printing 16 digits.
     printf( COLOR_GRN "%p: HDR->0x%016zX(%zubytes)\n" COLOR_NIL, node, node->header, block_size );
 }
 
@@ -1044,8 +1046,6 @@ static void print_free_block( const struct node *node )
 {
     size_t block_size = get_size( node->header );
     header *footer = (header *)( (uint8_t *)node + block_size );
-    // We should be able to see the header is the same as the footer. However, due
-    // to fixup functions, the color may change for nodes and color is irrelevant to footers.
     header to_print = *footer;
     if ( get_size( *footer ) != get_size( node->header ) ) {
         to_print = ULLONG_MAX;
