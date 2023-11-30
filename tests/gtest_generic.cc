@@ -50,7 +50,7 @@ void assert_init( size_t size, enum status_error e ) // NOLINT(*cognitive-comple
         break;
     }
     default: {
-        std::cerr << "malloc can only expect valid or invalid error status, not bounds error.\n";
+        std::cerr << "init can only expect err or ok error status, not bounds error.\n";
         std::abort();
         break;
     }
@@ -68,7 +68,7 @@ void *expect_malloc( size_t size, status_error e )
         EXPECT_EQ( nullptr, m );
         break;
     default: {
-        std::cerr << "malloc can only expect valid or invalid error status, not bounds error.\n";
+        std::cerr << "malloc can only expect err or ok error status, not bounds error.\n";
         std::abort();
         break;
     }
@@ -92,7 +92,7 @@ void *expect_realloc( void *old_ptr, size_t new_size, enum status_error e )
         EXPECT_EQ( nullptr, newptr );
         break;
     default: {
-        std::cerr << "malloc can only expect valid or invalid error status, not bounds error.\n";
+        std::cerr << "realloc can only expect err or ok error status, not bounds error.\n";
         std::abort();
         break;
     }
