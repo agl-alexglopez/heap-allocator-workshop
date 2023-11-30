@@ -144,6 +144,10 @@ template <typename T> std::vector<T *> expect_mallocs( const std::vector<malloc_
         }
     }
     EXPECT_GT( starting_capacity, myheap_capacity() );
+    // The user claimed the rest of the heap is at the end so they do not intend for the heap to exhaust.
+    if ( expected.back().bytes == heap ) {
+        EXPECT_NE( 0, myheap_capacity() );
+    }
     return addrs;
 }
 
