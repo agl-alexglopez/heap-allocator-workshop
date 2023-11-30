@@ -676,8 +676,8 @@ static void splay( struct node *cur, struct path_slice p )
         // |       parent  ->         current    ->   gparent       parent |
         // |      /                          \                             |
         // | current                         parent                        |
-        // We want the parent-child link to rotate the same direction as the grandparent-parent link
-        // and then for the gparent-rotatedchild link to rotate the same direction as the original parent-child.
+        // We want the parent-child link to rotate the same direction as the grandparent-parent link.
+        // Then the gparent-rotatedchild link should rotate the same direction as the original parent-child.
         rotate( gparent_to_parent_link, parent, ( struct path_slice ){ p.nodes, p.len - 1 } );
         p.nodes[p.len - 2] = cur;
         rotate( parent_to_cur_link, gparent, ( struct path_slice ){ p.nodes, p.len - 2 } );
@@ -977,6 +977,7 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
     printf( "\n" );
 }
 
+/// Problematic function but maintaining edge colors with stdout and line printing is kind of tricky.
 static void print_inner_tree(
     const struct node *root,
     size_t parent_size,
@@ -1065,8 +1066,7 @@ static void print_tree( const struct node *root, const void *nil_and_tail, enum 
 static void print_alloc_block( const struct node *node )
 {
     size_t block_size = get_size( node->header );
-    // We will see from what direction our header is messed up by printing 16
-    // digits.
+    // We will see from what direction our header is messed up by printing 16 digits.
     printf( COLOR_GRN "%p: HDR->0x%016zX(%zubytes)\n" COLOR_NIL, node, node->header, block_size );
 }
 
@@ -1074,8 +1074,6 @@ static void print_free_block( const struct node *node )
 {
     size_t block_size = get_size( node->header );
     header *footer = (header *)( (uint8_t *)node + block_size );
-    // We should be able to see the header is the same as the footer. However, due
-    // to fixup functions, the color may change for nodes and color is irrelevant to footers.
     header to_print = *footer;
     if ( get_size( *footer ) != get_size( node->header ) ) {
         to_print = ULLONG_MAX;
