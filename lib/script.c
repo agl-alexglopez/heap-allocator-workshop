@@ -212,9 +212,11 @@ static double time_malloc( size_t req, size_t requested_size, struct script *s, 
     request_end = clock();
     if ( *p == NULL && requested_size != 0 ) {
         allocator_error(
-            s, s->ops[req].lineno,
+            s,
+            s->ops[req].lineno,
             "heap exhausted, malloc returned NULL: 0x%016zX. Was: 0x%016zX Script too large or allocator error.\n",
-            end_address_report, start_address_report
+            end_address_report,
+            start_address_report
         );
         abort();
     }
@@ -239,9 +241,11 @@ static double time_realloc( size_t req, size_t requested_size, struct script *s,
 
     if ( *newp == NULL && requested_size != 0 ) {
         allocator_error(
-            s, s->ops[req].lineno,
+            s,
+            s->ops[req].lineno,
             "heap exhausted, realloc returned NULL: 0x%016zX. Was: 0x%016zX Script too large or allocator error.\n",
-            end_address_report, start_address_report
+            end_address_report,
+            start_address_report
         );
         abort();
     }

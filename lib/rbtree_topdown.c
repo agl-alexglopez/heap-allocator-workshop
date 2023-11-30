@@ -25,7 +25,7 @@
 ///     tree to guide my topdown implementation. Specifically, I followed Walker's insert and delete
 ///     functions. However, I modified both to allow for duplicates in my tree because the heap
 ///     requires duplicate nodes to be stored. I used a doubly linked list to acheive this.
-///          https://web.archive.org/web/20141129024312/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx
+///     https://web.archive.org/web/20141129024312/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx
 #include "allocator.h"
 #include "debug_break.h"
 #include "print_utility.h"
@@ -320,7 +320,8 @@ bool validate_heap( void )
     // Check that after checking all headers we end on size 0 tail and then end of address space.
     size_t total_free_mem = 0;
     if ( !is_memory_balanced(
-             &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
+             &total_free_mem,
+             ( struct heap_range ){ heap.client_start, heap.client_end },
              ( struct size_total ){ heap.heap_size, free_nodes.total }
          ) ) {
         return false;
@@ -429,7 +430,9 @@ void print_free_nodes( enum print_style style )
 void dump_heap( void )
 {
     print_all(
-        ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, free_nodes.tree_root,
+        ( struct heap_range ){ heap.client_start, heap.client_end },
+        heap.heap_size,
+        free_nodes.tree_root,
         free_nodes.black_nil
     );
 }
@@ -699,7 +702,10 @@ static void insert_rb_topdown( struct rb_node *current )
     // Unfortunate infinite loop structure due to odd nature of topdown fixups. I kept the search
     // and pointer updates at top of loop for clarity but can't figure out how to make proper
     // loop conditions from this logic.
-    for ( ;; ancestor = gparent, gparent = parent, parent = child, prev_link = link,
+    for ( ;; ancestor = gparent,
+             gparent = parent,
+             parent = child,
+             prev_link = link,
              child = child->links[link = child_size < key] ) {
 
         child_size = get_size( child->header );
@@ -1075,8 +1081,12 @@ static void print_node( const struct rb_node *root, const void *nil_and_tail, en
 }
 
 static void print_inner_tree(
-    const struct rb_node *root, const void *nil_and_tail, const char *prefix, const enum print_link node_type,
-    const enum tree_link dir, enum print_style style
+    const struct rb_node *root,
+    const void *nil_and_tail,
+    const char *prefix,
+    const enum print_link node_type,
+    const enum tree_link dir,
+    enum print_style style
 )
 {
     if ( root == nil_and_tail ) {
@@ -1203,10 +1213,12 @@ static void print_all( struct heap_range r, size_t heap_size, struct rb_node *tr
     printf(
         "Heap client segment starts at address %p, ends %p. %zu total bytes "
         "currently used.\n",
-        node, r.end, heap_size
+        node,
+        r.end,
+        heap_size
     );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
-    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[rED NODE] " COLOR_NIL COLOR_GRN
+    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[RED NODE] " COLOR_NIL COLOR_GRN
             "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
 
     printf( "%p: START OF  HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", r.start );
@@ -1235,7 +1247,7 @@ static void print_all( struct heap_range r, size_t heap_size, struct rb_node *tr
     printf( "%p: BLACK NULL HDR->0x%016zX\n" COLOR_NIL, black_nil, black_nil->header );
     printf( "%p: FINAL ADDRESS", (uint8_t *)r.end + HEAP_NODE_WIDTH );
     printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
-    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[rED NODE] " COLOR_NIL COLOR_GRN
+    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[RED NODE] " COLOR_NIL COLOR_GRN
             "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
 
     printf( "\nRED BLACK TREE OF FREE NODES AND BLOCK SIZES.\n" );

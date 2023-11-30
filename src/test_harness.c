@@ -86,7 +86,9 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
         size_t used_segment = eval_correctness( &s, quiet, &success );
         if ( success ) {
             printf(
-                "successfully serviced %d requests. (payload/segment = %zu/%zu)", s.num_ops, s.peak_size,
+                "successfully serviced %d requests. (payload/segment = %zu/%zu)",
+                s.num_ops,
+                s.peak_size,
                 used_segment
             );
             if ( used_segment > 0 ) {
@@ -207,7 +209,11 @@ static bool eval_realloc( int req, size_t requested_size, struct script *s, void
     }
     // Verify new block contains the data from the old block
     if ( !verify_payload(
-             newp, ( old_size < requested_size ? old_size : requested_size ), id, s, s->ops[req].lineno,
+             newp,
+             ( old_size < requested_size ? old_size : requested_size ),
+             id,
+             s,
+             s->ops[req].lineno,
              "post-realloc-ing (preserving data)"
          ) ) {
         return false;
@@ -236,21 +242,29 @@ static bool verify_block( void *ptr, size_t size, struct script *s, int lineno )
     void *heap_end = (uint8_t *)heap_segment_start() + heap_segment_size();
     if ( ptr < heap_segment_start() ) {
         allocator_error(
-            s, lineno,
+            s,
+            lineno,
             "New block (%p:%p) not within heap segment (%p:%p)\n"
             "|----block-------|\n"
             "        |------heap-------...|\n",
-            ptr, end, heap_segment_start(), heap_end
+            ptr,
+            end,
+            heap_segment_start(),
+            heap_end
         );
         return false;
     }
     if ( end > heap_end ) {
         allocator_error(
-            s, lineno,
+            s,
+            lineno,
             "New block (%p:%p) not within heap segment (%p:%p)\n"
             "               |----block-------|\n"
             "|...----heap-------|\n",
-            ptr, end, heap_segment_start(), heap_end
+            ptr,
+            end,
+            heap_segment_start(),
+            heap_end
         );
         return false;
     }
@@ -263,37 +277,49 @@ static bool verify_block( void *ptr, size_t size, struct script *s, int lineno )
         void *other_end = (uint8_t *)other_start + s->blocks[i].size;
         if ( ptr >= other_start && ptr < other_end ) {
             allocator_error(
-                s, lineno,
+                s,
+                lineno,
                 "New block (%p:%p) overlaps existing block (%p:%p)\n"
                 "     |------current---------|\n"
                 "|------other-------|\n",
                 "or\n",
                 "  |--current----|\n"
                 "|------other-------|\n",
-                ptr, end, other_start, other_end
+                ptr,
+                end,
+                other_start,
+                other_end
             );
             return false;
         }
         if ( end > other_start && end < other_end ) {
             allocator_error(
-                s, lineno,
+                s,
+                lineno,
                 "New block (%p:%p) overlaps existing block (%p:%p)\n"
                 "|---current---|\n"
                 "         |------other-------|\n",
                 "or\n",
                 "  |--current----|\n"
                 "|------other-------|\n",
-                ptr, end, other_start, other_end
+                ptr,
+                end,
+                other_start,
+                other_end
             );
             return false;
         }
         if ( ptr < other_start && end >= other_end ) {
             allocator_error(
-                s, lineno,
+                s,
+                lineno,
                 "New block (%p:%p) overlaps existing block (%p:%p)\n"
                 "|---------current------------|\n"
                 "    |------other-------|\n",
-                ptr, end, other_start, other_end
+                ptr,
+                end,
+                other_start,
+                other_end
             );
             return false;
         }

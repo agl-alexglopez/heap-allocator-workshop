@@ -130,7 +130,7 @@ void expect_frees( const std::vector<void *> &frees, const std::vector<heap_bloc
 /// to the specified type.
 /// Note: Don't pass in <T*>, but rather <T> to the template. Example:
 /// std::vector<char *> my_malloc_strings = expect_mallocs<char>( { { 88, OK }, { 32, OK }, { heap, OK } } );
-/// but you should prefer auto to avoid confusion.
+/// But you should prefer auto to avoid confusion.
 /// auto my_malloc_strings = expect_mallocs<char>( { { 88, OK }, { 32, OK }, { heap, OK } } );
 template <typename T> std::vector<T *> expect_mallocs( const std::vector<malloc_expectation> &expected )
 {

@@ -268,7 +268,10 @@ static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_bre
             int new_breakpoint = get_user_int( min, max );
             // We will insert the new breakpoint but also do nothing if it is already there.
             binsert(
-                &new_breakpoint, user_reqs->breakpoints, &user_reqs->num_breakpoints, sizeof( breakpoint ),
+                &new_breakpoint,
+                user_reqs->breakpoints,
+                &user_reqs->num_breakpoints,
+                sizeof( breakpoint ),
                 cmp_breakpoints
             );
             continue;

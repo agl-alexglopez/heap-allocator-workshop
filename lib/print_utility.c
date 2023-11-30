@@ -53,13 +53,14 @@ void print_gnuplots( struct gnuplots *graphs )
         return;
     }
     (void)fprintf(
-        util_pipe, "set terminal dumb ansi256;"
-                   "set colorsequence classic;"
-                   "set grid;"
-                   "set autoscale;"
-                   "set title 'Utilization %% over Heap Lifetime';"
-                   "set xlabel 'Script Line Number';"
-                   "plot '-' pt '#' lc rgb 'green' notitle\n"
+        util_pipe,
+        "set terminal dumb ansi256;"
+        "set colorsequence classic;"
+        "set grid;"
+        "set autoscale;"
+        "set title 'Utilization %% over Heap Lifetime';"
+        "set xlabel 'Script Line Number';"
+        "plot '-' pt '#' lc rgb 'green' notitle\n"
     );
     for ( size_t req = 0; req < graphs->num_ops; req++ ) {
         (void)fprintf( util_pipe, "%ld %f \n", req + 1UL, graphs->util_percents[req] );
@@ -81,13 +82,14 @@ void print_gnuplots( struct gnuplots *graphs )
         return;
     }
     (void)fprintf(
-        free_pipe, "set terminal dumb ansi256;"
-                   "set colorsequence classic;"
-                   "set grid;"
-                   "set autoscale;"
-                   "set title 'Number of Free Nodes over Heap Lifetime';"
-                   "set xlabel 'Script Line Number';"
-                   "plot '-' pt '#' lc rgb 'red' notitle\n"
+        free_pipe,
+        "set terminal dumb ansi256;"
+        "set colorsequence classic;"
+        "set grid;"
+        "set autoscale;"
+        "set title 'Number of Free Nodes over Heap Lifetime';"
+        "set xlabel 'Script Line Number';"
+        "plot '-' pt '#' lc rgb 'red' notitle\n"
     );
     size_t total_free = 0;
     for ( size_t req = 0; req < graphs->num_ops; req++ ) {
@@ -112,12 +114,13 @@ void print_gnuplots( struct gnuplots *graphs )
         return;
     }
     (void)fprintf(
-        requests_pipe, "set terminal dumb ansi256;set colorsequence "
-                       "classic;set zero 1e-20;set grid;"
-                       "set autoscale;set title 'Time (milliseconds) to "
-                       "Service a Heap Request';"
-                       "set xlabel 'Script Line Number';"
-                       "plot '-' pt '#' lc rgb 'cyan' notitle\n"
+        requests_pipe,
+        "set terminal dumb ansi256;set colorsequence "
+        "classic;set zero 1e-20;set grid;"
+        "set autoscale;set title 'Time (milliseconds) to "
+        "Service a Heap Request';"
+        "set xlabel 'Script Line Number';"
+        "plot '-' pt '#' lc rgb 'cyan' notitle\n"
     );
     double total_time = 0;
     for ( size_t req = 0; req < graphs->num_ops; req++ ) {

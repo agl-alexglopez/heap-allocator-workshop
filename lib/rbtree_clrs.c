@@ -275,7 +275,8 @@ bool validate_heap( void )
     }
     size_t total_free_mem = 0;
     if ( !is_memory_balanced(
-             &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
+             &total_free_mem,
+             ( struct heap_range ){ heap.client_start, heap.client_end },
              ( struct size_total ){ heap.heap_size, tree.total }
          ) ) {
         return false;
@@ -979,8 +980,11 @@ static void print_node( const struct rb_node *root, const struct rb_node *black_
 }
 
 static void print_inner_tree(
-    const struct rb_node *root, const struct rb_node *black_nil, const char *prefix,
-    const enum print_link node_type, enum print_style style
+    const struct rb_node *root,
+    const struct rb_node *black_nil,
+    const char *prefix,
+    const enum print_link node_type,
+    enum print_style style
 )
 {
     if ( root == black_nil ) {
@@ -1113,7 +1117,9 @@ static void print_all( struct heap_range r, size_t heap_size, struct rb_node *ro
     printf(
         "Heap client segment starts at address %p, ends %p. %zu total bytes "
         "currently used.\n",
-        node, r.end, heap_size
+        node,
+        r.end,
+        heap_size
     );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
     printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[RED NODE] " COLOR_NIL COLOR_GRN

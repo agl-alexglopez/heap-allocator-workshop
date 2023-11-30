@@ -271,7 +271,8 @@ bool validate_heap( void )
     }
     size_t total_free_mem = 0;
     if ( !is_memory_balanced(
-             &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
+             &total_free_mem,
+             ( struct heap_range ){ heap.client_start, heap.client_end },
              ( struct size_total ){ heap.heap_size, tree.total }
          ) ) {
         return false;
@@ -889,8 +890,11 @@ static void print_node( const struct rb_node *root, const struct rb_node *black_
 }
 
 static void print_inner_tree(
-    const struct rb_node *root, const struct rb_node *black_nil, const char *prefix,
-    const enum print_link node_type, enum print_style style
+    const struct rb_node *root,
+    const struct rb_node *black_nil,
+    const char *prefix,
+    const enum print_link node_type,
+    enum print_style style
 )
 {
     if ( root == black_nil ) {
@@ -1023,10 +1027,12 @@ static void print_all( struct heap_range r, size_t heap_size, struct rb_node *ro
     printf(
         "Heap client segment starts at address %p, ends %p. %zu total bytes "
         "currently used.\n",
-        node, r.end, heap_size
+        node,
+        r.end,
+        heap_size
     );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
-    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[rED NODE] " COLOR_NIL COLOR_GRN
+    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[RED NODE] " COLOR_NIL COLOR_GRN
             "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
 
     printf( "%p: START OF  HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", r.start );
@@ -1055,7 +1061,7 @@ static void print_all( struct heap_range r, size_t heap_size, struct rb_node *ro
     printf( "%p: BLACK NULL HDR->0x%016zX\n" COLOR_NIL, black_nil, black_nil->header );
     printf( "%p: FINAL ADDRESS", (uint8_t *)r.end + HEAP_NODE_WIDTH );
     printf( "\nA-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
-    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[rED NODE] " COLOR_NIL COLOR_GRN
+    printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[RED NODE] " COLOR_NIL COLOR_GRN
             "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
 
     printf( "\nRED BLACK TREE OF FREE NODES AND BLOCK SIZES.\n" );

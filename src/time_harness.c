@@ -179,7 +179,9 @@ static size_t time_allocator( struct script *s, struct interval_reqs *user_reque
                                              / (double)( (uint8_t *)heap_end - (uint8_t *)heap_segment_start() );
             }
             printf(
-                "Execution time for script lines %d-%d (milliseconds): %f\n", sect.start_req + 1, sect.end_req + 1,
+                "Execution time for script lines %d-%d (milliseconds): %f\n",
+                sect.start_req + 1,
+                sect.end_req + 1,
                 total_request_time
             );
 
@@ -203,8 +205,10 @@ static void report_interval_averages( struct interval_reqs *user_requests )
 {
     for ( size_t i = 0; i < user_requests->num_intervals; i++ ) {
         printf(
-            "Average time (milliseconds) per request lines %d-%d: %lf\n", user_requests->intervals[i].start_req + 1,
-            user_requests->intervals[i].end_req + 1, user_requests->interval_averages[i]
+            "Average time (milliseconds) per request lines %d-%d: %lf\n",
+            user_requests->intervals[i].start_req + 1,
+            user_requests->intervals[i].end_req + 1,
+            user_requests->interval_averages[i]
         );
     }
 }
