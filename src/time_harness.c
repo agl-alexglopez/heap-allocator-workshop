@@ -46,6 +46,7 @@ struct interval_reqs
     struct interval intervals[MAX_TIMER_REQUESTS];
     double interval_averages[MAX_TIMER_REQUESTS];
     size_t num_intervals;
+    bool quiet;
 };
 
 const long heap_size = 1L << 32;
@@ -65,6 +66,8 @@ static void validate_intervals( struct script *s, struct interval_reqs *user_req
 /// @brief main  parses command line arguments that request a range of lines to be timed for
 ///              performance. Arguments may take the following form:
 ///              ../bin/time_rbtree_clrs -s 10001 -e 15000 -s 15001 scripts/time-insertdelete-5k.script
+/// @arg -q      only output a single number in decimal form representing the time in ms to complete the requests.
+///              Must be the first flag of all arguments.
 /// @arg -s      the flag to start the timer on a certain line number. May be followed by -e flag.
 ///              If no -e flag follows, the program will time the remainder of lines to execute.
 /// @arg -e      the flag to end the timer on a certain line number. Invalid if not preceeded by -s.
@@ -74,7 +77,11 @@ int main( int argc, char *argv[] )
 {
     struct interval_reqs user_req = { 0 };
     // -s flag to start timer on line number, -e flag to end flag on line number.
-    int opt = getopt( argc, argv, "s:" );
+    int opt = getopt( argc, argv, "s:q" );
+    if ( opt == 'q' ) {
+        user_req.quiet = true;
+        opt = getopt( argc, argv, "s:" );
+    }
     while ( opt != -1 ) {
         struct interval intv = { 0 };
         char *ptr = NULL;
@@ -83,7 +90,7 @@ int main( int argc, char *argv[] )
         intv.start_req = (int)strtol( optarg, &ptr, base_10 ) - 1;
         if ( user_req.num_intervals && user_req.intervals[user_req.num_intervals - 1].end_req >= intv.start_req ) {
             printf( "Timing intervals can't overlap. Revisit script line ranges.\n" );
-            printf( "Example of Bad Input Flags: -s 1 -e 5 -s 2\n" );
+            printf( "Example of Bad Input Flags: -s 1 -e 5 -s 2 -q\n" );
             abort();
         }
 
@@ -129,16 +136,23 @@ static int time_script( char *script_name, struct interval_reqs *user_requests )
     assert( graphs.request_times );
 
     // Evaluate this script and record the results
-    printf( "\nEvaluating allocator on %s...\n", s.name );
+    if ( !user_requests->quiet ) {
+        printf( "\nEvaluating allocator on %s...\n", s.name );
+    }
     // We will bring back useful utilization info while we time.
     size_t used_segment = time_allocator( &s, user_requests, &graphs );
-    printf(
-        "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", s.num_ops, s.peak_size, used_segment
-    );
-    printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)s.peak_size ) / (double)used_segment );
+    if ( !user_requests->quiet ) {
+        printf(
+            "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n",
+            s.num_ops,
+            s.peak_size,
+            used_segment
+        );
+        printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)s.peak_size ) / (double)used_segment );
+        print_gnuplots( &graphs );
+        report_interval_averages( user_requests );
+    }
 
-    print_gnuplots( &graphs );
-    report_interval_averages( user_requests );
     free( graphs.util_percents );
     free( graphs.free_nodes );
     free( graphs.request_times );
@@ -178,19 +192,21 @@ static size_t time_allocator( struct script *s, struct interval_reqs *user_reque
                 graphs->util_percents[req] = ( 100.0 * (double)s->peak_size )
                                              / (double)( (uint8_t *)heap_end - (uint8_t *)heap_segment_start() );
             }
-            printf(
-                "Execution time for script lines %d-%d (milliseconds): %f\n",
-                sect.start_req + 1,
-                sect.end_req + 1,
-                total_request_time
-            );
-
+            if ( user_requests->quiet ) {
+                printf( "%f\n", total_request_time );
+            } else {
+                printf(
+                    "Execution time for script lines %d-%d (milliseconds): %f\n",
+                    sect.start_req + 1,
+                    sect.end_req + 1,
+                    total_request_time
+                );
+            }
             user_requests->interval_averages[current_interval]
                 = total_request_time / (double)( sect.end_req - sect.start_req );
             current_interval++;
         } else {
             double request_time = time_request( s, req, &cur_size, &heap_end );
-
             graphs->request_times[req] = request_time;
             graphs->free_nodes[req] = get_free_total();
             graphs->util_percents[req] = ( 100.0 * (double)s->peak_size )

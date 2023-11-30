@@ -10,6 +10,12 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 
+###############    Performance Tester    ##################
+
+add_executable(perf perf.cc)
+
+###############   Generic Tests for all Allocators    ############
+
 ###############   Segregated Lists   ######################
 
 add_executable(gtest_generic_list_segregated gtest_generic.cc)
