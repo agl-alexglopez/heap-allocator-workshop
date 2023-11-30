@@ -563,7 +563,7 @@ static struct node *find_best_fit( size_t key )
     while ( seeker != free_nodes.nil ) {
         size_t seeker_size = get_size( seeker->header );
         path[path_len++] = seeker;
-        assert( path_len <= MAX_TREE_HEIGHT );
+        assert( path_len < MAX_TREE_HEIGHT );
         if ( key == seeker_size ) {
             best_fit_size = seeker_size;
             remove = seeker;
