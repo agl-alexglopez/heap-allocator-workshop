@@ -50,8 +50,8 @@ static size_t print_allocator( struct script *s, struct user_breaks *user_reqs, 
 static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_break, int max );
 static int get_user_int( int min, int max );
 static void validate_breakpoints( struct script *s, struct user_breaks *user_reqs );
-static void binsert( const void *key, void *base, int *p_nelem, size_t width,
-                     int ( *compar )( const void *, const void * ) );
+static void
+binsert( const void *key, void *base, int *p_nelem, size_t width, int ( *compar )( const void *, const void * ) );
 static int cmp_breakpoints( const void *a, const void *b );
 
 // NOLINTBEGIN(*include-cleaner)
@@ -89,8 +89,9 @@ int main( int argc, char *argv[] )
                 abort();
             }
             breakpoint line = (int)req;
-            binsert( &line, &user_reqs.breakpoints, &user_reqs.num_breakpoints, sizeof( breakpoint ),
-                     cmp_breakpoints );
+            binsert(
+                &line, &user_reqs.breakpoints, &user_reqs.num_breakpoints, sizeof( breakpoint ), cmp_breakpoints
+            );
         }
     }
     if ( optind >= argc ) {
@@ -123,8 +124,9 @@ int print_peaks( char *script_name, struct user_breaks *user_reqs )
     // Evaluate this script and record the results
     printf( "\nEvaluating allocator on %s...\n", s.name );
     size_t used_segment = print_allocator( &s, user_reqs, &graphs );
-    printf( "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", s.num_ops, s.peak_size,
-            used_segment );
+    printf(
+        "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", s.num_ops, s.peak_size, used_segment
+    );
     printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)s.peak_size ) / (double)used_segment );
 
     print_gnuplots( &graphs );
@@ -226,22 +228,28 @@ static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_bre
     while ( true ) {
         int c = 0;
         if ( user_reqs->breakpoints[curr_break] == max ) {
-            (void)fputs( "Script complete.\n"
-                         "Enter <ENTER> to exit: ",
-                         stdout );
+            (void)fputs(
+                "Script complete.\n"
+                "Enter <ENTER> to exit: ",
+                stdout
+            );
             consume_remaining_input( &c );
             return;
         }
         if ( curr_break < user_reqs->num_breakpoints ) {
-            (void)fputs( "Enter the character <C> to continue to next breakpoint.\n"
-                         "Enter the character <B> to add a new breakpoints.\n"
-                         "Enter <ENTER> to exit: ",
-                         stdout );
+            (void)fputs(
+                "Enter the character <C> to continue to next breakpoint.\n"
+                "Enter the character <B> to add a new breakpoints.\n"
+                "Enter <ENTER> to exit: ",
+                stdout
+            );
         } else {
-            (void)fputs( "No breakpoints remain.\n"
-                         "Enter the character <B> to add a new breakpoints.\n"
-                         "Enter <ENTER> to exit: ",
-                         stdout );
+            (void)fputs(
+                "No breakpoints remain.\n"
+                "Enter the character <B> to add a new breakpoints.\n"
+                "Enter <ENTER> to exit: ",
+                stdout
+            );
         }
         c = getchar();
         // User generated end of file or hit ENTER. We won't look at anymore breakpoints.
@@ -259,8 +267,10 @@ static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_bre
             consume_remaining_input( &c );
             int new_breakpoint = get_user_int( min, max );
             // We will insert the new breakpoint but also do nothing if it is already there.
-            binsert( &new_breakpoint, user_reqs->breakpoints, &user_reqs->num_breakpoints, sizeof( breakpoint ),
-                     cmp_breakpoints );
+            binsert(
+                &new_breakpoint, user_reqs->breakpoints, &user_reqs->num_breakpoints, sizeof( breakpoint ),
+                cmp_breakpoints
+            );
             continue;
         }
         // We have the right input but we will double check for extra chars to be safe.
@@ -324,8 +334,8 @@ static void validate_breakpoints( struct script *s, struct user_breaks *user_req
     }
 }
 
-static void binsert( const void *key, void *base, int *p_nelem, size_t width,
-                     int ( *compar )( const void *, const void * ) )
+static void
+binsert( const void *key, void *base, int *p_nelem, size_t width, int ( *compar )( const void *, const void * ) )
 {
     // We will use the address at the end of the array to help move bytes if we don't find elem.
     void *end = (uint8_t *)base + ( *p_nelem * width );

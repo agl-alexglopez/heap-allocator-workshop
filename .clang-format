@@ -7,6 +7,9 @@ AlwaysBreakAfterDefinitionReturnType: None
 BreakBeforeBinaryOperators: All
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: None
+AlignAfterOpenBracket: BlockIndent
+BinPackArguments: false
+BinPackParameters: false
 BreakBeforeBraces: Custom
 BraceWrapping:
   AfterControlStatement: Never

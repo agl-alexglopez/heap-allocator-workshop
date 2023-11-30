@@ -136,8 +136,9 @@ static void *exec_malloc( int req, size_t requested_size, struct script *s )
     size_t id = s->ops[req].id;
     void *p = mymalloc( requested_size );
     if ( NULL == p && requested_size != 0 ) {
-        allocator_error( s, s->ops[req].lineno,
-                         "heap exhausted, malloc returned NULL. Script too large or allocator error.\n" );
+        allocator_error(
+            s, s->ops[req].lineno, "heap exhausted, malloc returned NULL. Script too large or allocator error.\n"
+        );
         abort();
     }
 
@@ -151,8 +152,9 @@ static void *exec_realloc( int req, size_t requested_size, struct script *s )
     void *oldp = s->blocks[id].ptr;
     void *newp = myrealloc( oldp, requested_size );
     if ( NULL == newp && requested_size != 0 ) {
-        allocator_error( s, s->ops[req].lineno,
-                         "heap exhausted, realloc returned NULL. Script too large or allocator error.\n" );
+        allocator_error(
+            s, s->ops[req].lineno, "heap exhausted, realloc returned NULL. Script too large or allocator error.\n"
+        );
         abort();
     }
     s->blocks[id].size = 0;
@@ -212,7 +214,8 @@ static double time_malloc( size_t req, size_t requested_size, struct script *s, 
         allocator_error(
             s, s->ops[req].lineno,
             "heap exhausted, malloc returned NULL: 0x%016zX. Was: 0x%016zX Script too large or allocator error.\n",
-            end_address_report, start_address_report );
+            end_address_report, start_address_report
+        );
         abort();
     }
 
@@ -238,7 +241,8 @@ static double time_realloc( size_t req, size_t requested_size, struct script *s,
         allocator_error(
             s, s->ops[req].lineno,
             "heap exhausted, realloc returned NULL: 0x%016zX. Was: 0x%016zX Script too large or allocator error.\n",
-            end_address_report, start_address_report );
+            end_address_report, start_address_report
+        );
         abort();
     }
 

@@ -39,8 +39,8 @@ void print_gnuplots( struct gnuplots *graphs )
         printf( "no operations to graph" );
         return;
     }
-    printf( "Gnuplot printing " COLOR_CYN "3" COLOR_NIL
-            " graphs. This may take a moment for large data sets...\n" );
+    printf( "Gnuplot printing " COLOR_CYN "3" COLOR_NIL " graphs. This may take a moment for large data sets...\n"
+    );
     // UTILIZATION GRAPH
     int util_process = gnuplot_process();
     if ( util_process < 0 ) {
@@ -52,13 +52,15 @@ void print_gnuplots( struct gnuplots *graphs )
         printf( "Parent could not open write pipe." );
         return;
     }
-    (void)fprintf( util_pipe, "set terminal dumb ansi256;"
-                              "set colorsequence classic;"
-                              "set grid;"
-                              "set autoscale;"
-                              "set title 'Utilization %% over Heap Lifetime';"
-                              "set xlabel 'Script Line Number';"
-                              "plot '-' pt '#' lc rgb 'green' notitle\n" );
+    (void)fprintf(
+        util_pipe, "set terminal dumb ansi256;"
+                   "set colorsequence classic;"
+                   "set grid;"
+                   "set autoscale;"
+                   "set title 'Utilization %% over Heap Lifetime';"
+                   "set xlabel 'Script Line Number';"
+                   "plot '-' pt '#' lc rgb 'green' notitle\n"
+    );
     for ( size_t req = 0; req < graphs->num_ops; req++ ) {
         (void)fprintf( util_pipe, "%ld %f \n", req + 1UL, graphs->util_percents[req] );
     }
@@ -78,13 +80,15 @@ void print_gnuplots( struct gnuplots *graphs )
         printf( "Parent could not open write pipe." );
         return;
     }
-    (void)fprintf( free_pipe, "set terminal dumb ansi256;"
-                              "set colorsequence classic;"
-                              "set grid;"
-                              "set autoscale;"
-                              "set title 'Number of Free Nodes over Heap Lifetime';"
-                              "set xlabel 'Script Line Number';"
-                              "plot '-' pt '#' lc rgb 'red' notitle\n" );
+    (void)fprintf(
+        free_pipe, "set terminal dumb ansi256;"
+                   "set colorsequence classic;"
+                   "set grid;"
+                   "set autoscale;"
+                   "set title 'Number of Free Nodes over Heap Lifetime';"
+                   "set xlabel 'Script Line Number';"
+                   "plot '-' pt '#' lc rgb 'red' notitle\n"
+    );
     size_t total_free = 0;
     for ( size_t req = 0; req < graphs->num_ops; req++ ) {
         total_free += graphs->free_nodes[req];
@@ -107,12 +111,14 @@ void print_gnuplots( struct gnuplots *graphs )
         printf( "Parent could not open write pipe." );
         return;
     }
-    (void)fprintf( requests_pipe, "set terminal dumb ansi256;set colorsequence "
-                                  "classic;set zero 1e-20;set grid;"
-                                  "set autoscale;set title 'Time (milliseconds) to "
-                                  "Service a Heap Request';"
-                                  "set xlabel 'Script Line Number';"
-                                  "plot '-' pt '#' lc rgb 'cyan' notitle\n" );
+    (void)fprintf(
+        requests_pipe, "set terminal dumb ansi256;set colorsequence "
+                       "classic;set zero 1e-20;set grid;"
+                       "set autoscale;set title 'Time (milliseconds) to "
+                       "Service a Heap Request';"
+                       "set xlabel 'Script Line Number';"
+                       "plot '-' pt '#' lc rgb 'cyan' notitle\n"
+    );
     double total_time = 0;
     for ( size_t req = 0; req < graphs->num_ops; req++ ) {
         total_time += graphs->request_times[req];

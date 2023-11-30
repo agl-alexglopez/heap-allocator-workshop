@@ -204,8 +204,8 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
 static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail );
 static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail, size_t total_free_mem );
 static bool are_subtrees_valid( const struct node *root, const struct node *nil );
-static bool is_duplicate_storing_parent( const struct node *parent, const struct node *root,
-                                         const void *nil_and_tail );
+static bool
+is_duplicate_storing_parent( const struct node *parent, const struct node *root, const void *nil_and_tail );
 static void print_tree( const struct node *root, const void *nil_and_tail, enum print_style style );
 static void print_all( struct heap_range r, size_t heap_size, struct node *tree_root, struct node *nil );
 
@@ -307,8 +307,10 @@ bool validate_heap( void )
     }
     // Check that after checking all headers we end on size 0 tail and then end of address space.
     size_t total_free_mem = 0;
-    if ( !is_memory_balanced( &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
-                              ( struct size_total ){ heap.heap_size, free_nodes.total } ) ) {
+    if ( !is_memory_balanced(
+             &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
+             ( struct size_total ){ heap.heap_size, free_nodes.total }
+         ) ) {
         return false;
     }
     // Does a tree search for all memory match the linear heap search for totals?
@@ -398,12 +400,18 @@ void print_free_nodes( enum print_style style )
 {
     printf( "%s(X)%s", COLOR_CYN, COLOR_NIL );
     printf( " Indicates number of nodes in the subtree rooted at X.\n" );
-    printf( "%sBlue%s edge means total nodes rooted at X %s<=%s ((number of nodes rooted at Parent) / 2).\n",
-            COLOR_BLU_BOLD, COLOR_NIL, COLOR_BLU_BOLD, COLOR_NIL );
-    printf( "%sRed%s edge means total nodes rooted at X %s>%s ((number of nodes rooted at Parent) / 2).\n",
-            COLOR_RED_BOLD, COLOR_NIL, COLOR_RED_BOLD, COLOR_NIL );
-    printf( "This is the %sheavy%s/%slight%s decomposition of a Splay Tree.\n", COLOR_RED_BOLD, COLOR_NIL,
-            COLOR_BLU_BOLD, COLOR_NIL );
+    printf(
+        "%sBlue%s edge means total nodes rooted at X %s<=%s ((number of nodes rooted at Parent) / 2).\n",
+        COLOR_BLU_BOLD, COLOR_NIL, COLOR_BLU_BOLD, COLOR_NIL
+    );
+    printf(
+        "%sRed%s edge means total nodes rooted at X %s>%s ((number of nodes rooted at Parent) / 2).\n",
+        COLOR_RED_BOLD, COLOR_NIL, COLOR_RED_BOLD, COLOR_NIL
+    );
+    printf(
+        "This is the %sheavy%s/%slight%s decomposition of a Splay Tree.\n", COLOR_RED_BOLD, COLOR_NIL,
+        COLOR_BLU_BOLD, COLOR_NIL
+    );
     printf( "%s(+X)%s", COLOR_CYN, COLOR_NIL );
     printf( " Indicates duplicate nodes in the tree linked by a doubly-linked list.\n" );
     print_tree( free_nodes.root, free_nodes.nil, style );
@@ -411,8 +419,9 @@ void print_free_nodes( enum print_style style )
 
 void dump_heap( void )
 {
-    print_all( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, free_nodes.root,
-               free_nodes.nil );
+    print_all(
+        ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, free_nodes.root, free_nodes.nil
+    );
 }
 
 /////////////////////    Static Heap Helper Functions    //////////////////////////////////
@@ -575,8 +584,9 @@ static struct node *find_best_fit( size_t key )
     if ( subtrees.lesser->links[L] != free_nodes.nil ) {
         subtrees.lesser->links[L]->list_start->parent = free_nodes.nil;
     }
-    free_nodes.root = join( ( struct tree_pair ){ subtrees.lesser->links[L], subtrees.greater },
-                            ( struct path_slice ){ path, 1 } );
+    free_nodes.root = join(
+        ( struct tree_pair ){ subtrees.lesser->links[L], subtrees.greater }, ( struct path_slice ){ path, 1 }
+    );
     --free_nodes.total;
     return remove;
 }
@@ -873,8 +883,8 @@ static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail
     return true;
 }
 
-static bool strict_bound_met( const struct node *root, size_t root_size, enum tree_link dir,
-                              const struct node *nil )
+static bool
+strict_bound_met( const struct node *root, size_t root_size, enum tree_link dir, const struct node *nil )
 {
     if ( root == nil ) {
         return true;
@@ -906,8 +916,8 @@ static bool are_subtrees_valid( const struct node *root, const struct node *nil 
     return are_subtrees_valid( root->links[L], nil ) && are_subtrees_valid( root->links[R], nil );
 }
 
-static bool is_duplicate_storing_parent( const struct node *parent, const struct node *root,
-                                         const void *nil_and_tail )
+static bool
+is_duplicate_storing_parent( const struct node *parent, const struct node *root, const void *nil_and_tail )
 {
     if ( root == nil_and_tail ) {
         return true;
@@ -957,29 +967,36 @@ static void print_node( const struct node *root, const void *nil_and_tail, enum 
     printf( "\n" );
 }
 
-static void print_inner_tree( const struct node *root, size_t parent_size, const char *prefix,
-                              const char *prefix_branch_color, const enum print_link node_type,
-                              const enum tree_link dir, enum print_style style )
+static void print_inner_tree(
+    const struct node *root, size_t parent_size, const char *prefix, const char *prefix_branch_color,
+    const enum print_link node_type, const enum tree_link dir, enum print_style style
+)
 {
     if ( root == free_nodes.nil ) {
         return;
     }
     size_t subtree_size = get_subtree_size( root );
     printf( "%s", prefix );
-    printf( "%s%s%s", subtree_size <= parent_size / 2 ? COLOR_BLU_BOLD : COLOR_RED_BOLD,
-            node_type == LEAF ? " └──" : " ├──", COLOR_NIL );
+    printf(
+        "%s%s%s", subtree_size <= parent_size / 2 ? COLOR_BLU_BOLD : COLOR_RED_BOLD,
+        node_type == LEAF ? " └──" : " ├──", COLOR_NIL
+    );
     printf( COLOR_CYN );
     printf( "(%zu)", subtree_size );
     dir == L ? printf( "L:" COLOR_NIL ) : printf( "R:" COLOR_NIL );
     print_node( root, free_nodes.nil, style );
 
     char *str = NULL;
-    int string_length = snprintf( NULL, 0, "%s%s%s", prefix, prefix_branch_color, // NOLINT
-                                  node_type == LEAF ? "     " : " │   " );
+    int string_length = snprintf(
+        NULL, 0, "%s%s%s", prefix, prefix_branch_color, // NOLINT
+        node_type == LEAF ? "     " : " │   "
+    );
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        (void)snprintf( str, string_length, "%s%s%s", prefix, prefix_branch_color, // NOLINT
-                        node_type == LEAF ? "     " : " │   " );
+        (void)snprintf(
+            str, string_length, "%s%s%s", prefix, prefix_branch_color, // NOLINT
+            node_type == LEAF ? "     " : " │   "
+        );
     }
     if ( str == NULL ) {
         printf( COLOR_ERR "memory exceeded. Cannot display tree." COLOR_NIL );
@@ -1086,9 +1103,11 @@ static void print_bad_jump( const struct node *current, struct bad_jump j, const
 static void print_all( struct heap_range r, size_t heap_size, struct node *tree_root, struct node *nil )
 {
     struct node *node = r.start;
-    printf( "Heap client segment starts at address %p, ends %p. %zu total bytes "
-            "currently used.\n",
-            node, r.end, heap_size );
+    printf(
+        "Heap client segment starts at address %p, ends %p. %zu total bytes "
+        "currently used.\n",
+        node, r.end, heap_size
+    );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
     printf( "COLOR KEY: " COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
 

@@ -44,7 +44,8 @@ enum status_error
 };
 
 static const char *const err_string[] = { // NOLINT
-    FOREACH_ERR( GENERATE_STRING ) };
+    FOREACH_ERR( GENERATE_STRING )
+};
 
 struct heap_block
 {

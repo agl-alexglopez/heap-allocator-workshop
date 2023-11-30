@@ -307,8 +307,11 @@ bool validate_heap( void )
         return false;
     }
     size_t total_free_mem = 0;
-    if ( !is_memory_balanced( &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
-                              ( struct size_total ){ heap.client_size, fits.total } ) ) {
+    if ( !is_memory_balanced(
+             &total_free_mem,
+             ( struct heap_range ){ heap.client_start, heap.client_end },
+             ( struct size_total ){ heap.client_size, fits.total }
+         ) ) {
         return false;
     }
     if ( !are_fits_valid( total_free_mem, fits.table, &fits.nil ) ) {
@@ -393,8 +396,9 @@ void print_free_nodes( enum print_style style )
 
 void dump_heap( void )
 {
-    print_all( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.client_size, fits.table,
-               &fits.nil );
+    print_all(
+        ( struct heap_range ){ heap.client_start, heap.client_end }, heap.client_size, fits.table, &fits.nil
+    );
 }
 
 //////////////////////////////   Static Helper Functions  ////////////////////////////////////
@@ -480,8 +484,9 @@ static inline size_t find_index( size_t any_block_size )
     case INDEX_6_BYTES:
         return I6;
     default: {
-        const size_t index_from_floored_log2 = ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
-                                                 - ( (uint_fast8_t)LEADING_ZEROS( any_block_size ) ) );
+        const size_t index_from_floored_log2
+            = ( (uint_fast8_t)( ( sizeof( any_block_size ) * CHAR_BIT ) - 1U )
+                - ( (uint_fast8_t)LEADING_ZEROS( any_block_size ) ) );
         return index_from_floored_log2 > NUM_BUCKETS - 1 ? NUM_BUCKETS - 1 : index_from_floored_log2;
     }
     }
@@ -767,8 +772,13 @@ static void print_free_block( struct free_node *cur_header )
         *footer = ULONG_MAX;
     }
     printf( COLOR_RED );
-    printf( "%p: HEADER->0x%016zX->[FREE-%zubytes->FOOTER->%016zX]\n", cur_header, cur_header->header, full_size,
-            *footer );
+    printf(
+        "%p: HEADER->0x%016zX->[FREE-%zubytes->FOOTER->%016zX]\n",
+        cur_header,
+        cur_header->header,
+        full_size,
+        *footer
+    );
     printf( COLOR_NIL );
 }
 
@@ -795,9 +805,13 @@ static void print_bad_jump( struct bad_jump j, struct seg_node table[], struct f
 static void print_all( struct heap_range hr, size_t client_size, struct seg_node table[], struct free_node *nil )
 {
     struct free_node *cur = hr.start;
-    printf( "Heap client segment starts at address %p, ends %p. %zu total bytes "
-            "currently used.\n",
-            cur, hr.end, client_size );
+    printf(
+        "Heap client segment starts at address %p, ends %p. %zu total bytes "
+        "currently used.\n",
+        cur,
+        hr.end,
+        client_size
+    );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n\n" );
 
     printf( "%p: FIRST ADDRESS\n", table );

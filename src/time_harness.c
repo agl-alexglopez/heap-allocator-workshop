@@ -132,8 +132,9 @@ static int time_script( char *script_name, struct interval_reqs *user_requests )
     printf( "\nEvaluating allocator on %s...\n", s.name );
     // We will bring back useful utilization info while we time.
     size_t used_segment = time_allocator( &s, user_requests, &graphs );
-    printf( "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", s.num_ops, s.peak_size,
-            used_segment );
+    printf(
+        "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", s.num_ops, s.peak_size, used_segment
+    );
     printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)s.peak_size ) / (double)used_segment );
 
     print_gnuplots( &graphs );
@@ -177,8 +178,10 @@ static size_t time_allocator( struct script *s, struct interval_reqs *user_reque
                 graphs->util_percents[req] = ( 100.0 * (double)s->peak_size )
                                              / (double)( (uint8_t *)heap_end - (uint8_t *)heap_segment_start() );
             }
-            printf( "Execution time for script lines %d-%d (milliseconds): %f\n", sect.start_req + 1,
-                    sect.end_req + 1, total_request_time );
+            printf(
+                "Execution time for script lines %d-%d (milliseconds): %f\n", sect.start_req + 1, sect.end_req + 1,
+                total_request_time
+            );
 
             user_requests->interval_averages[current_interval]
                 = total_request_time / (double)( sect.end_req - sect.start_req );
@@ -199,9 +202,10 @@ static size_t time_allocator( struct script *s, struct interval_reqs *user_reque
 static void report_interval_averages( struct interval_reqs *user_requests )
 {
     for ( size_t i = 0; i < user_requests->num_intervals; i++ ) {
-        printf( "Average time (milliseconds) per request lines %d-%d: %lf\n",
-                user_requests->intervals[i].start_req + 1, user_requests->intervals[i].end_req + 1,
-                user_requests->interval_averages[i] );
+        printf(
+            "Average time (milliseconds) per request lines %d-%d: %lf\n", user_requests->intervals[i].start_req + 1,
+            user_requests->intervals[i].end_req + 1, user_requests->interval_averages[i]
+        );
     }
 }
 

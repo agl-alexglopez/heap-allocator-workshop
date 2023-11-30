@@ -163,8 +163,8 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
 static bool is_red_red( const struct rb_node *root, const struct rb_node *black_nil );
 static bool is_bheight_valid( const struct rb_node *root, const struct rb_node *black_nil );
 static size_t extract_tree_mem( const struct rb_node *root, const struct rb_node *black_nil );
-static bool is_rbtree_mem_valid( const struct rb_node *root, const struct rb_node *black_nil,
-                                 size_t total_free_mem );
+static bool
+is_rbtree_mem_valid( const struct rb_node *root, const struct rb_node *black_nil, size_t total_free_mem );
 static bool is_parent_valid( const struct rb_node *root, const struct rb_node *black_nil );
 static bool is_bheight_valid_v2( const struct rb_node *root, const struct rb_node *black_nil );
 static bool are_subtrees_valid( const struct rb_node *root, const struct rb_node *nil );
@@ -270,8 +270,10 @@ bool validate_heap( void )
         return false;
     }
     size_t total_free_mem = 0;
-    if ( !is_memory_balanced( &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
-                              ( struct size_total ){ heap.heap_size, tree.total } ) ) {
+    if ( !is_memory_balanced(
+             &total_free_mem, ( struct heap_range ){ heap.client_start, heap.client_end },
+             ( struct size_total ){ heap.heap_size, tree.total }
+         ) ) {
         return false;
     }
     // Does a tree search for all memory match the linear heap search for totals?
@@ -375,8 +377,9 @@ void print_free_nodes( enum print_style style )
 
 void dump_heap( void )
 {
-    print_all( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, tree.root,
-               tree.black_nil );
+    print_all(
+        ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, tree.root, tree.black_nil
+    );
 }
 
 /////////////////////////////    Static Heap Helper Functions   //////////////////////////////////
@@ -774,8 +777,8 @@ static size_t extract_tree_mem( const struct rb_node *root, const struct rb_node
            + extract_tree_mem( root->links[L], black_nil );
 }
 
-static bool is_rbtree_mem_valid( const struct rb_node *root, const struct rb_node *black_nil,
-                                 size_t total_free_mem )
+static bool
+is_rbtree_mem_valid( const struct rb_node *root, const struct rb_node *black_nil, size_t total_free_mem )
 {
     return total_free_mem == extract_tree_mem( root, black_nil );
 }
@@ -818,8 +821,8 @@ static bool is_bheight_valid_v2( const struct rb_node *root, const struct rb_nod
     return calculate_bheight_v2( root, black_nil ) != 0;
 }
 
-static bool strict_bound_met( const struct rb_node *root, size_t root_size, enum tree_link dir,
-                              const struct rb_node *nil )
+static bool
+strict_bound_met( const struct rb_node *root, size_t root_size, enum tree_link dir, const struct rb_node *nil )
 {
     if ( root == nil ) {
         return true;
@@ -885,8 +888,10 @@ static void print_node( const struct rb_node *root, const struct rb_node *black_
     printf( "\n" );
 }
 
-static void print_inner_tree( const struct rb_node *root, const struct rb_node *black_nil, const char *prefix,
-                              const enum print_link node_type, enum print_style style )
+static void print_inner_tree(
+    const struct rb_node *root, const struct rb_node *black_nil, const char *prefix,
+    const enum print_link node_type, enum print_style style
+)
 {
     if ( root == black_nil ) {
         return;
@@ -993,8 +998,8 @@ static void print_error_block( const struct rb_node *node, size_t block_size )
     printf( "Block size is too large and header is corrupted.\n" );
 }
 
-static void print_bad_jump( const struct rb_node *current, const struct bad_jump j,
-                            const struct rb_node *black_nil )
+static void
+print_bad_jump( const struct rb_node *current, const struct bad_jump j, const struct rb_node *black_nil )
 {
     size_t prev_size = get_size( j.prev->header );
     size_t cur_size = get_size( current->header );
@@ -1015,9 +1020,11 @@ static void print_bad_jump( const struct rb_node *current, const struct bad_jump
 static void print_all( struct heap_range r, size_t heap_size, struct rb_node *root, struct rb_node *black_nil )
 {
     struct rb_node *node = r.start;
-    printf( "Heap client segment starts at address %p, ends %p. %zu total bytes "
-            "currently used.\n",
-            node, r.end, heap_size );
+    printf(
+        "Heap client segment starts at address %p, ends %p. %zu total bytes "
+        "currently used.\n",
+        node, r.end, heap_size
+    );
     printf( "A-BLOCK = ALLOCATED BLOCK, F-BLOCK = FREE BLOCK\n" );
     printf( "COLOR KEY: " COLOR_BLK "[BLACK NODE] " COLOR_NIL COLOR_RED "[rED NODE] " COLOR_NIL COLOR_GRN
             "[ALLOCATED BLOCK]" COLOR_NIL "\n\n" );
