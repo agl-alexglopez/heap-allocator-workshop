@@ -1005,22 +1005,22 @@ static void print_inner_tree(
     print_node( root, free_nodes.nil, style );
 
     char *str = NULL;
-    int string_length = snprintf(
+    int string_length = snprintf( // NOLINT
         NULL,
         0,
         "%s%s%s",
         prefix,
-        prefix_branch_color, // NOLINT
+        prefix_branch_color,
         node_type == LEAF ? "     " : " │   "
     );
     if ( string_length > 0 ) {
         str = malloc( string_length + 1 );
-        (void)snprintf(
+        (void)snprintf( // NOLINT
             str,
             string_length,
             "%s%s%s",
             prefix,
-            prefix_branch_color, // NOLINT
+            prefix_branch_color,
             node_type == LEAF ? "     " : " │   "
         );
     }

@@ -20,6 +20,7 @@
 #include <assert.h>
 // NOLINTNEXTLINE(*include-cleaner)
 #include <getopt.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>

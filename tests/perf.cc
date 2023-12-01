@@ -1,4 +1,6 @@
 #include <array>
+#include <cerrno>
+#include <csignal>
 #include <cstdlib>
 #include <fcntl.h>
 #include <filesystem>
@@ -8,6 +10,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -85,9 +88,9 @@ constexpr std::array<std::array<std::string_view, 6>, 20> increasing_realloc_fre
 
 size_t parse_quantity_n( std::string_view script_name )
 {
-    size_t last_dash = script_name.find_last_of( '-' ) + 1;
-    size_t last_k = script_name.find_last_of( 'k' );
-    std::string num = std::string( script_name.substr( last_dash, last_k - last_dash ) );
+    const size_t last_dash = script_name.find_last_of( '-' ) + 1;
+    const size_t last_k = script_name.find_last_of( 'k' );
+    const std::string num = std::string( script_name.substr( last_dash, last_k - last_dash ) );
     return std::stoull( num ) * 1000;
 }
 
@@ -97,9 +100,9 @@ std::vector<path_bin> gather_timer_programs()
     std::string path = std::filesystem::current_path();
     path.append( prog_path );
     for ( const auto &entry : std::filesystem::directory_iterator( path ) ) {
-        std::string as_str = entry.path();
-        size_t last_entry = as_str.find_last_of( '/' );
-        std::string_view is_timer = std::string_view{ as_str }.substr( last_entry + 1 );
+        const std::string as_str = entry.path();
+        const size_t last_entry = as_str.find_last_of( '/' );
+        const std::string_view is_timer = std::string_view{ as_str }.substr( last_entry + 1 );
         if ( is_timer.starts_with( "time_" ) ) {
             commands.emplace_back( as_str, std::string( is_timer ) );
         }
@@ -151,14 +154,14 @@ time_malloc_frees( const std::vector<path_bin> &commands )
     for ( const auto &c : commands ) {
         auto allocator_entry = times.insert( { c.bin.substr( c.bin.find( '_' ) + 1 ), {} } );
         for ( const auto &args : increasing_malloc_free_size_args ) {
-            int timer_process = script_timer_process( c, args );
+            const int timer_process = script_timer_process( c, args );
             std::vector<char> vec_buf( 50 );
             ssize_t bytes_read = 0;
             while ( ( bytes_read = read( timer_process, vec_buf.data(), 50 ) ) > 0 ) {}
             close( timer_process );
             int err = 0;
             waitpid( -1, &err, 0 );
-            if ( WIFSIGNALED( err ) && WTERMSIG( err ) == SIGSEGV ) {
+            if ( WIFSIGNALED( err ) && WTERMSIG( err ) == SIGSEGV ) { // NOLINT
                 std::cerr << "seg fault\n";
                 std::abort();
             }
@@ -178,8 +181,9 @@ time_malloc_frees( const std::vector<path_bin> &commands )
 
 int main()
 {
-    std::vector<path_bin> commands = gather_timer_programs();
-    std::unordered_map<std::string, std::vector<std::pair<size_t, double>>> times = time_malloc_frees( commands );
+    const std::vector<path_bin> commands = gather_timer_programs();
+    const std::unordered_map<std::string, std::vector<std::pair<size_t, double>>> times
+        = time_malloc_frees( commands );
     for ( const auto &t : times ) {
         std::cout << t.first << ":\n";
         for ( const std::pair<size_t, double> &stat : t.second ) {

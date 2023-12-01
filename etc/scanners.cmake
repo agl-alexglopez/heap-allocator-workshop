@@ -1,5 +1,6 @@
 file (GLOB PROJ_C_FILES 
   ${CMAKE_SOURCE_DIR}/src/*.c 
+  ${CMAKE_SOURCE_DIR}/tests/perf.cc
   ${CMAKE_SOURCE_DIR}/lib/*.h 
   ${CMAKE_SOURCE_DIR}/lib/*.c)
 
