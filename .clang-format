@@ -8,6 +8,7 @@ BreakBeforeBinaryOperators: All
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: None
 AlignAfterOpenBracket: BlockIndent
+AlignTrailingComments: Always
 BinPackArguments: false
 BinPackParameters: false
 BreakBeforeBraces: Custom
