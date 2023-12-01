@@ -173,6 +173,89 @@ target_link_libraries(time_splaytree_topdown PUBLIC
                       splaytree_topdown
 )
 
+################################# QUICK STAT PROGRAM ############################################
+
+
+########## List Segregated #############
+
+
+add_executable(stats_list_segregated stats.c)
+target_link_libraries(stats_list_segregated PUBLIC
+                      segment
+                      script
+                      list_segregated
+)
+
+############ RBTree ClRS ###############
+
+
+add_executable(stats_rbtree_clrs stats.c)
+target_link_libraries(stats_rbtree_clrs PUBLIC
+                      segment
+                      script
+                      rbtree_clrs
+)
+
+############ RBTree Unified ###############
+
+
+add_executable(stats_rbtree_unified stats.c)
+target_link_libraries(stats_rbtree_unified PUBLIC
+                      segment
+                      script
+                      rbtree_unified
+)
+
+############ RBTree Linked ###############
+
+
+add_executable(stats_rbtree_linked stats.c)
+target_link_libraries(stats_rbtree_linked PUBLIC
+                      segment
+                      script
+                      rbtree_linked
+)
+
+############ RBTree Stack ###############
+
+
+add_executable(stats_rbtree_stack stats.c)
+target_link_libraries(stats_rbtree_stack PUBLIC
+                      segment
+                      script
+                      rbtree_stack
+)
+
+############ RBTree Topdown ###############
+
+
+add_executable(stats_rbtree_topdown stats.c)
+target_link_libraries(stats_rbtree_topdown PUBLIC
+                      segment
+                      script
+                      rbtree_topdown
+)
+
+############ Splay Tree Stack ###############
+
+
+add_executable(stats_splaytree_stack stats.c)
+target_link_libraries(stats_splaytree_stack PUBLIC
+                      segment
+                      script
+                      splaytree_stack
+)
+
+############ Splay Tree Topdown ###############
+
+
+add_executable(stats_splaytree_topdown stats.c)
+target_link_libraries(stats_splaytree_topdown PUBLIC
+                      segment
+                      script
+                      splaytree_topdown
+)
+
 
 ################################# PRINTER PROGRAM ############################################
 
