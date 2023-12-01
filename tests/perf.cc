@@ -100,6 +100,10 @@ constexpr std::array<std::array<std::string_view, 5>, 20> increasing_realloc_fre
     { "-s", "300001", "-e", "400000", "scripts/time-reallocfree-100k.script" },
 } };
 
+/// The work we do to gather timing is trivially parallelizable. We just need a parent to
+/// monitor this small stat generation program and enter the results. So we can have
+/// threads become the parents for these parallel processes and they will just add the
+/// stats to the big_o_metrics container that has preallocated space for them. All good.
 class command_queue {
     std::queue<std::optional<std::function<void()>>> q_;
     std::mutex lk_;
@@ -222,10 +226,6 @@ int allocator_stats_subprocess( std::string_view cmd_path, const std::array<std:
     std::abort();
 }
 
-/// The work we do to gather timing is trivially parallelizable. We just need a parent to
-/// monitor this small stat generation program and enter the results. So we can have
-/// threads become the parents for these parallel processes and they will just add the
-/// stats to the big_o_metrics container that has preallocated space for them. All good.
 void thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_metrics &m )
 {
     const std::string title = cmd.bin.substr( cmd.bin.find( '_' ) + 1 );
