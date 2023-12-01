@@ -70,7 +70,7 @@ static struct request parse_script_line( char *buffer, int lineno, char *script_
         r.op = FREE;
     }
     if ( !r.op || r.size > MAX_REQUEST_SIZE ) {
-        printf( "Line %d of script file '%s' is malformed.", lineno, script_name );
+        (void)fprintf( stderr, "Line %d of script file '%s' is malformed.", lineno, script_name );
         abort();
     }
     return r;
@@ -80,7 +80,8 @@ struct script parse_script( const char *path )
 {
     FILE *fp = fopen( path, "re" );
     if ( fp == NULL ) {
-        printf( "Could not open script file \"%s\".", path );
+        (void)fprintf( stderr, "Could not open script file \"%s\".", path );
+        abort();
     }
 
     // Initialize a script object to store the information about this script
@@ -102,7 +103,7 @@ struct script parse_script( const char *path )
             void *new_memory = realloc( s.ops, nallocated * sizeof( struct request ) );
             if ( NULL == new_memory ) {
                 free( s.ops );
-                printf( "Libc heap exhausted. Cannot continue." );
+                (void)fprintf( stderr, "Libc heap exhausted. Cannot continue." );
                 abort();
             }
             s.ops = new_memory;
@@ -122,7 +123,7 @@ struct script parse_script( const char *path )
 
     s.blocks = calloc( s.num_ids, sizeof( struct block ) );
     if ( !s.blocks ) {
-        printf( "Libc heap exhausted. Cannot continue." );
+        (void)fprintf( stderr, "Libc heap exhausted. Cannot continue." );
         abort();
     }
 
@@ -304,11 +305,11 @@ double time_request( struct script *s, int req, size_t *cur_size, void **heap_en
 void allocator_error( struct script *s, int lineno, char *format, ... )
 {
     va_list args;
-    (void)fprintf( stdout, "\nALLOCATOR FAILURE [%s, line %d]: ", s->name, lineno );
+    (void)fprintf( stderr, "\nALLOCATOR FAILURE [%s, line %d]: ", s->name, lineno );
     va_start( args, format );
-    (void)vfprintf( stdout, format, args );
+    (void)vfprintf( stderr, format, args );
     va_end( args );
-    (void)fprintf( stdout, "\n" );
+    (void)fprintf( stderr, "\n" );
 }
 
 // NOLINTEND(*-swappable-parameters)
