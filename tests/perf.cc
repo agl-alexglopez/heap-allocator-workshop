@@ -104,6 +104,8 @@ constexpr std::array<std::array<std::string_view, 5>, 20> increasing_realloc_fre
 /// monitor this small stat generation program and enter the results. So we can have
 /// threads become the parents for these parallel processes and they will just add the
 /// stats to the big_o_metrics container that has preallocated space for them. All good.
+/// Because the number of programs we time may grow in the future and the threads each
+/// spawn a child process we have 2x the processes. Use a work queue to cap the processes.
 class command_queue {
     std::queue<std::optional<std::function<void()>>> q_;
     std::mutex lk_;
@@ -232,7 +234,7 @@ void thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_
     for ( const auto &args : increasing_malloc_free_size_args ) {
         const size_t script_size = parse_quantity_n( args.back() );
         std::string cur_path = std::filesystem::current_path();
-        cur_path.append( "/" ).append( std::string( args[4] ) );
+        cur_path.append( "/" ).append( args[4] );
         const int process = allocator_stats_subprocess(
             cmd.path,
             {
