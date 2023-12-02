@@ -1,5 +1,6 @@
-enable_testing()
 include(FetchContent)
+
+enable_testing()
 FetchContent_Declare(
   googletest
   GIT_REPOSITORY https://github.com/google/googletest.git
@@ -12,7 +13,17 @@ include(GoogleTest)
 
 ###############    Performance Tester    ##################
 
+FetchContent_Declare(matplotplusplus
+  GIT_REPOSITORY https://github.com/alandefreitas/matplotplusplus
+  GIT_TAG origin/master
+)
+FetchContent_GetProperties(matplotplusplus)
+if(NOT matplotplusplus_POPULATED)
+    FetchContent_Populate(matplotplusplus)
+    add_subdirectory(${matplotplusplus_SOURCE_DIR} ${matplotplusplus_BINARY_DIR} EXCLUDE_FROM_ALL)
+endif()
 add_executable(perf perf.cc)
+target_link_libraries(perf PUBLIC matplot)
 
 ###############   Generic Tests for all Allocators    ############
 

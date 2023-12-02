@@ -11,6 +11,10 @@ add_library(script script.h script.c)
 
 add_library(segment segment.h segment.c)
 
+############################# Libc Default Allocator ########################################
+
+add_library(libc_default allocator.h libc_default.c)
+
 ############################# List Segregated Allocator ########################################
 
 

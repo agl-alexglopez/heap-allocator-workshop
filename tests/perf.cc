@@ -1,3 +1,7 @@
+#include "matplot/freestanding/plot.h"
+#include <algorithm>
+#include <matplot/matplot.h>
+
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -28,6 +32,8 @@ constexpr std::string_view prog_path = "/build/rel";
 constexpr std::string_view prog_path = "/build/deb";
 #endif
 
+using quantity_measurement = std::pair<std::vector<double>, std::vector<double>>;
+
 struct process_result
 {
     int process_id;
@@ -42,15 +48,15 @@ struct path_bin
 
 struct big_o_metrics
 {
-    std::vector<std::pair<std::string, std::vector<std::pair<size_t, double>>>> interval_speed;
-    std::vector<std::pair<std::string, std::vector<std::pair<size_t, double>>>> average_response_time;
-    std::vector<std::pair<std::string, std::vector<std::pair<size_t, double>>>> overall_utilization;
+    std::vector<std::pair<std::string, quantity_measurement>> interval_speed;
+    std::vector<std::pair<std::string, quantity_measurement>> average_response_time;
+    std::vector<std::pair<std::string, quantity_measurement>> overall_utilization;
 };
 
 struct allocator_entry
 {
     size_t index;
-    size_t script_size;
+    double script_size;
 };
 
 constexpr size_t worker_limit = 4;
@@ -241,13 +247,13 @@ bool close_process( process_result res )
     return true;
 }
 
-size_t parse_quantity_n( std::string_view script_name )
+double parse_quantity_n( std::string_view script_name )
 {
     const size_t last_dash = script_name.find_last_of( '-' ) + 1;
     const size_t last_k = script_name.find_last_of( 'k' );
     const std::string num = std::string( script_name.substr( last_dash, last_k - last_dash ) );
     try {
-        return std::stoull( num ) * 1000;
+        return std::stod( num ) * 1000;
     } catch ( std::invalid_argument &a ) {
         std::cerr << "Caught invalid argument: " << a.what() << "\n";
         return 0;
@@ -260,12 +266,15 @@ bool parse_metrics( const std::string &output, const allocator_entry &entry, big
         const size_t first_space = output.find_first_of( ' ' );
         const size_t first_newline = output.find_first_of( '\n' );
         const std::string interval_time = output.substr( 0, first_space );
-        m.interval_speed[entry.index].second.emplace_back( entry.script_size, stod( interval_time ) );
+        m.interval_speed[entry.index].second.first.emplace_back( entry.script_size );
+        m.interval_speed[entry.index].second.second.emplace_back( stod( interval_time ) );
         const std::string response_average = output.substr( first_space, first_newline - first_space );
-        m.average_response_time[entry.index].second.emplace_back( entry.script_size, stod( response_average ) );
+        m.average_response_time[entry.index].second.first.emplace_back( entry.script_size );
+        m.average_response_time[entry.index].second.second.emplace_back( stod( response_average ) );
         const std::string utilization
             = output.substr( first_newline + 1, output.find_last_of( '%' ) - ( first_newline + 1 ) );
-        m.overall_utilization[entry.index].second.emplace_back( entry.script_size, stod( utilization ) );
+        m.overall_utilization[entry.index].second.first.emplace_back( entry.script_size );
+        m.overall_utilization[entry.index].second.second.emplace_back( stod( utilization ) );
         return true;
     } catch ( std::invalid_argument &a ) {
         std::cerr << "Error parsing string input to metrics\n";
@@ -305,7 +314,7 @@ bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_
 {
     const std::string title = cmd.bin.substr( cmd.bin.find( '_' ) + 1 );
     for ( const auto &args : increasing_malloc_free_size_args ) {
-        const size_t script_size = parse_quantity_n( args.back() );
+        const double script_size = parse_quantity_n( args.back() );
         if ( script_size == 0 ) {
             return false;
         }
@@ -351,13 +360,18 @@ bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_
 void time_malloc_frees( const std::vector<path_bin> &commands, big_o_metrics &m )
 {
     for ( const auto &c : commands ) {
-        const std::string title = c.bin.substr( c.bin.find( '_' ) + 1 );
-        m.interval_speed.push_back( { title, {} } );
-        m.interval_speed.back().second.reserve( increasing_malloc_free_size_args.size() );
-        m.average_response_time.push_back( { title, {} } );
-        m.average_response_time.back().second.reserve( increasing_malloc_free_size_args.size() );
-        m.overall_utilization.push_back( { title, {} } );
-        m.overall_utilization.back().second.reserve( increasing_malloc_free_size_args.size() );
+        std::string title = c.bin.substr( c.bin.find( '_' ) + 1 );
+        // Matplot reads underscores as subscripts which messes up legends on graphs. Change to space.
+        std::replace( title.begin(), title.end(), '_', ' ' );
+        m.interval_speed.push_back( { title, { { 0 }, { 0 } } } );
+        m.interval_speed.back().second.first.reserve( increasing_malloc_free_size_args.size() );
+        m.interval_speed.back().second.second.reserve( increasing_malloc_free_size_args.size() );
+        m.average_response_time.push_back( { title, { { 0 }, { 0 } } } );
+        m.average_response_time.back().second.first.reserve( increasing_malloc_free_size_args.size() );
+        m.average_response_time.back().second.second.reserve( increasing_malloc_free_size_args.size() );
+        m.overall_utilization.push_back( { title, { { 0 }, { 0 } } } );
+        m.overall_utilization.back().second.first.reserve( increasing_malloc_free_size_args.size() );
+        m.overall_utilization.back().second.second.reserve( increasing_malloc_free_size_args.size() );
     }
     command_queue workers( worker_limit );
     for ( size_t i = 0; i < commands.size(); ++i ) {
@@ -366,7 +380,46 @@ void time_malloc_frees( const std::vector<path_bin> &commands, big_o_metrics &m 
     for ( size_t i = 0; i < worker_limit; ++i ) {
         workers.push( {} );
     }
+    // Don't mind this function it's just some cursor animation while we wait.
     wait( workers );
+    matplot::plot(
+        m.interval_speed[0].second.first,
+        m.interval_speed[0].second.second,
+        "--",
+        m.interval_speed[0].second.first,
+        m.interval_speed[1].second.second,
+        "-o",
+        m.interval_speed[0].second.first,
+        m.interval_speed[2].second.second,
+        "-*",
+        m.interval_speed[0].second.first,
+        m.interval_speed[3].second.second,
+        "-s",
+        m.interval_speed[0].second.first,
+        m.interval_speed[4].second.second,
+        "-+",
+        m.interval_speed[0].second.first,
+        m.interval_speed[5].second.second,
+        "-+",
+        m.interval_speed[0].second.first,
+        m.interval_speed[6].second.second,
+        m.interval_speed[0].second.first,
+        m.interval_speed[7].second.second,
+        m.interval_speed[0].second.first,
+        m.interval_speed[8].second.second
+    );
+    ::matplot::legend( {
+        m.interval_speed[0].first,
+        m.interval_speed[1].first,
+        m.interval_speed[2].first,
+        m.interval_speed[3].first,
+        m.interval_speed[4].first,
+        m.interval_speed[5].first,
+        m.interval_speed[6].first,
+        m.interval_speed[7].first,
+        m.interval_speed[8].first,
+    } );
+    matplot::show();
 }
 
 } // namespace
@@ -376,11 +429,5 @@ int main()
     const std::vector<path_bin> commands = gather_timer_programs();
     big_o_metrics m{};
     time_malloc_frees( commands, m );
-    for ( const auto &metric : m.interval_speed ) {
-        std::cout << metric.first << ":\n";
-        for ( const std::pair<size_t, double> &stat : metric.second ) {
-            std::cout << stat.first << " " << stat.second << "\n";
-        }
-    }
     return 0;
 }

@@ -175,6 +175,15 @@ target_link_libraries(time_splaytree_topdown PUBLIC
 
 ################################# QUICK STAT PROGRAM ############################################
 
+########## Libc Default #############
+
+
+add_executable(stats_libc_default stats.c)
+target_link_libraries(stats_libc_default PUBLIC
+                      segment
+                      script
+                      libc_default
+)
 
 ########## List Segregated #############
 
