@@ -15,6 +15,7 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -382,47 +383,12 @@ void time_malloc_frees( const std::vector<path_bin> &commands, big_o_metrics &m 
     }
     // Don't mind this function it's just some cursor animation while we wait.
     wait( workers );
-    // We need a programatic way to gather all the allocators into one plot, this won't work.
-    // I'm already gathering and timing all allocators at runtim so this hand coded indexing
-    // should be replaced with something that can plot a variable number of lines on a graph
-    // with my specified x and y axes. Need to learn more.
-    matplot::plot(
-        m.interval_speed[0].second.first,
-        m.interval_speed[0].second.second,
-        "--",
-        m.interval_speed[0].second.first,
-        m.interval_speed[1].second.second,
-        "-o",
-        m.interval_speed[0].second.first,
-        m.interval_speed[2].second.second,
-        "-*",
-        m.interval_speed[0].second.first,
-        m.interval_speed[3].second.second,
-        "-s",
-        m.interval_speed[0].second.first,
-        m.interval_speed[4].second.second,
-        "-+",
-        m.interval_speed[0].second.first,
-        m.interval_speed[5].second.second,
-        "-+",
-        m.interval_speed[0].second.first,
-        m.interval_speed[6].second.second,
-        m.interval_speed[0].second.first,
-        m.interval_speed[7].second.second,
-        m.interval_speed[0].second.first,
-        m.interval_speed[8].second.second
-    );
-    ::matplot::legend( {
-        m.interval_speed[0].first,
-        m.interval_speed[1].first,
-        m.interval_speed[2].first,
-        m.interval_speed[3].first,
-        m.interval_speed[4].first,
-        m.interval_speed[5].first,
-        m.interval_speed[6].first,
-        m.interval_speed[7].first,
-        m.interval_speed[8].first,
-    } );
+    // TODO(agl-alexglopez): Now we just need to associate the sets with their appropriate legend title.
+    std::set<std::vector<double>> plots{};
+    for ( const auto &allocator : m.interval_speed ) {
+        plots.emplace( allocator.second.second );
+    }
+    matplot::plot( m.interval_speed[0].second.first, plots );
     matplot::show();
 }
 
