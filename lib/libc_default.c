@@ -1,3 +1,16 @@
+/// Author: NOT Alexander G. Lopez :)
+/// File: libc_default.c
+/// ---------------------
+/// With the timing tools I use and how the scripts isolate allocator
+/// behavior, we can actually time libc, kind of. This implementation
+/// should only be incorporated into the mini stats program because that
+/// just calls the basic heap allocator functions like malloc, realloc, and free
+/// with no additional checks or requirements. I could possibly explore the
+/// libc heap debug functions because I believe they have some that share
+/// state and opaque pointers to internal data but I don't want to mess with that.
+/// In my initial testing the timing information from libc allocator seems accurate
+/// and I have included this implementation in the performance testing graphs
+/// so we can see how other allocators stack up!
 #include "allocator.h"
 #include <stdlib.h>
 
