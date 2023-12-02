@@ -1,5 +1,6 @@
 #include <array>
 #include <cerrno>
+#include <chrono>
 #include <condition_variable>
 #include <csignal>
 #include <cstdlib>
@@ -10,6 +11,7 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <sys/wait.h>
@@ -100,14 +102,34 @@ constexpr std::array<std::array<std::string_view, 5>, 20> increasing_realloc_fre
     { "-s", "300001", "-e", "400000", "scripts/time-reallocfree-100k.script" },
 } };
 
+constexpr std::array<std::string_view, 9> waiting = {
+    "⣿",
+    "⣷",
+    "⣯",
+    "⣟",
+    "⡿",
+    "⢿",
+    "⣻",
+    "⣽",
+    "⣾",
+};
+constexpr std::string_view ansi_red_bold = "\033[38;5;9m";
+constexpr std::string_view ansi_green_bold = "\033[38;5;10m";
+constexpr std::string_view ansi_nil = "\033[0m";
+constexpr std::string_view save_cursor = "\033[s";
+constexpr std::string_view restore_cursor = "\033[u";
+
+constexpr size_t loading_limit = 50;
+
 /// The work we do to gather timing is trivially parallelizable. We just need a parent to
 /// monitor this small stat generation program and enter the results. So we can have
 /// threads become the parents for these parallel processes and they will just add the
-/// stats to the big_o_metrics container that has preallocated space for them. All good.
+/// stats to the big_o_metrics container that has preallocated space for them.
 /// Because the number of programs we time may grow in the future and the threads each
-/// spawn a child process we have 2x the processes. Use a work queue to cap the processes.
+/// spawn a child process we have 2x the processes. Use a work queue to cap the processes
+/// but still maintain consistent parallelism.
 class command_queue {
-    std::queue<std::optional<std::function<void()>>> q_;
+    std::queue<std::optional<std::function<bool()>>> q_;
     std::mutex lk_;
     std::condition_variable wait_;
     std::vector<std::thread> workers_;
@@ -122,7 +144,10 @@ class command_queue {
             if ( !new_task.has_value() ) {
                 return;
             }
-            new_task.value()();
+            if ( !new_task.value()() ) {
+                std::cerr << "Error running requesting function.\n";
+                return;
+            }
         }
     }
 
@@ -139,17 +164,50 @@ class command_queue {
             w.join();
         }
     }
-    void push( std::optional<std::function<void()>> args )
+    void push( std::optional<std::function<bool()>> args )
     {
         std::unique_lock<std::mutex> ul( lk_ );
         q_.push( std::move( args ) );
         wait_.notify_one();
     }
+
+    [[nodiscard]] bool empty()
+    {
+        std::unique_lock<std::mutex> ul( lk_ );
+        return q_.empty();
+    }
+
     command_queue( const command_queue & ) = delete;
     command_queue &operator=( const command_queue & ) = delete;
     command_queue( command_queue && ) = delete;
     command_queue &operator=( command_queue && ) = delete;
 };
+
+/// Just for fun.
+void wait( command_queue &q )
+{
+    size_t i = 0;
+    bool max_loading_bar = false;
+    std::cout << ansi_red_bold;
+    while ( !q.empty() ) {
+        std::cout << save_cursor;
+        for ( size_t j = 0; j < loading_limit; ++j ) {
+            std::cout << waiting.at( ( j + i ) % waiting.size() ) << std::flush;
+            if ( !max_loading_bar && j > i ) {
+                break;
+            }
+        }
+        std::cout << restore_cursor;
+        ++i %= loading_limit;
+        max_loading_bar = max_loading_bar || i == 0;
+        std::this_thread::sleep_for( std::chrono::milliseconds( 60 ) );
+    }
+    std::cout << ansi_green_bold;
+    for ( size_t j = 0; j < loading_limit; ++j ) {
+        std::cout << waiting.at( ( j + i ) % waiting.size() ) << std::flush;
+    }
+    std::cout << "\n";
+}
 
 std::vector<path_bin> gather_timer_programs()
 {
@@ -166,19 +224,21 @@ std::vector<path_bin> gather_timer_programs()
     }
     return commands;
 }
-void close_process( process_result res )
+
+bool close_process( process_result res )
 {
     close( res.process_id );
     int err = 0;
-    waitpid( -1, &err, 0 );
+    int wait_err = waitpid( -1, &err, 0 );
     if ( WIFSIGNALED( err ) && WTERMSIG( err ) == SIGSEGV ) { // NOLINT
-        std::cerr << "seg fault\n";
-        std::abort();
+        std::cerr << "seg fault waitpid returned " << wait_err << "\n";
+        return false;
     }
     if ( res.bytes_read == -1 ) {
         std::cerr << "read error\n";
-        std::abort();
+        return false;
     }
+    return true;
 }
 
 size_t parse_quantity_n( std::string_view script_name )
@@ -186,20 +246,31 @@ size_t parse_quantity_n( std::string_view script_name )
     const size_t last_dash = script_name.find_last_of( '-' ) + 1;
     const size_t last_k = script_name.find_last_of( 'k' );
     const std::string num = std::string( script_name.substr( last_dash, last_k - last_dash ) );
-    return std::stoull( num ) * 1000;
+    try {
+        return std::stoull( num ) * 1000;
+    } catch ( std::invalid_argument &a ) {
+        std::cerr << "Caught invalid argument: " << a.what() << "\n";
+        return 0;
+    }
 }
 
-void parse_metrics( const std::string &output, const allocator_entry &entry, big_o_metrics &m )
+bool parse_metrics( const std::string &output, const allocator_entry &entry, big_o_metrics &m )
 {
-    const size_t first_space = output.find_first_of( ' ' );
-    const size_t first_newline = output.find_first_of( '\n' );
-    const std::string interval_time = output.substr( 0, first_space );
-    m.interval_speed[entry.index].second.emplace_back( entry.script_size, stod( interval_time ) );
-    const std::string response_average = output.substr( first_space, first_newline - first_space );
-    m.average_response_time[entry.index].second.emplace_back( entry.script_size, stod( response_average ) );
-    const std::string utilization
-        = output.substr( first_newline + 1, output.find_last_of( '%' ) - ( first_newline + 1 ) );
-    m.overall_utilization[entry.index].second.emplace_back( entry.script_size, stod( utilization ) );
+    try {
+        const size_t first_space = output.find_first_of( ' ' );
+        const size_t first_newline = output.find_first_of( '\n' );
+        const std::string interval_time = output.substr( 0, first_space );
+        m.interval_speed[entry.index].second.emplace_back( entry.script_size, stod( interval_time ) );
+        const std::string response_average = output.substr( first_space, first_newline - first_space );
+        m.average_response_time[entry.index].second.emplace_back( entry.script_size, stod( response_average ) );
+        const std::string utilization
+            = output.substr( first_newline + 1, output.find_last_of( '%' ) - ( first_newline + 1 ) );
+        m.overall_utilization[entry.index].second.emplace_back( entry.script_size, stod( utilization ) );
+        return true;
+    } catch ( std::invalid_argument &a ) {
+        std::cerr << "Error parsing string input to metrics\n";
+        return false;
+    }
 }
 
 int allocator_stats_subprocess( std::string_view cmd_path, const std::array<std::string_view, 6> &args )
@@ -216,7 +287,8 @@ int allocator_stats_subprocess( std::string_view cmd_path, const std::array<std:
     close( comms[0] );
     if ( dup2( comms[1], STDOUT_FILENO ) < 0 ) {
         std::cerr << "child cannot communicate to parent.\n";
-        std::abort();
+        close( comms[1] );
+        exit( 1 );
     }
     std::array<const char *, 7> arg_copy{};
     for ( size_t i = 0; i < args.size(); ++i ) {
@@ -225,14 +297,18 @@ int allocator_stats_subprocess( std::string_view cmd_path, const std::array<std:
     arg_copy.back() = nullptr;
     execv( cmd_path.data(), const_cast<char *const *>( arg_copy.data() ) ); // NOLINT
     std::cerr << "child process failed abnormally errno: " << errno << "\n";
-    std::abort();
+    close( comms[1] );
+    exit( 1 );
 }
 
-void thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_metrics &m )
+bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_metrics &m )
 {
     const std::string title = cmd.bin.substr( cmd.bin.find( '_' ) + 1 );
     for ( const auto &args : increasing_malloc_free_size_args ) {
         const size_t script_size = parse_quantity_n( args.back() );
+        if ( script_size == 0 ) {
+            return false;
+        }
         std::string cur_path = std::filesystem::current_path();
         cur_path.append( "/" ).append( args[4] );
         const int process = allocator_stats_subprocess(
@@ -252,17 +328,24 @@ void thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_
         while ( ( bytes_read = read( process, &vec_buf.at( progress ), 64 ) ) > 0 ) {
             progress += bytes_read;
         }
-        close_process( { process, bytes_read } );
+        if ( !close_process( { process, bytes_read } ) ) {
+            std::cerr << "This thread is quitting early, child subprocess failed\n";
+            return false;
+        }
         std::string data = std::string( vec_buf.data() );
-        parse_metrics(
-            data,
-            allocator_entry{
-                allocator_index,
-                script_size,
-            },
-            m
-        );
+        if ( !parse_metrics(
+                 data,
+                 allocator_entry{
+                     allocator_index,
+                     script_size,
+                 },
+                 m
+             ) ) {
+            std::cerr << "This thread is quitting early due to parsing error\n";
+            return false;
+        }
     }
+    return true;
 }
 
 void time_malloc_frees( const std::vector<path_bin> &commands, big_o_metrics &m )
@@ -278,11 +361,12 @@ void time_malloc_frees( const std::vector<path_bin> &commands, big_o_metrics &m 
     }
     command_queue workers( worker_limit );
     for ( size_t i = 0; i < commands.size(); ++i ) {
-        workers.push( [i, &commands, &m]() { thread_fill_data( i, commands[i], m ); } );
+        workers.push( [i, &commands, &m]() -> bool { return thread_fill_data( i, commands[i], m ); } );
     }
     for ( size_t i = 0; i < worker_limit; ++i ) {
         workers.push( {} );
     }
+    wait( workers );
 }
 
 } // namespace
