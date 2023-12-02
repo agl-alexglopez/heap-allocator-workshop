@@ -382,6 +382,10 @@ void time_malloc_frees( const std::vector<path_bin> &commands, big_o_metrics &m 
     }
     // Don't mind this function it's just some cursor animation while we wait.
     wait( workers );
+    // We need a programatic way to gather all the allocators into one plot, this won't work.
+    // I'm already gathering and timing all allocators at runtim so this hand coded indexing
+    // should be replaced with something that can plot a variable number of lines on a graph
+    // with my specified x and y axes. Need to learn more.
     matplot::plot(
         m.interval_speed[0].second.first,
         m.interval_speed[0].second.second,
