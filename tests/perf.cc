@@ -1,6 +1,5 @@
 #include "matplot/core/legend.h"
 #include "matplot/freestanding/axes_functions.h"
-#include "matplot/freestanding/plot.h"
 #include "matplot/util/handle_types.h"
 // NOLINTNEXTLINE(*include-cleaner)
 #include <matplot/matplot.h>
@@ -291,7 +290,7 @@ class command_queue {
 };
 
 /// Just for fun.
-void wait( command_queue &q )
+void twiddle_cursor( command_queue &q )
 {
     size_t dist = 0;
     bool max_loading_bar = false;
@@ -444,24 +443,47 @@ bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, runtim
     return true;
 }
 
-void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, [[maybe_unused]] bool quiet )
+void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool quiet )
 {
-    matplot::title( l.title );
-    matplot::xlabel( l.x_label );
-    matplot::ylabel( l.y_label );
-    matplot::grid( true );
+    // From what I can tell to get the "figure" we specify true for quiet mode so not every change causes a redraw.
+    auto p = matplot::gcf( true );
+    // The axes_object is the core "object" we are working with that will frame "plots".
+    auto axes = p->current_axes();
+    axes->title( l.title );
+    axes->xlabel( l.x_label );
+    axes->ylabel( l.y_label );
+    axes->grid( true );
+    axes->font_size( 14.0 );
     size_t tick_style = 0;
     for ( const auto &allocator : set( m, t ).second ) {
-        matplot::plot( x_axis( m.overall_utilization ), allocator.second, line_ticks.at( tick_style ) )
-            ->line_width( 2 );
+        // Now we grab a "plot" where we want to put our actual data with x data and y data.
+        auto plot = axes->plot( x_axis( m.overall_utilization ), allocator.second, line_ticks.at( tick_style ) );
+        plot->line_width( 2 );
+        // It is always sketchy to use the .back() function, but I am not sure if there is a better associative way.
+        if ( ::matplot::legend()->strings().empty() ) {
+            std::cerr << "No legend entry generated for matplot++ plot. Has API changed?\n";
+            std::abort();
+        }
+        // It seems the legend is freestanding but still associated with the current axes_object. Not plot!
+        // So a hidden legend entry is automatically generated when we add a plot. Edit this with correct name.
         ::matplot::legend()->strings().back() = allocator.first;
+        // Need to plot the other allocator lines, not just one, so hold the plots in between then plot all at end.
         matplot::hold( true );
         ++tick_style %= line_ticks.size();
     }
-    ::matplot::legend()->location( matplot::legend::general_alignment::topleft );
-    matplot::save( std::string( l.filename ) );
+    ::matplot::legend()->location( matplot::legend::general_alignment::bottomright );
+    ::matplot::legend()->num_rows( 3 );
+    ::matplot::legend()->box( false );
+    ::matplot::legend()->font_size( 12.0 );
+    p->size( 1920, 1080 );
+    p->save( std::string( l.filename ) );
     matplot::hold( false );
-    matplot::show();
+    std::cout << "plot saved: " << l.filename << "\n";
+    if ( quiet ) {
+        return;
+    }
+    // Because we are in quiet mode hopefully we have had no flashing and the this will be the only plot shown.
+    p->show();
 }
 
 void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
@@ -503,11 +525,12 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
         // Threads still wait if queue is empty so send a quit signal.
         workers.push( {} );
     }
-    // Don't mind this function it's just some cursor animation while we wait. But don't put anything before it!
-    wait( workers );
+    // This is just some cursor animation while we wait from main thread. But don't put anything before it!
+    twiddle_cursor( workers );
     line_plot_stats( m, data_set_type::interval, args.interval_labels, args.quiet );
     line_plot_stats( m, data_set_type::response, args.response_labels, args.quiet );
     line_plot_stats( m, data_set_type::utilization, args.utilization_labels, args.quiet );
+    std::cout << ansi_nil;
 }
 
 } // namespace
@@ -516,7 +539,7 @@ int main( int argc, char **argv )
 {
     const std::vector<path_bin> commands = gather_timer_programs();
     plot_args args{};
-    for ( const auto &arg : std::span<const char *const>( argv, argc ).subspan( 1 ) ) {
+    for ( const auto *arg : std::span<const char *const>( argv, argc ).subspan( 1 ) ) {
         const std::string arg_copy = std::string( arg );
         if ( arg_copy == "-realloc" ) {
             args.op = heap_operation::realloc_free;
