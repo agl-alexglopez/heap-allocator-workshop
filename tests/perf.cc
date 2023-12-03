@@ -19,6 +19,7 @@
 #include <mutex>
 #include <optional>
 #include <queue>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -37,13 +38,8 @@ constexpr std::string_view prog_path = "/build/rel";
 constexpr std::string_view prog_path = "/build/deb";
 #endif
 
-constexpr size_t worker_limit = 4;
-
-enum heap_operation
-{
-    malloc_free,
-    realloc_free,
-};
+constexpr size_t default_worker_count = 4;
+constexpr size_t max_cores = 20;
 
 /// These are the commands that focus in on the key lines of the malloc free scripts to time.
 constexpr std::array<std::array<std::array<std::string_view, 5>, 20>, 2> big_o_timing = { {
@@ -95,7 +91,7 @@ constexpr std::array<std::array<std::array<std::string_view, 5>, 20>, 2> big_o_t
 } };
 
 constexpr std::array<std::string_view, 5> line_ticks = { "-o", "--", "-+", "-s", "-*" };
-constexpr std::array<std::string_view, 9> waiting = { "⣿", "⣷", "⣯", "⣟", "⡿", "⢿", "⣻", "⣽", "⣾" };
+constexpr std::array<std::string_view, 9> loading_bar = { "⣿", "⣷", "⣯", "⣟", "⡿", "⢿", "⣻", "⣽", "⣾" };
 constexpr std::string_view ansi_red_bold = "\033[38;5;9m";
 constexpr std::string_view ansi_green_bold = "\033[38;5;10m";
 constexpr std::string_view ansi_nil = "\033[0m";
@@ -118,6 +114,12 @@ struct path_bin
 {
     std::string path;
     std::string bin;
+};
+
+enum heap_operation
+{
+    malloc_free,
+    realloc_free,
 };
 
 enum data_set_type
@@ -147,6 +149,21 @@ struct label_pack
     labels interval_labels;
     labels response_labels;
     labels utilization_labels;
+};
+
+struct plot_args
+{
+    heap_operation op{};
+    labels interval_labels;
+    labels response_labels;
+    labels utilization_labels;
+    size_t threads{ default_worker_count };
+    bool quiet{ false };
+    plot_args( heap_operation h, label_pack l, size_t threads, bool quiet )
+        : op( h ), interval_labels( l.interval_labels ), response_labels( l.response_labels ),
+          utilization_labels( l.utilization_labels ), threads( threads ), quiet( quiet )
+    {}
+    plot_args() = default;
 };
 
 const data_set &set( const runtime_metrics &m, data_set_type request )
@@ -282,7 +299,7 @@ void wait( command_queue &q )
     while ( !q.empty() ) {
         std::cout << save_cursor;
         for ( size_t i = 0; i < loading_limit; ++i ) {
-            std::cout << waiting.at( ( i + dist ) % waiting.size() ) << std::flush;
+            std::cout << loading_bar.at( ( i + dist ) % loading_bar.size() ) << std::flush;
             if ( !max_loading_bar && i > dist ) {
                 break;
             }
@@ -294,7 +311,7 @@ void wait( command_queue &q )
     }
     std::cout << ansi_green_bold;
     for ( size_t i = 0; i < loading_limit; ++i ) {
-        std::cout << waiting.at( ( i + dist ) % waiting.size() ) << std::flush;
+        std::cout << loading_bar.at( ( i + dist ) % loading_bar.size() ) << std::flush;
     }
     std::cout << "\n";
 }
@@ -427,7 +444,7 @@ bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, runtim
     return true;
 }
 
-void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l )
+void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, [[maybe_unused]] bool quiet )
 {
     matplot::title( l.title );
     matplot::xlabel( l.x_label );
@@ -442,18 +459,18 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l )
         ++tick_style %= line_ticks.size();
     }
     ::matplot::legend()->location( matplot::legend::general_alignment::topleft );
-    matplot::hold( false );
     matplot::save( std::string( l.filename ) );
+    matplot::hold( false );
     matplot::show();
 }
 
-void plot_runtime( const std::vector<path_bin> &commands, heap_operation s, label_pack labels )
+void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
 {
     runtime_metrics m{};
     x_axis( m.interval_speed ).push_back( 0 );
     x_axis( m.average_response_time ).push_back( 0 );
     x_axis( m.overall_utilization ).push_back( 0 );
-    for ( const auto &args : big_o_timing.at( s ) ) {
+    for ( const auto &args : big_o_timing.at( args.op ) ) {
         const double script_size = parse_quantity_n( args.back() );
         if ( script_size == 0 ) {
             std::cerr << "could not parse script size\n";
@@ -468,83 +485,128 @@ void plot_runtime( const std::vector<path_bin> &commands, heap_operation s, labe
         // Matplot reads underscores as subscripts which messes up legends on graphs. Change to space.
         std::replace( title.begin(), title.end(), '_', ' ' );
         all_series( m.interval_speed ).push_back( { title, { 0.0 } } );
-        all_series( m.interval_speed ).back().second.reserve( big_o_timing.at( s ).size() );
+        all_series( m.interval_speed ).back().second.reserve( big_o_timing.at( args.op ).size() );
         all_series( m.average_response_time ).push_back( { title, { 0.0 } } );
-        all_series( m.average_response_time ).back().second.reserve( big_o_timing.at( s ).size() );
+        all_series( m.average_response_time ).back().second.reserve( big_o_timing.at( args.op ).size() );
         all_series( m.overall_utilization ).push_back( { title, { 0.0 } } );
-        all_series( m.overall_utilization ).back().second.reserve( big_o_timing.at( s ).size() );
+        all_series( m.overall_utilization ).back().second.reserve( big_o_timing.at( args.op ).size() );
     }
-    command_queue workers( worker_limit );
+    command_queue workers( args.threads );
     for ( size_t i = 0; i < commands.size(); ++i ) {
         // Not sure if bool is ok here but the filesystem and subproccesses can often fail so signal with
         // bool for easier thread shutdown. Futures could maybe work but seems overkill?
-        workers.push( [i, s, &commands, &m]() -> bool { return thread_fill_data( i, commands[i], m, s ); } );
+        workers.push( [i, &args, &commands, &m]() -> bool {
+            return thread_fill_data( i, commands[i], m, args.op );
+        } );
     }
-    for ( size_t i = 0; i < worker_limit; ++i ) {
+    for ( size_t i = 0; i < args.threads; ++i ) {
         // Threads still wait if queue is empty so send a quit signal.
         workers.push( {} );
     }
     // Don't mind this function it's just some cursor animation while we wait. But don't put anything before it!
     wait( workers );
-    line_plot_stats( m, data_set_type::interval, labels.interval_labels );
-    line_plot_stats( m, data_set_type::response, labels.response_labels );
-    line_plot_stats( m, data_set_type::utilization, labels.utilization_labels );
+    line_plot_stats( m, data_set_type::interval, args.interval_labels, args.quiet );
+    line_plot_stats( m, data_set_type::response, args.response_labels, args.quiet );
+    line_plot_stats( m, data_set_type::utilization, args.utilization_labels, args.quiet );
 }
 
 } // namespace
 
-int main()
+int main( int argc, char **argv )
 {
     const std::vector<path_bin> commands = gather_timer_programs();
-    plot_runtime(
-        commands,
-        heap_operation::malloc_free,
-        {
-            {
-                "Time to Complete N Requests",
-                "N Malloc N Free Requests",
-                "Time(ms) to Complete Interval",
-                "output/mallocfree_interval.svg",
-            },
-
-            {
-                "Average Response Time per Request",
-                "N Malloc N Free Requests",
-                "Average Time(ms) per Request",
-                "output/mallocfree_response.svg",
-            },
-            {
-                "Average Utilization",
-                "N Malloc N Free Requests",
-                "Time(ms)",
-                "output/mallocfree_utilization.svg",
-            },
+    plot_args args{};
+    for ( const auto &arg : std::span<const char *const>( argv, argc ).subspan( 1 ) ) {
+        const std::string arg_copy = std::string( arg );
+        if ( arg_copy == "-realloc" ) {
+            args.op = heap_operation::realloc_free;
+        } else if ( arg_copy == "-malloc" ) {
+            args.op = heap_operation::malloc_free;
+        } else if ( arg_copy.starts_with( "-j" ) ) {
+            if ( arg_copy == "-j" ) {
+                std::cerr << "Invalid core count requested. Did you mean -j[CORES] without a space?\n";
+                return 1;
+            }
+            std::string cores
+                = std::string( std::string_view{ arg_copy }.substr( arg_copy.find_first_not_of( "-j" ) ) );
+            try {
+                // We spawn a process for each thread which means 2x processes so divide the request in half.
+                args.threads = std::stoull( cores ) / 2;
+                if ( args.threads == 0 || args.threads > max_cores ) {
+                    args.threads = default_worker_count;
+                }
+            } catch ( std::invalid_argument &e ) {
+                std::cerr << "Invalid core count requested from " << e.what() << ": " << cores << "\n";
+                return 1;
+            }
+        } else if ( arg_copy == "-q" ) {
+            args.quiet = true;
+        } else {
+            std::cerr << "Invalid command line request: " << arg_copy << "\n";
+            return 1;
         }
-    );
-    plot_runtime(
-        commands,
-        heap_operation::realloc_free,
-        {
-            {
-                "Time to Complete N Requests",
-                "N Realloc Requests",
-                "Time(ms) to Complete Interval",
-                "output/realloc_interval.svg",
-            },
-
-            {
-                "Average Response Time per Request",
-                "N Realloc Requests",
-                "Average Time(ms) per Request",
-                "output/realloc_response.svg",
-            },
-            {
-                "Average Utilization",
-                "N Realloc Requests",
-                "Time(ms)",
-                "output/realloc_utilization.svg",
-            },
-        }
-    );
+    }
+    if ( args.op == heap_operation::malloc_free ) {
+        plot_runtime(
+            commands,
+            plot_args(
+                heap_operation::malloc_free,
+                {
+                    .interval_labels{
+                        "Time to Complete N Requests",
+                        "N Malloc N Free Requests",
+                        "Time(ms) to Complete Interval",
+                        "output/mallocfree_interval.svg",
+                    },
+                    .response_labels{
+                        "Average Response Time per Request",
+                        "N Malloc N Free Requests",
+                        "Average Time(ms) per Request",
+                        "output/mallocfree_response.svg",
+                    },
+                    .utilization_labels{
+                        "Average Utilization",
+                        "N Malloc N Free Requests",
+                        "Time(ms)",
+                        "output/mallocfree_utilization.svg",
+                    },
+                },
+                args.threads,
+                args.quiet
+            )
+        );
+    } else if ( args.op == heap_operation::realloc_free ) {
+        plot_runtime(
+            commands,
+            plot_args(
+                heap_operation::realloc_free,
+                {
+                    .interval_labels{
+                        "Time to Complete N Requests",
+                        "N Realloc Requests",
+                        "Time(ms) to Complete Interval",
+                        "output/realloc_interval.svg",
+                    },
+                    .response_labels{
+                        "Average Response Time per Request",
+                        "N Realloc Requests",
+                        "Average Time(ms) per Request",
+                        "output/realloc_response.svg",
+                    },
+                    .utilization_labels{
+                        "Average Utilization",
+                        "N Realloc Requests",
+                        "Time(ms)",
+                        "output/realloc_utilization.svg",
+                    },
+                },
+                args.threads,
+                args.quiet
+            )
+        );
+    } else {
+        std::cerr << "invalid options slipped through command line args.\n";
+        return 1;
+    }
     return 0;
 }
