@@ -40,9 +40,10 @@ constexpr std::string_view prog_path = "/build/deb";
 constexpr size_t default_worker_count = 4;
 constexpr size_t max_cores = 20;
 
-/// These are the commands that focus in on the key lines of the malloc free scripts to time.
+/// The script commands are carefully tuned to only time sections where the desired behavior is operating.
 constexpr std::array<std::array<std::array<std::string_view, 5>, 20>, 2> big_o_timing = { {
     { {
+        // Malloc and free commands are targeted at making many uncoalescable free nodes and mallocing them.
         { "-s", "10001", "-e", "20000", "scripts/time-insertdelete-05k.script" },
         { "-s", "20001", "-e", "40000", "scripts/time-insertdelete-10k.script" },
         { "-s", "30001", "-e", "60000", "scripts/time-insertdelete-15k.script" },
@@ -65,6 +66,7 @@ constexpr std::array<std::array<std::array<std::string_view, 5>, 20>, 2> big_o_t
         { "-s", "200001", "-e", "400000", "scripts/time-insertdelete-100k.script" },
     } },
     { {
+        // Realloc commands are targeted at reallocing many allocated nodes that are surrounded by free nodes.
         { "-s", "15001", "-e", "20000", "scripts/time-reallocfree-05k.script" },
         { "-s", "30001", "-e", "40000", "scripts/time-reallocfree-10k.script" },
         { "-s", "45001", "-e", "60000", "scripts/time-reallocfree-15k.script" },
