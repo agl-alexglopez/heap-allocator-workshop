@@ -4,6 +4,7 @@
 // NOLINTNEXTLINE(*include-cleaner)
 #include <getopt.h>
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +40,8 @@ const int base_10 = 10;
 static int time_script( char *script_name, struct interval_reqs *user_requests );
 static size_t time_allocator( struct script *s, struct interval_reqs *user_requests );
 static void validate_intervals( struct script *s, struct interval_reqs *user_requests );
+
+// NOLINTBEGIN(*include-cleaner)
 
 /// @brief main  parses command line arguments that request a range of lines to be timed for
 ///              performance. Arguments may take the following form:
@@ -96,6 +99,8 @@ int main( int argc, char *argv[] )
 
     return time_script( argv[optind], &user_req );
 }
+
+// NOLINTEND(*include-cleaner)
 
 static int time_script( char *script_name, struct interval_reqs *user_requests )
 {

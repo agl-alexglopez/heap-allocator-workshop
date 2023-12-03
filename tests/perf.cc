@@ -1,7 +1,11 @@
+#include "matplot/core/legend.h"
+#include "matplot/freestanding/axes_functions.h"
 #include "matplot/freestanding/plot.h"
-#include <algorithm>
+#include "matplot/util/handle_types.h"
+// NOLINTNEXTLINE(*include-cleaner)
 #include <matplot/matplot.h>
 
+#include <algorithm>
 #include <array>
 #include <cerrno>
 #include <chrono>
@@ -15,10 +19,10 @@
 #include <mutex>
 #include <optional>
 #include <queue>
-#include <set>
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <sys/types.h>
 #include <sys/wait.h>
 #include <thread>
 #include <unistd.h>
@@ -33,7 +37,76 @@ constexpr std::string_view prog_path = "/build/rel";
 constexpr std::string_view prog_path = "/build/deb";
 #endif
 
+constexpr size_t worker_limit = 4;
+
+enum heap_operation
+{
+    malloc_free,
+    realloc_free,
+};
+
+/// These are the commands that focus in on the key lines of the malloc free scripts to time.
+constexpr std::array<std::array<std::array<std::string_view, 5>, 20>, 2> big_o_timing = { {
+    { {
+        { "-s", "10001", "-e", "20000", "scripts/time-insertdelete-05k.script" },
+        { "-s", "20001", "-e", "40000", "scripts/time-insertdelete-10k.script" },
+        { "-s", "30001", "-e", "60000", "scripts/time-insertdelete-15k.script" },
+        { "-s", "40001", "-e", "80000", "scripts/time-insertdelete-20k.script" },
+        { "-s", "50001", "-e", "100000", "scripts/time-insertdelete-25k.script" },
+        { "-s", "60001", "-e", "120000", "scripts/time-insertdelete-30k.script" },
+        { "-s", "70001", "-e", "140000", "scripts/time-insertdelete-35k.script" },
+        { "-s", "80001", "-e", "160000", "scripts/time-insertdelete-40k.script" },
+        { "-s", "90001", "-e", "180000", "scripts/time-insertdelete-45k.script" },
+        { "-s", "100001", "-e", "200000", "scripts/time-insertdelete-50k.script" },
+        { "-s", "110001", "-e", "220000", "scripts/time-insertdelete-55k.script" },
+        { "-s", "120001", "-e", "240000", "scripts/time-insertdelete-60k.script" },
+        { "-s", "130001", "-e", "260000", "scripts/time-insertdelete-65k.script" },
+        { "-s", "140001", "-e", "280000", "scripts/time-insertdelete-70k.script" },
+        { "-s", "150001", "-e", "300000", "scripts/time-insertdelete-75k.script" },
+        { "-s", "160001", "-e", "320000", "scripts/time-insertdelete-80k.script" },
+        { "-s", "170001", "-e", "340000", "scripts/time-insertdelete-85k.script" },
+        { "-s", "180001", "-e", "360000", "scripts/time-insertdelete-90k.script" },
+        { "-s", "190001", "-e", "380000", "scripts/time-insertdelete-95k.script" },
+        { "-s", "200001", "-e", "400000", "scripts/time-insertdelete-100k.script" },
+    } },
+    { {
+        { "-s", "15001", "-e", "20000", "scripts/time-reallocfree-05k.script" },
+        { "-s", "30001", "-e", "40000", "scripts/time-reallocfree-10k.script" },
+        { "-s", "45001", "-e", "60000", "scripts/time-reallocfree-15k.script" },
+        { "-s", "60001", "-e", "80000", "scripts/time-reallocfree-20k.script" },
+        { "-s", "75001", "-e", "100000", "scripts/time-reallocfree-25k.script" },
+        { "-s", "90001", "-e", "120000", "scripts/time-reallocfree-30k.script" },
+        { "-s", "105001", "-e", "140000", "scripts/time-reallocfree-35k.script" },
+        { "-s", "120001", "-e", "160000", "scripts/time-reallocfree-40k.script" },
+        { "-s", "135001", "-e", "180000", "scripts/time-reallocfree-45k.script" },
+        { "-s", "150001", "-e", "200000", "scripts/time-reallocfree-50k.script" },
+        { "-s", "165001", "-e", "220000", "scripts/time-reallocfree-55k.script" },
+        { "-s", "180001", "-e", "240000", "scripts/time-reallocfree-60k.script" },
+        { "-s", "195001", "-e", "260000", "scripts/time-reallocfree-65k.script" },
+        { "-s", "210001", "-e", "280000", "scripts/time-reallocfree-70k.script" },
+        { "-s", "225001", "-e", "300000", "scripts/time-reallocfree-75k.script" },
+        { "-s", "240001", "-e", "320000", "scripts/time-reallocfree-80k.script" },
+        { "-s", "255001", "-e", "340000", "scripts/time-reallocfree-85k.script" },
+        { "-s", "270001", "-e", "360000", "scripts/time-reallocfree-90k.script" },
+        { "-s", "285001", "-e", "380000", "scripts/time-reallocfree-95k.script" },
+        { "-s", "300001", "-e", "400000", "scripts/time-reallocfree-100k.script" },
+    } },
+
+} };
+
+constexpr std::array<std::string_view, 5> line_ticks = { "-o", "--", "-+", "-s", "-*" };
+constexpr std::array<std::string_view, 9> waiting = { "⣿", "⣷", "⣯", "⣟", "⡿", "⢿", "⣻", "⣽", "⣾" };
+constexpr std::string_view ansi_red_bold = "\033[38;5;9m";
+constexpr std::string_view ansi_green_bold = "\033[38;5;10m";
+constexpr std::string_view ansi_nil = "\033[0m";
+constexpr std::string_view save_cursor = "\033[s";
+constexpr std::string_view restore_cursor = "\033[u";
+
+constexpr size_t loading_limit = 50;
+
 using quantity_measurement = std::pair<std::vector<double>, std::vector<double>>;
+using data_series = std::pair<std::string, std::vector<double>>;
+using data_set = std::pair<std::vector<double>, std::vector<data_series>>;
 
 struct process_result
 {
@@ -47,12 +120,90 @@ struct path_bin
     std::string bin;
 };
 
-struct big_o_metrics
+enum data_set_type
 {
-    std::vector<std::pair<std::string, quantity_measurement>> interval_speed;
-    std::vector<std::pair<std::string, quantity_measurement>> average_response_time;
-    std::vector<std::pair<std::string, quantity_measurement>> overall_utilization;
+    interval,
+    response,
+    utilization,
 };
+
+struct runtime_metrics
+{
+    data_set interval_speed;
+    data_set average_response_time;
+    data_set overall_utilization;
+};
+
+struct labels
+{
+    std::string_view title;
+    std::string_view x_label;
+    std::string_view y_label;
+    std::string_view filename;
+};
+
+struct label_pack
+{
+    labels interval_labels;
+    labels response_labels;
+    labels utilization_labels;
+};
+
+const data_set &set( const runtime_metrics &m, data_set_type request )
+{
+    switch ( request ) {
+    case interval:
+        return m.interval_speed;
+    case response:
+        return m.average_response_time;
+    case utilization:
+        return m.overall_utilization;
+    default: {
+        std::cerr << "invalid request type for a data set that does not exist.\n";
+        std::abort();
+    }
+    }
+}
+
+const std::vector<double> &x_axis( const data_set &s )
+{
+    return s.first;
+}
+
+std::vector<double> &x_axis( data_set &s )
+{
+    return s.first;
+}
+
+const std::vector<double> &series( const data_set &s, size_t series_index )
+{
+    return s.second[series_index].second;
+}
+
+std::vector<double> &series( data_set &s, size_t series_index )
+{
+    return s.second[series_index].second;
+}
+
+const std::vector<data_series> &all_series( const data_set &s )
+{
+    return s.second;
+}
+
+std::vector<data_series> &all_series( data_set &s )
+{
+    return s.second;
+}
+
+const std::string &title( const data_set &s, size_t title_index )
+{
+    return s.second[title_index].first;
+}
+
+std::string &title( data_set &s, size_t title_index )
+{
+    return s.second[title_index].first;
+}
 
 struct allocator_entry
 {
@@ -60,81 +211,13 @@ struct allocator_entry
     double script_size;
 };
 
-constexpr size_t worker_limit = 4;
-
-/// These are the commands that focus in on the key lines of the malloc free scripts to time.
-constexpr std::array<std::array<std::string_view, 5>, 20> increasing_malloc_free_size_args = { {
-    { "-s", "10001", "-e", "20000", "scripts/time-insertdelete-05k.script" },
-    { "-s", "20001", "-e", "40000", "scripts/time-insertdelete-10k.script" },
-    { "-s", "30001", "-e", "60000", "scripts/time-insertdelete-15k.script" },
-    { "-s", "40001", "-e", "80000", "scripts/time-insertdelete-20k.script" },
-    { "-s", "50001", "-e", "100000", "scripts/time-insertdelete-25k.script" },
-    { "-s", "60001", "-e", "120000", "scripts/time-insertdelete-30k.script" },
-    { "-s", "70001", "-e", "140000", "scripts/time-insertdelete-35k.script" },
-    { "-s", "80001", "-e", "160000", "scripts/time-insertdelete-40k.script" },
-    { "-s", "90001", "-e", "180000", "scripts/time-insertdelete-45k.script" },
-    { "-s", "100001", "-e", "200000", "scripts/time-insertdelete-50k.script" },
-    { "-s", "110001", "-e", "220000", "scripts/time-insertdelete-55k.script" },
-    { "-s", "120001", "-e", "240000", "scripts/time-insertdelete-60k.script" },
-    { "-s", "130001", "-e", "260000", "scripts/time-insertdelete-65k.script" },
-    { "-s", "140001", "-e", "280000", "scripts/time-insertdelete-70k.script" },
-    { "-s", "150001", "-e", "300000", "scripts/time-insertdelete-75k.script" },
-    { "-s", "160001", "-e", "320000", "scripts/time-insertdelete-80k.script" },
-    { "-s", "170001", "-e", "340000", "scripts/time-insertdelete-85k.script" },
-    { "-s", "180001", "-e", "360000", "scripts/time-insertdelete-90k.script" },
-    { "-s", "190001", "-e", "380000", "scripts/time-insertdelete-95k.script" },
-    { "-s", "200001", "-e", "400000", "scripts/time-insertdelete-100k.script" },
-} };
-
-constexpr std::array<std::array<std::string_view, 5>, 20> increasing_realloc_free_size_args = { {
-    { "-s", "15001", "-e", "20000", "scripts/time-reallocfree-05k.script" },
-    { "-s", "30001", "-e", "40000", "scripts/time-reallocfree-10k.script" },
-    { "-s", "45001", "-e", "60000", "scripts/time-reallocfree-15k.script" },
-    { "-s", "60001", "-e", "80000", "scripts/time-reallocfree-20k.script" },
-    { "-s", "75001", "-e", "100000", "scripts/time-reallocfree-25k.script" },
-    { "-s", "90001", "-e", "120000", "scripts/time-reallocfree-30k.script" },
-    { "-s", "105001", "-e", "140000", "scripts/time-reallocfree-35k.script" },
-    { "-s", "120001", "-e", "160000", "scripts/time-reallocfree-40k.script" },
-    { "-s", "135001", "-e", "180000", "scripts/time-reallocfree-45k.script" },
-    { "-s", "150001", "-e", "200000", "scripts/time-reallocfree-50k.script" },
-    { "-s", "165001", "-e", "220000", "scripts/time-reallocfree-55k.script" },
-    { "-s", "180001", "-e", "240000", "scripts/time-reallocfree-60k.script" },
-    { "-s", "195001", "-e", "260000", "scripts/time-reallocfree-65k.script" },
-    { "-s", "210001", "-e", "280000", "scripts/time-reallocfree-70k.script" },
-    { "-s", "225001", "-e", "300000", "scripts/time-reallocfree-75k.script" },
-    { "-s", "240001", "-e", "320000", "scripts/time-reallocfree-80k.script" },
-    { "-s", "255001", "-e", "340000", "scripts/time-reallocfree-85k.script" },
-    { "-s", "270001", "-e", "360000", "scripts/time-reallocfree-90k.script" },
-    { "-s", "285001", "-e", "380000", "scripts/time-reallocfree-95k.script" },
-    { "-s", "300001", "-e", "400000", "scripts/time-reallocfree-100k.script" },
-} };
-
-constexpr std::array<std::string_view, 9> waiting = {
-    "⣿",
-    "⣷",
-    "⣯",
-    "⣟",
-    "⡿",
-    "⢿",
-    "⣻",
-    "⣽",
-    "⣾",
-};
-constexpr std::string_view ansi_red_bold = "\033[38;5;9m";
-constexpr std::string_view ansi_green_bold = "\033[38;5;10m";
-constexpr std::string_view ansi_nil = "\033[0m";
-constexpr std::string_view save_cursor = "\033[s";
-constexpr std::string_view restore_cursor = "\033[u";
-
-constexpr size_t loading_limit = 50;
-
 /// The work we do to gather timing is trivially parallelizable. We just need a parent to
 /// monitor this small stat generation program and enter the results. So we can have
 /// threads become the parents for these parallel processes and they will just add the
-/// stats to the big_o_metrics container that has preallocated space for them.
+/// stats to the runtim metrics container that has preallocated space for them.
 /// Because the number of programs we time may grow in the future and the threads each
 /// spawn a child process we have 2x the processes. Use a work queue to cap the processes
-/// but still maintain consistent parallelism.
+/// but still maintain consistent parallelism. Maybe allow -j[CORES] flag for user at CLI?
 class command_queue {
     std::queue<std::optional<std::function<bool()>>> q_;
     std::mutex lk_;
@@ -173,14 +256,14 @@ class command_queue {
     }
     void push( std::optional<std::function<bool()>> args )
     {
-        std::unique_lock<std::mutex> ul( lk_ );
+        const std::unique_lock<std::mutex> ul( lk_ );
         q_.push( std::move( args ) );
         wait_.notify_one();
     }
 
     [[nodiscard]] bool empty()
     {
-        std::unique_lock<std::mutex> ul( lk_ );
+        const std::unique_lock<std::mutex> ul( lk_ );
         return q_.empty();
     }
 
@@ -193,25 +276,25 @@ class command_queue {
 /// Just for fun.
 void wait( command_queue &q )
 {
-    size_t i = 0;
+    size_t dist = 0;
     bool max_loading_bar = false;
     std::cout << ansi_red_bold;
     while ( !q.empty() ) {
         std::cout << save_cursor;
-        for ( size_t j = 0; j < loading_limit; ++j ) {
-            std::cout << waiting.at( ( j + i ) % waiting.size() ) << std::flush;
-            if ( !max_loading_bar && j > i ) {
+        for ( size_t i = 0; i < loading_limit; ++i ) {
+            std::cout << waiting.at( ( i + dist ) % waiting.size() ) << std::flush;
+            if ( !max_loading_bar && i > dist ) {
                 break;
             }
         }
         std::cout << restore_cursor;
-        ++i %= loading_limit;
-        max_loading_bar = max_loading_bar || i == 0;
+        ++dist;
+        max_loading_bar = max_loading_bar || dist == 0;
         std::this_thread::sleep_for( std::chrono::milliseconds( 60 ) );
     }
     std::cout << ansi_green_bold;
-    for ( size_t j = 0; j < loading_limit; ++j ) {
-        std::cout << waiting.at( ( j + i ) % waiting.size() ) << std::flush;
+    for ( size_t i = 0; i < loading_limit; ++i ) {
+        std::cout << waiting.at( ( i + dist ) % waiting.size() ) << std::flush;
     }
     std::cout << "\n";
 }
@@ -236,7 +319,7 @@ bool close_process( process_result res )
 {
     close( res.process_id );
     int err = 0;
-    int wait_err = waitpid( -1, &err, 0 );
+    const int wait_err = waitpid( -1, &err, 0 );
     if ( WIFSIGNALED( err ) && WTERMSIG( err ) == SIGSEGV ) { // NOLINT
         std::cerr << "seg fault waitpid returned " << wait_err << "\n";
         return false;
@@ -261,21 +344,18 @@ double parse_quantity_n( std::string_view script_name )
     }
 }
 
-bool parse_metrics( const std::string &output, const allocator_entry &entry, big_o_metrics &m )
+bool parse_metrics( const std::string &output, const size_t allocator_index, runtime_metrics &m )
 {
     try {
         const size_t first_space = output.find_first_of( ' ' );
         const size_t first_newline = output.find_first_of( '\n' );
         const std::string interval_time = output.substr( 0, first_space );
-        m.interval_speed[entry.index].second.first.emplace_back( entry.script_size );
-        m.interval_speed[entry.index].second.second.emplace_back( stod( interval_time ) );
+        series( m.interval_speed, allocator_index ).emplace_back( stod( interval_time ) );
         const std::string response_average = output.substr( first_space, first_newline - first_space );
-        m.average_response_time[entry.index].second.first.emplace_back( entry.script_size );
-        m.average_response_time[entry.index].second.second.emplace_back( stod( response_average ) );
+        series( m.average_response_time, allocator_index ).emplace_back( stod( response_average ) );
         const std::string utilization
             = output.substr( first_newline + 1, output.find_last_of( '%' ) - ( first_newline + 1 ) );
-        m.overall_utilization[entry.index].second.first.emplace_back( entry.script_size );
-        m.overall_utilization[entry.index].second.second.emplace_back( stod( utilization ) );
+        series( m.overall_utilization, allocator_index ).emplace_back( stod( utilization ) );
         return true;
     } catch ( std::invalid_argument &a ) {
         std::cerr << "Error parsing string input to metrics\n";
@@ -311,14 +391,10 @@ int allocator_stats_subprocess( std::string_view cmd_path, const std::array<std:
     exit( 1 );
 }
 
-bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_metrics &m )
+bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, runtime_metrics &m, heap_operation s )
 {
     const std::string title = cmd.bin.substr( cmd.bin.find( '_' ) + 1 );
-    for ( const auto &args : increasing_malloc_free_size_args ) {
-        const double script_size = parse_quantity_n( args.back() );
-        if ( script_size == 0 ) {
-            return false;
-        }
+    for ( const auto &args : big_o_timing.at( s ) ) {
         std::string cur_path = std::filesystem::current_path();
         cur_path.append( "/" ).append( args[4] );
         const int process = allocator_stats_subprocess(
@@ -342,15 +418,8 @@ bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_
             std::cerr << "This thread is quitting early, child subprocess failed\n";
             return false;
         }
-        std::string data = std::string( vec_buf.data() );
-        if ( !parse_metrics(
-                 data,
-                 allocator_entry{
-                     allocator_index,
-                     script_size,
-                 },
-                 m
-             ) ) {
+        const std::string data = std::string( vec_buf.data() );
+        if ( !parse_metrics( data, allocator_index, m ) ) {
             std::cerr << "This thread is quitting early due to parsing error\n";
             return false;
         }
@@ -358,38 +427,68 @@ bool thread_fill_data( const size_t allocator_index, const path_bin &cmd, big_o_
     return true;
 }
 
-void time_malloc_frees( const std::vector<path_bin> &commands, big_o_metrics &m )
+void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l )
 {
+    matplot::title( l.title );
+    matplot::xlabel( l.x_label );
+    matplot::ylabel( l.y_label );
+    matplot::grid( true );
+    size_t tick_style = 0;
+    for ( const auto &allocator : set( m, t ).second ) {
+        matplot::plot( x_axis( m.overall_utilization ), allocator.second, line_ticks.at( tick_style ) )
+            ->line_width( 2 );
+        ::matplot::legend()->strings().back() = allocator.first;
+        matplot::hold( true );
+        ++tick_style %= line_ticks.size();
+    }
+    ::matplot::legend()->location( matplot::legend::general_alignment::topleft );
+    matplot::hold( false );
+    matplot::save( std::string( l.filename ) );
+    matplot::show();
+}
+
+void plot_runtime( const std::vector<path_bin> &commands, heap_operation s, label_pack labels )
+{
+    runtime_metrics m{};
+    x_axis( m.interval_speed ).push_back( 0 );
+    x_axis( m.average_response_time ).push_back( 0 );
+    x_axis( m.overall_utilization ).push_back( 0 );
+    for ( const auto &args : big_o_timing.at( s ) ) {
+        const double script_size = parse_quantity_n( args.back() );
+        if ( script_size == 0 ) {
+            std::cerr << "could not parse script size\n";
+            return;
+        }
+        x_axis( m.interval_speed ).push_back( script_size );
+        x_axis( m.average_response_time ).push_back( script_size );
+        x_axis( m.overall_utilization ).push_back( script_size );
+    }
     for ( const auto &c : commands ) {
         std::string title = c.bin.substr( c.bin.find( '_' ) + 1 );
         // Matplot reads underscores as subscripts which messes up legends on graphs. Change to space.
         std::replace( title.begin(), title.end(), '_', ' ' );
-        m.interval_speed.push_back( { title, { { 0 }, { 0 } } } );
-        m.interval_speed.back().second.first.reserve( increasing_malloc_free_size_args.size() );
-        m.interval_speed.back().second.second.reserve( increasing_malloc_free_size_args.size() );
-        m.average_response_time.push_back( { title, { { 0 }, { 0 } } } );
-        m.average_response_time.back().second.first.reserve( increasing_malloc_free_size_args.size() );
-        m.average_response_time.back().second.second.reserve( increasing_malloc_free_size_args.size() );
-        m.overall_utilization.push_back( { title, { { 0 }, { 0 } } } );
-        m.overall_utilization.back().second.first.reserve( increasing_malloc_free_size_args.size() );
-        m.overall_utilization.back().second.second.reserve( increasing_malloc_free_size_args.size() );
+        all_series( m.interval_speed ).push_back( { title, { 0.0 } } );
+        all_series( m.interval_speed ).back().second.reserve( big_o_timing.at( s ).size() );
+        all_series( m.average_response_time ).push_back( { title, { 0.0 } } );
+        all_series( m.average_response_time ).back().second.reserve( big_o_timing.at( s ).size() );
+        all_series( m.overall_utilization ).push_back( { title, { 0.0 } } );
+        all_series( m.overall_utilization ).back().second.reserve( big_o_timing.at( s ).size() );
     }
     command_queue workers( worker_limit );
     for ( size_t i = 0; i < commands.size(); ++i ) {
-        workers.push( [i, &commands, &m]() -> bool { return thread_fill_data( i, commands[i], m ); } );
+        // Not sure if bool is ok here but the filesystem and subproccesses can often fail so signal with
+        // bool for easier thread shutdown. Futures could maybe work but seems overkill?
+        workers.push( [i, s, &commands, &m]() -> bool { return thread_fill_data( i, commands[i], m, s ); } );
     }
     for ( size_t i = 0; i < worker_limit; ++i ) {
+        // Threads still wait if queue is empty so send a quit signal.
         workers.push( {} );
     }
-    // Don't mind this function it's just some cursor animation while we wait.
+    // Don't mind this function it's just some cursor animation while we wait. But don't put anything before it!
     wait( workers );
-    // TODO(agl-alexglopez): Now we just need to associate the sets with their appropriate legend title.
-    std::set<std::vector<double>> plots{};
-    for ( const auto &allocator : m.interval_speed ) {
-        plots.emplace( allocator.second.second );
-    }
-    matplot::plot( m.interval_speed[0].second.first, plots );
-    matplot::show();
+    line_plot_stats( m, data_set_type::interval, labels.interval_labels );
+    line_plot_stats( m, data_set_type::response, labels.response_labels );
+    line_plot_stats( m, data_set_type::utilization, labels.utilization_labels );
 }
 
 } // namespace
@@ -397,7 +496,55 @@ void time_malloc_frees( const std::vector<path_bin> &commands, big_o_metrics &m 
 int main()
 {
     const std::vector<path_bin> commands = gather_timer_programs();
-    big_o_metrics m{};
-    time_malloc_frees( commands, m );
+    plot_runtime(
+        commands,
+        heap_operation::malloc_free,
+        {
+            {
+                "Time to Complete N Requests",
+                "N Malloc N Free Requests",
+                "Time(ms) to Complete Interval",
+                "output/mallocfree_interval.svg",
+            },
+
+            {
+                "Average Response Time per Request",
+                "N Malloc N Free Requests",
+                "Average Time(ms) per Request",
+                "output/mallocfree_response.svg",
+            },
+            {
+                "Average Utilization",
+                "N Malloc N Free Requests",
+                "Time(ms)",
+                "output/mallocfree_utilization.svg",
+            },
+        }
+    );
+    plot_runtime(
+        commands,
+        heap_operation::realloc_free,
+        {
+            {
+                "Time to Complete N Requests",
+                "N Realloc Requests",
+                "Time(ms) to Complete Interval",
+                "output/realloc_interval.svg",
+            },
+
+            {
+                "Average Response Time per Request",
+                "N Realloc Requests",
+                "Average Time(ms) per Request",
+                "output/realloc_response.svg",
+            },
+            {
+                "Average Utilization",
+                "N Realloc Requests",
+                "Time(ms)",
+                "output/realloc_utilization.svg",
+            },
+        }
+    );
     return 0;
 }

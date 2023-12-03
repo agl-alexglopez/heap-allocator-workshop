@@ -12,6 +12,9 @@
 /// and I have included this implementation in the performance testing graphs
 /// so we can see how other allocators stack up!
 #include "allocator.h"
+#include "print_utility.h"
+#include <stdbool.h>
+#include <stddef.h>
 #include <stdlib.h>
 
 size_t get_free_total( void )
