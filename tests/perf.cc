@@ -1,3 +1,5 @@
+#include "command_queue.hh"
+
 #include "matplot/core/legend.h"
 #include "matplot/freestanding/axes_functions.h"
 #include "matplot/util/handle_types.h"
@@ -8,16 +10,12 @@
 #include <array>
 #include <cerrno>
 #include <chrono>
-#include <condition_variable>
 #include <csignal>
 #include <cstdlib>
 #include <fcntl.h>
 #include <filesystem>
-#include <functional>
 #include <iostream>
-#include <mutex>
 #include <optional>
-#include <queue>
 #include <span>
 #include <stdexcept>
 #include <string>
@@ -176,32 +174,6 @@ struct allocator_entry
     double script_size;
 };
 
-/// The work we do to gather timing is trivially parallelizable. We just need a parent to
-/// monitor this small stat generation program and enter the results. So we can have
-/// threads become the parents for these parallel processes and they will just add the
-/// stats to the runtim metrics container that has preallocated space for them.
-/// Because the number of programs we time may grow in the future and the threads each
-/// spawn a child process we have 2x the processes. Use a work queue to cap the processes
-/// but still maintain consistent parallelism.
-class command_queue {
-    // I queue subprocess handling which can often fail so I figured we need more info than void. Futures?
-    std::queue<std::optional<std::function<bool()>>> q_;
-    std::mutex lk_;
-    std::condition_variable wait_;
-    std::vector<std::thread> workers_;
-    void start();
-
-  public:
-    explicit command_queue( size_t num_workers );
-    ~command_queue();
-    void push( std::optional<std::function<bool()>> args );
-    [[nodiscard]] bool empty();
-    command_queue( const command_queue & ) = delete;
-    command_queue &operator=( const command_queue & ) = delete;
-    command_queue( command_queue && ) = delete;
-    command_queue &operator=( command_queue && ) = delete;
-};
-
 std::vector<path_bin> gather_timer_programs();
 void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &args );
 void plot_script_comparison( const std::vector<path_bin> &commands, plot_args &args );
@@ -222,6 +194,7 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
 bool thread_run_cmd(
     size_t allocator_index, const path_bin &cmd, runtime_metrics &m, std::vector<std::string_view> cmd_list
 );
+std::optional<size_t> specify_threads( std::string_view thread_request );
 bool thread_run_analysis( size_t allocator_index, const path_bin &cmd, runtime_metrics &m, heap_operation s );
 void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool quiet );
 void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool quiet );
@@ -231,7 +204,7 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args );
 
 //////////////////////////////////    User Argument Handling     ///////////////////////////////////
 
-int main( int argc, char **argv )
+int main( int argc, char *argv[] )
 {
     const std::vector<path_bin> commands = gather_timer_programs();
     plot_args args{};
@@ -242,22 +215,11 @@ int main( int argc, char **argv )
         } else if ( arg_copy == "-malloc" ) {
             args.op = heap_operation::malloc_free;
         } else if ( arg_copy.starts_with( "-j" ) ) {
-            if ( arg_copy == "-j" ) {
-                std::cerr << "Invalid core count requested. Did you mean -j[CORES] without a space?\n";
+            std::optional<size_t> threads = specify_threads( arg_copy );
+            if ( !threads ) {
                 return 1;
             }
-            std::string cores
-                = std::string( std::string_view{ arg_copy }.substr( arg_copy.find_first_not_of( "-j" ) ) );
-            try {
-                // We spawn a process for each thread which means 2x processes so divide the request in half.
-                args.threads = std::stoull( cores ) / 2;
-                if ( args.threads == 0 || args.threads > max_cores ) {
-                    args.threads = default_worker_count;
-                }
-            } catch ( std::invalid_argument &e ) {
-                std::cerr << "Invalid core count requested from " << e.what() << ": " << cores << "\n";
-                return 1;
-            }
+            args.threads = threads.value();
         } else if ( arg_copy == "-q" ) {
             args.quiet = true;
         } else if ( arg_copy.find( '/' ) != std::string::npos ) {
@@ -664,50 +626,25 @@ void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     p->show();
 }
 
-////////////////////////    Command Thread Queue Implementation   //////////////////////////
-
-void command_queue::start()
+std::optional<size_t> specify_threads( std::string_view thread_request )
 {
-    for ( ;; ) {
-        std::unique_lock<std::mutex> ul( lk_ );
-        wait_.wait( ul, [this]() -> bool { return !q_.empty(); } );
-        auto new_task = std::move( q_.front() );
-        q_.pop();
-        ul.unlock();
-        if ( !new_task.has_value() ) {
-            return;
+    if ( thread_request == "-j" ) {
+        std::cerr << "Invalid core count requested. Did you mean -j[CORES] without a space?\n";
+        return 1;
+    }
+    std::string cores
+        = std::string( std::string_view{ thread_request }.substr( thread_request.find_first_not_of( "-j" ) ) );
+    try {
+        // We spawn a process for each thread which means 2x processes so divide the request in half.
+        size_t result = std::stoull( cores ) / 2;
+        if ( result == 0 || result > max_cores ) {
+            result = default_worker_count;
         }
-        if ( !new_task.value()() ) {
-            std::cerr << "Error running requesting function.\n";
-            return;
-        }
+        return result;
+    } catch ( std::invalid_argument &e ) {
+        std::cerr << "Invalid core count requested from " << e.what() << ": " << cores << "\n";
+        return {};
     }
-}
-
-command_queue::command_queue( size_t num_workers )
-{
-    for ( size_t i = 0; i < num_workers; ++i ) {
-        workers_.emplace_back( [this]() { start(); } );
-    }
-}
-command_queue::~command_queue()
-{
-    for ( auto &w : workers_ ) {
-        w.join();
-    }
-}
-
-void command_queue::push( std::optional<std::function<bool()>> args )
-{
-    const std::unique_lock<std::mutex> ul( lk_ );
-    q_.push( std::move( args ) );
-    wait_.notify_one();
-}
-
-[[nodiscard]] bool command_queue::empty()
-{
-    const std::unique_lock<std::mutex> ul( lk_ );
-    return q_.empty();
 }
 
 //////////////////////////////    Helpers to Access Data in Types    //////////////////////////////////////

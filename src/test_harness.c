@@ -33,7 +33,7 @@ const size_t lowest_byte = 0xFFUL;
 /// FUNCTION PROTOTYPES
 
 static int test_scripts( char *script_names[], int num_script_names, bool quiet );
-static size_t eval_correctness( struct script *s, bool quiet, bool *success );
+static ssize_t eval_correctness( struct script *s, bool quiet, bool *success );
 static bool eval_malloc( int req, size_t requested_size, struct script *s, void **heap_end );
 static bool eval_realloc( int req, size_t requested_size, struct script *s, void **heap_end );
 static bool verify_block( void *ptr, size_t size, struct script *s, int lineno );
@@ -83,7 +83,7 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
         // Evaluate this script and record the results
         printf( "\nEvaluating allocator on %s...", s.name );
         bool success = false;
-        size_t used_segment = eval_correctness( &s, quiet, &success );
+        ssize_t used_segment = eval_correctness( &s, quiet, &success );
         if ( success ) {
             printf(
                 "successfully serviced %d requests. (payload/segment = %zu/%zu)",
@@ -107,7 +107,7 @@ static int test_scripts( char *script_names[], int num_script_names, bool quiet 
     return nfailures;
 }
 
-static size_t eval_correctness( struct script *s, bool quiet, bool *success )
+static ssize_t eval_correctness( struct script *s, bool quiet, bool *success )
 {
     *success = false;
     init_heap_segment( heap_size );

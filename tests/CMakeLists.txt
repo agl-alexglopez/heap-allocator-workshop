@@ -25,6 +25,81 @@ endif()
 add_executable(perf perf.cc)
 target_link_libraries(perf PUBLIC matplot)
 
+###############    Correctness Tester    ##################
+
+
+########## List Segregated #############
+
+
+add_executable(ctest_list_segregated ctest.cc)
+target_link_libraries(ctest_list_segregated PUBLIC
+                      segment
+                      list_segregated
+)
+
+########## RBTree CLRS #############
+
+
+add_executable(ctest_rbtree_clrs ctest.cc)
+target_link_libraries(ctest_rbtree_clrs PUBLIC
+                      segment
+                      rbtree_clrs
+)
+
+########## RBTree Unified #############
+
+
+add_executable(ctest_rbtree_unified ctest.cc)
+target_link_libraries(ctest_rbtree_unified PUBLIC
+                      segment
+                      rbtree_unified
+)
+
+########## RBTree Linked #############
+
+
+add_executable(ctest_rbtree_linked ctest.cc)
+target_link_libraries(ctest_rbtree_linked PUBLIC
+                      segment
+                      rbtree_linked
+)
+
+########## RBTree Stack #############
+
+
+add_executable(ctest_rbtree_stack ctest.cc)
+target_link_libraries(ctest_rbtree_stack PUBLIC
+                      segment
+                      rbtree_stack
+)
+
+########## RBTree Topdown #############
+
+
+add_executable(ctest_rbtree_topdown ctest.cc)
+target_link_libraries(ctest_rbtree_topdown PUBLIC
+                      segment
+                      rbtree_topdown
+)
+
+########## Splay Tree Stack #############
+
+
+add_executable(ctest_splaytree_stack ctest.cc)
+target_link_libraries(ctest_splaytree_stack PUBLIC
+                      segment
+                      splaytree_stack
+)
+
+########## Splay Tree Topdown #############
+
+
+add_executable(ctest_splaytree_topdown ctest.cc)
+target_link_libraries(ctest_splaytree_topdown PUBLIC
+                      segment
+                      splaytree_topdown
+)
+
 ###############   Generic Tests for all Allocators    ############
 
 ###############   Segregated Lists   ######################
