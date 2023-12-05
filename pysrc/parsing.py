@@ -37,7 +37,6 @@ import sys
 
 ALL_IDS = -2
 
-
 class Heap_Strings():
     malloc = 'malloc'
     calloc = 'calloc'
@@ -111,7 +110,10 @@ def get_heap_call(line):
     >>> get_heap_address('gcc-g3-O0-std=gnu99-Wall$warnflagstriangle.c-otriangle')
     >>> get_heap_address('+++exited(status0)+++')
     >>> get_heap_address('---SIGCHLD(Childexited)---')
+    >>> libc.so.6->calloc(94045449572224, 240)  = 0x5588a99d4f80
     """
+    if line.startswith("libc."):
+        return None
     call_index = line.find('->')
     if call_index == -1:
         return None
@@ -270,9 +272,7 @@ def parse_file_heap_use(input_trace):
     """
     memory_dict = {}
     memory_ids = 0
-    # open the file
     with open(input_trace, encoding='utf-8') as f:
-        # For each line in the file
         for line in f:
             memory_ids = print_heap_call(line, memory_dict, memory_ids)
         for idx, val in enumerate(memory_dict.values()):

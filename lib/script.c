@@ -170,7 +170,6 @@ int exec_request( struct script *s, int req, size_t *cur_size, void **heap_end )
 
     if ( s->ops[req].op == ALLOC ) {
         void *p = exec_malloc( req, requested_size, s );
-
         *cur_size += requested_size;
         if ( (uint8_t *)p + requested_size > (uint8_t *)( *heap_end ) ) {
             *heap_end = (uint8_t *)p + requested_size;
