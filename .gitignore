@@ -59,8 +59,8 @@ bin/*
 
 # Script/ltrace files that were too large and generated for timing purposes.
 scripts/time*.script
-pysrc/ltrace-output/
-pysrc/parsed-scripts/
+pysrc/ltrace-output/*
+!pysrc/ltrace-output/readme.md
 
 # ignore graphs for now
 output/*
