@@ -11,7 +11,7 @@ set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
 
-###############    Performance Tester    ##################
+###############    Performance Plotter Tester    ##################
 
 FetchContent_Declare(matplotplusplus
   GIT_REPOSITORY https://github.com/alandefreitas/matplotplusplus
@@ -22,8 +22,8 @@ if(NOT matplotplusplus_POPULATED)
     FetchContent_Populate(matplotplusplus)
     add_subdirectory(${matplotplusplus_SOURCE_DIR} ${matplotplusplus_BINARY_DIR} EXCLUDE_FROM_ALL)
 endif()
-add_executable(perf perf.cc)
-target_link_libraries(perf PUBLIC matplot)
+add_executable(plot plot.cc)
+target_link_libraries(plot PUBLIC matplot)
 
 ###############    Correctness Tester    ##################
 
