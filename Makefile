@@ -1,4 +1,4 @@
-.PHONY: default gcc-rel gcc-deb build format tidy clean test-deb test-rel gtest-deb gtest-rel test-deb-all test-rel-all
+.PHONY: default gcc-rel gcc-deb build format tidy clean ctest-deb ctest-rel gtest-deb gtest-rel test-deb-all test-rel-all
 
 MAKE := $(MAKE)
 # Adjust parallel build jobs based on your available cores.
@@ -33,27 +33,27 @@ format:
 tidy:
 	$(MAKE) --no-print-directory -C $(BUILD_DIR) tidy $(JOBS)
 
-test-deb: build
-	$(BUILD_DIR)deb/test_list_segregated $(TEST_ARGS)
-	$(BUILD_DIR)deb/test_rbtree_clrs $(TEST_ARGS)
-	$(BUILD_DIR)deb/test_rbtree_unified $(TEST_ARGS)
-	$(BUILD_DIR)deb/test_rbtree_linked $(TEST_ARGS)
-	$(BUILD_DIR)deb/test_rbtree_stack $(TEST_ARGS)
-	$(BUILD_DIR)deb/test_rbtree_topdown $(TEST_ARGS)
-	$(BUILD_DIR)deb/test_splaytree_stack $(TEST_ARGS)
-	$(BUILD_DIR)deb/test_splaytree_topdown $(TEST_ARGS)
-	@echo "Ran DEBUG Script Tests"
+ctest-deb: build
+	$(BUILD_DIR)deb/ctest_list_segregated $(TEST_ARGS)
+	$(BUILD_DIR)deb/ctest_rbtree_clrs $(TEST_ARGS)
+	$(BUILD_DIR)deb/ctest_rbtree_unified $(TEST_ARGS)
+	$(BUILD_DIR)deb/ctest_rbtree_linked $(TEST_ARGS)
+	$(BUILD_DIR)deb/ctest_rbtree_stack $(TEST_ARGS)
+	$(BUILD_DIR)deb/ctest_rbtree_topdown $(TEST_ARGS)
+	$(BUILD_DIR)deb/ctest_splaytree_stack $(TEST_ARGS)
+	$(BUILD_DIR)deb/ctest_splaytree_topdown $(TEST_ARGS)
+	@echo "Ran DEBUG Script Correctness Tests"
 
-test-rel: build
-	$(BUILD_DIR)rel/test_list_segregated $(TEST_ARGS)
-	$(BUILD_DIR)rel/test_rbtree_clrs $(TEST_ARGS)
-	$(BUILD_DIR)rel/test_rbtree_unified $(TEST_ARGS)
-	$(BUILD_DIR)rel/test_rbtree_linked $(TEST_ARGS)
-	$(BUILD_DIR)rel/test_rbtree_stack $(TEST_ARGS)
-	$(BUILD_DIR)rel/test_rbtree_topdown $(TEST_ARGS)
-	$(BUILD_DIR)rel/test_splaytree_stack $(TEST_ARGS)
-	$(BUILD_DIR)rel/test_splaytree_topdown $(TEST_ARGS)
-	@echo "Ran RELEASE Script Tests"
+ctest-rel: build
+	$(BUILD_DIR)rel/ctest_list_segregated $(TEST_ARGS)
+	$(BUILD_DIR)rel/ctest_rbtree_clrs $(TEST_ARGS)
+	$(BUILD_DIR)rel/ctest_rbtree_unified $(TEST_ARGS)
+	$(BUILD_DIR)rel/ctest_rbtree_linked $(TEST_ARGS)
+	$(BUILD_DIR)rel/ctest_rbtree_stack $(TEST_ARGS)
+	$(BUILD_DIR)rel/ctest_rbtree_topdown $(TEST_ARGS)
+	$(BUILD_DIR)rel/ctest_splaytree_stack $(TEST_ARGS)
+	$(BUILD_DIR)rel/ctest_splaytree_topdown $(TEST_ARGS)
+	@echo "Ran RELEASE Script Correctness Tests"
 
 gtest-deb: build
 	$(BUILD_DIR)deb/gtest_generic_list_segregated

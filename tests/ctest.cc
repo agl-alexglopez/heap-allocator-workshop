@@ -26,7 +26,6 @@
 #include <optional>
 #include <span>
 #include <sstream>
-#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <syncstream>
@@ -44,6 +43,10 @@ constexpr std::string_view ansi_bred = "\033[38;5;9m";
 constexpr std::string_view ansi_bgrn = "\033[38;5;10m";
 constexpr std::string_view ansi_byel = "\033[38;5;11m";
 constexpr std::string_view ansi_nil = "\033[0m";
+constexpr std::string_view save_cursor = "\033[s";
+constexpr std::string_view restore_cursor = "\033[u";
+constexpr std::string_view background_loading_bar = "▒";
+constexpr std::string_view progress_bar = "█";
 constexpr std::string_view pass = "●";
 
 enum heap_request
@@ -85,10 +88,15 @@ void cout_sync( std::string_view s );
 
 } // namespace
 
-int run( std::span<const char *const> args )
+int test( std::span<const char *const> args )
 {
     try {
         size_t utilization = 0;
+        cout_sync( save_cursor );
+        for ( size_t i = 0; i < args.size(); ++i ) {
+            cout_sync( background_loading_bar, ansi_bred );
+        }
+        cout_sync( restore_cursor );
         for ( const auto *arg : args ) {
             std::optional<script> script = parse_script( arg );
             if ( !script ) {
@@ -106,9 +114,10 @@ int run( std::span<const char *const> args )
             if ( 0 < val ) {
                 utilization += ( scale_to_whole_num * script.value().peak ) / val;
             }
-            cout_sync( pass, ansi_bgrn );
+            cout_sync( progress_bar, ansi_bgrn );
         }
-        const std::string util = std::to_string( utilization / args.size() ).append( "%\n" );
+        const auto util
+            = std::string( "Utilization=" ).append( std::to_string( utilization / args.size() ) ).append( "%\n" );
         cout_sync( util, ansi_bgrn );
         return 0;
     } catch ( std::exception &e ) {
@@ -120,11 +129,12 @@ int run( std::span<const char *const> args )
 
 int main( int argc, char *argv[] )
 {
+    // argv[0] is always the program name so this is well defined.
     const auto args = std::span<const char *const>{ argv, static_cast<size_t>( argc ) }.subspan( 1 );
     if ( args.empty() ) {
         return 0;
     }
-    return run( args );
+    return test( args );
 }
 
 namespace {
@@ -217,6 +227,7 @@ bool eval_malloc( const script_line &line, script &s, void *&heap_end )
     }
     const std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size };
     // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
+    // This is basically pointer arithmetic but the kind that makes clang-tidy happy ¯\_(ツ)_/¯
     const std::span<uint8_t> end = cur_block.subspan( line.size );
     if ( end.data() > static_cast<uint8_t *>( heap_end ) ) {
         heap_end = end.data();
@@ -246,7 +257,6 @@ bool eval_realloc( const script_line &line, script &s, void *&heap_end )
         return false;
     }
     const auto cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( new_ptr ), line.size };
-    // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
     const std::span<uint8_t> end = cur_block.subspan( line.size );
     if ( end.data() > static_cast<uint8_t *>( heap_end ) ) {
         heap_end = end.data();
@@ -385,38 +395,30 @@ std::optional<script> parse_script( const std::string &filepath )
 
 std::optional<script_line> tokens_pass( std::span<const std::string> toks, size_t line )
 {
-    if ( toks.size() > 3 || toks.size() < 2 || !( toks[0] == "a" || toks[0] == "f" || toks[0] == "r" ) ) {
-        cerr_sync( "Request has an unknown format.\n", ansi_bred );
-        return {};
-    }
-    script_line ret{ .line = line };
     try {
+        if ( toks.size() > 3 || toks.size() < 2 || !( toks[0] == "a" || toks[0] == "f" || toks[0] == "r" ) ) {
+            cerr_sync( "Request has an unknown format.\n", ansi_bred );
+            return {};
+        }
+        script_line ret{ .line = line };
         ret.block_index = std::stoull( toks[1] );
-    } catch ( [[maybe_unused]] std::invalid_argument &e ) {
-        const auto err = std::string( "Could not convert request to block id line: " )
+        if ( toks[0] == "a" || toks[0] == "r" ) {
+            ret.req = toks[0] == "a" ? heap_request::alloc : heap_request::realloc;
+            ret.size = std::stoull( toks[2] );
+        } else if ( toks[0] == "f" ) {
+            ret.req = heap_request::free;
+        } else {
+            cerr_sync( "Request has an unknown format.\n", ansi_bred );
+            return {};
+        }
+        return ret;
+    } catch ( ... ) {
+        const auto err = std::string( "Could not convert size or id on line: " )
                              .append( std::to_string( line ) )
                              .append( "\n" );
         cerr_sync( err, ansi_bred );
         return {};
     }
-    if ( toks[0] == "a" || toks[0] == "r" ) {
-        ret.req = toks[0] == "a" ? heap_request::alloc : heap_request::realloc;
-        try {
-            ret.size = std::stoull( toks[2] );
-        } catch ( [[maybe_unused]] std::invalid_argument &e ) {
-            const auto err = std::string( "Could not convert alloc request to valid number line: " )
-                                 .append( std::to_string( line ) )
-                                 .append( "\n" );
-            cerr_sync( err, ansi_bred );
-            return {};
-        }
-    } else if ( toks[0] == "f" ) {
-        ret.req = heap_request::free;
-    } else {
-        cerr_sync( "Request has an unknown format.\n", ansi_bred );
-        return {};
-    }
-    return ret;
 }
 
 void cerr_sync( std::string_view s, std::string_view color = ansi_nil )
