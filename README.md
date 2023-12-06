@@ -4,163 +4,280 @@
 
  *Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I interacted with them through the programs in this repository.*
 
-> **Notice:** This repository contains **NO heap allocator implementation that I submitted for CS107 at Stanford University**. All implementations are original and written in my own free time, with sources cited when appropriate. The data structures and algorithms far exceed the requirements and complexity of any introductory classes of which I am aware, limiting their helpfulness in implementing one's own first allocator. This is simply an exploration of the tradeoffs in heap allocator implementations, a broad and interesting topic. Please contact me if you feel otherwise. I hope you enjoy! 
+> **Notice:** This repository contains **NO heap allocator implementation that I submitted for any course at Stanford University**. All implementations are original and written in my own free time, with sources cited when appropriate. The data structures and algorithms exceed the requirements and complexity of any introductory classes of which I am aware, limiting their helpfulness in implementing one's own first allocator. This is simply an exploration of the tradeoffs in heap allocator implementations, a broad and interesting topic. Please contact me if you feel otherwise. I hope you enjoy! 
 
-## Navigation
+## Quick Start
 
-1. Home
-   - Documentation **([`README.md`](/README.md))**
-2. The CLRS Standard
-   - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
-   - Design **([`rbtree_clrs_utilities.h`](/lib/rbtree_clrs_utilities.h))**
-   - Implementation **([`rbtree_clrs_algorithm.c`](/lib/rbtree_clrs_algorithm.c))**
-3. Unified Symmetry
-   - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
-   - Design **([`rbtree_unified_utilities.h`](/lib/rbtree_unified_utilities.h))**
-   - Implementation **([`rbtree_unified_algorithm.c`](/lib/rbtree_unified_algorithm.c))**
-4. Doubly Linked Duplicates
-   - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
-   - Design **([`rbtree_linked_utilities.h`](/lib/rbtree_linked_utilities.h))**
-   - Implementation **([`rbtree_linked_algorithm.c`](/lib/rbtree_linked_algorithm.c))**
-5. Stack Based
-   - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
-   - Design **([`rbtree_stack_utilities.h`](/lib/rbtree_stack_utilities.h))**
-   - Implementation **([`rbtree_stack_algorithm.c`](/lib/rbtree_stack_algorithm.c))**
-6. Top-down Fixups
-   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Design **([`rbtree_topdown_utilities.h`](/lib/rbtree_topdown_utilities.h))**
-   - Implementation **([`rbtree_topdown_algorithm.c`](/lib/rbtree_topdown_algorithm.c))**
-7. List Allocators
-   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
-   - Design **([`list_addressorder_utilities.h`](/lib/list_addressorder_utilities.h))**
-   - Implementation **([`list_addressorder_algorithm.c`](/lib/list_addressorder_algorithm.c))**
-   - Design **([`list_bestfit_utilities.h`](/lib/list_bestfit_utilities.h))**
-   - Implementation **([`list_bestfit_algorithm.c`](/lib/list_bestfit_algorithm.c))**
-   - Design **([`list_segregated_utilities.h`](/lib/list_segregated_utilities.h))**
-   - Implementation **([`list_segregated_algorithm.c`](/lib/list_segregated_algorithm.c))**
-8. Runtime Analysis
-   - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-9. The Programs
-   - Documentation **([`programs.md`](/docs/programs.md))**
+The purpose of this repository is to put in place the tools needed to quickly develop and understand heap allocators. Is this a necessary skill to have in 2024 onward? Probably not. However, I find it enjoyable to learn about arguably the most convenient piece of software for day-to-day programming first hand, by implementing it yourself! And perhaps a need will arise for a custom allocator and this will serve as a great testing ground for new ideas. Here is what you can do with this repository.
 
-## Summary
+## Explore
 
-I worked through five separate implementations of a Red-Black Tree heap allocator with different design choices, sacrifices, and optimizations. Here is a summary of each and a link if you wish to jump to any one section.
+There are a number of heap allocators already implemented in this repository. To learn about them you can do the following.
 
-- **[`CLRS`](/docs/rbtree_clrs.md)**- An implementation of a Red Black Tree heap allocator by the book, *Introduction to Algorithms: Fourth Edition* by Cormen, Leiserson, Rivest, and Stein, to be specific. This allocator follows one of the leading implementations of a red black tree through the pseudocode outlined in chapter 13 of the textbook. With some slight adjustments as appropriate, we have a solid heap allocator with code that is straightforward to understand. The only annoyance is that we must write code for the left and right case of any fixup operation for the tree. This means the functions are lengthy and hard to decompose.
-- **[`Unified`](/docs/rbtree_unified.md)**- The next implementation follows the structure of the first except that we cut out the need for symmetric cases, instead taking a more general approach. Instead of thinking about left and right, consider a generic direction and its opposing direction. With some modifications to the fields of our node and some custom types, we can complete an allocator that cuts the lines of code for the symmetric operations of a red black tree in half. This makes the code significantly shorter and with careful naming, arguably more readable. This convention of eliminating left and right cases continues in all subsequent implementations.
-- **[`Doubly-Linked Duplicates`](/docs/rbtree_linked.md)**- This implementation adds an additional field to all nodes to track duplicate nodes. Red Black trees are capable of handling duplicates, but there are many duplicates over the course of a heap's lifetime. We can consider pruning our tree and making the tree as small as possible while maintaining as many constant time operations as possible for the duplicates. This implementation is all about speed, but sacrifices on efficient space usage.
-- **[`Unified Stack`](/docs/rbtree_stack.md)**- Many common Red Black tree implementations use a parent field to make fixing the tree from the bottom up easier. This makes any operation on the tree straightforward with edge cases that are easy to account for with the right moves. However, if we want to eliminate the parent field we must track the nodes on the way down somehow. Recursion is not the best option for a heap allocator, so we can opt for an array that will act as a more efficient stack. When we abandon the parent field, there are many unique challenges that we must solve in the context of a heap allocator. This was a difficult implementation.
-- **[`Unified Topdown`](/docs/rbtree_topdown.md)**- All other allocators in this repository use a bottom up approach to fix a Red Black Tree. This means that we venture down the tree to insert or find our to node, and then fix the tree as much as necessary on the way back up. Without a parent field, any operation requires O(lgN) + O(lgN) operations to go down and back up the tree. We can eliminate one of these O(lgN) operations if we fix the tree on the way down. With guidance from Julienne Walker's **[`Eternally Confuzzled`](https://web.archive.org/web/20141129024312/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx)** article on top-down operations on a Red Black Tree, we can get the best of all worlds. We are space efficient and fast.
-- **[`List Allocators`](/docs/list_segregated.md)**- If you would like to see the more basic allocators that inspired this project see the list based allocators. These also serve as a great point of comparison against the Red-Black tree allocators in the runtime analysis section of the repository.
-- **[`Runtime Analysis`](/docs/rbtree_analysis.md)**- See how the allocators stack up against one another in terms of performance. Explore the data of both artificial and real world tests to see if the different optimizations and design choices of these allocators create any costs or advantages.
-- **[`The Programs`](/docs/programs.md)**- Once you understand how the heap allocators operate, you can interact with them through three programs in this repository: `test_harness.c`, `time_harness.c`, and `print_peaks.c`. They will all give you information about how a heap allocator handles a script in terms of efficiency, speed, and algorithmic complexity. You can also explore how I parsed real world `ltrace` output or generated artificial scripts with the python code in this repository.
+1. Read the wiki. I have an accompanying writeup for every allocator implemented in this repository as well as more conceptual writeups for more abstract CS concepts like Red Black Trees, Splay Trees, and Segregated Lists.
+2. Plot performance. Run the `plot.cc` program. It gathers all available allocators and compares their performance across, malloc, realloc, free, or any specific script you have in mind. We can even see how we stack up against `libc`!
+3. Print internal data structures. Every allocator is responsible for implementing its own debugging functions, both logical and visual. The `print_peaks.c` program provides a peak into these internal representations in a controlled manner. This is a fun program to run for the tree based allocators.
+4. Read the tests. If you have ideas for your own allocator, read how they are tested. The Google Test framework provides a basic set of expectations for the core `malloc`, `realloc`, and `free` functions with additional behaviors enforced like coalescing. The `ctest.cc` program is the correctness check that is essential for debugging implementations.
 
-## Background
+## Create
 
-While there are many excellent explanations of a Red Black tree that I drew upon for this allocator, I can go over the basics as I understand them. For a more detailed, world-class dive into Red-Black Trees, please read *Introduction to Algorithms*, Chapter 13, by Cormen, Leiserson, Rivest, and Stein.
+If you want to implement your own idea for a heap allocator or just want to practice writing some C, go ahead. All that is required is one `.c` file with your implementation and as long as you follow the specification requirements and build instructions your allocator will slot in with the rest and become available for testing and performance measurements by default.
 
-### The Properties
+If you would rather flush out performance characteristics of the allocators present, try generating some allocator scripts. There are instructions and a python program available to either create scripts from scratch or emulate real world programs.
 
-In order to maintain O(lgN) single operations on a binary tree, Red-Black Trees operate under 5 rules.
+## Programs
 
-1. Every node is either red or black.
-2. The root is black.
-3. Every leaf, `Nil` is black. Instead we will have a black sentinel node wait at the bottom of the tree and any fields in a node that would be `NULL` will point to the sentinel. This is critical to all of these implementations.
-4. A red node has two black children.
-5. The black height, the number of black nodes on any path from the root to the black sentinel, must be the same for every path.
+### Build
 
-Here is a basic tree layout that utilizes a `parent` field. As you read through allocator implementations, you will see that the [`rbtree_stack`](/docs/rbtree_stack.md) and [`rbtree_topdown`](/docs/rbtree_topdown.md) implementations are able to eliminate the need for this `parent` field.
+To build the project I use cmake with a convenience `Makefile` if you wish to use it. I have provided a `CMakePresets.json` file with configurations prepared for both `clang` and `gcc`. I can verify that the project builds with `cmake 3.24.2`, `clang 17.0.5`, and `gcc 12.2.0`. If you want to try your own preset or compiler flags if the project is not quite working the `CMakePresets.json` is a good place to look and provides sensible default configuration options that improve development of the allocators.
 
-![rbtree-basic](/images/rbtree-basic.png)
+Clone the main branch. Configure the release project on gcc. Build from the root of the project.
 
-### Inserting
+```bash
+cmake --preset=gcc-rel   
+# or
+make gcc-rel
+```
 
-We always insert new nodes into the tree as red nodes. This is because we will have the least impact on property 4 and 5 with this approach. If we insert a node and its parent is black, we do not need to fix the tree. If we insert a node and the parent is red, we will launch into our fixup operations.
+Clang.
 
-When we insert a node and have a double red we are most concerned with two cases.
+```bash
+cmake --preset=clang-rel   
+# or
+make clang-rel
+```
 
-1. If we have a black aunt node, remember the black sentinel can be an aunt, we rotate.
-2. If we have a red aunt node, we color flip.
+To build the debug versions run `rm -rf build/` or `make clean` and then run the same commands, replacing `-rel` with `-deb`.
 
-Here is an example of a basic color flip we need to perform after inserting the node with the value `105`.
+Then, regardless or your compiler, compile the project.
 
-![red-aunt](/images/red-aunt.png)
+```bash
+cmake --build build/
+# or 
+make
+```
 
-*Pictured Above: A color flip to repair insertion into a Red-Black tree. Note that the root is temporarily colored red in this fixup, but we always recolor the root black as an invariant to satisfy property 2.*
+Programs can then be found in the `build/rel/` folder if build in release mode or the `build/deb/` folder if built in debug mode.
 
-Finally here is a more complex example to show what we do if we encounter a red aunt and a black aunt. I found it more helpful to consider how dramatically a larger tree can change when these cases occur, then just looking at the smallest subcases. This illustration exercises all code paths of the insert fixup operations. The tree in phases 3 and 4 is still part of the same case that occurs when we encounter a black aunt. It is possible for a black aunt to force two rotations in order to correct the tree.
+### Plot
 
-The `*` marks the `current` node under consideration. We define the `parent` and `grandparent` in relation to the `current` node marked with the `*` as we move up the tree.
+Using `Matplot++`, we can plot the performance characteristics of each allocator at runtime. Each of the following commands will generate three plots: a total time taken to complete the specified interval for the operation, an average response time for an individual request over the interval of interest, and the overall utilization. You will be prompted at the command line to continue after closing the pop up graphs. To use the `plot.cc` program follow these instructions.
 
-![insert-cases](/images/insert-cases.png)
+Observe the runtimes of `malloc/free` and `realloc/free` for all allocators. In other words, as the number of free blocks of memory we need to manage grows, what is the growth in runtime we see from our allocators? This question is answered with the following command.
 
-*Pictured Above: Encountering a red aunt, moving up the tree, then encountering a black aunt. Notice how the entire tree rebalances as we eventually redefine our root.*
+```bash
+./build/rel/plot -j8 -malloc
+```
 
-### Deleting
+- The `-j[JOB COUNT]` flag lets you run the data gathering portion of the plotting program in parallel which can significantly speed things up. If you know the number of cores on your system enter that or fewer as the job count. I would not reccomend exceeding the number of physical cores on your system as that may interfere with timing data. The more jobs you specify the fewer other processes I would reccomend running on your computer. The default is 4 threads running in parallel.
+- The `-malloc` flag specifies that we are interested in seeing the time it takes to insert `N` free nodes into our heap and then `malloc` them all out of the internal data structure we are using, where `N` increases across successive runs. Use the `-realloc` flag to generate the same data for the `realloc` function, assessing our speed in coalescing as well as inserting and removing free blocks of memory.
 
-If you are familiar with the delete operation for normal Binary Trees, the operation is similar for Red Black Trees. The initial three cases, in broad terms, for deleting a node are demonstrated below. There are a few more subtleties that can pop up in the bottom case, but you can explore those in the code. Note, the top two cases are occuring somewhere down an arbitrary tree, illustrated by the squiggly line, while the third case shows a complete tree. The blue x indicates the node being deleted, the `*` represents the replacement node, and the second black circle represents the node that we give an *extra black* that it must get rid of as we fix the tree.
+Compare performance of the allocators for a specific script.
 
-![rb-delete-cases](/images/rb-delete-cases.png)
+```bash
+./build/rel/plot -j8 scripts/time-trace-cargobuild.script
+```
 
-*Pictured Above: Three cases for deleting from a Red Black Tree. The top two cases occur somewhere in an arbitrary tree while the bottom case illustrates a complete tree.*
+- The `.script` file can be found in the `scripts/` folder and specifies the specific script we want all of our allocators to run. We will then see a performance comparison plotted as a bar chart.
 
-All three of these cases will require us to at least enter the fixup helper function after we delete the node, because the node we are deleting is black, which could affect the black height of the tree. However, do you see a simple fix for the first two cases that would maintain the black height of the tree and not violate property 4 (property 4 states that a red node must have two black children)? Think about how you can use the *extra black* we have given to the replacement node. It is the third case at the bottom that is most interesting to us because it presents some interesting challenges.
+> **If you do not want the interactive pop up plots, enter the `-q` flag. All files are saved by default to the output directory, whether or not the plots pop up. Quiet mode saves without showing anything.**
 
-In the third case, when we need to go find an inorder successor for the node being deleted, we give the *extra black* to the right child of the replacement node. The black sentinel is a valid node in a Red Black Tree, so it is acceptable to give it the *extra black*. There are then four cases to consider when fixing up a tree. We only enter a loop to fix the tree if the current node with the *extra black* is black. In the case we are discussing now, the fix is relatively simple and we will go over the other cases shortly.
+### Print Peaks
 
-The `*` marks the `current` node under consideration. We define the `parent` and in relation to the `current` node marked with the `*` as we move up the tree.
+While not normally a part of a heap allocator API, I chose to enforce a printing function across all allocators so that we can see the internal representation they are using to store and manage free and allocated blocks in the heap. This started as a more advanced debugging function for helping with tricky tree rotations and operations, and stuck as a way to show state at any given moment.
 
-![rb-delete-case-2](/images/rb-delete-case-2.png)
+This program acts as a mini GDB debugger, allowing you to see the state of the free node data structure at its peak. It will also allow you to set breakpoints on line numbers in the script and will show you the state of the free node data structure after that line has executed. At the end of execution, it will also show a graph of the number of free nodes over the lifetime of the heap and how the utilization may have changed during heap lifetime as well. For example, by default here is the output for a run on a smaller script.
 
-*Pictured Above: Case 2 for a Red Black Tree delete. While this illustration has a node with two children that are `Null`, in reality, we just point both fields to the black sentinel that we have waiting at the bottom of the tree.*
+![rb-print-peaks](/images/rb-print-peaks.png)
 
-Now that you have seen how one of the delete fixup cases works on a real tree, we will step back to illustrate how all cases work overall. I am using the same demonstration method that is implemented in CLRS. We will operate somewhere down an arbitrary tree and introduce some new abstractions.
+Here is the same command for a list based allocator. The list output is far less interesting, but perhaps makes it clear, from its simplicity, why the tree is the faster data structure. Please note that for smaller workloads the time measurements for any allocator will be very low and gnuplot may have trouble displaying them on a graph. For more stable graphs use larger data sets.
 
-- `A`, `B`, `C`, `D`, `E`, and `F` represent arbitrary subtrees further down the tree.
-- Brown nodes represent nodes that can be either red or black. This means we either do not care what the color is, or we use the color it has without needing to know the color beforehand.
-- `*` represents the current node under consideration. Parent and sibling are defined in relation to this node.
-- The second black circle represents the *extra black* given to a node under consideration.
+![list-print-peaks](/images/list-print-peaks.png)
 
-Here is Case 1. Case 1 falls through meaning we will go on to check two scenarios afterwards.
+- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/rel/` folder.
+  - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, `print_peaks_rbtree_stack`, `print_peaks_rbtree_topdown`, `print_peaks_list_bestfit`, `print_peaks_list_addressorder`
+- Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
+  - `./build/rel/print_peaks_rbtree_stack scripts/pattern-mixed.script`
+- Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and extra information depending on the allocator. This is the printer I used because I needed to see memory addresses to better understand where errors were occurring. Verbose should always be the first argument if it will be included.
+  - `./build/rel/print_peaks_list_segregated -v scripts/pattern-mixed.script`
+- Add breakpoints corresponding to line numbers in the script. This will show you how many free nodes existed after that line executes. You will also enter an interactive terminal session. You can decide if you want to continue to the next breakpoint, add a new future breakpoint, or continue to the end of the program execution. Be sure to follow the prompt directions.
+  - `./build/rel/print_peaks_list_bestfit -v -b 100 -b 200 -b 450 scripts/pattern-mixed.script`
 
-- Execute Case 2
-- `OR...`
-- Check Case 3 and fall through to execute case 4
+### Correctness Tests
 
-![rb-delete-case-1](/images/rb-delete-case-1.png)
+Check if an allocator passes a specific script or glob of scripts with the `ctest.cc` program. Use it as follows. This program runs extensive checks via its own logic and the internal validators of the heap allocators to ensure a correct implementation. Be careful running it on very large scripts, it may take quite a while!
 
-We will now determine if it necessary to enter Case 2. This should look familiar to the case I demonstrated with the real tree deletion earlier.
+```bash
+./build/rel/ctest_splaytree_stack scripts/example* scripts/trace* scripts/pattern*
+```
 
-![rb-delete-case-2-abstract](/images/rb-delete-case-2-abstract.png)
+- Multiple scripts can be tested and we can use the `*` to expand out any scripts starting with the specified prefix.
 
-If we did not enter Case 2, we will determine if we should enter Case 3.
+If you want to run a batch test of all allocators use the `Makefile`.
 
-![rb-delete-case-3](/images/rb-delete-case-3.png)
+```bash
+make ctest-rel
+```
 
-If we did not enter case 2 we now must execute Case 4, invariant.
+### Unit Tests
 
-![rb-delete-case-4](/images/rb-delete-case-4.png)
+The Google Test program provides more basic API unit tests regarding `malloc`, `realloc`, and `free`. There are also test for coalescing and some internal block management expectations. This program also uses an API enforced across all allocators to verify some basic internal state.
 
-## Trees in a Heap
+```bash
+./build/rel/gtest_list_segregated
+```
 
-The above overview of Red-Black trees is agnostic to specific applications. Because this is a repository focused on heap allocators, specifically, it is helpful to see how the data structure is applied to the heap.
+Or, you can run all the allocators with the makefile.
 
-![rbtree-real](/images/rbtree-real.png)
+```bash
+make gtest-rel
+```
 
-*Pictured Above: A illustration of a red black tree in the context of a heap allocator.*
+### Python Script Generation
 
-Here are the key details of the above image.
+There are two important steps to measuring the performance of these heap allocators: tracing the heap usage of real world programs to emulate on my allocators, and generating artificial scripts for performance testing. The first step is the more straightforward. I assume you are running all commands for this section in the `pysrc/` directory.
 
-- The white lines represent the parent and child links. There are two lines because every child also tracks its parent. However, explore this repository for implementations that forgo this parent field.
-- The black sentinel node is made visible here for clarity. You can actually see its location in memory and how it serves as the child of all leaves and the parent of the root.
-- The purple lines help you see where in memory the nodes in the tree are located, for clarity.
+### Ltrace Output
 
-That completes our overview of Red Black Trees. There are many interesting optimizations both in terms of lines of code and speed of the tree I decided to pursue. There are also interesting challenges to solve for a Red Black Tree in the context of a heap allocator. Please explore the implementation write ups and code in this repository for more.
+The program parsing.py is capable of taking output from the Linux `ltrace` command and cleaning it up for a `.script` file. These `.script` files are then used to conveniently test a custom heap allocator. Here are the directions for the ltrace command. Thanks to the CS107 professor Nick Troccoli for helping me with understanding the `ltrace` command.
 
-## Next Steps
+Add the memory calls that we want to watch for and pick an output file. Then execute the desired command on the desired file as follows.
 
-This allocator is contained within a *segment* that helps create artificial boundaries for the heap with addresses that will remain the same upon successive runs. This makes testing and verifying correctness easier, especially when we run the **[`test_harness.c`](/src/test_harness.c)** program and run the debugging functions. To expand this project further, I could explore implementing this as if it were a heap allocator library, providing the full suite of heap operations. This would require more thought towards memory safety and verification of input from the user, but could be an interesting exercise in bringing these ideas into a "real" context. It would then be easier to compare this custom allocator to standard allocator offerings.
+```bash
+ltrace -e malloc+realloc+calloc -e free-@libc.so* --output [FILENAME] [COMMAND]
+```
 
-**([`Navigation`](#navigation))**
+With an editor like emacs that would look like this.
+
+```bash
+ltrace -e malloc+realloc+calloc -e free-@libc.so* --output output.txt emacs myfile.txt
+```
+
+If you have problems with this command try excluding the `-e free-@libc.so*` portion. We will get output like this.
+
+```output
+gcc->malloc(48)                                  = 0x18102a0
+gcc->free(0x1836e50)                             = <void>
+gcc->realloc(0x1836f10, 176)                     = 0x1836f10
+--- SIGCHLD (Child exited) ---
+--- SIGCHLD (Child exited) ---
+--- SIGCHLD (Child exited) ---
++++ exited (status 0) +++
+```
+
+This Python program then transforms this output into this.
+
+```output
+a 0 48
+a 1 8
+r 1 176
+f 1
+f 0
+```
+
+### Ltrace Parsing
+
+Once you have generated your ltrace output to the desired `.txt` file, feed it to this python program as follows.
+
+```zsh
+python3 parsing.py -parse [LTRACE_OUTPUT_FILE] [DESIRED_SCRIPT_FILE]
+```
+
+For example a command may look like this.
+
+```zsh
+python3 parsing.py -parse ltrace-output/ltrace-output.txt ../scripts/time-ltrace-parsed.script
+```
+
+### Script Generation
+
+Generating custom scripts for a heap allocator is more complex and allows for more options. By default, we can allocate, free, and reallocate as much memory as we want, and our program will free all remaining memory for the script file at the end so the allocators do not leak memory due to an oversite in the script.
+
+### Allocations
+
+To allocate blocks of memory in a script file use the following commands or options as needed. These commands are run as if you are currently in the `pysrc/` directory, where the python program is located.
+
+Create a desired number of allocation requests. The program will pick random byte sizes for the requests.
+
+```zsh
+python3 parsing.py -generate ../scripts/10k-allocations.script -alloc 10000
+```
+
+Choose one byte size for all allocations. On Windows and Linux I must wrap the allocation request in extra quotation marks. I am not sure the requirements on all systems for this command style.
+
+```zsh
+python3 parsing.py -generate ../scripts/10k-allocations.script '-alloc(20)' 10000
+```
+
+Choose a byte size range and every call will be a random size within that range for the allocations. Do not use spaces within the parenthesis for the allocation request.
+
+```zsh
+python3 parsing.py -generate ../scripts/10k-allocations.script '-alloc(20,500)' 10000
+```
+
+### Reallocations
+
+To reallocate blocks of memory in a script file use the following commands or options as needed.
+
+Create a desired number of reallocation requests. The program will pick random byte sizes for the requests.
+
+```zsh
+python3 parsing.py -generate ../scripts/5k-reallocations.script -alloc 10000 -realloc 5000
+```
+
+Choose one byte size for all reallocations. On Windows and Linux I must wrap the allocation request in extra quotation marks. I am not sure the requirements on all systems for this command style.
+
+```zsh
+python3 parsing.py -generate ../scripts/5k-reallocations.script '-alloc(20)' 10000 '-realloc(500)' 5000
+```
+
+Choose a byte size range and every call will be a random size within that range for the reallocations. Do not use spaces within the parenthesis for the reallocation request.
+
+```zsh
+python3 parsing.py -generate ../scripts/5k-reallocations.script '-alloc(20,500)' 10000 '-realloc(800,1200)' 5000
+```
+
+### Free
+
+To free blocks of memory in a script file use the following commands or options as needed. As a special note, freeing memory defaults to freeing every other block of allocated memory. This is done because my allocator coalesced the blocks to its left and right on every call to `realloc()` or `free()`. This made it hard to build large pools of free memory because I was just reforming one large pool of free memory as I made calls to free. To better test performance with more free nodes, freeing every other block will ensure that the desired number of nodes enters the tree. Be sure to have double the amount of allocated memory compared to your number of free requests. If you want a tree of N free nodes, make 2N allocations first.
+
+Free all memory that has been allocated up to this point. This will free every other block and then go back and free the rest.
+
+```zsh
+python3 parsing.py -generate ../scripts/10k-frees.script -alloc 10000 -realloc 5000 -free
+```
+
+Free a specific number of blocks of memory. This is good for building a pool of free nodes and then making requests to `malloc()` to take nodes from the pool.
+
+```zsh
+python3 parsing.py -generate ../scripts/5k-insertdelete.script -alloc 10000 -free 5000 -alloc 5000
+```
+
+### Build Your Own
+
+These commands can be combined to create scripts that allow us to time specific operations on our heap. For example, here is the command I used to test the coalescing speed of different implementations of my heap allocator. I wanted to see how quickly we could reallocate 100,000 blocks of allocated memory, which would involve coalescing many nodes.
+
+```zsh
+python3 parsing.py -generate ../scripts/time-100kinsertdelete.script '-alloc(1,500)' 200000 -free 100000 '-alloc(1,500)' 100000
+```
+
+Here are two commands you can run if you would like to generate all the missing files I used to time my allocators. They are ignored by default because they are too large, so you must generate them yourself if you want to test the allocators on larger files.
+
+> **Be warned, basic allocators will not be able to finish the larger files (more than about 50-80k alloc or realloc requests) in a reasonable amount of time. However, at this time, all allocators in this repo are speedy with larger scripts.**
+
+Generate a decent range of files that test allocators' abilities to quicky `malloc()` and `free()` from and to free node structures of increasing size.
+
+Run this from the `pysrc/` directory.
+
+```bash
+(python3 parsing.py -generate ../scripts/time-insertdelete-10k.script '-alloc(1,500)' 20000 -free 10000 '-alloc(1,500)' 10000) && (python3 parsing.py -generate ../scripts/time-insertdelete-20k.script '-alloc(1,500)' 40000 -free 20000 '-alloc(1,500)' 20000) && (python3 parsing.py -generate ../scripts/time-insertdelete-30k.script '-alloc(1,500)' 60000 -free 30000 '-alloc(1,500)' 30000) && (python3 parsing.py -generate ../scripts/time-insertdelete-40k.script '-alloc(1,500)' 80000 -free 40000 '-alloc(1,500)' 40000) && (python3 parsing.py -generate ../scripts/time-insertdelete-50k.script '-alloc(1,500)' 100000 -free 50000 '-alloc(1,500)' 50000) && (python3 parsing.py -generate ../scripts/time-insertdelete-60k.script '-alloc(1,500)' 120000 -free 60000 '-alloc(1,500)' 60000) && (python3 parsing.py -generate ../scripts/time-insertdelete-70k.script '-alloc(1,500)' 140000 -free 70000 '-alloc(1,500)' 70000) && (python3 parsing.py -generate ../scripts/time-insertdelete-80k.script '-alloc(1,500)' 160000 -free 80000 '-alloc(1,500)' 80000) && (python3 parsing.py -generate ../scripts/time-insertdelete-90k.script '-alloc(1,500)' 180000 -free 90000 '-alloc(1,500)' 90000) && (python3 parsing.py -generate ../scripts/time-insertdelete-100k.script '-alloc(1,500)' 200000 -free 100000 '-alloc(1,500)' 100000)
+```
+
+Generate files to test an allocator's ability to quickly `realloc()` allocated nodes in the heap. This a good test of coalescing speed.
+
+Run this from the `pysrc/` directory.
+
+```bash
+(python3 parsing.py -generate ../scripts/time-reallocfree-05k.script '-alloc(1,500)' 10000 -free 5000 '-realloc(200,1000)' 5000) && (python3 parsing.py -generate ../scripts/time-reallocfree-10k.script '-alloc(1,500)' 20000 -free 10000 '-realloc(200,1000)' 10000) && (python3 parsing.py -generate ../scripts/time-reallocfree-15k.script '-alloc(1,500)' 30000 -free 15000 '-realloc(200,1000)' 15000) && (python3 parsing.py -generate ../scripts/time-reallocfree-20k.script '-alloc(1,500)' 40000 -free 20000 '-realloc(200,1000)' 20000) && (python3 parsing.py -generate ../scripts/time-reallocfree-25k.script '-alloc(1,500)' 50000 -free 25000 '-realloc(200,1000)' 25000) && (python3 parsing.py -generate ../scripts/time-reallocfree-30k.script '-alloc(1,500)' 60000 -free 30000 '-realloc(200,1000)' 30000) && (python3 parsing.py -generate ../scripts/time-reallocfree-35k.script '-alloc(1,500)' 70000 -free 35000 '-realloc(200,1000)' 35000) && (python3 parsing.py -generate ../scripts/time-reallocfree-40k.script '-alloc(1,500)' 80000 -free 40000 '-realloc(200,1000)' 40000) && (python3 parsing.py -generate ../scripts/time-reallocfree-45k.script '-alloc(1,500)' 90000 -free 45000 '-realloc(200,1000)' 45000) && (python3 parsing.py -generate ../scripts/time-reallocfree-50k.script '-alloc(1,500)' 100000 -free 50000 '-realloc(200,1000)' 50000) && (python3 parsing.py -generate ../scripts/time-reallocfree-55k.script '-alloc(1,500)' 110000 -free 55000 '-realloc(200,1000)' 55000) && (python3 parsing.py -generate ../scripts/time-reallocfree-60k.script '-alloc(1,500)' 120000 -free 60000 '-realloc(200,1000)' 60000) && (python3 parsing.py -generate ../scripts/time-reallocfree-65k.script '-alloc(1,500)' 130000 -free 65000 '-realloc(200,1000)' 65000) && (python3 parsing.py -generate ../scripts/time-reallocfree-70k.script '-alloc(1,500)' 140000 -free 70000 '-realloc(200,1000)' 70000) && (python3 parsing.py -generate ../scripts/time-reallocfree-75k.script '-alloc(1,500)' 150000 -free 75000 '-realloc(200,1000)' 75000) && (python3 parsing.py -generate ../scripts/time-reallocfree-80k.script '-alloc(1,500)' 160000 -free 80000 '-realloc(200,1000)' 80000) && (python3 parsing.py -generate ../scripts/time-reallocfree-85k.script '-alloc(1,500)' 170000 -free 85000 '-realloc(200,1000)' 85000) && (python3 parsing.py -generate ../scripts/time-reallocfree-90k.script '-alloc(1,500)' 180000 -free 90000 '-realloc(200,1000)' 90000) && (python3 parsing.py -generate ../scripts/time-reallocfree-95k.script '-alloc(1,500)' 190000 -free 95000 '-realloc(200,1000)' 95000) && (python3 parsing.py -generate ../scripts/time-reallocfree-100k.script '-alloc(1,500)' 200000 -free 100000 '-realloc(200,1000)' 100000)
+```
 
