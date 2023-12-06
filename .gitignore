@@ -59,8 +59,12 @@ bin/*
 
 # Script/ltrace files that were too large and generated for timing purposes.
 scripts/time*.script
-pysrc/ltrace-output/
-pysrc/parsed-scripts/
+pysrc/ltrace-output/*
+!pysrc/ltrace-output/readme.md
+
+# ignore graphs for now
+output/*
+!output/readme.md
 
 # idea python stuff
 # Covers JetBrains IDEs: IntelliJ, RubyMine, PhpStorm, AppCode, PyCharm, CLion, Android Studio, WebStorm and Rider

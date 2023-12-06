@@ -50,8 +50,8 @@ static size_t print_allocator( struct script *s, struct user_breaks *user_reqs, 
 static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_break, int max );
 static int get_user_int( int min, int max );
 static void validate_breakpoints( struct script *s, struct user_breaks *user_reqs );
-static void binsert( const void *key, void *base, int *p_nelem, size_t width,
-                     int ( *compar )( const void *, const void * ) );
+static void
+binsert( const void *key, void *base, int *p_nelem, size_t width, int ( *compar )( const void *, const void * ) );
 static int cmp_breakpoints( const void *a, const void *b );
 
 // NOLINTBEGIN(*include-cleaner)
@@ -89,8 +89,9 @@ int main( int argc, char *argv[] )
                 abort();
             }
             breakpoint line = (int)req;
-            binsert( &line, &user_reqs.breakpoints, &user_reqs.num_breakpoints, sizeof( breakpoint ),
-                     cmp_breakpoints );
+            binsert(
+                &line, &user_reqs.breakpoints, &user_reqs.num_breakpoints, sizeof( breakpoint ), cmp_breakpoints
+            );
         }
     }
     if ( optind >= argc ) {
@@ -106,12 +107,6 @@ int main( int argc, char *argv[] )
 
 // NOLINTEND(*include-cleaner)
 
-/// @brief print_peaks      prints the peak number of free nodes present in a heap allocator during
-///                         execution of a script. Prints the state of free nodes breakpoints
-///                         requested by the user as well.
-/// @param script_name      the pointer to the script name we will execute.
-/// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
-/// @return                 0 upon successful execution 1 upon error.
 int print_peaks( char *script_name, struct user_breaks *user_reqs )
 {
     struct script s = parse_script( script_name );
@@ -129,8 +124,9 @@ int print_peaks( char *script_name, struct user_breaks *user_reqs )
     // Evaluate this script and record the results
     printf( "\nEvaluating allocator on %s...\n", s.name );
     size_t used_segment = print_allocator( &s, user_reqs, &graphs );
-    printf( "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", s.num_ops, s.peak_size,
-            used_segment );
+    printf(
+        "...successfully serviced %d requests. (payload/segment = %zu/%zu)\n", s.num_ops, s.peak_size, used_segment
+    );
     printf( "Utilization averaged %.2lf%%\n", ( 100.0 * (double)s.peak_size ) / (double)used_segment );
 
     print_gnuplots( &graphs );
@@ -143,12 +139,6 @@ int print_peaks( char *script_name, struct user_breaks *user_reqs )
     return 0;
 }
 
-/// @brief print_allocator  runs an allocator twice, gathering the peak number of free nodes and
-///                         printint any breakpoints the user requests from the script. The second
-///                         execution will print the peak size of the free nodes.
-/// @param *script          the script_t with all info for the script file to execute.
-/// @param *user_reqs       pointer to the struct containing user print style, and possible breaks.
-/// @return                 the size of the heap overall as helpful utilization info.
 static size_t print_allocator( struct script *s, struct user_breaks *user_reqs, struct gnuplots *graphs )
 {
     init_heap_segment( heap_size );
@@ -197,9 +187,9 @@ static size_t print_allocator( struct script *s, struct user_breaks *user_reqs, 
         }
     }
 
-    /// We could track a persistent dynamic set of the free data structure but that would be slow
-    /// and I don't want to expose heap internals to this program or make copies of the nodes. Just
-    /// run it twice and use the allocator's provided printer function to find max nodes.
+    // We could track a persistent dynamic set of the free data structure but that would be slow
+    // and I don't want to expose heap internals to this program or make copies of the nodes. Just
+    // run it twice and use the allocator's provided printer function to find max nodes.
 
     init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
@@ -232,34 +222,34 @@ static void consume_remaining_input( int *c )
     while ( ( *c = getchar() ) != '\n' && *c != EOF ) {}
 }
 
-/// @brief handle_user_breakpoints  interacts with user regarding breakpoints they have requested.
-///                                 and will step with the user through requests and print nodes.
-///                                 The user may continue to next breakpoint, add another
-///                                 breakpoint, or skip remaining.
-/// @param *user_reqs               pointer to the struct with user style, and possible breaks.
-/// @param max                      the upper limit of user input and script range.
 static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_break, int max )
 {
     int min = user_reqs->breakpoints[curr_break] + 1;
     while ( true ) {
         int c = 0;
         if ( user_reqs->breakpoints[curr_break] == max ) {
-            (void)fputs( "Script complete.\n"
-                         "Enter <ENTER> to exit: ",
-                         stdout );
+            (void)fputs(
+                "Script complete.\n"
+                "Enter <ENTER> to exit: ",
+                stdout
+            );
             consume_remaining_input( &c );
             return;
         }
         if ( curr_break < user_reqs->num_breakpoints ) {
-            (void)fputs( "Enter the character <C> to continue to next breakpoint.\n"
-                         "Enter the character <B> to add a new breakpoints.\n"
-                         "Enter <ENTER> to exit: ",
-                         stdout );
+            (void)fputs(
+                "Enter the character <C> to continue to next breakpoint.\n"
+                "Enter the character <B> to add a new breakpoints.\n"
+                "Enter <ENTER> to exit: ",
+                stdout
+            );
         } else {
-            (void)fputs( "No breakpoints remain.\n"
-                         "Enter the character <B> to add a new breakpoints.\n"
-                         "Enter <ENTER> to exit: ",
-                         stdout );
+            (void)fputs(
+                "No breakpoints remain.\n"
+                "Enter the character <B> to add a new breakpoints.\n"
+                "Enter <ENTER> to exit: ",
+                stdout
+            );
         }
         c = getchar();
         // User generated end of file or hit ENTER. We won't look at anymore breakpoints.
@@ -277,8 +267,13 @@ static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_bre
             consume_remaining_input( &c );
             int new_breakpoint = get_user_int( min, max );
             // We will insert the new breakpoint but also do nothing if it is already there.
-            binsert( &new_breakpoint, user_reqs->breakpoints, &user_reqs->num_breakpoints, sizeof( breakpoint ),
-                     cmp_breakpoints );
+            binsert(
+                &new_breakpoint,
+                user_reqs->breakpoints,
+                &user_reqs->num_breakpoints,
+                sizeof( breakpoint ),
+                cmp_breakpoints
+            );
             continue;
         }
         // We have the right input but we will double check for extra chars to be safe.
@@ -287,10 +282,6 @@ static void handle_user_breakpoints( struct user_breaks *user_reqs, int curr_bre
     }
 }
 
-/// @breif get_user_int  retreives an int from the user if they wish to add another breakpoint.
-/// @param min           the lower range allowable for the int.
-/// @param max           the upper range for the int.
-/// @return              the valid integer entered by the user.
 static int get_user_int( int min, int max )
 {
     char *buff = malloc( sizeof( char ) * max_digits );
@@ -332,9 +323,6 @@ static int get_user_int( int min, int max )
     return input_int;
 }
 
-/// @brief validate_breakpoints  checks any requested breakpoints to make sure they are in range.
-/// @param script                the parsed script with information we need to verify ranges.
-/// @param *user_reqs            struct containing user print style, and possible breaks.
 static void validate_breakpoints( struct script *s, struct user_breaks *user_reqs )
 {
     // It's easier if the breakpoints are in order and can run along with our script execution.
@@ -349,20 +337,11 @@ static void validate_breakpoints( struct script *s, struct user_breaks *user_req
     }
 }
 
-/// @brief *binsert  performs binary insertion sort on an array, finding an element if it already
-///                  present or inserting it in sorted place if it not yet present. It will update
-///                  the size of the array if it inserts an element.
-/// @param *key      the element we are searching for in the array.
-/// @param *p_nelem  the number of elements present in the array.
-/// @param width     the size in bytes of each entry in the array.
-/// @param *compar   the comparison function used to determine if an element matches our key.
-/// @warning         this function will update the array size as an output parameter and assumes the
-///                  user has provided enough space for one additional element in the array.
-static void binsert( const void *key, void *base, int *p_nelem, size_t width,
-                     int ( *compar )( const void *, const void * ) )
+static void
+binsert( const void *key, void *base, int *p_nelem, size_t width, int ( *compar )( const void *, const void * ) )
 {
-    // We will use the address at the end of the array to help move bytes if we don't find elem.
     void *end = (uint8_t *)base + ( *p_nelem * width );
+    // Benefit of this method is we avoid overflow. Our sum to find the middle does not exceed the array bounds.
     for ( size_t nremain = *p_nelem; nremain != 0; nremain >>= 1 ) {
         void *elem = (uint8_t *)base + width * ( nremain >> 1 );
         int sign = compar( key, elem );
@@ -370,20 +349,17 @@ static void binsert( const void *key, void *base, int *p_nelem, size_t width,
             return;
         }
         if ( sign > 0 ) { // key > elem
-            // base settles where key belongs if we cannot find it. Steps right in this case.
             base = (uint8_t *)elem + width;
             nremain--;
         }
-        // key < elem and the base does not move in this case.
+        // key < elem for loop takes care of the rest
     }
-    // First move does nothing, 0bytes, if we are adding first elem or new greatest value.
     memmove( (uint8_t *)base + width, base, (uint8_t *)end - (uint8_t *)base ); // NOLINT
-    // Now, wherever the base settled is where our key belongs.
-    memcpy( base, key, width ); // NOLINT
+    memcpy( base, key, width );                                                 // NOLINT
     ++*p_nelem;
 }
 
-/// @brief cmp_breakpoints  the compare function for our breakpoint line numbers for qsort.
-/// @param a,b              breakpoints to compare.
-/// @return                 >0 if a is larger than b, <0 if b is larger than a, =0 if same.
-static int cmp_breakpoints( const void *a, const void *b ) { return ( *(breakpoint *)a ) - ( *(breakpoint *)b ); }
+static int cmp_breakpoints( const void *a, const void *b )
+{
+    return ( *(breakpoint *)a ) - ( *(breakpoint *)b );
+}

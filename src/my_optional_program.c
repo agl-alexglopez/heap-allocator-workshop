@@ -71,9 +71,6 @@ int main( int argc, char *argv[] )
 
 /// Function Implementations
 
-/// @brief print_uniq_lines  prints lines in a file and their frequencies in order of first
-///                          appearance in that file.
-/// @param *file_pointer     the pointer to the file for which we will print frequencies
 void print_uniq_lines( FILE *file_pointer )
 {
     size_t array_size = 0;
@@ -86,18 +83,6 @@ void print_uniq_lines( FILE *file_pointer )
     myfree( freq_array );
 }
 
-/// @brief *fill_freq_array  reads all lines of a file and organizes them into an array of frequency
-///                          cell structs that tally the number of times we have seen a given line
-///                          in order of that line's first appearance in the file. This function
-///                          returns a pointer to the heap allocated array. The user may determine
-///                          the starting size that will also act as the size used to expand the
-///                          array when needed.
-/// @param *file_pointer     the pointer to the file for which we will tally line counts.
-/// @param increment         first size for the array. It will expand by this amount when needed.
-/// @return                  the pointer to the start of our heap allocated frequency array.
-/// @warning                 it is the user's responsibility to free heap allocated strings within
-///                          the zero indexed array and free the heap array. The array at the index
-///                          of its size will have the text field set to NULL, including size 0.
 struct freq_cell *fill_freq_array( FILE *file_pointer, size_t increment, size_t *size )
 {
     size_t total_space = increment;
@@ -117,14 +102,6 @@ struct freq_cell *fill_freq_array( FILE *file_pointer, size_t increment, size_t 
     return freq_array;
 }
 
-/// @param is_added    takes a heap string and inserts it into a frequency array if it is unique.
-///                    This function will increment the frequency field of the struct in the array
-///                    if it is a repeat or set the frequency to one if it is newly added.
-/// @param *heap_line  the heap string that we will insert if it is unique for the array.
-/// @param *freq_array the freq_cell array we are checking our heap string against.
-/// @param index       the potential index that we may insert an element into.
-/// @return            true if the heap string was inserted, false if it was not. The function will
-///                    increment the frequency field of the new string or already present string.
 bool is_added( char *heap_line, struct freq_cell *freq_array, size_t index )
 {
     if ( index != 0 ) {
@@ -144,13 +121,6 @@ bool is_added( char *heap_line, struct freq_cell *freq_array, size_t index )
     return true;
 }
 
-/// @brief realloc_array  reallocates space for our heap array of frequency cells to expand.
-/// @param *freq_array    the pointer to the freq_cell array we are tasked with expanding.
-/// @param total_space    the current size of the array before expansion.
-/// @return               a pointer to the newly allocated heap array of freq_cells.
-/// @warning              it is the user's responsibility to make sure the freq_array points
-///                       to previously allocated heap memory and to keep track of the current
-///                       size of the allocated heap memory for the array.
 struct freq_cell *realloc_array( struct freq_cell *freq_array, size_t total_space )
 {
     struct freq_cell *more_space = myrealloc( freq_array, total_space * sizeof( struct freq_cell ) );
@@ -159,13 +129,8 @@ struct freq_cell *realloc_array( struct freq_cell *freq_array, size_t total_spac
     return freq_array;
 }
 
-/// @brief *read_line     takes a FILE pointer and returns one complete line of text from the file
-///                       it points to. It returns a heap allocated string without its newline
-///                       character or NULL if there is no string or only a new line character.
-/// @param *file_pointer  the FILE pointer we read from and progress to the next line.
-/// @return               a heap allocated string without the '\n' or NULL if no string is found.
-/// @warning              it is the user's responsibility to free the heap allocated string. This
-///                       function also assumes we will not encounter a string larger than size_t.
+/// @warning it is the user's responsibility to free the heap allocated string. This function also
+/// assumes we will not encounter a string larger than size_t.
 char *read_line( FILE *file_pointer )
 {
     size_t heap_size = MINIMUM_SIZE;
@@ -202,9 +167,6 @@ char *read_line( FILE *file_pointer )
     return heap_string;
 }
 
-/// @brief initialize_heap_allocator  because these allocators are in a controlled environment for
-///                                   display and testing purposes, we initialize our own segment.
-/// @return                           true if successful false if failure.
 bool initialize_heap_allocator()
 {
     init_heap_segment( HEAP_SIZE );

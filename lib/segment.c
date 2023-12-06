@@ -18,13 +18,19 @@
 static void *segment_start = NULL; // NOLINT(*-non-const-global-variables)
 static size_t segment_size = 0;    // NOLINT(*-non-const-global-variables)
 
-void *heap_segment_start() { return segment_start; }
+void *heap_segment_start()
+{
+    return segment_start;
+}
 
-size_t heap_segment_size() { return segment_size; }
+size_t heap_segment_size()
+{
+    return segment_size;
+}
 
 void *init_heap_segment( size_t total_size )
 {
-    // Discard any previous segment via munmap
+    // Discard any previous segment via munmap. Helpful for unit testing.
     if ( segment_start != NULL ) {
         if ( munmap( segment_start, total_size ) == -1 ) {
             return NULL;
@@ -33,7 +39,6 @@ void *init_heap_segment( size_t total_size )
         segment_size = 0;
     }
 
-    // Re-initialize by reserving entire segment with mmap
     segment_start = mmap( HEAP_START_HINT, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
     assert( segment_start != MAP_FAILED );
     segment_size = total_size;

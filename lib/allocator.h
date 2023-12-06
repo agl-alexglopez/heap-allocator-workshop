@@ -1,19 +1,57 @@
 /// File: allocator.h
 /// -----------------
 /// Interface file for the custom heap allocator.
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifndef ALLOCATOR_H
 #define ALLOCATOR_H
 
 #include "print_utility.h"
 #include <stdbool.h>
-#include <stddef.h> // for size_t
+#include <stddef.h>
 
 enum
 {
-    // Alignment requirement for all blocks
+    /// Alignment requirement for all blocks
     ALIGNMENT = 8,
-    // maximum size of block that must be accommodated
+    /// maximum size of block that must be accommodated
     MAX_REQUEST_SIZE = ( 1 << 30 )
+};
+
+enum ignore_bytes
+{
+    /// NA=Not Applicable. If you are running some testing checks and don't care about payload bytes
+    /// insert this value as the payload. It is impossible to have a payload of
+    /// zero. This is helpful when you want to unit test general coalescing
+    /// behavior and don't care about the specific byte overhead of a heap allocator.
+    /// Instead you can focus just on whether the correct blocks are allocated or free.
+    NA = 0,
+};
+
+/// The preproccesor will keep our error enum and strings in sync for printing from the testing suite.
+#define FOREACH_ERR( ERR ) /*NOLINT*/                                                                              \
+    ERR( OK )                                                                                                      \
+    ERR( ER )                                                                                                      \
+    ERR( HEAP_CONTINUES )                                                                                          \
+    ERR( OUT_OF_BOUNDS )
+#define GENERATE_ENUM( ENUM ) ENUM,        /*NOLINT*/
+#define GENERATE_STRING( STRING ) #STRING, /*NOLINT*/
+
+enum status_error
+{
+    FOREACH_ERR( GENERATE_ENUM )
+};
+
+static const char *const err_string[] = { // NOLINT
+    FOREACH_ERR( GENERATE_STRING )
+};
+
+struct heap_block
+{
+    void *address;
+    size_t payload_bytes;
+    enum status_error err;
 };
 
 /// @brief myinit
@@ -64,4 +102,14 @@ size_t get_free_total( void );
 /// tree allocators, the black height of the tree as well.
 void print_free_nodes( enum print_style style );
 
+size_t myheap_align( size_t request );
+
+size_t myheap_capacity( void );
+
+void myheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len );
+
+#endif
+
+#ifdef __cplusplus
+}
 #endif

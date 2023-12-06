@@ -5,9 +5,14 @@ Checks: >
    -llvmlibc-*,
    -readability-identifier-length,
    -concurrency-mt-unsafe,
+   -modernize*,
+   -*magic-numbers,
    -llvm-header-guard,
+   -fuchsia-overloaded-operator,
+   -fuchsia-statically-constructed-objects,
    -fuchsia-default-arguments-calls,
    -fuchsia-default-arguments-declarations,
+   -abseil*,
 
 WarningsAsErrors: "*"
 
@@ -17,5 +22,6 @@ CheckOptions:
    - { key: readability-identifier-naming.VariableCase, value: lower_case }
    - { key: readability-identifier-naming.EnumCase, value: lower_case }
    - { key: readability-identifier-naming.MacroDefinitionCase, value: UPPER_CASE }
+   - { key: misc-non-private-member-variables-in-classes.IgnoreClassesWithAllMemberVariablesBeingPublic, value: true }
 
 FormatStyle: file

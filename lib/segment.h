@@ -2,7 +2,9 @@
 /// ---------------
 /// An interface to the OS low-level allocator. Used to reserve a large
 /// segment of memory to be used by a custom heap allocator.
-
+#ifdef __cplusplus
+extern "C" {
+#endif
 #ifndef SEGMENT_H
 #define SEGMENT_H
 #include <stddef.h> // for size_t
@@ -27,4 +29,7 @@ void *heap_segment_start();
 /// heap_segment_size returns the current segment size in bytes.
 size_t heap_segment_size();
 
+#endif
+#ifdef __cplusplus
+}
 #endif

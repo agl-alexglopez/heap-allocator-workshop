@@ -1,97 +1,25 @@
-################################# TEST HARNESS PROGRAM ############################################
+###############################  Script Parsing and Execution ################################
 
+add_library(script script.h script.c)
+
+################################# QUICK STAT PROGRAM ############################################
+
+########## Libc Default #############
+
+
+add_executable(stats_libc_default stats.c)
+target_link_libraries(stats_libc_default PUBLIC
+                      segment
+                      script
+                      libc_default
+)
 
 ########## List Segregated #############
 
 
-add_executable(test_list_segregated test_harness.c)
-target_link_libraries(test_list_segregated PUBLIC
+add_executable(stats_list_segregated stats.c)
+target_link_libraries(stats_list_segregated PUBLIC
                       segment
-                      script
-                      list_segregated
-)
-
-########## RBTree CLRS #############
-
-
-add_executable(test_rbtree_clrs test_harness.c)
-target_link_libraries(test_rbtree_clrs PUBLIC
-                      segment
-                      script
-                      rbtree_clrs
-)
-
-########## RBTree Unified #############
-
-
-add_executable(test_rbtree_unified test_harness.c)
-target_link_libraries(test_rbtree_unified PUBLIC
-                      segment
-                      script
-                      rbtree_unified
-)
-
-########## RBTree Linked #############
-
-
-add_executable(test_rbtree_linked test_harness.c)
-target_link_libraries(test_rbtree_linked PUBLIC
-                      segment
-                      script
-                      rbtree_linked
-)
-
-########## RBTree Stack #############
-
-
-add_executable(test_rbtree_stack test_harness.c)
-target_link_libraries(test_rbtree_stack PUBLIC
-                      segment
-                      script
-                      rbtree_stack
-)
-
-########## RBTree Topdown #############
-
-
-add_executable(test_rbtree_topdown test_harness.c)
-target_link_libraries(test_rbtree_topdown PUBLIC
-                      segment
-                      script
-                      rbtree_topdown
-)
-
-########## Splay Tree Stack #############
-
-
-add_executable(test_splaytree_stack test_harness.c)
-target_link_libraries(test_splaytree_stack PUBLIC
-                      segment
-                      script
-                      splaytree_stack
-)
-
-########## Splay Tree Topdown #############
-
-
-add_executable(test_splaytree_topdown test_harness.c)
-target_link_libraries(test_splaytree_topdown PUBLIC
-                      segment
-                      script
-                      splaytree_topdown
-)
-
-
-################################# TIME HARNESS PROGRAM ############################################
-
-
-########## List Segregated #############
-
-
-add_executable(time_list_segregated time_harness.c)
-target_link_libraries(time_list_segregated PUBLIC
-                      segment
-                      print_utility
                       script
                       list_segregated
 )
@@ -99,10 +27,9 @@ target_link_libraries(time_list_segregated PUBLIC
 ############ RBTree ClRS ###############
 
 
-add_executable(time_rbtree_clrs time_harness.c)
-target_link_libraries(time_rbtree_clrs PUBLIC
+add_executable(stats_rbtree_clrs stats.c)
+target_link_libraries(stats_rbtree_clrs PUBLIC
                       segment
-                      print_utility
                       script
                       rbtree_clrs
 )
@@ -110,10 +37,9 @@ target_link_libraries(time_rbtree_clrs PUBLIC
 ############ RBTree Unified ###############
 
 
-add_executable(time_rbtree_unified time_harness.c)
-target_link_libraries(time_rbtree_unified PUBLIC
+add_executable(stats_rbtree_unified stats.c)
+target_link_libraries(stats_rbtree_unified PUBLIC
                       segment
-                      print_utility
                       script
                       rbtree_unified
 )
@@ -121,10 +47,9 @@ target_link_libraries(time_rbtree_unified PUBLIC
 ############ RBTree Linked ###############
 
 
-add_executable(time_rbtree_linked time_harness.c)
-target_link_libraries(time_rbtree_linked PUBLIC
+add_executable(stats_rbtree_linked stats.c)
+target_link_libraries(stats_rbtree_linked PUBLIC
                       segment
-                      print_utility
                       script
                       rbtree_linked
 )
@@ -132,10 +57,9 @@ target_link_libraries(time_rbtree_linked PUBLIC
 ############ RBTree Stack ###############
 
 
-add_executable(time_rbtree_stack time_harness.c)
-target_link_libraries(time_rbtree_stack PUBLIC
+add_executable(stats_rbtree_stack stats.c)
+target_link_libraries(stats_rbtree_stack PUBLIC
                       segment
-                      print_utility
                       script
                       rbtree_stack
 )
@@ -143,10 +67,9 @@ target_link_libraries(time_rbtree_stack PUBLIC
 ############ RBTree Topdown ###############
 
 
-add_executable(time_rbtree_topdown time_harness.c)
-target_link_libraries(time_rbtree_topdown PUBLIC
+add_executable(stats_rbtree_topdown stats.c)
+target_link_libraries(stats_rbtree_topdown PUBLIC
                       segment
-                      print_utility
                       script
                       rbtree_topdown
 )
@@ -154,10 +77,9 @@ target_link_libraries(time_rbtree_topdown PUBLIC
 ############ Splay Tree Stack ###############
 
 
-add_executable(time_splaytree_stack time_harness.c)
-target_link_libraries(time_splaytree_stack PUBLIC
+add_executable(stats_splaytree_stack stats.c)
+target_link_libraries(stats_splaytree_stack PUBLIC
                       segment
-                      print_utility
                       script
                       splaytree_stack
 )
@@ -165,10 +87,9 @@ target_link_libraries(time_splaytree_stack PUBLIC
 ############ Splay Tree Topdown ###############
 
 
-add_executable(time_splaytree_topdown time_harness.c)
-target_link_libraries(time_splaytree_topdown PUBLIC
+add_executable(stats_splaytree_topdown stats.c)
+target_link_libraries(stats_splaytree_topdown PUBLIC
                       segment
-                      print_utility
                       script
                       splaytree_topdown
 )
