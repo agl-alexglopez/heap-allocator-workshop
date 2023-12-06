@@ -287,7 +287,7 @@ This was a program we created to test our heap allocators in a more "real" conte
 
 #### How to Use My Optional Program
 
-- All allocators have been prepended with the word `my_optional_program_` and have been compiled to our `build/bin/` folder.
-  - `my_optional_program_rbtree_clrs`, `my_optional_program_rbtree_unified`, `my_optional_program_rbtree_linked`, `my_optional_program_rbtree_stack`, `my_optional_program_rbtree_topdown`, `my_optional_program_list_bestfit`, `my_optional_program_list_addressorder`
+- All allocators have been prepended with the word `my_optional_program_` and have been compiled to our `build/rel/` folder.
+  - `my_optional_program_rbtree_clrs`, `my_optional_program_rbtree_unified`, `my_optional_program_splaytree_topdown`, etc.
 - The rest is up to you. Design whatever program you would like.
 
