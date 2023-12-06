@@ -2,11 +2,6 @@ add_library(debug_break INTERFACE debug_break.h)
 
 add_library(print_utility print_utility.h print_utility.c)
 
-##########################  Script Parsing for Heap Execution  ####################################
-
-add_library(script script.h script.c)
-
-
 #########################  Preparing Controlled Memory Segment  ###################################
 
 add_library(segment segment.h segment.c)

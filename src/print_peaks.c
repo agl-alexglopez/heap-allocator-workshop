@@ -340,8 +340,8 @@ static void validate_breakpoints( struct script *s, struct user_breaks *user_req
 static void
 binsert( const void *key, void *base, int *p_nelem, size_t width, int ( *compar )( const void *, const void * ) )
 {
-    // We will use the address at the end of the array to help move bytes if we don't find elem.
     void *end = (uint8_t *)base + ( *p_nelem * width );
+    // Benefit of this method is we avoid overflow. Our sum to find the middle does not exceed the array bounds.
     for ( size_t nremain = *p_nelem; nremain != 0; nremain >>= 1 ) {
         void *elem = (uint8_t *)base + width * ( nremain >> 1 );
         int sign = compar( key, elem );
@@ -349,16 +349,13 @@ binsert( const void *key, void *base, int *p_nelem, size_t width, int ( *compar 
             return;
         }
         if ( sign > 0 ) { // key > elem
-            // base settles where key belongs if we cannot find it. Steps right in this case.
             base = (uint8_t *)elem + width;
             nremain--;
         }
-        // key < elem and the base does not move in this case.
+        // key < elem for loop takes care of the rest
     }
-    // First move does nothing, 0bytes, if we are adding first elem or new greatest value.
     memmove( (uint8_t *)base + width, base, (uint8_t *)end - (uint8_t *)base ); // NOLINT
-    // Now, wherever the base settled is where our key belongs.
-    memcpy( base, key, width ); // NOLINT
+    memcpy( base, key, width );                                                 // NOLINT
     ++*p_nelem;
 }
 
