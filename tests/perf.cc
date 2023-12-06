@@ -207,8 +207,15 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args );
 int main( int argc, char *argv[] )
 {
     const std::vector<path_bin> commands = gather_timer_programs();
+    if ( commands.empty() ) {
+        return 1;
+    }
     plot_args args{};
-    for ( const auto *arg : std::span<const char *const>( argv, argc ).subspan( 1 ) ) {
+    auto cli_args = std::span<const char *const>( argv, argc ).subspan( 1 );
+    if ( cli_args.empty() ) {
+        return 0;
+    }
+    for ( const auto *arg : cli_args ) {
         const std::string arg_copy = std::string( arg );
         if ( arg_copy == "-realloc" ) {
             args.op = heap_operation::realloc_free;

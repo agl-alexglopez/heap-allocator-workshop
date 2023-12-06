@@ -1,9 +1,25 @@
+/// Files: ctest.c
+/// ---------------------
+/// This is the Correctness Tester aka ctest.c. This program parses and runs scripts from the
+/// provided location by the user. Script files are helpful for performing the necessary heap
+/// operations to exercise code paths but not actually introducing program logic to get in the
+/// way of checking such operations. This programs provides a decent amount of correctness checks
+/// based on a limited api it can gain as a user of each heap allocator. However, it relies heavily
+/// on thorough implementations of the validation functions written by each allocator. This framework
+/// will allow the user to validate a variety of scripts with those internal debugging functions.
+/// This program is written with synchronized error cout and cerr. This is so that if it is run
+/// in a multithreaded or multiprocess environment error messages will not be garbled.
+/// This is based upon the test_harness program written in C by jzelenski and Nick Troccoli (Winter 18-19)
+/// but has been updated to C++ and modified for ease of use with the rest of my testing framework.
+/// I added more information for overlapping heap boundary errors and encapsulated alloc, realloc,
+/// and free logic to their own functions.
 #include "allocator.h"
 #include "segment.h"
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdint>
+#include <exception>
 #include <fstream>
 #include <iostream>
 #include <iterator>
@@ -14,6 +30,7 @@
 #include <string>
 #include <string_view>
 #include <syncstream>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -27,7 +44,7 @@ constexpr std::string_view ansi_bred = "\033[38;5;9m";
 constexpr std::string_view ansi_bgrn = "\033[38;5;10m";
 constexpr std::string_view ansi_byel = "\033[38;5;11m";
 constexpr std::string_view ansi_nil = "\033[0m";
-constexpr std::string_view circle = "●";
+constexpr std::string_view pass = "●";
 
 enum heap_request
 {
@@ -54,7 +71,7 @@ struct script
 };
 
 std::optional<script> parse_script( const std::string &filepath );
-std::optional<script_line> tokens_pass( std::span<std::string> toks );
+std::optional<script_line> tokens_pass( std::span<const std::string> toks, size_t line );
 std::optional<size_t> eval_correctness( script &s );
 bool verify_block( void *ptr, size_t size, const script &s );
 bool verify_payload( size_t block_id, void *ptr, size_t size );
@@ -68,36 +85,46 @@ void cout_sync( std::string_view s );
 
 } // namespace
 
+int run( std::span<const char *const> args )
+{
+    try {
+        size_t utilization = 0;
+        for ( const auto *arg : args ) {
+            std::optional<script> script = parse_script( arg );
+            if ( !script ) {
+                const auto err = std::string( "Failed to parse script " ).append( arg ).append( "\n" );
+                cerr_sync( err, ansi_bred );
+                return 1;
+            }
+            const std::optional<size_t> used_segment = eval_correctness( script.value() );
+            if ( !used_segment ) {
+                const auto err = std::string( "Failed script " ).append( arg ).append( "\n" );
+                cerr_sync( err, ansi_bred );
+                return 1;
+            }
+            const size_t val = used_segment.value();
+            if ( 0 < val ) {
+                utilization += ( scale_to_whole_num * script.value().peak ) / val;
+            }
+            cout_sync( pass, ansi_bgrn );
+        }
+        const std::string util = std::to_string( utilization / args.size() ).append( "%\n" );
+        cout_sync( util, ansi_bgrn );
+        return 0;
+    } catch ( std::exception &e ) {
+        const auto ex = std::string( "Script tester exception thrown: " ).append( e.what() );
+        cout_sync( ex, ansi_bred );
+        return 1;
+    }
+}
+
 int main( int argc, char *argv[] )
 {
-    // Safe to take subspan here because argv always starts with program name and is size 1.
-    size_t success_count = 0;
-    size_t fail_count = 0;
-    size_t utilization = 0;
-    for ( const auto *arg : std::span<const char *const>( argv, argc ).subspan( 1 ) ) {
-        std::optional<script> script = parse_script( arg );
-        if ( !script ) {
-            std::string err = std::string( "Failed to parse script " ).append( arg ).append( "\n" );
-            cerr_sync( err, ansi_bred );
-            ++fail_count;
-            continue;
-        }
-        std::optional<size_t> used_segment = eval_correctness( script.value() );
-        if ( !used_segment ) {
-            std::string err = std::string( "Failed script " ).append( arg ).append( "\n" );
-            cerr_sync( err, ansi_bred );
-            ++fail_count;
-            continue;
-        }
-        size_t val = used_segment.value();
-        if ( val > 0 ) {
-            utilization += ( scale_to_whole_num * script.value().peak ) / val;
-        }
-        cout_sync( circle, ansi_bgrn );
-        ++success_count;
+    const auto args = std::span<const char *const>{ argv, static_cast<size_t>( argc ) }.subspan( 1 );
+    if ( args.empty() ) {
+        return 0;
     }
-    cout_sync( "\n" );
-    return static_cast<int>( fail_count );
+    return run( args );
 }
 
 namespace {
@@ -115,35 +142,36 @@ std::optional<size_t> eval_correctness( script &s )
     }
     void *heap_end_addr = heap_segment_start();
     size_t heap_size = 0;
-    for ( script_line &line : s.lines ) {
-        const size_t id = line.block_index;
-        const size_t requested_size = line.size;
+    for ( const script_line &line : s.lines ) {
         switch ( line.req ) {
+
         case heap_request::alloc: {
-            heap_size += requested_size;
+            heap_size += line.size;
             if ( !eval_malloc( line, s, heap_end_addr ) ) {
-                std::string err = std::string( "Malloc request failure line " )
-                                      .append( std::to_string( line.line ) )
-                                      .append( "\n" );
+                const auto err = std::string( "Malloc request failure line " )
+                                     .append( std::to_string( line.line ) )
+                                     .append( "\n" );
                 cerr_sync( err, ansi_bred );
                 return {};
             }
         } break;
+
         case heap_request::realloc: {
-            heap_size += requested_size;
+            heap_size += ( line.size - s.blocks.at( line.block_index ).second );
             if ( !eval_realloc( line, s, heap_end_addr ) ) {
-                std::string err = std::string( "Realloc request failure line " )
-                                      .append( std::to_string( line.line ) )
-                                      .append( "\n" );
+                const auto err = std::string( "Realloc request failure line " )
+                                     .append( std::to_string( line.line ) )
+                                     .append( "\n" );
                 cerr_sync( err, ansi_bred );
                 return {};
             }
         } break;
+
         case heap_request::free: {
             if ( !eval_free( line, s ) ) {
-                std::string err = std::string( "Free request failure line " )
-                                      .append( std::to_string( line.line ) )
-                                      .append( "\n" );
+                const auto err = std::string( "Free request failure line " )
+                                     .append( std::to_string( line.line ) )
+                                     .append( "\n" );
                 cerr_sync( err, ansi_bred );
                 return {};
             }
@@ -151,15 +179,16 @@ std::optional<size_t> eval_correctness( script &s )
             heap_size -= old_block.second;
             old_block = { nullptr, 0 };
         } break;
+
         default: {
             cerr_sync( "Unknown request slipped through script validation", ansi_bred );
             return {};
         }
         }
         if ( !validate_heap() ) {
-            std::string err = std::string( "validate_heap() failed request " )
-                                  .append( std::to_string( line.line ) )
-                                  .append( "\n" );
+            const auto err = std::string( "validate_heap() failed request " )
+                                 .append( std::to_string( line.line ) )
+                                 .append( "\n" );
             cerr_sync( err, ansi_bred );
             return {};
         }
@@ -186,10 +215,9 @@ bool eval_malloc( const script_line &line, script &s, void *&heap_end )
         cerr_sync( "Block is overlapping another block causing heap corruption.\n", ansi_bred );
         return false;
     }
-    std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size };
-    // As of current specs, subspan is undefined if Offset > .size(). So this is well defined and equivalent to
-    // new.data() == this->data() + Offset. Aka, the same pointer arithmetic clang gets so fussy about ¯\_(ツ)_/¯
-    std::span<uint8_t> end = cur_block.subspan( line.size );
+    const std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size };
+    // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
+    const std::span<uint8_t> end = cur_block.subspan( line.size );
     if ( end.data() > static_cast<uint8_t *>( heap_end ) ) {
         heap_end = end.data();
     }
@@ -201,7 +229,7 @@ bool eval_malloc( const script_line &line, script &s, void *&heap_end )
 bool eval_realloc( const script_line &line, script &s, void *&heap_end )
 {
     void *old_ptr = s.blocks.at( line.block_index ).first;
-    size_t old_size = s.blocks.at( line.block_index ).second;
+    const size_t old_size = s.blocks.at( line.block_index ).second;
     if ( !verify_payload( line.block_index, old_ptr, old_size ) ) {
         return false;
     }
@@ -217,10 +245,9 @@ bool eval_realloc( const script_line &line, script &s, void *&heap_end )
     if ( !verify_block( new_ptr, ( old_size < line.size ? old_size : line.size ), s ) ) {
         return false;
     }
-    std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( new_ptr ), line.size };
-    // As of current specs, subspan is undefined if Offset > .size(). So this is well defined and equivalent to
-    // new.data() == this->data() + Offset. Aka, the same pointer arithmetic clang gets so fussy about ¯\_(ツ)_/¯
-    std::span<uint8_t> end = cur_block.subspan( line.size );
+    const auto cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( new_ptr ), line.size };
+    // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
+    const std::span<uint8_t> end = cur_block.subspan( line.size );
     if ( end.data() > static_cast<uint8_t *>( heap_end ) ) {
         heap_end = end.data();
     }
@@ -231,7 +258,7 @@ bool eval_realloc( const script_line &line, script &s, void *&heap_end )
 
 bool eval_free( const script_line &line, script &s )
 {
-    std::pair<void *, size_t> old_block = s.blocks.at( line.block_index );
+    const std::pair<void *, size_t> old_block = s.blocks.at( line.block_index );
     if ( !verify_payload( line.block_index, old_block.first, old_block.second ) ) {
         cerr_sync( "Block corrupted before free", ansi_bred );
         return false;
@@ -245,13 +272,12 @@ bool verify_block( void *ptr, size_t size, const script &s )
     if ( reinterpret_cast<uintptr_t>( ptr ) % ALIGNMENT != 0 ) { // NOLINT
         cerr_sync( "block is out of alignment.", ansi_bred );
     }
-    if ( nullptr == ptr && size == 0 ) {
+    if ( nullptr == ptr && 0 == size ) {
         return true;
     }
-    std::span<uint8_t> block_end = std::span<uint8_t>( static_cast<uint8_t *>( ptr ), size ).subspan( size );
-    std::span<uint8_t> heap_end
-        = std::span<uint8_t>( static_cast<uint8_t *>( heap_segment_start() ), heap_segment_size() )
-              .subspan( heap_segment_size() );
+    auto block_end = std::span<const uint8_t>( static_cast<uint8_t *>( ptr ), size ).subspan( size );
+    auto heap_end = std::span<const uint8_t>( static_cast<uint8_t *>( heap_segment_start() ), heap_segment_size() )
+                        .subspan( heap_segment_size() );
     if ( ptr < heap_segment_start() ) {
         std::stringstream err{};
         err << "New block ( " << ptr << ":" << block_end.data() << ") not within heap segment ( "
@@ -259,7 +285,7 @@ bool verify_block( void *ptr, size_t size, const script &s )
             << ")\n"
                "|----block-------|\n"
                "        |------heap-------...|\n";
-        std::string errstr{ err.str() };
+        const std::string errstr{ err.str() };
         cerr_sync( errstr, ansi_bred );
         return false;
     }
@@ -270,7 +296,7 @@ bool verify_block( void *ptr, size_t size, const script &s )
             << ")\n"
                "           |----block-------|\n"
                "|...------heap------|\n";
-        std::string errstr{ err.str() };
+        const std::string errstr{ err.str() };
         cerr_sync( errstr, ansi_bred );
         return false;
     }
@@ -278,7 +304,7 @@ bool verify_block( void *ptr, size_t size, const script &s )
         if ( nullptr == addr || size == 0 ) {
             continue;
         }
-        std::span<uint8_t> other_end = std::span<uint8_t>( static_cast<uint8_t *>( addr ), size ).subspan( size );
+        auto other_end = std::span<const uint8_t>( static_cast<uint8_t *>( addr ), size ).subspan( size );
         if ( ptr >= addr && ptr < other_end.data() ) {
             std::stringstream err{};
             err << "New block ( " << ptr << ":" << block_end.data() << ") overlaps existing block ( " << addr << ":"
@@ -288,7 +314,7 @@ bool verify_block( void *ptr, size_t size, const script &s )
                    "or\n"
                    "  |--current----|\n"
                    "|------other-------|\n";
-            std::string errstr{ err.str() };
+            const std::string errstr{ err.str() };
             cerr_sync( errstr, ansi_bred );
             return false;
         }
@@ -301,7 +327,7 @@ bool verify_block( void *ptr, size_t size, const script &s )
                    "or\n"
                    "  |--current----|\n"
                    "|------other-------|\n";
-            std::string errstr{ err.str() };
+            const std::string errstr{ err.str() };
             cerr_sync( errstr, ansi_bred );
             return false;
         }
@@ -311,7 +337,7 @@ bool verify_block( void *ptr, size_t size, const script &s )
                 << other_end.data() << ")\n"
                 << "      |---current---|\n"
                    "|------------other------------|\n";
-            std::string errstr{ err.str() };
+            const std::string errstr{ err.str() };
             cerr_sync( errstr, ansi_bred );
             return false;
         }
@@ -323,8 +349,8 @@ bool verify_payload( size_t block_id, void *ptr, size_t size )
 {
     const uint8_t signature = block_id & lowest_byte;
     return std::ranges::all_of(
-        std::span<uint8_t>( static_cast<uint8_t *>( ptr ), size ),
-        [signature]( uint8_t byte ) { return byte == signature; }
+        std::span<const uint8_t>( static_cast<uint8_t *>( ptr ), size ),
+        [signature]( const uint8_t byte ) { return byte == signature; }
     );
 }
 
@@ -339,20 +365,16 @@ std::optional<script> parse_script( const std::string &filepath )
     size_t max_id = 0;
     for ( std::string buf{}; std::getline( sfile, buf ); ) {
         std::istringstream readline( buf );
-        std::vector<std::string> tokens_split_on_whitespace{
+        const std::vector<std::string> tokens_split_on_whitespace{
             std::istream_iterator<std::string>( readline ), std::istream_iterator<std::string>()
         };
         if ( tokens_split_on_whitespace.empty() || tokens_split_on_whitespace.front().starts_with( "#" ) ) {
             continue;
         }
-        std::optional<script_line> parsed = tokens_pass( tokens_split_on_whitespace );
+        const std::optional<script_line> parsed = tokens_pass( tokens_split_on_whitespace, line );
         if ( !parsed ) {
-            std::string err
-                = std::string( "Script error on line " ).append( std::to_string( line ) ).append( "\n" );
-            cerr_sync( err, ansi_bred );
             return {};
         }
-        parsed.value().line = line;
         s.lines.push_back( parsed.value() );
         max_id = std::max( max_id, parsed.value().block_index );
         ++line;
@@ -361,26 +383,31 @@ std::optional<script> parse_script( const std::string &filepath )
     return s;
 }
 
-std::optional<script_line> tokens_pass( std::span<std::string> toks )
+std::optional<script_line> tokens_pass( std::span<const std::string> toks, size_t line )
 {
     if ( toks.size() > 3 || toks.size() < 2 || !( toks[0] == "a" || toks[0] == "f" || toks[0] == "r" ) ) {
         cerr_sync( "Request has an unknown format.\n", ansi_bred );
         return {};
     }
-    script_line ret{};
+    script_line ret{ .line = line };
     try {
         ret.block_index = std::stoull( toks[1] );
     } catch ( [[maybe_unused]] std::invalid_argument &e ) {
-        cerr_sync( "Could not convert request to block id.\n", ansi_bred );
+        const auto err = std::string( "Could not convert request to block id line: " )
+                             .append( std::to_string( line ) )
+                             .append( "\n" );
+        cerr_sync( err, ansi_bred );
         return {};
     }
-    std::array<heap_request, 2> alloc_or_realloc{ heap_request::alloc, heap_request::realloc };
     if ( toks[0] == "a" || toks[0] == "r" ) {
-        ret.req = alloc_or_realloc.at( static_cast<size_t>( toks[0] == "r" ) );
+        ret.req = toks[0] == "a" ? heap_request::alloc : heap_request::realloc;
         try {
             ret.size = std::stoull( toks[2] );
         } catch ( [[maybe_unused]] std::invalid_argument &e ) {
-            cerr_sync( "Could not convert alloc request to valid number.\n", ansi_bred );
+            const auto err = std::string( "Could not convert alloc request to valid number line: " )
+                                 .append( std::to_string( line ) )
+                                 .append( "\n" );
+            cerr_sync( err, ansi_bred );
             return {};
         }
     } else if ( toks[0] == "f" ) {
