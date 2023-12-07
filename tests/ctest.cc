@@ -61,37 +61,37 @@ int test( std::span<const char *const> args )
 {
     try {
         size_t utilization = 0;
-        osync::cout( save_cursor );
+        osync::syncout( save_cursor );
         for ( size_t i = 0; i < args.size(); ++i ) {
-            osync::cout( background_loading_bar, ansi_bred );
+            osync::syncout( background_loading_bar, ansi_bred );
         }
-        osync::cout( restore_cursor );
+        osync::syncout( restore_cursor );
         for ( const auto *arg : args ) {
             std::optional<script::requests> script = script::parse_script( arg );
             if ( !script ) {
                 const auto err = std::string( "Failed to parse script " ).append( arg ).append( "\n" );
-                osync::cerr( err, ansi_bred );
+                osync::syncerr( err, ansi_bred );
                 return 1;
             }
             const std::optional<size_t> used_segment = eval_correctness( script.value() );
             if ( !used_segment ) {
                 const auto err = std::string( "Failed script " ).append( arg ).append( "\n" );
-                osync::cerr( err, ansi_bred );
+                osync::syncerr( err, ansi_bred );
                 return 1;
             }
             const size_t val = used_segment.value();
             if ( 0 < val ) {
                 utilization += ( scale_to_whole_num * script.value().peak ) / val;
             }
-            osync::cout( progress_bar, ansi_bgrn );
+            osync::syncout( progress_bar, ansi_bgrn );
         }
         const auto util
             = std::string( "Utilization=" ).append( std::to_string( utilization / args.size() ) ).append( "%\n" );
-        osync::cout( util, ansi_bgrn );
+        osync::syncout( util, ansi_bgrn );
         return 0;
     } catch ( std::exception &e ) {
         const auto ex = std::string( "Script tester exception thrown: " ).append( e.what() ).append( "\n" );
-        osync::cout( ex, ansi_bred );
+        osync::syncout( ex, ansi_bred );
         return 1;
     }
 }
@@ -112,11 +112,11 @@ std::optional<size_t> eval_correctness( script::requests &s )
 {
     init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
-        osync::cerr( "myinit() failed\n", ansi_bred );
+        osync::syncerr( "myinit() failed\n", ansi_bred );
         return {};
     }
     if ( !validate_heap() ) {
-        osync::cerr( "validate_heap() failed\n", ansi_bred );
+        osync::syncerr( "validate_heap() failed\n", ansi_bred );
         return {};
     }
     void *heap_end_addr = heap_segment_start();
@@ -130,7 +130,7 @@ std::optional<size_t> eval_correctness( script::requests &s )
                 const auto err = std::string( "Malloc request failure line " )
                                      .append( std::to_string( line.line ) )
                                      .append( "\n" );
-                osync::cerr( err, ansi_bred );
+                osync::syncerr( err, ansi_bred );
                 return {};
             }
         } break;
@@ -141,7 +141,7 @@ std::optional<size_t> eval_correctness( script::requests &s )
                 const auto err = std::string( "Realloc request failure line " )
                                      .append( std::to_string( line.line ) )
                                      .append( "\n" );
-                osync::cerr( err, ansi_bred );
+                osync::syncerr( err, ansi_bred );
                 return {};
             }
         } break;
@@ -151,7 +151,7 @@ std::optional<size_t> eval_correctness( script::requests &s )
                 const auto err = std::string( "Free request failure line " )
                                      .append( std::to_string( line.line ) )
                                      .append( "\n" );
-                osync::cerr( err, ansi_bred );
+                osync::syncerr( err, ansi_bred );
                 return {};
             }
             std::pair<void *, size_t> &old_block = s.blocks.at( line.block_index );
@@ -160,7 +160,7 @@ std::optional<size_t> eval_correctness( script::requests &s )
         } break;
 
         default: {
-            osync::cerr( "Unknown request slipped through script validation\n", ansi_bred );
+            osync::syncerr( "Unknown request slipped through script validation\n", ansi_bred );
             return {};
         }
         }
@@ -168,7 +168,7 @@ std::optional<size_t> eval_correctness( script::requests &s )
             const auto err = std::string( "validate_heap() failed request " )
                                  .append( std::to_string( line.line ) )
                                  .append( "\n" );
-            osync::cerr( err, ansi_bred );
+            osync::syncerr( err, ansi_bred );
             return {};
         }
         s.peak = std::max( s.peak, heap_size );
@@ -176,7 +176,7 @@ std::optional<size_t> eval_correctness( script::requests &s )
     for ( size_t block_id = 0; block_id < s.blocks.size(); ++block_id ) {
         const std::pair<void *, size_t> &block = s.blocks.at( block_id );
         if ( !verify_payload( block_id, block.first, block.second ) ) {
-            osync::cerr( "Final blocks validation failed.\n", ansi_bred );
+            osync::syncerr( "Final blocks validation failed.\n", ansi_bred );
             return {};
         }
     }
@@ -187,11 +187,11 @@ bool eval_malloc( const script::line &line, script::requests &s, void *&heap_end
 {
     void *p = mymalloc( line.size );
     if ( nullptr == p && line.size != 0 ) {
-        osync::cerr( "mymalloc() exhasted the heap\n", ansi_bred );
+        osync::syncerr( "mymalloc() exhasted the heap\n", ansi_bred );
         return false;
     }
     if ( !verify_block( p, line.size, s ) ) {
-        osync::cerr( "Block is overlapping another block causing heap corruption.\n", ansi_bred );
+        osync::syncerr( "Block is overlapping another block causing heap corruption.\n", ansi_bred );
         return false;
     }
     const std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size };
@@ -215,7 +215,7 @@ bool eval_realloc( const script::line &line, script::requests &s, void *&heap_en
     }
     void *new_ptr = myrealloc( old_ptr, line.size );
     if ( nullptr == new_ptr && line.size != 0 ) {
-        osync::cerr( "Realloc exhausted the heap.\n", ansi_bred );
+        osync::syncerr( "Realloc exhausted the heap.\n", ansi_bred );
         return false;
     }
     s.blocks[line.block_index].second = 0;
@@ -236,7 +236,7 @@ bool eval_free( const script::line &line, script::requests &s )
 {
     const std::pair<void *, size_t> old_block = s.blocks.at( line.block_index );
     if ( !verify_payload( line.block_index, old_block.first, old_block.second ) ) {
-        osync::cerr( "Block corrupted before free\n", ansi_bred );
+        osync::syncerr( "Block corrupted before free\n", ansi_bred );
         return false;
     }
     myfree( old_block.first );
@@ -246,7 +246,7 @@ bool eval_free( const script::line &line, script::requests &s )
 bool verify_block( void *ptr, size_t size, const script::requests &s )
 {
     if ( reinterpret_cast<uintptr_t>( ptr ) % ALIGNMENT != 0 ) { // NOLINT
-        osync::cerr( "block is out of alignment.\n", ansi_bred );
+        osync::syncerr( "block is out of alignment.\n", ansi_bred );
     }
     if ( nullptr == ptr && 0 == size ) {
         return true;
@@ -262,7 +262,7 @@ bool verify_block( void *ptr, size_t size, const script::requests &s )
                "|----block-------|\n"
                "        |------heap-------...|\n";
         const std::string errstr{ err.str() };
-        osync::cerr( errstr, ansi_bred );
+        osync::syncerr( errstr, ansi_bred );
         return false;
     }
     if ( block_end.data() > heap_end.data() ) {
@@ -273,7 +273,7 @@ bool verify_block( void *ptr, size_t size, const script::requests &s )
                "           |----block-------|\n"
                "|...------heap------|\n";
         const std::string errstr{ err.str() };
-        osync::cerr( errstr, ansi_bred );
+        osync::syncerr( errstr, ansi_bred );
         return false;
     }
     for ( const auto &[addr, size] : s.blocks ) {
@@ -291,7 +291,7 @@ bool verify_block( void *ptr, size_t size, const script::requests &s )
                    "  |--current----|\n"
                    "|------other-------|\n";
             const std::string errstr{ err.str() };
-            osync::cerr( errstr, ansi_bred );
+            osync::syncerr( errstr, ansi_bred );
             return false;
         }
         if ( block_end.data() > addr && block_end.data() < other_end.data() ) {
@@ -304,7 +304,7 @@ bool verify_block( void *ptr, size_t size, const script::requests &s )
                    "  |--current----|\n"
                    "|------other-------|\n";
             const std::string errstr{ err.str() };
-            osync::cerr( errstr, ansi_bred );
+            osync::syncerr( errstr, ansi_bred );
             return false;
         }
         if ( ptr < addr && block_end.data() >= other_end.data() ) {
@@ -314,7 +314,7 @@ bool verify_block( void *ptr, size_t size, const script::requests &s )
                 << "      |---current---|\n"
                    "|------------other------------|\n";
             const std::string errstr{ err.str() };
-            osync::cerr( errstr, ansi_bred );
+            osync::syncerr( errstr, ansi_bred );
             return false;
         }
     }

@@ -53,7 +53,7 @@ std::optional<line> tokens_pass( std::span<const std::string> toks, size_t linen
 {
     try {
         if ( toks.size() > 3 || toks.size() < 2 || !( toks[0] == "a" || toks[0] == "f" || toks[0] == "r" ) ) {
-            osync::cerr( "Request has an unknown format.\n", ansi_bred );
+            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
             return {};
         }
         line ret{ .line = lineno };
@@ -64,7 +64,7 @@ std::optional<line> tokens_pass( std::span<const std::string> toks, size_t linen
         } else if ( toks[0] == "f" ) {
             ret.req = op::freed;
         } else {
-            osync::cerr( "Request has an unknown format.\n", ansi_bred );
+            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
             return {};
         }
         return ret;
@@ -72,7 +72,7 @@ std::optional<line> tokens_pass( std::span<const std::string> toks, size_t linen
         const auto err = std::string( "Could not convert size or id on line: " )
                              .append( std::to_string( lineno ) )
                              .append( "\n" );
-        osync::cerr( err, ansi_bred );
+        osync::syncerr( err, ansi_bred );
         return {};
     }
 }
@@ -81,7 +81,7 @@ bool exec_malloc( const script::line &line, script::requests &s, void *&heap_end
 {
     void *p = mymalloc( line.size );
     if ( nullptr == p && line.size != 0 ) {
-        osync::cerr( "mymalloc() exhasted the heap\n", ansi_bred );
+        osync::syncerr( "mymalloc() exhasted the heap\n", ansi_bred );
         return false;
     }
     const std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size };
@@ -101,7 +101,7 @@ bool exec_realloc( const script::line &line, script::requests &s, void *&heap_en
     const size_t old_size = s.blocks.at( line.block_index ).second;
     void *new_ptr = myrealloc( old_ptr, line.size );
     if ( nullptr == new_ptr && line.size != 0 ) {
-        osync::cerr( "Realloc exhausted the heap.\n", ansi_bred );
+        osync::syncerr( "Realloc exhausted the heap.\n", ansi_bred );
         return false;
     }
     s.blocks[line.block_index].second = 0;
@@ -123,7 +123,7 @@ std::optional<size_t> exec_request( const line &line, requests &script, size_t h
             const auto err = std::string( "Malloc request failure line " )
                                  .append( std::to_string( line.line ) )
                                  .append( "\n" );
-            osync::cerr( err, osync::ansi_bred );
+            osync::syncerr( err, osync::ansi_bred );
             return {};
         }
     } break;
@@ -133,7 +133,7 @@ std::optional<size_t> exec_request( const line &line, requests &script, size_t h
             const auto err = std::string( "Realloc request failure line " )
                                  .append( std::to_string( line.line ) )
                                  .append( "\n" );
-            osync::cerr( err, osync::ansi_bred );
+            osync::syncerr( err, osync::ansi_bred );
             return {};
         }
     } break;
@@ -144,7 +144,7 @@ std::optional<size_t> exec_request( const line &line, requests &script, size_t h
         old_block = { nullptr, 0 };
     } break;
     default: {
-        osync::cerr( "Unknown request slipped through script validation", osync::ansi_bred );
+        osync::syncerr( "Unknown request slipped through script validation", osync::ansi_bred );
         return {};
     }
     }
@@ -167,7 +167,7 @@ std::optional<double> time_malloc( const script::line &line, script::requests &s
                        .append( std::to_string( printablestart ) )
                        .append( std::to_string( printableend ) )
                        .append( "\n" );
-        osync::cerr( err, ansi_bred );
+        osync::syncerr( err, ansi_bred );
         return {};
     }
     const std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size };
@@ -199,7 +199,7 @@ std::optional<double> time_realloc( const script::line &line, script::requests &
                        .append( std::to_string( printablestart ) )
                        .append( std::to_string( printableend ) )
                        .append( "\n" );
-        osync::cerr( err, ansi_bred );
+        osync::syncerr( err, ansi_bred );
         return {};
     }
     s.blocks[line.block_index].second = 0;
@@ -251,7 +251,7 @@ std::optional<heap_delta> time_request( const line &line, requests &script, size
         return std::optional<heap_delta>{ { heap_size, t } };
     }
     default: {
-        osync::cerr( "Unknown request slipped through script validation", osync::ansi_bred );
+        osync::syncerr( "Unknown request slipped through script validation", osync::ansi_bred );
         return {};
     }
     }

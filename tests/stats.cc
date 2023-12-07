@@ -57,7 +57,7 @@ int stats( std::span<const char *const> args )
             } else if ( std::string::npos != arg_copy.find( ".script" ) ) {
                 filename = args[i];
             } else {
-                osync::cerr( "Unknown flag. Only specify '-q' or '-r [start] [end]'.\n", osync::ansi_bred );
+                osync::syncerr( "Unknown flag. Only specify '-q' or '-r [start] [end]'.\n", osync::ansi_bred );
                 return 1;
             }
         }
@@ -67,7 +67,7 @@ int stats( std::span<const char *const> args )
         return time_script( filename, user_reqs );
     } catch ( std::exception &e ) {
         auto err = std::string( "Stat program failed with exception " ).append( e.what() ).append( "\n" );
-        osync::cerr( err, osync::ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return 1;
     }
 }
@@ -107,7 +107,7 @@ std::optional<size_t> time_allocator( script::requests &s, interval_reqs &user_r
 {
     init_heap_segment( heap_size );
     if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
-        osync::cerr( "Heap initialization failure.", osync::ansi_bred );
+        osync::syncerr( "Heap initialization failure.", osync::ansi_bred );
         return {};
     }
     void *heap_end = heap_segment_start();
@@ -161,7 +161,7 @@ bool validate_intervals( script::requests &s, interval_reqs &user_requests )
                            .append( "\nScript range: 1-" )
                            .append( std::to_string( s.lines.size() ) )
                            .append( "\n" );
-            osync::cerr( err, osync::ansi_bred );
+            osync::syncerr( err, osync::ansi_bred );
             return false;
         }
         if ( s.lines.size() - 1 < user_requests.intervals[i].end_req || 0 == user_requests.intervals[i].end_req ) {
@@ -174,13 +174,13 @@ bool validate_intervals( script::requests &s, interval_reqs &user_requests )
 bool set_interval( interval_reqs &user_reqs, std::span<const char *const> args, size_t i )
 {
     if ( i + 1 >= args.size() ) {
-        osync::cerr( "Starting breakpoint not specified\n", osync::ansi_bred );
+        osync::syncerr( "Starting breakpoint not specified\n", osync::ansi_bred );
         return false;
     }
     interval intv = { 0, 0 };
     intv.start_req = std::stoi( args[i + 1] );
     if ( !user_reqs.intervals.empty() && user_reqs.intervals[i - 1].end_req >= intv.start_req ) {
-        osync::cerr( "Stats does not support overlapping intervals.\n", osync::ansi_bred );
+        osync::syncerr( "Stats does not support overlapping intervals.\n", osync::ansi_bred );
         return false;
     }
     if ( i + 2 >= args.size() ) {
@@ -189,7 +189,7 @@ bool set_interval( interval_reqs &user_reqs, std::span<const char *const> args, 
     }
     intv.end_req = std::stoi( args[i + 2] );
     if ( intv.end_req < intv.start_req ) {
-        osync::cerr( "End of range precedes start.\n", osync::ansi_bred );
+        osync::syncerr( "End of range precedes start.\n", osync::ansi_bred );
         return false;
     }
     user_reqs.intervals.push_back( intv );

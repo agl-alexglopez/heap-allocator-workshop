@@ -229,7 +229,7 @@ int plot( std::span<const char *const> cli_args )
                 args.script_name.emplace( arg_copy );
             } else {
                 auto err = std::string( "Invalid command line request: " ).append( arg_copy ).append( "\n" );
-                osync::cerr( err, osync::ansi_bred );
+                osync::syncerr( err, osync::ansi_bred );
                 return 1;
             }
         }
@@ -241,7 +241,7 @@ int plot( std::span<const char *const> cli_args )
         return 0;
     } catch ( std::exception &e ) {
         auto err = std::string( "Plot program caught exception " ).append( e.what() ).append( "\n" );
-        osync::cerr( err, osync::ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return 1;
     }
 }
@@ -322,7 +322,7 @@ void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &
             )
         );
     } else {
-        osync::cerr( "invalid options slipped through command line args.\n", osync::ansi_bred );
+        osync::syncerr( "invalid options slipped through command line args.\n", osync::ansi_bred );
     }
 }
 
@@ -335,7 +335,7 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
     for ( const auto &args : big_o_timing.at( args.op ) ) {
         const double script_size = parse_quantity_n( args.back() );
         if ( script_size == 0 ) {
-            osync::cerr( "could not parse script size\n", osync::ansi_bred );
+            osync::syncerr( "could not parse script size\n", osync::ansi_bred );
             return;
         }
         x_axis( m.interval_speed ).push_back( script_size );
@@ -461,12 +461,12 @@ bool thread_run_cmd(
     }
     if ( !close_process( { process, bytes_read } ) ) {
         // Many threads may output error messages so we will always sync cerr to aid legibility.
-        osync::cerr( "This thread is quitting early, child subprocess failed\n", osync::ansi_bred );
+        osync::syncerr( "This thread is quitting early, child subprocess failed\n", osync::ansi_bred );
         return false;
     }
     const std::string data = std::string( vec_buf.data() );
     if ( !parse_metrics( data, allocator_index, m ) ) {
-        osync::cerr( "This thread is quitting early due to parsing error\n", osync::ansi_bred );
+        osync::syncerr( "This thread is quitting early due to parsing error\n", osync::ansi_bred );
         return false;
     }
     return true;
@@ -476,7 +476,7 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
 {
     std::array<int, 2> comms{ 0, 0 };
     if ( pipe2( comms.data(), O_CLOEXEC ) < 0 ) {
-        osync::cerr( "Could not open pipe for communication\n", osync::ansi_bred );
+        osync::syncerr( "Could not open pipe for communication\n", osync::ansi_bred );
         return -1;
     }
     if ( fork() != 0 ) {
@@ -485,7 +485,7 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
     }
     close( comms[0] );
     if ( dup2( comms[1], STDOUT_FILENO ) < 0 ) {
-        osync::cerr( "Child cannot communicate to parent.\n", osync::ansi_bred );
+        osync::syncerr( "Child cannot communicate to parent.\n", osync::ansi_bred );
         close( comms[1] );
         exit( 1 );
     }
@@ -499,7 +499,7 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
     execv( cmd_path.data(), const_cast<char *const *>( arg_copy.data() ) ); // NOLINT
     auto err
         = std::string( "Child process failed abnormally errno: " ).append( std::to_string( errno ) ).append( "\n" );
-    osync::cerr( err, osync::ansi_bred );
+    osync::syncerr( err, osync::ansi_bred );
     close( comms[1] );
     exit( 1 );
 }
@@ -511,11 +511,11 @@ bool close_process( process_result res )
     const int wait_err = waitpid( -1, &err, 0 );
     if ( WIFSIGNALED( err ) && WTERMSIG( err ) == SIGSEGV ) { // NOLINT
         auto err = std::string( "Seg fault waitpid returned " ).append( std::to_string( wait_err ) ).append( "\n" );
-        osync::cerr( err, osync::ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return false;
     }
     if ( res.bytes_read == -1 ) {
-        osync::cerr( "read error\n", osync::ansi_bred );
+        osync::syncerr( "read error\n", osync::ansi_bred );
         return false;
     }
     return true;
@@ -530,7 +530,7 @@ double parse_quantity_n( std::string_view script_name )
         return std::stod( num ) * 1000;
     } catch ( std::invalid_argument &a ) {
         auto err = std::string( "Caught invalid argument: " ).append( a.what() ).append( "\n" );
-        osync::cerr( err, osync::ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return 0;
     }
 }
@@ -549,7 +549,7 @@ bool parse_metrics( const std::string &output, const size_t allocator_index, run
         series( m.overall_utilization, allocator_index ).emplace_back( stod( utilization ) );
         return true;
     } catch ( std::invalid_argument &a ) {
-        osync::cerr( "Error parsing string input to metrics\n", osync::ansi_bred );
+        osync::syncerr( "Error parsing string input to metrics\n", osync::ansi_bred );
         return false;
     }
 }
@@ -590,7 +590,7 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
         plot->line_width( 2 );
         // It is always sketchy to use the .back() function, but I am not sure if there is a better associative way.
         if ( ::matplot::legend()->strings().empty() ) {
-            osync::cerr( "No legend entry generated for matplot++ plot. Has API changed?\n", osync::ansi_bred );
+            osync::syncerr( "No legend entry generated for matplot++ plot. Has API changed?\n", osync::ansi_bred );
             return;
         }
         // It seems the legend is freestanding but still associated with the current axes_object. Not plot!
@@ -653,7 +653,9 @@ void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
 std::optional<size_t> specify_threads( std::string_view thread_request )
 {
     if ( thread_request == "-j" ) {
-        osync::cerr( "Invalid core count requested. Did you mean -j[CORES] without a space?\n", osync::ansi_bred );
+        osync::syncerr(
+            "Invalid core count requested. Did you mean -j[CORES] without a space?\n", osync::ansi_bred
+        );
         return 1;
     }
     std::string cores
@@ -671,7 +673,7 @@ std::optional<size_t> specify_threads( std::string_view thread_request )
                        .append( ": " )
                        .append( cores )
                        .append( "\n" );
-        osync::cerr( err, osync::ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return {};
     }
 }
@@ -688,7 +690,7 @@ const data_set &set( const runtime_metrics &m, data_set_type request )
     case utilization:
         return m.overall_utilization;
     default: {
-        osync::cerr( "invalid request type for a data set that does not exist.\n", osync::ansi_bred );
+        osync::syncerr( "invalid request type for a data set that does not exist.\n", osync::ansi_bred );
         std::abort();
     }
     }
