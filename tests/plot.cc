@@ -584,9 +584,6 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     axes->font_size( 14.0 );
     size_t tick_style = 0;
     for ( const auto &allocator : set( m, t ).second ) {
-        if ( allocator.first == "list segregated" ) {
-            continue;
-        }
         // Now we grab a "plot" where we want to put our actual data with x data and y data.
         auto plot = axes->plot( x_axis( m.overall_utilization ), allocator.second, line_ticks.at( tick_style ) );
         plot->line_width( 2 );
@@ -605,7 +602,7 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     ::matplot::legend()->location( matplot::legend::general_alignment::bottomright );
     ::matplot::legend()->num_rows( 3 );
     ::matplot::legend()->box( false );
-    ::matplot::legend()->font_size( 12.0 );
+    ::matplot::legend()->font_size( 14.0 );
     p->size( 1920, 1080 );
     p->save( std::string( l.filename ) );
     matplot::hold( false );

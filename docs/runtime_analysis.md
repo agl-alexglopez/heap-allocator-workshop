@@ -52,19 +52,19 @@ Here are the key details from the above graph.
 - Lower time in milliseconds is better.
 - The time complexity of inserting and deleting N elements into our tree is O(NlgN).
   - We may also see some extra time cost from breaking off extra space from a block that is too large and reinserting it into the tree. However, this is hard to predictably measure and does not seem to have an effect on the Big-O time complexity.
-- We see an improvement of ~10% in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
-- The top-down approach to managing a Red-Black tree is not the fastest in terms of inserting and deleting from the tree, but it is extremely competitive.
+- We see a slight improvement in runtime speed when we manage duplicates with a doubly linked list to trim the tree.
+- The top-down approach to managing a Red-Black and Splay tree is not the fastest in terms of inserting and deleting from the tree, but it is extremely competitive.
 - These allocators clearly outperform the standard segregated fits allocator. However, it is tricky to pin down the runtime time complexity of the segregated list allocator exactly. It approaches an O(N^2) time complexity.
 
-Recall from the allocator summaries that we are required to manage duplicates in a Red-Black tree if we decide to abandon the parent field of the traditional node. The two approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_top-down` and `rbtree_stack`. The top-down approach is still an improvement over a traditional Red-Black tree, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is the winner in this competition. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall. We still need to measure coalescing performance, but this makes the `rbtree_linked` implementation seem the most pointless at this point if the same speed can be achieved with more space efficiency.
+Recall from the allocator summaries that we are required to manage duplicates in a Red-Black and Splay tree if we decide to abandon the parent field of the traditional node. The approaches that trade the parent field for the pointer to a linked list of duplicates perform admirably: `rbtree_top-down` and `rbtree_stack`. The top-down approach is still an improvement over a traditional trees, but surprisingly, the stack implementation that relies on the logical structure of the CLRS Red-Black tree is also close. While I thought the `rbtree_linked` approach that uses a field for the `*parent`, `links[LEFT]`, `links[RIGHT]`, and `*list_start` would be the worst in terms of space efficiency, I thought we would gain some speed overall and that seems to be the case. We still need to measure coalescing performance, but this makes the `rbtree_linked` implementation seem the most pointless at this point if the same speed can be achieved with more space efficiency or other approaches. It is truly back and forth for first place among the three top allocators.
 
-Finally, the performance gap scales as a percentage, meaning we will remain about %10 faster when we manage duplicates to trim the tree even when we are dealing with millions of elements and our times have increased greatly. Managing duplicates in a linked list with only the use of one pointer is a worthwhile optimization. Revisit any summary of the last three allocators if you want more details on how this optimization works.
+Managing duplicates in a linked list with only the use of one pointer is a worthwhile optimization. Revisit any summary of the last three allocators if you want more details on how this optimization works.
 
-On a per request basis, we can observe the speedup in an allocator like `rbtree_linked`. Recall the earlier graph I showed of the CLRS implementation completing 1 million insertions and deletions from the tree. Here is the graph illustrating the speedup we gain with these optimizations. The times often fall too low to be consistently measurable and there is far less jumping up in time to complete a request.
+On a per request basis, we can observe the speedup in an allocator like `rbtree_linked`. Here is a graph illustrating the average response time over the same interval.
 
-![rb-time-per-request-1m-linked](/images/rb-time-per-request-1m-linked.png)
+![response-zoom](/images/response-zoom.png)
 
-*Pictured Above: Two graphs. The top represents the number of free nodes over a script's lifetime and the bottom represents the time to complete a single request over the script's lifetime.*
+*Pictured Above: Average response time over a malloc/free interval.*
 
 ## Coalescing
 
