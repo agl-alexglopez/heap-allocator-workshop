@@ -10,12 +10,10 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <cstdio>
 #include <exception>
 #include <iostream>
 #include <optional>
 #include <span>
-#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -185,8 +183,6 @@ void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim )
 {
     const size_t min = user_reqs.breakpoints[lim.cur] + 1;
     for ( ;; ) {
-        char c{};
-        std::string clear_cin{};
         if ( user_reqs.breakpoints[lim.cur] == lim.max ) {
             auto msg = std::string();
             std::cout << "Script complete.\nEnter<ENTER> to exit: ";
@@ -195,52 +191,37 @@ void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim )
         }
         if ( lim.cur < user_reqs.breakpoints.size() ) {
             std::cout << "Enter the character <c> to continue to next breakpoint.\n"
-                         "Enter the character <b> to add a new breakpoints.\n"
+                         "Enter a positive line number to add another breakpoints.\n"
                          "Enter <ENTER> to exit: ";
         } else {
             std::cout << "No breakpoints remain.\n"
                          "Enter the character <b> to add a new breakpoints.\n"
                          "Enter <ENTER> to exit: ";
         }
-        c = static_cast<char>( getchar() );
-        if ( EOF == c || '\n' == c ) {
-            user_reqs.breakpoints.clear();
-            return;
-        }
-        if ( 'b' > c || 'c' < c ) {
-            auto msg = std::string( "Error: You entered " ).append( std::to_string( c ) ).append( "\n" );
-            std::cout << msg;
-            std::getline( std::cin, msg );
-            continue;
-        }
-        if ( 'b' == c ) {
-            std::getline( std::cin, clear_cin );
-            try {
-                std::cout << "Enter the breakpoint: ";
-                std::cin >> clear_cin;
-                const size_t breakpoint = std::stoull( clear_cin );
-                if ( breakpoint > lim.max || breakpoint < min ) {
-                    const auto msg = std::string( "Breakpoint is past the last which is " )
-                                         .append( std::to_string( lim.max ) )
-                                         .append( "\n" );
-                    std::cout << msg;
-                } else {
-                    user_reqs.breakpoints.insert(
-                        std::upper_bound( user_reqs.breakpoints.begin(), user_reqs.breakpoints.end(), breakpoint ),
-                        breakpoint
-                    );
-                }
-            } catch ( std::invalid_argument &e ) {
-                const auto msg = std::string( "Could not convert provided string to breakpoint: " )
-                                     .append( clear_cin )
+        std::string buf{};
+        std::getline( std::cin, buf );
+        try {
+            const size_t breakpoint = std::stoull( buf );
+            if ( breakpoint > lim.max || breakpoint < min ) {
+                const auto msg = std::string( "Breakpoint is past the last which is " )
+                                     .append( std::to_string( lim.max ) )
                                      .append( "\n" );
                 std::cout << msg;
+            } else if ( !std::binary_search(
+                            user_reqs.breakpoints.begin(), user_reqs.breakpoints.end(), breakpoint
+                        ) ) {
+                user_reqs.breakpoints.insert(
+                    std::lower_bound( user_reqs.breakpoints.begin(), user_reqs.breakpoints.end(), breakpoint ),
+                    breakpoint
+                );
             }
-            std::getline( std::cin, clear_cin );
-            continue;
+        } catch ( ... ) {
+            if ( buf.empty() || buf == "c" ) {
+                return;
+            }
+            const auto msg = std::string( "Invalid entry: " ).append( buf );
+            std::cout << msg;
         }
-        std::getline( std::cin, clear_cin );
-        return;
     }
 }
 
