@@ -82,18 +82,19 @@ If we are using a normal Red Black Tree with a parent field, we treat all coales
 
 *Pictured Above: The allocators compared for average response time over increasing ranges of requests with increasing allocated nodes.*
 
-Here are the key details from the above graph.
+Here we see the first clear cut case where these allocators beat the speed of `libc`. This makes sense because coalescing logic is where I put most of my attention towards. My list segregated allocator also should not have too much trouble with this operation because it currently inserts nodes into buckets at the front which is a constant time operation versus its slower first fit `malloc` search. It is also impotant to asses the response time of `realloc`. This is because `realloc` is often thought to be a bottleneck function due to the higher instruction counts you may be dealing with, especially regarding the requirement to possibly `memmove` or `memcpy` user data to a new location. So, I believe `realloc` is a great place to look to optimize and try to eliminate operations that are not constant time when possible.
+
+Here are the key takeaways.
 
 - The runtime of N reallocations is O(NlgN).
-- The `rbtree_linked` implementation with nodes that have a `*parent`, `links[LEFT-RIGHT]`, and `*list_start` field is the clear winner. The number of O(1) encounters with duplicates reduces the overall runtime of the allocator significantly.
+- The `splaytree_topdown` and rbtree_linked` implementations are the clear winners here. The number of O(1) encounters with duplicates reduces the overall runtime of the allocator significantly.
 - The stack approach is again a solid balance of space-efficiency and speed. However, it seems that accessing an array to get the nodes you need is a factor slowing this implementation down compared to `rbtree_linked`. The search to build the stack when we coalesce a unique node also shows up as a time cost without the `parent` field. There is also added complexity in how `rbtree_stack` and `rbtree_top-down` store the parent field, increasing instruction counts.
 - The top-down approach must fix the tree while it goes down to remove a node, thus costing time due to extra work, but it is no worse than a standard implementation in this context.
-- The `rbtree_unified` implementation only differs from the `rbtree_clrs` implementation in that unifies the left and right cases of a Red Black tree using an array in one of the node fields. Yet, it is slower in this application.
-- The `list_segregated` allocator is more competitive in this category, but is soon outclassed by the speed of the Red-Black tree allocators. This makes sense because freeing nodes from a doubly linked list to coalesce them will always be an O(1) operation. I hypothesize that the slowdown comes from the time it takes whenever we must search the lookup table and lists to find the first fist. All other operations are O(1) and should not be bottlenecks for this allocator.
+- The traditional `clrs` and `unified` red black trees slow down a little here because they do not benefit from any coalescing operations and will always perform their O(lgN) fixup operations.
 
-These results make the most wasteful implementation in terms of space, `rbtree_linked`, more of a proof of concept. If the similar results can be achieved with more space efficiency, the implementation loses value.
+These results make the most wasteful implementation in terms of space, `rbtree_linked`, more of a proof of concept. If the similar results can be achieved with a variety of more space efficient implementations.
 
-I also have lingering questions about why the `rbtree_unified` implementation is slower than the traditional `rbtree_clrs` implementation in insertions and deletions. However, an undeniable conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a fruitful challenge in terms of speed. To get an idea of just how many duplicates the allocators may encounter in these artificial workloads, here is a picture of the tree configuration for 50,000 insert delete requests at the peak of the tree size.
+A conclusion from both sets of tests so far is that it is worth managing duplicate nodes in a linked list. The fact that we are required to do so when we abandon the parent field is a fruitful challenge in terms of speed. To get an idea of just how many duplicates the allocators may encounter in these artificial workloads, here is a picture of the tree configuration for 50,000 insert delete requests at the peak of the tree size.
 
 ![50k-insert-delete](/images/rb-tree-50k-insertdelete.png)
 
@@ -101,9 +102,9 @@ I also have lingering questions about why the `rbtree_unified` implementation is
 
 ## Tracing Programs
 
-While the initial artificial tests were fun for me to lab and consider in terms of how to best measure and execute parts of scripts, we are leaving out a major testing component. Real world testing is key! I will reiterate, I have no specific application in mind for any of these allocators. This makes choosing the programs to test somewhat arbitrary. I am choosing programs or Linux commands that are interesting to me and I will seek some variety wherever possible. If this were a more serious piece of research, this would be a key moment to begin forming the cost and benefit across a wide range of applications.
+While the initial artificial tests were fun for me to lab and consider in terms of how to best measure and execute parts of scripts, we are leaving out a major testing component. Real world testing is key! I will reiterate, I have no specific application in mind for any of these allocators. This makes choosing the programs to test somewhat arbitrary. I am choosing programs that are interesting to me and I will seek some variety wherever possible. If this were a more serious piece of research, this would be a key moment to begin forming the cost and benefit across a wide range of applications.
 
-To trace programs we use the `ltrace` command (thank you to my professor of CS107 at Stanford, Nick Troccoli for giving me the tutorial on how to trace memory usage in Linux). This command has many options and one set of instructions will allow you to trace `malloc`, `calloc`, `realloc`, and `free` calls like this.
+To trace programs we use the `ltrace` command. This command has many options and one set of instructions will allow you to trace `malloc`, `calloc`, `realloc`, and `free` calls like this.
 
 ```bash
 ltrace -e malloc+realloc+calloc -e free-@libc.so* --output [FILENAME] [COMMAND]
@@ -111,49 +112,11 @@ ltrace -e malloc+realloc+calloc -e free-@libc.so* --output [FILENAME] [COMMAND]
 
 If we then write a simple parsing program we can turn the somewhat verbose output of the `ltrace` command into a cleaned up and more simple `.script` file. If you would like to see how that parsing is done, read my implementation in Python.
 
-> **Read my code here ([`parsing.py`](/pysrc/parsing.py)).**
-
-### Linux Tree Command
-
-The Linux `tree` command will print out all directory contents in a tree structure from the current directory as root. This is similar to my tree printing function you have seen me use to illustrate Red Black trees throughout this write up. There are many options for this command but I am choosing to start in the `home/` directory of Ubuntu on WSL2 and use the `-f` and `-a` flags which will output full paths and hidden files for all directories. Again, for perspective here is the full comparison with the list allocators.
-
-![chart-tracetree](/images/chart-tracetree.png)
-
-While it may seem that the naive `list_bestfit` allocator is outclassed, this section will reveal interesting real-world test results that make the list allocators quite competitive. You may have already noticed that the `list_segregated` allocator is in the lead.
-
-![chart-rbtracetree](/images/chart-rbtracetree.png)
-
-Here are the key details from the above graph.
-
-- Requests for the `tree` command consist mostly of `malloc()` and `free()` and the free tree remains small over the course of the program's lifetime.
-- The `rbtree_unified` implementation is surprisingly slow in this scenario.
-- Again, no compromises in the `rbtree_linked` implementation make it fast, even if it is not space efficient.
-- The peak number of free nodes that the `list_segregated` had to manage was 2,381. This is a relatively small number to manage and therefore the more simple implementation is able to shine with its lower instruction counts.
-
-### Neovim
-
-Neovim is my editor of choice for this project. It is a text editor based off of Vim and we can actually trace its heap usage while we use it to edit a document. We will trace the heap usage while we edit the README.md for the project. This program usage is similar to the Linux Tree command with many `malloc()` and `free()` calls. However, among the roughly 800,000 requests to the heap for a short editing session, there were 35,216 calls to realloc, so we have more diverse heap usage.
-
-![chart-nvim](/images/chart-rbtracenvim.png)
-
-Here are the key observations from the above graph.
-
-- The traditional CLRS implementation of a Red Black tree will perform well in any application where there are many calls `malloc()` and `free()` and the tree remains small.
-- The extra complexity of managing duplicates speeds up the tree slightly when the tree remains small.
-- The number of free nodes in this test was small. There were only roughly 708, so the list allocators, even `list_bestfit`, can do well here.
-
 ### Utilization
 
-The list allocators can again show value in their high utilization due to low overhead to maintain the list. We can compare utilization across the insertion/deletion, coalescing, and tracing applications.
+There is not much interesting to report here. The utilization of most allocators is the same or very similar. Any allocators that have the same size for free nodes and headers will have the same utilization and other differences may be hard to spot. One note is that I currently do not have a way to fin the utilization of libc. However, I think they provide some opaque pointers or functions that may help with this. However, that requires more research. Here is the utilization for the `time-trace-cargobuild.script`.
 
-![chart-utilization](/images/chart-utilization.png)
-
-Here are the key details from the above graph.
-
-- While slow, the doubly linked list allocator has excellent utilization.
-- The implementations of the `rbtree_clrs`, `rbtree_unified`, `rbtree_stack`, and `rbtree_top-down` are different in terms of the details of their code and algorithms. However, they have the exact same space used in their nodes, therefore the utilization is identical.
-- Perhaps this view makes the cost of the speed gained by the `rbtree_linked` approach more apparent.
-- The more advanced Segregated Fits allocator can achieve an excellent balance of speed and utilization. This might be why it is a common suggestion for a general purpose allocator.
+![cargo-utilization](/images/cargo-utilization.png)
 
 ## Conclusions
 
