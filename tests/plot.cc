@@ -5,7 +5,6 @@
 #include "matplot/freestanding/axes_functions.h"
 #include "matplot/util/handle_types.h"
 // NOLINTNEXTLINE(*include-cleaner)
-#include <exception>
 #include <matplot/matplot.h>
 
 #include <algorithm>
@@ -14,6 +13,7 @@
 #include <chrono>
 #include <csignal>
 #include <cstdlib>
+#include <exception>
 #include <fcntl.h>
 #include <filesystem>
 #include <optional>

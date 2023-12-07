@@ -209,6 +209,7 @@ gtest_discover_tests(gtest_generic_rbtree_topdown)
 add_executable(print_peaks_list_segregated print_peaks.cc)
 target_link_libraries(print_peaks_list_segregated
   segment 
+  matplot
   osync
   script
   list_segregated)
@@ -218,6 +219,7 @@ target_link_libraries(print_peaks_list_segregated
 add_executable(print_peaks_splaytree_topdown print_peaks.cc)
 target_link_libraries(print_peaks_splaytree_topdown 
   segment 
+  matplot
   osync
   script
   splaytree_topdown)
@@ -225,6 +227,7 @@ target_link_libraries(print_peaks_splaytree_topdown
 add_executable(print_peaks_splaytree_stack print_peaks.cc)
 target_link_libraries(print_peaks_splaytree_stack 
   segment 
+  matplot
   osync
   script
   splaytree_stack)
@@ -234,6 +237,7 @@ target_link_libraries(print_peaks_splaytree_stack
 add_executable(print_peaks_rbtree_clrs print_peaks.cc)
 target_link_libraries(print_peaks_rbtree_clrs 
   segment 
+  matplot
   osync
   script
   rbtree_clrs)
@@ -241,6 +245,7 @@ target_link_libraries(print_peaks_rbtree_clrs
 add_executable(print_peaks_rbtree_unified print_peaks.cc)
 target_link_libraries(print_peaks_rbtree_unified 
   segment 
+  matplot
   osync
   script
   rbtree_unified)
@@ -248,6 +253,7 @@ target_link_libraries(print_peaks_rbtree_unified
 add_executable(print_peaks_rbtree_linked print_peaks.cc)
 target_link_libraries(print_peaks_rbtree_linked 
   segment 
+  matplot
   osync
   script
   rbtree_linked)
@@ -255,6 +261,7 @@ target_link_libraries(print_peaks_rbtree_linked
 add_executable(print_peaks_rbtree_stack print_peaks.cc)
 target_link_libraries(print_peaks_rbtree_stack 
   segment 
+  matplot
   osync
   script
   rbtree_stack)
@@ -262,6 +269,7 @@ target_link_libraries(print_peaks_rbtree_stack
 add_executable(print_peaks_rbtree_topdown print_peaks.cc)
 target_link_libraries(print_peaks_rbtree_topdown 
   segment 
+  matplot
   osync
   script
   rbtree_topdown)

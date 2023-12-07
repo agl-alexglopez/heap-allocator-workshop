@@ -1,17 +1,23 @@
 #include "allocator.h"
+#include "matplot/core/figure_registry.h"
+#include "matplot/freestanding/plot.h"
 #include "osync.hh"
 #include "print_utility.h"
 #include "script.hh"
 #include "segment.h"
+// NOLINTNEXTLINE(*include-cleaner)
+#include <matplot/matplot.h>
 
 #include <algorithm>
 #include <cstddef>
 #include <cstdio>
+#include <exception>
 #include <iostream>
 #include <optional>
 #include <span>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
@@ -48,7 +54,7 @@ int peaks( std::span<const char *const> args )
         std::string file{};
         for ( const auto *arg : args ) {
             try {
-                breakpoint found = std::stoull( arg );
+                const breakpoint found = std::stoull( arg );
                 breaks.breakpoints.push_back( found );
             } catch ( ... ) {
                 auto strarg = std::string( arg );
@@ -110,7 +116,7 @@ int print_peaks( const std::string &script_name, user_breaks &user_reqs )
         if ( !script::exec_request( line, script, 0, dummy ) ) {
             return 1;
         }
-        size_t total_free_nodes = get_free_total();
+        const size_t total_free_nodes = get_free_total();
         free_nodes.push_back( total_free_nodes );
 
         if ( curr_breakpoint < user_reqs.breakpoints.size()
@@ -163,12 +169,21 @@ int print_peaks( const std::string &script_name, user_breaks &user_reqs )
         }
         ++req;
     }
+    auto p = matplot::gcf( true );
+    auto axes = p->current_axes();
+    axes->title( "Free Node Count over Heap Lifetime" );
+    axes->grid( true );
+    axes->font_size( 14.0 );
+    auto plot = axes->plot( free_nodes, "r-" );
+    plot->line_width( 3 );
+    p->size( 1920, 1080 );
+    matplot::show();
     return 0;
 }
 
 void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim )
 {
-    size_t min = user_reqs.breakpoints[lim.cur] + 1;
+    const size_t min = user_reqs.breakpoints[lim.cur] + 1;
     for ( ;; ) {
         char c{};
         std::string clear_cin{};
@@ -203,8 +218,8 @@ void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim )
             try {
                 std::cout << "Enter the breakpoint: ";
                 std::cin >> clear_cin;
-                size_t breakpoint = std::stoull( clear_cin );
-                if ( breakpoint > lim.max || breakpoint < lim.cur ) {
+                const size_t breakpoint = std::stoull( clear_cin );
+                if ( breakpoint > lim.max || breakpoint < min ) {
                     const auto msg = std::string( "Breakpoint is past the last which is " )
                                          .append( std::to_string( lim.max ) )
                                          .append( "\n" );
