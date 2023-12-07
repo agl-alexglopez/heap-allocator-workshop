@@ -2,34 +2,34 @@
 
 The following test methods and analysis are not targeted towards any specific applications. If these allocators were to be implemented in any serious application more testing would need to occur. These tests, instead, are targeted towards the general performance of the Red Black Tree algorithms and help address some areas of interest I hypothesized about while trying the different strategies outlined in each allocator. Mainly, I am most curious about the following.
 
-- Is there any cost or benefit to uniting the left and right cases of Red Black trees into one case with the use of an array of pointers?
-- Does the approach of storing duplicate node sizes in a linked list benefit performance by trimming the tree?
+- Is there any cost or benefit to uniting the left and right cases of tree based allocators into one case with the use of an array of pointers?
+- Does the approach of storing duplicate node sizes in a linked list for tree based allocators benefit performance by trimming the tree?
 - When we abandon the parent field of the tree node in exchange for the linked list field, do we sacrifice performance?
-- Does a top-down approach to fixing a Red Black Tree reduce the number of O(lgN) operations enough to make a difference in performance?
+- Does a top-down approach to fixing a Red Black or Splay Tree reduce the number of O(lgN) operations enough to make a difference?
 
-In order to answer these questions I wrote a `time_harness.c` program based upon the `test_harness.c` program the Stanford course staff wrote for us. The original `test_harness.c` program was focussed on correctness. Along with our own debugging and printing functions, the goal of the test harness was to be as thorough as possible in finding bugs quickly and ensuring our allocators functioned properly. This meant that the programs produced for each allocator were painfully slow. There were numerous O(N) operations built into the provided program and I added many more O(N) checks into my own implementations. For a red-black tree these checks only grow as the necessity to ensure the rules of a Red Black Tree are followed becomes critical.
+In order to answer these questions I wrote a `stats.cc` and `plot.cc` program based on the `ctest.cc` file. The original `ctest.cc` program was focussed on correctness. Along with our own debugging and printing functions, the goal of the test harness was to be as thorough as possible in finding bugs quickly and ensuring our allocators functioned properly. This meant that the programs produced for each allocator were painfully slow. There were numerous O(N) operations built into the provided program and I added many more O(N) checks into my own implementations. For a tree based allocators these checks only grow as the necessity to ensure invariants are upheld.
 
-For the `time_harness.c` implementation, we abandon all safety and correctness checks. We should only use this program once we know beyond a doubt that the implementations are correct. We acheive faster testing by leaving all "client" available memory uninitialized, performing no checks on the boundaries of the blocks we give to the user, and cutting out any unecessary O(N) operations from the program while it calls upon the functions in our allocators. We do not want O(N) work clouding the runtime efficiency of what would otherwise be O(lgN) operations, for example. This results in the ability to check the performance of requests ranging anywhere from 5,000 to 1,000,000 and beyond quickly.
+For the `stat.cc` implementation, we abandon all safety and correctness checks. We should only use this program once we know beyond a doubt that the implementations are correct. We acheive faster testing by leaving all "client" available memory uninitialized, performing no checks on the boundaries of the blocks we give to the user, and cutting out any unecessary O(N) operations from the program while it calls upon the functions in our allocators. We do not want O(N) work clouding the runtime efficiency of what would otherwise be O(lgN) operations, for example. This results in the ability to check the performance of requests ranging anywhere from 5,000 to 1,000,000 and beyond quickly.
 
-While it would have been nice to time our code with a simple `time` command and call it a day, we need a custom program like this is because timing specific functions of an allocator can be tricky for two main reasons: allocations and coalescing. In order to create a tree of N nodes of free memory for the user, you may think we could just create N allocated blocks of memory and then free them all, thus inserting them into the tree. This would not work. Because we coalesce blocks to our left and right by address in memory, when we went to free the next allocation, it would absorb its left neighbor and simply grow in size with each `free()` call and be inserted back into the tree. We would end up with our original large pool of free memory by the end of all `free()` requests.
+While it would have been nice to time our code with a simple `time` command and call it a day, we need a custom program like this is because timing specific functions of an allocator can be tricky for two main reasons: allocations and coalescing. In order to create a pool of N nodes of free memory for the user, you may think we could just create N allocated blocks of memory and then free them all, thus inserting them into the data structure. This would not work. Because we coalesce blocks to our left and right by address in memory, when we went to free the next allocation, it would absorb its left neighbor and simply grow in size with each `free()` call and be inserted back into the pool. We would end up with our original large pool of free memory by the end of all `free()` requests.
 
 Instead, we will allocate 2N blocks of memory and then call `free()` on every other block of allocated memory to measure the performance of N insertions into a tree. Coalescing will not occur on the two adjacent blocks because they remain allocated.
 
-The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we need to rely on the `time.h` C library and start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `time-harness.c` program to time only specific line numbers representing requests.
+The time it takes to make all of these allocations is also not of interest to us if we want to measure insertion and removal from our tree, so we need to be able to time our code only when the insertions and removals begin. To do this, we start a `clock()` on the exact range of requests we are interested in. We can acheive this by looking at our scripts and asking the `stats.cc` program to time only specific line numbers representing requests.
 
 ```bash
- ./build/bin/time_rbtree_clrs -s 200000 -e 300000 -s 300001 scripts/time-insertdelete-100k.script
+ ./build/rel/stats_rbtree_clrs -r 200000 300000 scripts/time-insertdelete-100k.script
 ```
 
 - The above command is for timing 100 thousand insertions, `free()`, and 100 thousand removals, `malloc()`, from our tree.
-- Notice that we use the `-s` flag to start timing on a line number and the `-e` flag to end our timer.
-- We also must start our timer after ten thousand `malloc()` requests to set up a scenario where we can insert 100 thousand nodes into the tree.
+- Notice that we use the `-r` flag to starts a timing range. An unterminated range assumes we should time the remainder of the script from that point.
+- We also must start our timer after many `malloc()` requests to set up a scenario where we can insert 100 thousand nodes into the tree.
 - This program can time multiple sections of a script as long as they do not overlap and will output the timing result of all requested sections.
 - We will get a helpful graphs that highlight key statistics about the heap as well.
 
-We would then get output such as the following.
+I then hardcoded all of these commands that I wanted into the `plot.cc` file and ran each command as a subprocess with a parent thread communicating with the child via a pipe. We then get output such as this.
 
-![time-harness-output](/images/time-harness-output.png)
+![plot-output](/images/plot-output.png)
 
 For more details about how the timing functions work or how the program parses arguments please see the code.
 
