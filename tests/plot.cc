@@ -5,6 +5,7 @@
 #include "matplot/freestanding/axes_functions.h"
 #include "matplot/util/handle_types.h"
 // NOLINTNEXTLINE(*include-cleaner)
+#include <exception>
 #include <matplot/matplot.h>
 
 #include <algorithm>
@@ -92,9 +93,6 @@ constexpr std::array<std::array<std::array<std::string_view, 4>, 20>, 2> big_o_t
 
 constexpr std::array<std::string_view, 5> line_ticks = { "-o", "--", "-+", "-s", "-*" };
 constexpr std::array<std::string_view, 9> loading_bar = { "⣿", "⣷", "⣯", "⣟", "⡿", "⢿", "⣻", "⣽", "⣾" };
-constexpr std::string_view ansi_red_bold = "\033[38;5;9m";
-constexpr std::string_view ansi_green_bold = "\033[38;5;10m";
-constexpr std::string_view ansi_nil = "\033[0m";
 constexpr std::string_view save_cursor = "\033[s";
 constexpr std::string_view restore_cursor = "\033[u";
 
@@ -204,46 +202,57 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args );
 
 //////////////////////////////////    User Argument Handling     ///////////////////////////////////
 
-int main( int argc, char *argv[] )
+int plot( std::span<const char *const> cli_args )
 {
-    const std::vector<path_bin> commands = gather_timer_programs();
-    if ( commands.empty() ) {
+    try {
+        const std::vector<path_bin> commands = gather_timer_programs();
+        if ( commands.empty() ) {
+            return 1;
+        }
+        plot_args args{};
+        for ( const auto *arg : cli_args ) {
+            const std::string arg_copy = std::string( arg );
+            if ( arg_copy == "-realloc" ) {
+                args.op = heap_operation::realloc_free;
+            } else if ( arg_copy == "-malloc" ) {
+                args.op = heap_operation::malloc_free;
+            } else if ( arg_copy.starts_with( "-j" ) ) {
+                std::optional<size_t> threads = specify_threads( arg_copy );
+                if ( !threads ) {
+                    return 1;
+                }
+                args.threads = threads.value();
+            } else if ( arg_copy == "-q" ) {
+                args.quiet = true;
+            } else if ( arg_copy.find( '/' ) != std::string::npos ) {
+                args.op = heap_operation::script_comparison;
+                args.script_name.emplace( arg_copy );
+            } else {
+                auto err = std::string( "Invalid command line request: " ).append( arg_copy ).append( "\n" );
+                osync::cerr( err, osync::ansi_bred );
+                return 1;
+            }
+        }
+        if ( args.op == heap_operation::script_comparison ) {
+            plot_script_comparison( commands, args );
+            return 0;
+        }
+        run_bigo_analysis( commands, args );
+        return 0;
+    } catch ( std::exception &e ) {
+        auto err = std::string( "Plot program caught exception " ).append( e.what() ).append( "\n" );
+        osync::cerr( err, osync::ansi_bred );
         return 1;
     }
-    plot_args args{};
+}
+
+int main( int argc, char *argv[] )
+{
     auto cli_args = std::span<const char *const>( argv, argc ).subspan( 1 );
     if ( cli_args.empty() ) {
         return 0;
     }
-    for ( const auto *arg : cli_args ) {
-        const std::string arg_copy = std::string( arg );
-        if ( arg_copy == "-realloc" ) {
-            args.op = heap_operation::realloc_free;
-        } else if ( arg_copy == "-malloc" ) {
-            args.op = heap_operation::malloc_free;
-        } else if ( arg_copy.starts_with( "-j" ) ) {
-            std::optional<size_t> threads = specify_threads( arg_copy );
-            if ( !threads ) {
-                return 1;
-            }
-            args.threads = threads.value();
-        } else if ( arg_copy == "-q" ) {
-            args.quiet = true;
-        } else if ( arg_copy.find( '/' ) != std::string::npos ) {
-            args.op = heap_operation::script_comparison;
-            args.script_name.emplace( arg_copy );
-        } else {
-            auto err = std::string( "Invalid command line request: " ).append( arg_copy ).append( "\n" );
-            osync::cerr( err, ansi_red_bold );
-            return 1;
-        }
-    }
-    if ( args.op == heap_operation::script_comparison ) {
-        plot_script_comparison( commands, args );
-        return 0;
-    }
-    run_bigo_analysis( commands, args );
-    return 0;
+    return plot( cli_args );
 }
 
 ///////////////////////////       Performance Testing Implementation    ////////////////////////////
@@ -313,7 +322,7 @@ void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &
             )
         );
     } else {
-        osync::cerr( "invalid options slipped through command line args.\n", ansi_red_bold );
+        osync::cerr( "invalid options slipped through command line args.\n", osync::ansi_bred );
     }
 }
 
@@ -326,7 +335,7 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
     for ( const auto &args : big_o_timing.at( args.op ) ) {
         const double script_size = parse_quantity_n( args.back() );
         if ( script_size == 0 ) {
-            osync::cerr( "could not parse script size\n", ansi_red_bold );
+            osync::cerr( "could not parse script size\n", osync::ansi_bred );
             return;
         }
         x_axis( m.interval_speed ).push_back( script_size );
@@ -361,7 +370,7 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
     line_plot_stats( m, data_set_type::interval, args.interval_labels, args.quiet );
     line_plot_stats( m, data_set_type::response, args.response_labels, args.quiet );
     line_plot_stats( m, data_set_type::utilization, args.utilization_labels, args.quiet );
-    osync::cout( ansi_nil );
+    std::cout << osync::ansi_nil;
 }
 
 bool thread_run_analysis( const size_t allocator_index, const path_bin &cmd, runtime_metrics &m, heap_operation s )
@@ -451,12 +460,13 @@ bool thread_run_cmd(
         }
     }
     if ( !close_process( { process, bytes_read } ) ) {
-        osync::cerr( "This thread is quitting early, child subprocess failed\n", ansi_red_bold );
+        // Many threads may output error messages so we will always sync cerr to aid legibility.
+        osync::cerr( "This thread is quitting early, child subprocess failed\n", osync::ansi_bred );
         return false;
     }
     const std::string data = std::string( vec_buf.data() );
     if ( !parse_metrics( data, allocator_index, m ) ) {
-        osync::cerr( "This thread is quitting early due to parsing error\n", ansi_red_bold );
+        osync::cerr( "This thread is quitting early due to parsing error\n", osync::ansi_bred );
         return false;
     }
     return true;
@@ -466,7 +476,7 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
 {
     std::array<int, 2> comms{ 0, 0 };
     if ( pipe2( comms.data(), O_CLOEXEC ) < 0 ) {
-        osync::cerr( "Could not open pipe for communication\n", ansi_red_bold );
+        osync::cerr( "Could not open pipe for communication\n", osync::ansi_bred );
         return -1;
     }
     if ( fork() != 0 ) {
@@ -475,7 +485,7 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
     }
     close( comms[0] );
     if ( dup2( comms[1], STDOUT_FILENO ) < 0 ) {
-        osync::cerr( "Child cannot communicate to parent.\n", ansi_red_bold );
+        osync::cerr( "Child cannot communicate to parent.\n", osync::ansi_bred );
         close( comms[1] );
         exit( 1 );
     }
@@ -489,7 +499,7 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
     execv( cmd_path.data(), const_cast<char *const *>( arg_copy.data() ) ); // NOLINT
     auto err
         = std::string( "Child process failed abnormally errno: " ).append( std::to_string( errno ) ).append( "\n" );
-    osync::cerr( err, ansi_red_bold );
+    osync::cerr( err, osync::ansi_bred );
     close( comms[1] );
     exit( 1 );
 }
@@ -501,11 +511,11 @@ bool close_process( process_result res )
     const int wait_err = waitpid( -1, &err, 0 );
     if ( WIFSIGNALED( err ) && WTERMSIG( err ) == SIGSEGV ) { // NOLINT
         auto err = std::string( "Seg fault waitpid returned " ).append( std::to_string( wait_err ) ).append( "\n" );
-        osync::cerr( err, ansi_red_bold );
+        osync::cerr( err, osync::ansi_bred );
         return false;
     }
     if ( res.bytes_read == -1 ) {
-        osync::cerr( "read error\n", ansi_red_bold );
+        osync::cerr( "read error\n", osync::ansi_bred );
         return false;
     }
     return true;
@@ -520,7 +530,7 @@ double parse_quantity_n( std::string_view script_name )
         return std::stod( num ) * 1000;
     } catch ( std::invalid_argument &a ) {
         auto err = std::string( "Caught invalid argument: " ).append( a.what() ).append( "\n" );
-        osync::cerr( err, ansi_red_bold );
+        osync::cerr( err, osync::ansi_bred );
         return 0;
     }
 }
@@ -539,7 +549,7 @@ bool parse_metrics( const std::string &output, const size_t allocator_index, run
         series( m.overall_utilization, allocator_index ).emplace_back( stod( utilization ) );
         return true;
     } catch ( std::invalid_argument &a ) {
-        osync::cerr( "Error parsing string input to metrics\n", ansi_red_bold );
+        osync::cerr( "Error parsing string input to metrics\n", osync::ansi_bred );
         return false;
     }
 }
@@ -580,7 +590,7 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
         plot->line_width( 2 );
         // It is always sketchy to use the .back() function, but I am not sure if there is a better associative way.
         if ( ::matplot::legend()->strings().empty() ) {
-            osync::cerr( "No legend entry generated for matplot++ plot. Has API changed?\n", ansi_red_bold );
+            osync::cerr( "No legend entry generated for matplot++ plot. Has API changed?\n", osync::ansi_bred );
             return;
         }
         // It seems the legend is freestanding but still associated with the current axes_object. Not plot!
@@ -598,7 +608,7 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     p->save( std::string( l.filename ) );
     matplot::hold( false );
     auto msg = std::string( "plot saved: " ).append( l.filename ).append( "\n" );
-    osync::cout( msg );
+    std::cout << msg;
     if ( quiet ) {
         return;
     }
@@ -632,7 +642,7 @@ void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     p->size( 1920, 1080 );
     p->save( std::string( l.filename ) );
     auto msg = std::string( "plot saved: " ).append( l.filename ).append( "\n" );
-    osync::cout( msg );
+    std::cout << msg;
     if ( quiet ) {
         return;
     }
@@ -643,7 +653,7 @@ void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
 std::optional<size_t> specify_threads( std::string_view thread_request )
 {
     if ( thread_request == "-j" ) {
-        osync::cerr( "Invalid core count requested. Did you mean -j[CORES] without a space?\n", ansi_red_bold );
+        osync::cerr( "Invalid core count requested. Did you mean -j[CORES] without a space?\n", osync::ansi_bred );
         return 1;
     }
     std::string cores
@@ -661,7 +671,7 @@ std::optional<size_t> specify_threads( std::string_view thread_request )
                        .append( ": " )
                        .append( cores )
                        .append( "\n" );
-        osync::cerr( err, ansi_red_bold );
+        osync::cerr( err, osync::ansi_bred );
         return {};
     }
 }
@@ -678,7 +688,7 @@ const data_set &set( const runtime_metrics &m, data_set_type request )
     case utilization:
         return m.overall_utilization;
     default: {
-        osync::cerr( "invalid request type for a data set that does not exist.\n", ansi_red_bold );
+        osync::cerr( "invalid request type for a data set that does not exist.\n", osync::ansi_bred );
         std::abort();
     }
     }
@@ -730,9 +740,9 @@ void twiddle_cursor( command_queue &q )
 {
     size_t dist = 0;
     bool max_loading_bar = false;
-    std::cout << ansi_red_bold;
+    std::cout << osync::ansi_bred;
     while ( !q.empty() ) {
-        osync::cout( save_cursor );
+        std::cout << save_cursor;
         for ( size_t i = 0; i < loading_limit; ++i ) {
             std::cout << loading_bar.at( ( i + dist ) % loading_bar.size() ) << std::flush;
             if ( !max_loading_bar && i > dist ) {
@@ -744,11 +754,11 @@ void twiddle_cursor( command_queue &q )
         max_loading_bar = max_loading_bar || dist == 0;
         std::this_thread::sleep_for( std::chrono::milliseconds( 60 ) );
     }
-    osync::cout( ansi_green_bold );
+    std::cout << osync::ansi_bgrn;
     for ( size_t i = 0; i < loading_limit; ++i ) {
-        osync::cout( loading_bar.at( ( i + dist ) % loading_bar.size() ) );
+        std::cout << loading_bar.at( ( i + dist ) % loading_bar.size() );
     }
-    osync::cout( "\n" );
+    std::cout << "\n";
 }
 
 } // namespace

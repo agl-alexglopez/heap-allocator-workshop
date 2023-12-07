@@ -2,6 +2,7 @@
 #include "allocator.h"
 #include "osync.hh"
 
+#include <algorithm>
 #include <cstdint>
 #include <ctime>
 #include <fstream>
@@ -21,7 +22,11 @@ std::optional<requests> parse_script( const std::string &filepath )
     if ( sfile.fail() ) {
         return {};
     }
+    size_t lineo = std::count( std::istreambuf_iterator<char>( sfile ), std::istreambuf_iterator<char>(), '\n' );
+    sfile.clear();
+    sfile.seekg( 0 );
     requests s{ .lines{}, .blocks{}, .peak = 0 };
+    s.lines.reserve( lineo + 1 );
     size_t line = 0;
     size_t max_id = 0;
     for ( std::string buf{}; std::getline( sfile, buf ); ) {

@@ -36,6 +36,7 @@ constexpr int base_10 = 10;
 int time_script( std::string_view script_name, interval_reqs &user_requests );
 std::optional<size_t> time_allocator( script::requests &s, interval_reqs &user_requests );
 bool validate_intervals( script::requests &s, interval_reqs &user_requests );
+bool set_interval( interval_reqs &user_reqs, std::span<const char *const> args, size_t i );
 
 } // namespace
 
@@ -46,22 +47,12 @@ int stats( std::span<const char *const> args )
         std::string_view filename{};
         for ( size_t i = 0; i < args.size(); ++i ) {
             auto arg_copy = std::string( args[i] );
-            interval intv{ 0, 0 };
             if ( arg_copy == "-q" ) {
                 user_reqs.quiet = true;
             } else if ( arg_copy == "-r" ) {
-                if ( i + 1 >= args.size() ) {
-                    osync::cerr( "Starting breakpoint not specified\n", osync::ansi_bred );
+                if ( !set_interval( user_reqs, args, i ) ) {
                     return 1;
                 }
-                intv.start_req = std::stoi( args[i + 1] );
-                if ( !user_reqs.intervals.empty() && user_reqs.intervals.at( i - 1 ).end_req >= intv.start_req ) {
-                    osync::cerr( "Stats does not support overlapping intervals.\n", osync::ansi_bred );
-                }
-                if ( i + 2 >= args.size() ) {
-                    break;
-                }
-                intv.end_req = std::stoi( args[i + 2] );
                 i += 2;
             } else if ( std::string::npos != arg_copy.find( ".script" ) ) {
                 filename = args[i];
@@ -177,6 +168,31 @@ bool validate_intervals( script::requests &s, interval_reqs &user_requests )
             user_requests.intervals[i].end_req = static_cast<int>( s.lines.size() ) - 1;
         }
     }
+    return true;
+}
+
+bool set_interval( interval_reqs &user_reqs, std::span<const char *const> args, size_t i )
+{
+    if ( i + 1 >= args.size() ) {
+        osync::cerr( "Starting breakpoint not specified\n", osync::ansi_bred );
+        return false;
+    }
+    interval intv = { 0, 0 };
+    intv.start_req = std::stoi( args[i + 1] );
+    if ( !user_reqs.intervals.empty() && user_reqs.intervals[i - 1].end_req >= intv.start_req ) {
+        osync::cerr( "Stats does not support overlapping intervals.\n", osync::ansi_bred );
+        return false;
+    }
+    if ( i + 2 >= args.size() ) {
+        user_reqs.intervals.push_back( intv );
+        return true;
+    }
+    intv.end_req = std::stoi( args[i + 2] );
+    if ( intv.end_req < intv.start_req ) {
+        osync::cerr( "End of range precedes start.\n", osync::ansi_bred );
+        return false;
+    }
+    user_reqs.intervals.push_back( intv );
     return true;
 }
 
