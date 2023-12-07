@@ -61,11 +61,12 @@ int test( std::span<const char *const> args )
 {
     try {
         size_t utilization = 0;
-        osync::syncout( save_cursor );
+        std::cout << save_cursor;
         for ( size_t i = 0; i < args.size(); ++i ) {
-            osync::syncout( background_loading_bar, ansi_bred );
+            osync::cout( background_loading_bar, ansi_bred );
         }
-        osync::syncout( restore_cursor );
+        std::cout << std::flush;
+        std::cout << restore_cursor;
         for ( const auto *arg : args ) {
             std::optional<script::requests> script = script::parse_script( arg );
             if ( !script ) {
@@ -83,15 +84,16 @@ int test( std::span<const char *const> args )
             if ( 0 < val ) {
                 utilization += ( scale_to_whole_num * script.value().peak ) / val;
             }
-            osync::syncout( progress_bar, ansi_bgrn );
+            osync::cout( progress_bar, ansi_bgrn );
+            std::cout << std::flush;
         }
         const auto util
             = std::string( "Utilization=" ).append( std::to_string( utilization / args.size() ) ).append( "%\n" );
-        osync::syncout( util, ansi_bgrn );
+        osync::cout( util, osync::ansi_bgrn );
         return 0;
     } catch ( std::exception &e ) {
         const auto ex = std::string( "Script tester exception thrown: " ).append( e.what() ).append( "\n" );
-        osync::syncout( ex, ansi_bred );
+        osync::cerr( ex, ansi_bred );
         return 1;
     }
 }
