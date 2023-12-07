@@ -30,6 +30,7 @@ struct user_breaks
 {
     enum print_style style;
     std::vector<breakpoint> breakpoints{};
+    bool quiet{ false };
 };
 
 struct break_limit
@@ -60,6 +61,8 @@ int peaks( std::span<const char *const> args )
                     file = std::move( strarg );
                 } else if ( strarg == "-v" ) {
                     breaks.style = VERBOSE;
+                } else if ( strarg == "-q" ) {
+                    breaks.quiet = true;
                 } else {
                     auto err = std::string(
                                    "Valid options are: numbers for breakpoints or the -v for verbose flag.\nFound: "
@@ -167,6 +170,9 @@ int print_peaks( const std::string &script_name, user_breaks &user_reqs )
         }
         ++req;
     }
+    if ( user_reqs.quiet ) {
+        return 0;
+    }
     auto p = matplot::gcf( true );
     auto axes = p->current_axes();
     axes->title( "Free Node Count over Heap Lifetime" );
@@ -189,15 +195,9 @@ void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim )
             std::getline( std::cin, msg );
             return;
         }
-        if ( lim.cur < user_reqs.breakpoints.size() ) {
-            std::cout << "Enter the character <c> to continue to next breakpoint.\n"
-                         "Enter a positive line number to add another breakpoints.\n"
-                         "Enter <ENTER> to exit: ";
-        } else {
-            std::cout << "No breakpoints remain.\n"
-                         "Enter the character <b> to add a new breakpoints.\n"
-                         "Enter <ENTER> to exit: ";
-        }
+        std::cout << "Enter the character <c> to continue to next breakpoint.\n"
+                     "Enter a positive line number to add another breakpoint.\n"
+                     "Enter <ENTER> to exit: ";
         std::string buf{};
         std::getline( std::cin, buf );
         try {
@@ -219,7 +219,11 @@ void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim )
             if ( buf.empty() || buf == "c" ) {
                 return;
             }
-            const auto msg = std::string( "Invalid entry: " ).append( buf );
+            const auto msg = std::string( "Invalid entry: " )
+                                 .append( osync::ansi_bred )
+                                 .append( buf )
+                                 .append( osync::ansi_nil )
+                                 .append( "\n" );
             std::cout << msg;
         }
     }
