@@ -1,4 +1,5 @@
 #include "command_queue.hh"
+#include "osync.hh"
 
 #include "matplot/core/legend.h"
 #include "matplot/freestanding/axes_functions.h"
@@ -14,7 +15,6 @@
 #include <cstdlib>
 #include <fcntl.h>
 #include <filesystem>
-#include <iostream>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -40,52 +40,52 @@ constexpr size_t max_cores = 20;
 constexpr size_t starting_buf_size = 64;
 
 /// The script commands are carefully tuned to only time sections where the desired behavior is operating.
-constexpr std::array<std::array<std::array<std::string_view, 5>, 20>, 2> big_o_timing = { {
+constexpr std::array<std::array<std::array<std::string_view, 4>, 20>, 2> big_o_timing = { {
     { {
         // Malloc and free commands are targeted at making many uncoalescable free nodes and mallocing them.
-        { "-s", "10001", "-e", "20000", "scripts/time-insertdelete-05k.script" },
-        { "-s", "20001", "-e", "40000", "scripts/time-insertdelete-10k.script" },
-        { "-s", "30001", "-e", "60000", "scripts/time-insertdelete-15k.script" },
-        { "-s", "40001", "-e", "80000", "scripts/time-insertdelete-20k.script" },
-        { "-s", "50001", "-e", "100000", "scripts/time-insertdelete-25k.script" },
-        { "-s", "60001", "-e", "120000", "scripts/time-insertdelete-30k.script" },
-        { "-s", "70001", "-e", "140000", "scripts/time-insertdelete-35k.script" },
-        { "-s", "80001", "-e", "160000", "scripts/time-insertdelete-40k.script" },
-        { "-s", "90001", "-e", "180000", "scripts/time-insertdelete-45k.script" },
-        { "-s", "100001", "-e", "200000", "scripts/time-insertdelete-50k.script" },
-        { "-s", "110001", "-e", "220000", "scripts/time-insertdelete-55k.script" },
-        { "-s", "120001", "-e", "240000", "scripts/time-insertdelete-60k.script" },
-        { "-s", "130001", "-e", "260000", "scripts/time-insertdelete-65k.script" },
-        { "-s", "140001", "-e", "280000", "scripts/time-insertdelete-70k.script" },
-        { "-s", "150001", "-e", "300000", "scripts/time-insertdelete-75k.script" },
-        { "-s", "160001", "-e", "320000", "scripts/time-insertdelete-80k.script" },
-        { "-s", "170001", "-e", "340000", "scripts/time-insertdelete-85k.script" },
-        { "-s", "180001", "-e", "360000", "scripts/time-insertdelete-90k.script" },
-        { "-s", "190001", "-e", "380000", "scripts/time-insertdelete-95k.script" },
-        { "-s", "200001", "-e", "400000", "scripts/time-insertdelete-100k.script" },
+        { "-r", "10001", "20000", "scripts/time-insertdelete-05k.script" },
+        { "-r", "20001", "40000", "scripts/time-insertdelete-10k.script" },
+        { "-r", "30001", "60000", "scripts/time-insertdelete-15k.script" },
+        { "-r", "40001", "80000", "scripts/time-insertdelete-20k.script" },
+        { "-r", "50001", "100000", "scripts/time-insertdelete-25k.script" },
+        { "-r", "60001", "120000", "scripts/time-insertdelete-30k.script" },
+        { "-r", "70001", "140000", "scripts/time-insertdelete-35k.script" },
+        { "-r", "80001", "160000", "scripts/time-insertdelete-40k.script" },
+        { "-r", "90001", "180000", "scripts/time-insertdelete-45k.script" },
+        { "-r", "100001", "200000", "scripts/time-insertdelete-50k.script" },
+        { "-r", "110001", "220000", "scripts/time-insertdelete-55k.script" },
+        { "-r", "120001", "240000", "scripts/time-insertdelete-60k.script" },
+        { "-r", "130001", "260000", "scripts/time-insertdelete-65k.script" },
+        { "-r", "140001", "280000", "scripts/time-insertdelete-70k.script" },
+        { "-r", "150001", "300000", "scripts/time-insertdelete-75k.script" },
+        { "-r", "160001", "320000", "scripts/time-insertdelete-80k.script" },
+        { "-r", "170001", "340000", "scripts/time-insertdelete-85k.script" },
+        { "-r", "180001", "360000", "scripts/time-insertdelete-90k.script" },
+        { "-r", "190001", "380000", "scripts/time-insertdelete-95k.script" },
+        { "-r", "200001", "400000", "scripts/time-insertdelete-100k.script" },
     } },
     { {
         // Realloc commands are targeted at reallocing many allocated nodes that are surrounded by free nodes.
-        { "-s", "15001", "-e", "20000", "scripts/time-reallocfree-05k.script" },
-        { "-s", "30001", "-e", "40000", "scripts/time-reallocfree-10k.script" },
-        { "-s", "45001", "-e", "60000", "scripts/time-reallocfree-15k.script" },
-        { "-s", "60001", "-e", "80000", "scripts/time-reallocfree-20k.script" },
-        { "-s", "75001", "-e", "100000", "scripts/time-reallocfree-25k.script" },
-        { "-s", "90001", "-e", "120000", "scripts/time-reallocfree-30k.script" },
-        { "-s", "105001", "-e", "140000", "scripts/time-reallocfree-35k.script" },
-        { "-s", "120001", "-e", "160000", "scripts/time-reallocfree-40k.script" },
-        { "-s", "135001", "-e", "180000", "scripts/time-reallocfree-45k.script" },
-        { "-s", "150001", "-e", "200000", "scripts/time-reallocfree-50k.script" },
-        { "-s", "165001", "-e", "220000", "scripts/time-reallocfree-55k.script" },
-        { "-s", "180001", "-e", "240000", "scripts/time-reallocfree-60k.script" },
-        { "-s", "195001", "-e", "260000", "scripts/time-reallocfree-65k.script" },
-        { "-s", "210001", "-e", "280000", "scripts/time-reallocfree-70k.script" },
-        { "-s", "225001", "-e", "300000", "scripts/time-reallocfree-75k.script" },
-        { "-s", "240001", "-e", "320000", "scripts/time-reallocfree-80k.script" },
-        { "-s", "255001", "-e", "340000", "scripts/time-reallocfree-85k.script" },
-        { "-s", "270001", "-e", "360000", "scripts/time-reallocfree-90k.script" },
-        { "-s", "285001", "-e", "380000", "scripts/time-reallocfree-95k.script" },
-        { "-s", "300001", "-e", "400000", "scripts/time-reallocfree-100k.script" },
+        { "-r", "15001", "20000", "scripts/time-reallocfree-05k.script" },
+        { "-r", "30001", "40000", "scripts/time-reallocfree-10k.script" },
+        { "-r", "45001", "60000", "scripts/time-reallocfree-15k.script" },
+        { "-r", "60001", "80000", "scripts/time-reallocfree-20k.script" },
+        { "-r", "75001", "100000", "scripts/time-reallocfree-25k.script" },
+        { "-r", "90001", "120000", "scripts/time-reallocfree-30k.script" },
+        { "-r", "105001", "140000", "scripts/time-reallocfree-35k.script" },
+        { "-r", "120001", "160000", "scripts/time-reallocfree-40k.script" },
+        { "-r", "135001", "180000", "scripts/time-reallocfree-45k.script" },
+        { "-r", "150001", "200000", "scripts/time-reallocfree-50k.script" },
+        { "-r", "165001", "220000", "scripts/time-reallocfree-55k.script" },
+        { "-r", "180001", "240000", "scripts/time-reallocfree-60k.script" },
+        { "-r", "195001", "260000", "scripts/time-reallocfree-65k.script" },
+        { "-r", "210001", "280000", "scripts/time-reallocfree-70k.script" },
+        { "-r", "225001", "300000", "scripts/time-reallocfree-75k.script" },
+        { "-r", "240001", "320000", "scripts/time-reallocfree-80k.script" },
+        { "-r", "255001", "340000", "scripts/time-reallocfree-85k.script" },
+        { "-r", "270001", "360000", "scripts/time-reallocfree-90k.script" },
+        { "-r", "285001", "380000", "scripts/time-reallocfree-95k.script" },
+        { "-r", "300001", "400000", "scripts/time-reallocfree-100k.script" },
     } },
 
 } };
@@ -233,7 +233,8 @@ int main( int argc, char *argv[] )
             args.op = heap_operation::script_comparison;
             args.script_name.emplace( arg_copy );
         } else {
-            std::cerr << "Invalid command line request: " << arg_copy << "\n";
+            auto err = std::string( "Invalid command line request: " ).append( arg_copy ).append( "\n" );
+            osync::cerr( err, ansi_red_bold );
             return 1;
         }
     }
@@ -312,7 +313,7 @@ void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &
             )
         );
     } else {
-        std::cerr << "invalid options slipped through command line args.\n";
+        osync::cerr( "invalid options slipped through command line args.\n", ansi_red_bold );
     }
 }
 
@@ -325,7 +326,7 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
     for ( const auto &args : big_o_timing.at( args.op ) ) {
         const double script_size = parse_quantity_n( args.back() );
         if ( script_size == 0 ) {
-            std::cerr << "could not parse script size\n";
+            osync::cerr( "could not parse script size\n", ansi_red_bold );
             return;
         }
         x_axis( m.interval_speed ).push_back( script_size );
@@ -360,7 +361,7 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
     line_plot_stats( m, data_set_type::interval, args.interval_labels, args.quiet );
     line_plot_stats( m, data_set_type::response, args.response_labels, args.quiet );
     line_plot_stats( m, data_set_type::utilization, args.utilization_labels, args.quiet );
-    std::cout << ansi_nil;
+    osync::cout( ansi_nil );
 }
 
 bool thread_run_analysis( const size_t allocator_index, const path_bin &cmd, runtime_metrics &m, heap_operation s )
@@ -450,12 +451,12 @@ bool thread_run_cmd(
         }
     }
     if ( !close_process( { process, bytes_read } ) ) {
-        std::cerr << "This thread is quitting early, child subprocess failed\n";
+        osync::cerr( "This thread is quitting early, child subprocess failed\n", ansi_red_bold );
         return false;
     }
     const std::string data = std::string( vec_buf.data() );
     if ( !parse_metrics( data, allocator_index, m ) ) {
-        std::cerr << "This thread is quitting early due to parsing error\n";
+        osync::cerr( "This thread is quitting early due to parsing error\n", ansi_red_bold );
         return false;
     }
     return true;
@@ -465,8 +466,8 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
 {
     std::array<int, 2> comms{ 0, 0 };
     if ( pipe2( comms.data(), O_CLOEXEC ) < 0 ) {
-        std::cerr << "could not open pipe for communication\n";
-        std::abort();
+        osync::cerr( "Could not open pipe for communication\n", ansi_red_bold );
+        return -1;
     }
     if ( fork() != 0 ) {
         close( comms[1] );
@@ -474,7 +475,7 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
     }
     close( comms[0] );
     if ( dup2( comms[1], STDOUT_FILENO ) < 0 ) {
-        std::cerr << "child cannot communicate to parent.\n";
+        osync::cerr( "Child cannot communicate to parent.\n", ansi_red_bold );
         close( comms[1] );
         exit( 1 );
     }
@@ -486,7 +487,9 @@ int start_subprocess( std::string_view cmd_path, const std::vector<std::string_v
     arg_copy.push_back( nullptr );
     // Is this even safe? Passing arguments from c++ to execv was awful. Not sure the safesest way.
     execv( cmd_path.data(), const_cast<char *const *>( arg_copy.data() ) ); // NOLINT
-    std::cerr << "child process failed abnormally errno: " << errno << "\n";
+    auto err
+        = std::string( "Child process failed abnormally errno: " ).append( std::to_string( errno ) ).append( "\n" );
+    osync::cerr( err, ansi_red_bold );
     close( comms[1] );
     exit( 1 );
 }
@@ -497,11 +500,12 @@ bool close_process( process_result res )
     int err = 0;
     const int wait_err = waitpid( -1, &err, 0 );
     if ( WIFSIGNALED( err ) && WTERMSIG( err ) == SIGSEGV ) { // NOLINT
-        std::cerr << "seg fault waitpid returned " << wait_err << "\n";
+        auto err = std::string( "Seg fault waitpid returned " ).append( std::to_string( wait_err ) ).append( "\n" );
+        osync::cerr( err, ansi_red_bold );
         return false;
     }
     if ( res.bytes_read == -1 ) {
-        std::cerr << "read error\n";
+        osync::cerr( "read error\n", ansi_red_bold );
         return false;
     }
     return true;
@@ -515,7 +519,8 @@ double parse_quantity_n( std::string_view script_name )
     try {
         return std::stod( num ) * 1000;
     } catch ( std::invalid_argument &a ) {
-        std::cerr << "Caught invalid argument: " << a.what() << "\n";
+        auto err = std::string( "Caught invalid argument: " ).append( a.what() ).append( "\n" );
+        osync::cerr( err, ansi_red_bold );
         return 0;
     }
 }
@@ -534,7 +539,7 @@ bool parse_metrics( const std::string &output, const size_t allocator_index, run
         series( m.overall_utilization, allocator_index ).emplace_back( stod( utilization ) );
         return true;
     } catch ( std::invalid_argument &a ) {
-        std::cerr << "Error parsing string input to metrics\n";
+        osync::cerr( "Error parsing string input to metrics\n", ansi_red_bold );
         return false;
     }
 }
@@ -575,8 +580,8 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
         plot->line_width( 2 );
         // It is always sketchy to use the .back() function, but I am not sure if there is a better associative way.
         if ( ::matplot::legend()->strings().empty() ) {
-            std::cerr << "No legend entry generated for matplot++ plot. Has API changed?\n";
-            std::abort();
+            osync::cerr( "No legend entry generated for matplot++ plot. Has API changed?\n", ansi_red_bold );
+            return;
         }
         // It seems the legend is freestanding but still associated with the current axes_object. Not plot!
         // So a hidden legend entry is automatically generated when we add a plot. Edit this with correct name.
@@ -592,7 +597,8 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     p->size( 1920, 1080 );
     p->save( std::string( l.filename ) );
     matplot::hold( false );
-    std::cout << "plot saved: " << l.filename << "\n";
+    auto msg = std::string( "plot saved: " ).append( l.filename ).append( "\n" );
+    osync::cout( msg );
     if ( quiet ) {
         return;
     }
@@ -625,7 +631,8 @@ void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     axes->x_axis().tickangle( 20.0 );
     p->size( 1920, 1080 );
     p->save( std::string( l.filename ) );
-    std::cout << "plot saved: " << l.filename << "\n";
+    auto msg = std::string( "plot saved: " ).append( l.filename ).append( "\n" );
+    osync::cout( msg );
     if ( quiet ) {
         return;
     }
@@ -636,7 +643,7 @@ void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
 std::optional<size_t> specify_threads( std::string_view thread_request )
 {
     if ( thread_request == "-j" ) {
-        std::cerr << "Invalid core count requested. Did you mean -j[CORES] without a space?\n";
+        osync::cerr( "Invalid core count requested. Did you mean -j[CORES] without a space?\n", ansi_red_bold );
         return 1;
     }
     std::string cores
@@ -649,7 +656,12 @@ std::optional<size_t> specify_threads( std::string_view thread_request )
         }
         return result;
     } catch ( std::invalid_argument &e ) {
-        std::cerr << "Invalid core count requested from " << e.what() << ": " << cores << "\n";
+        auto err = std::string( "Invalid core count requested from " )
+                       .append( e.what() )
+                       .append( ": " )
+                       .append( cores )
+                       .append( "\n" );
+        osync::cerr( err, ansi_red_bold );
         return {};
     }
 }
@@ -666,7 +678,7 @@ const data_set &set( const runtime_metrics &m, data_set_type request )
     case utilization:
         return m.overall_utilization;
     default: {
-        std::cerr << "invalid request type for a data set that does not exist.\n";
+        osync::cerr( "invalid request type for a data set that does not exist.\n", ansi_red_bold );
         std::abort();
     }
     }
@@ -718,25 +730,25 @@ void twiddle_cursor( command_queue &q )
 {
     size_t dist = 0;
     bool max_loading_bar = false;
-    std::cout << ansi_red_bold;
+    osync::cout( ansi_red_bold );
     while ( !q.empty() ) {
-        std::cout << save_cursor;
+        osync::cout( save_cursor );
         for ( size_t i = 0; i < loading_limit; ++i ) {
-            std::cout << loading_bar.at( ( i + dist ) % loading_bar.size() ) << std::flush;
+            osync::cout( loading_bar.at( ( i + dist ) % loading_bar.size() ) );
             if ( !max_loading_bar && i > dist ) {
                 break;
             }
         }
-        std::cout << restore_cursor;
+        osync::cout( restore_cursor );
         ++dist;
         max_loading_bar = max_loading_bar || dist == 0;
         std::this_thread::sleep_for( std::chrono::milliseconds( 60 ) );
     }
-    std::cout << ansi_green_bold;
+    osync::cout( ansi_green_bold );
     for ( size_t i = 0; i < loading_limit; ++i ) {
-        std::cout << loading_bar.at( ( i + dist ) % loading_bar.size() ) << std::flush;
+        osync::cout( loading_bar.at( ( i + dist ) % loading_bar.size() ) );
     }
-    std::cout << "\n";
+    osync::cout( "\n" );
 }
 
 } // namespace
