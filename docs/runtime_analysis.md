@@ -68,22 +68,19 @@ On a per request basis, we can observe the speedup in an allocator like `rbtree_
 
 ## Coalescing
 
-Coalescing left and right in all implementations occurs whenever we `free()` or `realloc()` a block of memory. One of my initial reasons for implementing doubly linked duplicate nodes was to see if we could gain speed when we begin coalescing on a large tree. I hypothesized that heap allocators have many duplicate sized nodes and that if we reduce the time to coalesce duplicates to O(1) whenever possible, we might see some speedup in an otherwise slow operation.
+Coalescing left and right in all implementations occurs whenever we `free()` or `realloc()` a block of memory. One of my initial reasons for implementing doubly linked duplicate nodes was to see if we could gain speed when we begin coalescing on a large tree. I hypothesized that heap allocators have many duplicate sized nodes and that if we reduce the time to coalesce duplicates to O(1) whenever possible, we might see some speedup in an otherwise slow operation due to the many other details it must manage in the process.
 
 In order to test the speed of coalescing across implementations we can set up a similar heap to the one we used for our insertion and deletion test. If we want to test the speed of N coalescing operations, we will create 2N allocations. Then, we will free N blocks of memory to insert into the tree such that every other allocation is freed to prevent premature coalescing. Finally, we will call `realloc()` on every allocation that we have remaining, N blocks. My implementation of `realloc()` and `free()` coalesce left and right every time, whether the reallocation request is for more or less space. I have set up a random distribution of calls for more or less space, with a slight skew towards asking for more space. This means we are garunteed to left and right coalesce for every call to `realloc()` giving us the maximum possible number of encounters with nodes that are in the tree. We will find a number of different coalescing scenarios this way as mentioned in the allocator summaries.
 
-If we are using a normal Red Black Tree with a parent field, we treat all coalescing the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost O(lgN) operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in an O(1) operation. No rotations, fixups, or searches are necessary. This is great! For the `rbtree_stack` and `rbtree_top-down` implementations, we were able to acheive the same time complexity by thinking creatively about how we view nodes and how they store the parent field if they are a duplicate. Both of those allocators represent advanced optimizations in speed and space efficiency. The only disadvantage to the `rbtree_stack` allocator, when compared to the `rbtree_linked` allocator, is that if we coalesce a unique node we must launch into a tree search to build its path in a stack in preparation for fixups. The `rbtree_linked` implementation is able to immediately start fixups because it still has the parent field, even in a unique node.
+If we are using a normal Red Black Tree with a parent field, we treat all coalescing the same. We free our node from the tree and then use the parent field to perform the necessary fixups. At worst this will cost O(lgN) operations to fix the colors of the tree. For the `rbtree_linked` implementation, where we kept the parent field and added the linked list as well, any scenario in which we coalesce a duplicate node will result in an O(1) operation. No rotations, fixups, or searches are necessary. This is great! For the `rbtree_stack`, `rbtree_top-down`, and both `splaytree_` implementations, we were able to acheive the same time complexity by thinking creatively about how we view nodes and how they store the parent field if they are a duplicate. Both of those allocators represent advanced optimizations in speed and space efficiency. The only disadvantage to the `rbtree_stack` allocator, when compared to the `rbtree_linked` allocator, is that if we coalesce a unique node we must launch into a tree search to build its path in a stack in preparation for fixups. The splay tree allocators also have some interesting tradeoffs with regards to coalescing which you can read about in their design documents. The `rbtree_linked` implementation is able to immediately start fixups because it still has the parent field, even in a unique node.
 
-![chart-realloc-free-full](/images/chart-realloc-free-full.png)
-
-*Pictured Above: The six allocators compared on a runtime graph for realloc requests.*
-
-Again, we see a competitive `list_segregated` allocator that approaches an O(N^2) runtime complexity. However, let's zoom in.
-
-![chart-realloc-free](/images/chart-realloc-free.png)
-
+![chart-realloc-free-full](/images/realloc-plot.png)
 
 *Pictured Above: The six allocators compared on a runtime graph for realloc requests.*
+
+![chart-realloc-free](/images/realloc-response.png)
+
+*Pictured Above: The allocators compared for average response time over increasing ranges of requests with increasing allocated nodes.*
 
 Here are the key details from the above graph.
 
