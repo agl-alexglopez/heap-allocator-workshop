@@ -27,7 +27,7 @@ The time it takes to make all of these allocations is also not of interest to us
 - This program can time multiple sections of a script as long as they do not overlap and will output the timing result of all requested sections.
 - We will get a helpful graphs that highlight key statistics about the heap as well.
 
-I then hardcoded all of these commands that I wanted into the `plot.cc` file and ran each command as a subprocess with a parent thread communicating with the child via a pipe. We then get output such as this.
+I then hardcoded all of these commands that I wanted into the `plot.cc` file and ran each command as a subprocess with a parent thread communicating with the child via a pipe. We then get output related to time to complete the interval range, average response time, and overall utilization. Here is a response time plot for example.
 
 ![plot-output](/images/plot-output.png)
 
