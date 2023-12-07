@@ -62,6 +62,7 @@ int stats( std::span<const char *const> args )
                     break;
                 }
                 intv.end_req = std::stoi( args[i + 2] );
+                i += 2;
             } else if ( std::string::npos != arg_copy.find( ".script" ) ) {
                 filename = args[i];
             } else {

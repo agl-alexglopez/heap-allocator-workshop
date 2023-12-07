@@ -730,16 +730,16 @@ void twiddle_cursor( command_queue &q )
 {
     size_t dist = 0;
     bool max_loading_bar = false;
-    osync::cout( ansi_red_bold );
+    std::cout << ansi_red_bold;
     while ( !q.empty() ) {
         osync::cout( save_cursor );
         for ( size_t i = 0; i < loading_limit; ++i ) {
-            osync::cout( loading_bar.at( ( i + dist ) % loading_bar.size() ) );
+            std::cout << loading_bar.at( ( i + dist ) % loading_bar.size() ) << std::flush;
             if ( !max_loading_bar && i > dist ) {
                 break;
             }
         }
-        osync::cout( restore_cursor );
+        std::cout << restore_cursor;
         ++dist;
         max_loading_bar = max_loading_bar || dist == 0;
         std::this_thread::sleep_for( std::chrono::milliseconds( 60 ) );
