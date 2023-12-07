@@ -80,28 +80,25 @@ Compare performance of the allocators for a specific script.
 
 - The `.script` file can be found in the `scripts/` folder and specifies the specific script we want all of our allocators to run. We will then see a performance comparison plotted as a bar chart.
 
-> **If you do not want the interactive pop up plots, enter the `-q` flag. All files are saved by default to the output directory, whether or not the plots pop up. Quiet mode saves without showing anything.**
+> **If you do not want the interactive pop up plots, enter the `-q` flag. All files are saved by default to the `output/` directory, whether or not the plots pop up. Quiet mode saves without showing anything.**
 
 ### Print Peaks
 
 While not normally a part of a heap allocator API, I chose to enforce a printing function across all allocators so that we can see the internal representation they are using to store and manage free and allocated blocks in the heap. This started as a more advanced debugging function for helping with tricky tree rotations and operations, and stuck as a way to show state at any given moment.
 
-This program acts as a mini GDB debugger, allowing you to see the state of the free node data structure at its peak. It will also allow you to set breakpoints on line numbers in the script and will show you the state of the free node data structure after that line has executed. At the end of execution, it will also show a graph of the number of free nodes over the lifetime of the heap and how the utilization may have changed during heap lifetime as well. For example, by default here is the output for a run on a smaller script.
+This program acts as a mini GDB debugger, allowing you to see the state of the free node data structure at its peak. It will also allow you to set breakpoints on line numbers in the script and will show you the state of the free node data structure after that line has executed. At the end of execution, it will also show a graph of the number of free nodes over the lifetime of the heap and how the utilization may have changed during heap lifetime as well. For example, by default here is the output for a run on a smaller script. You will get the terminal printing output as well as a Matplot++ graph of free nodes over the heap lifetime as a pop up at the end.
 
-![rb-print-peaks](/images/rb-print-peaks.png)
-
-Here is the same command for a list based allocator. The list output is far less interesting, but perhaps makes it clear, from its simplicity, why the tree is the faster data structure. Please note that for smaller workloads the time measurements for any allocator will be very low and gnuplot may have trouble displaying them on a graph. For more stable graphs use larger data sets.
-
-![list-print-peaks](/images/list-print-peaks.png)
+![matplot-peaks](/images/matplot-peaks.png)
 
 - All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/rel/` folder.
-  - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, `print_peaks_rbtree_stack`, `print_peaks_rbtree_topdown`, `print_peaks_list_bestfit`, `print_peaks_list_addressorder`
+  - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, etc.
 - Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
   - `./build/rel/print_peaks_rbtree_stack scripts/pattern-mixed.script`
-- Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and extra information depending on the allocator. This is the printer I used because I needed to see memory addresses to better understand where errors were occurring. Verbose should always be the first argument if it will be included.
+- Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and extra information depending on the allocator. This is the printer I used because I needed to see memory addresses to better understand where errors were occurring.
   - `./build/rel/print_peaks_list_segregated -v scripts/pattern-mixed.script`
 - Add breakpoints corresponding to line numbers in the script. This will show you how many free nodes existed after that line executes. You will also enter an interactive terminal session. You can decide if you want to continue to the next breakpoint, add a new future breakpoint, or continue to the end of the program execution. Be sure to follow the prompt directions.
-  - `./build/rel/print_peaks_list_bestfit -v -b 100 -b 200 -b 450 scripts/pattern-mixed.script`
+  - `./build/rel/print_peaks_list_bestfit -v 100 200 450 -q scripts/pattern-mixed.script`
+- Use the `-q` flag for quiet mode such that no matplot++ graph pops up at the end.
 
 ### Correctness Tests
 
