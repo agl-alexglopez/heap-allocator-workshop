@@ -98,7 +98,7 @@ This program acts as a mini GDB debugger, allowing you to see the state of the f
   - `./build/rel/print_peaks_list_segregated -v scripts/pattern-mixed.script`
 - Add breakpoints corresponding to line numbers in the script. This will show you how many free nodes existed after that line executes. You will also enter an interactive terminal session. You can decide if you want to continue to the next breakpoint, add a new future breakpoint, or continue to the end of the program execution. Be sure to follow the prompt directions.
   - `./build/rel/print_peaks_list_bestfit -v 100 200 450 -q scripts/pattern-mixed.script`
-- Use the `-q` flag for quiet mode such that no matplot++ graph pops up at the end.
+- Use the `-q` flag for quiet mode such that no Matplot++ graph pops up at the end.
 
 ### Correctness Tests
 
@@ -136,7 +136,7 @@ There are two important steps to measuring the performance of these heap allocat
 
 #### Ltrace Output
 
-The program parsing.py is capable of taking output from the Linux `ltrace` command and cleaning it up for a `.script` file. These `.script` files are then used to conveniently test a custom heap allocator. Here are the directions for the ltrace command. Thanks to the CS107 professor Nick Troccoli for helping me with understanding the `ltrace` command.
+The program parsing.py is capable of taking output from the Linux `ltrace` command and cleaning it up for a `.script` file. These `.script` files are then used to conveniently test a custom heap allocator. Here are the directions for the ltrace command.
 
 Add the memory calls that we want to watch for and pick an output file. Then execute the desired command on the desired file as follows.
 
@@ -236,7 +236,7 @@ python3 parsing.py -generate ../scripts/5k-reallocations.script '-alloc(20,500)'
 
 #### Free
 
-To free blocks of memory in a script file use the following commands or options as needed. As a special note, freeing memory defaults to freeing every other block of allocated memory. This is done because my allocator coalesced the blocks to its left and right on every call to `realloc()` or `free()`. This made it hard to build large pools of free memory because I was just reforming one large pool of free memory as I made calls to free. To better test performance with more free nodes, freeing every other block will ensure that the desired number of nodes enters the tree. Be sure to have double the amount of allocated memory compared to your number of free requests. If you want a tree of N free nodes, make 2N allocations first.
+To free blocks of memory in a script file use the following commands or options as needed. As a special note, freeing memory defaults to freeing every other block of allocated memory. This is done because my allocator coalesced the blocks to its left and right on every call to `realloc()` or `free()`. This made it hard to build large pools of free memory because I was just reforming one large pool of free memory as I made calls to free. To better test performance with more free nodes, freeing every other block will ensure that the desired number of nodes enters the tree. Be sure to have double the amount of allocated memory compared to your number of free requests. If you want to manage N free nodes, make 2N allocations first.
 
 Free all memory that has been allocated up to this point. This will free every other block and then go back and free the rest.
 
@@ -260,14 +260,14 @@ python3 parsing.py -generate ../scripts/time-100kinsertdelete.script '-alloc(1,5
 
 Here are two commands you can run if you would like to generate all the missing files I used to time my allocators. They are ignored by default because they are too large, so you must generate them yourself if you want to test the allocators on larger files.
 
-> **Be warned, basic allocators will not be able to finish the larger files (more than about 50-80k alloc or realloc requests) in a reasonable amount of time. However, at this time, all allocators in this repo are speedy with larger scripts.**
+> **Be warned, depending on the runtime promises of an allocator, it may not be able to finish the larger files (more than about 50-80k alloc or realloc requests) in a reasonable amount of time. However, at this time, all allocators in this repo don't have problems with the largest scripts.**
 
 Generate a decent range of files that test allocators' abilities to quicky `malloc()` and `free()` from and to free node structures of increasing size.
 
 Run this from the `pysrc/` directory.
 
 ```bash
-(python3 parsing.py -generate ../scripts/time-insertdelete-10k.script '-alloc(1,500)' 20000 -free 10000 '-alloc(1,500)' 10000) && (python3 parsing.py -generate ../scripts/time-insertdelete-20k.script '-alloc(1,500)' 40000 -free 20000 '-alloc(1,500)' 20000) && (python3 parsing.py -generate ../scripts/time-insertdelete-30k.script '-alloc(1,500)' 60000 -free 30000 '-alloc(1,500)' 30000) && (python3 parsing.py -generate ../scripts/time-insertdelete-40k.script '-alloc(1,500)' 80000 -free 40000 '-alloc(1,500)' 40000) && (python3 parsing.py -generate ../scripts/time-insertdelete-50k.script '-alloc(1,500)' 100000 -free 50000 '-alloc(1,500)' 50000) && (python3 parsing.py -generate ../scripts/time-insertdelete-60k.script '-alloc(1,500)' 120000 -free 60000 '-alloc(1,500)' 60000) && (python3 parsing.py -generate ../scripts/time-insertdelete-70k.script '-alloc(1,500)' 140000 -free 70000 '-alloc(1,500)' 70000) && (python3 parsing.py -generate ../scripts/time-insertdelete-80k.script '-alloc(1,500)' 160000 -free 80000 '-alloc(1,500)' 80000) && (python3 parsing.py -generate ../scripts/time-insertdelete-90k.script '-alloc(1,500)' 180000 -free 90000 '-alloc(1,500)' 90000) && (python3 parsing.py -generate ../scripts/time-insertdelete-100k.script '-alloc(1,500)' 200000 -free 100000 '-alloc(1,500)' 100000)
+(python3 parsing.py -generate ../scripts/time-insertdelete-05k.script '-alloc(1,500)' 10000 -free 5000 '-alloc(1,500)' 5000) && (python3 parsing.py -generate ../scripts/time-insertdelete-10k.script '-alloc(1,500)' 20000 -free 10000 '-alloc(1,500)' 10000) && (python3 parsing.py -generate ../scripts/time-insertdelete-15k.script '-alloc(1,500)' 30000 -free 15000 '-alloc(1,500)' 15000) && (python3 parsing.py -generate ../scripts/time-insertdelete-20k.script '-alloc(1,500)' 40000 -free 20000 '-alloc(1,500)' 20000) && (python3 parsing.py -generate ../scripts/time-insertdelete-25k.script '-alloc(1,500)' 50000 -free 25000 '-alloc(1,500)' 25000) && (python3 parsing.py -generate ../scripts/time-insertdelete-30k.script '-alloc(1,500)' 60000 -free 30000 '-alloc(1,500)' 30000) && (python3 parsing.py -generate ../scripts/time-insertdelete-35k.script '-alloc(1,500)' 70000 -free 35000 '-alloc(1,500)' 35000) && (python3 parsing.py -generate ../scripts/time-insertdelete-40k.script '-alloc(1,500)' 80000 -free 40000 '-alloc(1,500)' 40000) && (python3 parsing.py -generate ../scripts/time-insertdelete-45k.script '-alloc(1,500)' 90000 -free 45000 '-alloc(1,500)' 45000) && (python3 parsing.py -generate ../scripts/time-insertdelete-50k.script '-alloc(1,500)' 100000 -free 50000 '-alloc(1,500)' 50000) && (python3 parsing.py -generate ../scripts/time-insertdelete-55k.script '-alloc(1,500)' 110000 -free 55000 '-alloc(1,500)' 55000) && (python3 parsing.py -generate ../scripts/time-insertdelete-60k.script '-alloc(1,500)' 120000 -free 60000 '-alloc(1,500)' 60000) && (python3 parsing.py -generate ../scripts/time-insertdelete-70k.script '-alloc(1,500)' 140000 -free 70000 '-alloc(1,500)' 70000) && (python3 parsing.py -generate ../scripts/time-insertdelete-80k.script '-alloc(1,500)' 160000 -free 80000 '-alloc(1,500)' 80000) && (python3 parsing.py -generate ../scripts/time-insertdelete-90k.script '-alloc(1,500)' 180000 -free 90000 '-alloc(1,500)' 90000) && (python3 parsing.py -generate ../scripts/time-insertdelete-100k.script '-alloc(1,500)' 200000 -free 100000 '-alloc(1,500)' 100000) && (python3 parsing.py -generate ../scripts/time-insertdelete-55k.script '-alloc(1,500)' 110000 -free 55000 '-alloc(1,500)' 55000) && (python3 parsing.py -generate ../scripts/time-insertdelete-65k.script '-alloc(1,500)' 130000 -free 65000 '-alloc(1,500)' 65000) && (python3 parsing.py -generate ../scripts/time-insertdelete-75k.script '-alloc(1,500)' 150000 -free 75000 '-alloc(1,500)' 75000) && (python3 parsing.py -generate ../scripts/time-insertdelete-85k.script '-alloc(1,500)' 170000 -free 85000 '-alloc(1,500)' 85000) && (python3 parsing.py -generate ../scripts/time-insertdelete-95k.script '-alloc(1,500)' 190000 -free 95000 '-alloc(1,500)' 95000) && (python3 parsing.py -generate ../scripts/time-insertdelete-75k.script '-alloc(1,500)' 150000 -free 75000 '-alloc(1,500)' 75000) && (python3 parsing.py -generate ../scripts/time-insertdelete-85k.script '-alloc(1,500)' 170000 -free 85000 '-alloc(1,500)' 85000) && (python3 parsing.py -generate ../scripts/time-insertdelete-95k.script '-alloc(1,500)' 190000 -free 95000 '-alloc(1,500)' 95000)
 ```
 
 Generate files to test an allocator's ability to quickly `realloc()` allocated nodes in the heap. This a good test of coalescing speed.
@@ -280,7 +280,7 @@ Run this from the `pysrc/` directory.
 
 ### My Optional Program
 
-This was a program we created to test our heap allocators in a more "real" context. Ideally we would take a previous program that utilized the heap and exchange all standard library heap calls and replace them with our own, along with a few other steps such as initializing our heap segment. I left the program I tested with, a simple text parsing program, but you could replace this with anything you would like. Just use my heap allocator as the backing for it.
+This was a program to help test the allocators in "real" `c` context. Ideally we would take a previous program that utilized the heap and exchange all standard library heap calls and replace them with our own, along with a few other steps such as initializing our heap segment. I left the program I tested with, a simple text parsing program, but you could replace this with anything you would like. Just use any heap allocator as the backing for it.
 
 #### How to Use My Optional Program
 
