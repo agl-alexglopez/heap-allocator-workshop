@@ -33,8 +33,6 @@ I then hardcoded all of these commands that I wanted into the `plot.cc` file and
 
 For more details about how the timing functions work or how the program parses arguments please see the code.
 
-> **Read my code here ([`time_harness.c`](/src/time_harness.c)).**
-
 ## Inserting and Deleting
 
 To set up a measurement of inserting and deleting into a Red-Black Tree we start by forming a script with 2N allocations and then measure the time to insert N elements, `free()`, and delete N elements, `malloc()` from our tree. Remember, we have now dropped down to the milliseconds level, compared to the seconds level we used when analyzing a doubly linked list allocator. Here are the results across allocators.

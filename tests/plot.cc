@@ -270,21 +270,21 @@ void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &
                 heap_operation::malloc_free,
                 {
                     .interval_labels{
-                        "Time to Complete N Requests",
+                        "Time(ms) to Complete N Requests",
                         "N Malloc N Free Requests",
                         "Time(ms) to Complete Interval",
                         "output/mallocfree-interval.svg",
                     },
                     .response_labels{
-                        "Average Response Time per Request",
+                        "Average Response Time(ms) per Request",
                         "N Malloc N Free Requests",
                         "Average Time(ms) per Request",
                         "output/mallocfree-response.svg",
                     },
                     .utilization_labels{
-                        "Utilization (libc excluded)",
+                        "Utilization % (libc excluded)",
                         "N Malloc N Free Requests",
-                        "Time(ms)",
+                        "Percent %",
                         "output/mallocfree-utilization.svg",
                     },
                 },
@@ -299,21 +299,21 @@ void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &
                 heap_operation::realloc_free,
                 {
                     .interval_labels{
-                        "Time to Complete N Requests",
+                        "Time(ms) to Complete N Requests",
                         "N Realloc Requests",
                         "Time(ms) to Complete Interval",
                         "output/realloc-interval.svg",
                     },
                     .response_labels{
-                        "Average Response Time per Request",
+                        "Average Response Time(ms) per Request",
                         "N Realloc Requests",
                         "Average Time(ms) per Request",
                         "output/realloc-response.svg",
                     },
                     .utilization_labels{
-                        "Utilization (libc excluded)",
+                        "Utilization % (libc excluded)",
                         "N Realloc Requests",
-                        "Time(ms)",
+                        "Percent %",
                         "output/realloc-utilization.svg",
                     },
                 },
@@ -398,15 +398,15 @@ void plot_script_comparison( const std::vector<path_bin> &commands, plot_args &a
         .filename = save_interval,
     };
     args.response_labels = {
-        .title = "Average Response Time during Script",
+        .title = "Average Response Time(ms) during Script",
         .x_label = "Allocators",
         .y_label = "Time(ms)",
         .filename = save_response,
     };
     args.utilization_labels = {
-        .title = "Utilization (libc excluded)",
+        .title = "Utilization % (libc excluded)",
         .x_label = "Allocators",
-        .y_label = "Time(ms)",
+        .y_label = "Percent %",
         .filename = save_utilization,
     };
     for ( const auto &c : commands ) {
@@ -580,7 +580,6 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     auto axes = p->current_axes();
     axes->title( l.title );
     axes->xlabel( l.x_label );
-    axes->ylabel( l.y_label );
     axes->grid( true );
     axes->font_size( 14.0 );
     size_t tick_style = 0;
@@ -624,7 +623,6 @@ void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     auto axes = p->current_axes();
     axes->title( l.title );
     axes->xlabel( l.x_label );
-    axes->ylabel( l.y_label );
     axes->grid( true );
     axes->font_size( 14.0 );
     size_t tick_style = 0;
