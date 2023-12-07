@@ -31,19 +31,19 @@ I then hardcoded all of these commands that I wanted into the `plot.cc` file and
 
 ![plot-output](/images/plot-output.png)
 
-For more details about how the timing functions work or how the program parses arguments please see the code.
+Notice also that the default allocator of `libc` is included for comparison which is fun. However, to be clear, **regardless of performance metrics you may see here, `libc` implements a superior allocator**. This analysis is not trying to claim that any allocator *beats* `libc`. The default allocator is thread safe and probably one of the most well tested, robust pieces of software in use today. Its ubiquity puts far more stringent requirements on it to be solid than anything I wrote and even with all of those requirements it is still **very fast**. It's just fun to see how different ideas stack up. For more details about how the timing functions work or how the program parses arguments please see the code.
 
 ## Inserting and Deleting
 
 To set up a measurement of inserting and deleting into a Red-Black Tree we start by forming a script with 2N allocations and then measure the time to insert N elements, `free()`, and delete N elements, `malloc()` from our tree. Remember, we have now dropped down to the milliseconds level, compared to the seconds level we used when analyzing a doubly linked list allocator. Here are the results across allocators.
 
-![insert-delete-full](/images/chart-insert-delete-full.png)
+![insert-delete-full](/images/insert-delete-full.png)
 
-*Pictured Above: The six allocators compared on a runtime graph for insert delete requests. The time is now measured in milliseconds, while the number of requests remains the same as our previous comparison.*
+*Pictured Above: The six allocators compared on a runtime graph for insert delete requests. The time is now measured in milliseconds.*
 
-As you can see, the `list_segregated` allocator has strong performance, suffering from more erratic runtime speed as the size of the lists in the lookup table grows. Let's zoom in on the `rbtree` allocators.
+As you can see, the `list_segregated` allocator has strong performance, suffering from more erratic runtime speed as the size of the lists in the lookup table grows. I think I can implement some improvements later as the default `libc` allocator is roughly based on a segregated fits table as well and they are doing great! Let's exclude the outlier.
 
-![insert-delete](/images/chart-insert-delete.png)
+![insert-delete](/images/insert-delete-zoom.png)
 
 *Pictured Above: The six allocators compared on a runtime graph for insert delete requests with a focus on the tree allocators.*
 
