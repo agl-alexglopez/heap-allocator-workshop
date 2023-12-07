@@ -110,13 +110,27 @@ To trace programs we use the `ltrace` command. This command has many options and
 ltrace -e malloc+realloc+calloc -e free-@libc.so* --output [FILENAME] [COMMAND]
 ```
 
-If we then write a simple parsing program we can turn the somewhat verbose output of the `ltrace` command into a cleaned up and more simple `.script` file. If you would like to see how that parsing is done, read my implementation in Python.
+If we then write a simple parsing program we can turn the somewhat verbose output of the `ltrace` command into a cleaned up and more simple `.script` file. If you would like to see how that parsing is done, read my implementation in Python. I am having the most trouble with this section in finding programs that have interesting heap usage to trace. More often then not it will be a long series of `malloc` requests followed by `free` requests. It is more rare to find frequent `realloc` requests to really exercise the code paths.
+
+### Cargo Build
+
+Cargo is the package manager and build tool for the rust programming language. Luckily, it has *some* diverse heap usage when building a project with a decent chunk of `realloc` requests. However, overwhelmingly the majority of calls are to malloc. Yet, we can check out how our different allocators would be able to service the usage pattern of the Cargo Build tool. In a [maze-tui](https://github.com/agl-alexglopez/maze-tui) application I wrote in rust, I compiled the project with the `cargo build --release` flag and traced the results.
+
+![cargo-interval](/images/cargo-interval.png)
+
+And the average response time.
+
+![cargo-response](/images/cargo-response.png)
+
+I am most interested to see how the splaytree allocators perform on future scripts because their heuristic is that frequently requested items are brought closer to the root through splay operations. So, my hypothesis was that requests to the heap for consistently similar or the same sizes may improve performance.
 
 ### Utilization
 
 There is not much interesting to report here. The utilization of most allocators is the same or very similar. Any allocators that have the same size for free nodes and headers will have the same utilization and other differences may be hard to spot. One note is that I currently do not have a way to fin the utilization of libc. However, I think they provide some opaque pointers or functions that may help with this. However, that requires more research. Here is the utilization for the `time-trace-cargobuild.script`.
 
 ![cargo-utilization](/images/cargo-utilization.png)
+
+We do notice the overhead of the extra space used by `rbtree_linked` to have an impace on utilization and the simple doubly linked list of the `segregated_list` allocator is a benefit. All other tree based allocators use the same sized nodes, even if the fields sometimes represent different concepts such as duplicates versus parents.
 
 ## Conclusions
 
