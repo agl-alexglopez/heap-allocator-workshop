@@ -56,7 +56,11 @@ static struct node *splay( struct node *root, size_t key )
 }
 ```
 
-See the code for more!
+See the code for more! Finally, we can compare the trees that are produced from bottom up and topdwon splays.
+
+![splay-compare](/images/splay-compare.png)
+
+On the left is bottom up and on the right is topdown at the peak free nodes size for a script. They are very similar! But not identical.
 
 ## Splaytree Topdown Analysis
 
