@@ -21,7 +21,7 @@ There are a number of heap allocators already implemented in this repository. To
 
 ## Create
 
-If you want to implement your own idea for a heap allocator or just want to practice writing some C, go ahead. All that is required is one `.c` file with your implementation and as long as you follow the specification requirements and build instructions your allocator will slot in with the rest and become available for testing and performance measurements by default.
+If you want to implement your own idea for a heap allocator or just want to practice writing some C, go ahead. All that is required is one `.c` file with your implementation and as long as you **[follow the specification requirements and build instructions](/lib/readme.md)** your allocator will slot in with the rest and become available for testing and performance measurements by default.
 
 If you would rather flush out performance characteristics of the allocators present, try generating some allocator scripts. There are instructions and a python program available to either create scripts from scratch or emulate real world programs.
 
