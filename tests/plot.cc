@@ -198,8 +198,6 @@ void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
 void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool quiet );
 void plot_runtime( const std::vector<path_bin> &commands, plot_args args );
 
-} // namespace
-
 //////////////////////////////////    User Argument Handling     ///////////////////////////////////
 
 int plot( std::span<const char *const> cli_args )
@@ -245,6 +243,8 @@ int plot( std::span<const char *const> cli_args )
         return 1;
     }
 }
+
+} // namespace
 
 int main( int argc, char *argv[] )
 {

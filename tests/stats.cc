@@ -31,14 +31,12 @@ struct interval_reqs
 constexpr size_t heap_size = 1L << 32;
 constexpr int base_10 = 10;
 
-/// FUNCTION PROTOTYPE
+///////////////////////  Prototypes and Arg Handling    ////////////////////////////////
 
 int time_script( std::string_view script_name, interval_reqs &user_requests );
 std::optional<size_t> time_allocator( script::requests &s, interval_reqs &user_requests );
 bool validate_intervals( script::requests &s, interval_reqs &user_requests );
 bool set_interval( interval_reqs &user_reqs, std::span<const char *const> args, size_t i );
-
-} // namespace
 
 int stats( std::span<const char *const> args )
 {
@@ -71,6 +69,8 @@ int stats( std::span<const char *const> args )
         return 1;
     }
 }
+
+} // namespace
 
 int main( int argc, char **argv )
 {

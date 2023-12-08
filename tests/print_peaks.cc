@@ -44,8 +44,6 @@ size_t print_allocator( script::requests &s, user_breaks &user_reqs );
 void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim );
 bool validate_breakpoints( script::requests &s, user_breaks &user_reqs );
 
-} // namespace
-
 int peaks( std::span<const char *const> args )
 {
     try {
@@ -81,6 +79,8 @@ int peaks( std::span<const char *const> args )
         return 1;
     }
 }
+
+} // namespace
 
 int main( int argc, char **argv )
 {
