@@ -153,5 +153,3 @@ The list based allocators are best for smaller scale programs or projects in whi
 
 For further exploration, I would be interested in finding real world programs with more diverse heap calls, such as `realloc()`. The current real world tests were mostly calls to `malloc()` and `free()`, keeping our tree small. I will also try to add to the trace program section of this writeup in the future.
 
-> **Back to the ([`README.md`](/README.md))**.
-

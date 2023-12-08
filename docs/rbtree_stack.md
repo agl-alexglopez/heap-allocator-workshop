@@ -1,51 +1,15 @@
 # Unified Stack
 
-## Navigation
-
-1. Home
-   - Documentation **([`README.md`](/README.md))**
-2. The CLRS Standard
-   - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
-   - Design **([`rbtree_clrs_utilities.h`](/lib/rbtree_clrs_utilities.h))**
-   - Implementation **([`rbtree_clrs_algorithm.c`](/lib/rbtree_clrs_algorithm.c))**
-3. Unified Symmetry
-   - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
-   - Design **([`rbtree_unified_utilities.h`](/lib/rbtree_unified_utilities.h))**
-   - Implementation **([`rbtree_unified_algorithm.c`](/lib/rbtree_unified_algorithm.c))**
-4. Doubly Linked Duplicates
-   - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
-   - Design **([`rbtree_linked_utilities.h`](/lib/rbtree_linked_utilities.h))**
-   - Implementation **([`rbtree_linked_algorithm.c`](/lib/rbtree_linked_algorithm.c))**
-5. Stack Based
-   - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
-   - Design **([`rbtree_stack_utilities.h`](/lib/rbtree_stack_utilities.h))**
-   - Implementation **([`rbtree_stack_algorithm.c`](/lib/rbtree_stack_algorithm.c))**
-6. Top-down Fixups
-   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Design **([`rbtree_topdown_utilities.h`](/lib/rbtree_topdown_utilities.h))**
-   - Implementation **([`rbtree_topdown_algorithm.c`](/lib/rbtree_topdown_algorithm.c))**
-7. List Allocators
-   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
-   - Design **([`list_addressorder_utilities.h`](/lib/list_addressorder_utilities.h))**
-   - Implementation **([`list_addressorder_algorithm.c`](/lib/list_addressorder_algorithm.c))**
-   - Design **([`list_bestfit_utilities.h`](/lib/list_bestfit_utilities.h))**
-   - Implementation **([`list_bestfit_algorithm.c`](/lib/list_bestfit_algorithm.c))**
-   - Design **([`list_segregated_utilities.h`](/lib/list_segregated_utilities.h))**
-   - Implementation **([`list_segregated_algorithm.c`](/lib/list_segregated_algorithm.c))**
-8. Runtime Analysis
-   - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-9. The Programs
-   - Documentation **([`programs.md`](/docs/programs.md))**
-
 ## Overview
 
 If we now bring all of the strengths of the past improvements I have discussed, we can make a more space efficient, fast allocator that solves some of the challenges a heap allocator implementation poses for red black trees. One technique that is common when we want to save space in a red black tree is to eliminate the parent field. Instead, we use an array and treat it as a stack to represent the path down to the nodes we need to work with. This eliminates an eight byte pointer from the struct and in a normal red black tree might look something like this. Please note, I am using my array method for this implementation as well to eliminate symmetric cases.
 
 ```c
-typedef struct rb_node {
+struct rb_node
+{
     header header;
-    struct rb_node *links[TWO_NODE_ARRAY];
-}rb_node;
+    struct rb_node *links[2];
+};
 ```
 
 There is one problem with this approach for a heap allocator however. I could not think of a good way to coalesce nodes with the above struct. The problem arises with duplicates. When we insert duplicates into a red black tree, we know that they will always follow the rules of a binary search tree in relation to their parent, but we do not know where rotation may put them over the lifetime of the heap. This is a problem for a coalescing operation that needs to find the exact address of the node it needs.
@@ -59,43 +23,45 @@ We can acheive almost the same speed as the `rbtree_linked` allocator with this 
 Here are the new types we can add for readability to reduce confusion when referring to list and tree.
 
 ```c
-typedef struct rb_node {
+struct rb_node
+{
     header header;
-    struct rb_node *links[TWO_NODE_ARRAY];
-    // Use list_start to maintain doubly linked list, using the links[P]-links[N] fields
+    struct rb_node *links[2];
     struct duplicate_node *list_start;
-}rb_node;
+};
 
-typedef struct duplicate_node {
+struct duplicate_node
+{
     header header;
-    struct duplicate_node *links[TWO_NODE_ARRAY];
-    // We will always store the tree parent in first duplicate node in the list. O(1) coalescing.
-    struct rb_node *parent;
-} duplicate_node;
+    struct duplicate_node *links[2];
+    struct rb_node *list_start;
+};
 
-typedef enum rb_color {
+enum rb_color
+{
     BLACK = 0,
     RED = 1
-}rb_color;
+};
 
-typedef enum tree_link {
-    // (L == LEFT), (R == RIGHT)
+enum tree_link
+{
     L = 0,
     R = 1
-} tree_link;
+};
 
-typedef enum list_link {
-    // (P == PREVIOUS), (N == NEXT)
+enum list_link
+{
     P = 0,
     N = 1
-} list_link;
+};
 
-static struct free_nodes {
-    rb_node *tree_root;
-    // These two pointers will point to the same address. Used for clarity between tree and list.
-    rb_node *black_nil;
-    duplicate_node *list_tail;
-}free_nodes;
+static struct free_nodes
+{
+    struct rb_node *tree_root;
+    struct rb_node *black_nil;
+    struct duplicate_node *list_tail;
+    size_t total;
+} free_nodes;
 ```
 
 Here is a function that utilizes all of these types to help make these ideas a reality. This function relies on the time saving measures we put in place by tracking the parent so carefully in the first duplicate node. Notice how we transition explicitly between referring to our list and our tree. It is possible to save some complexity by not making a new type or worrying about casting and still acheive the same results. However, for the sake of clarity and other developers reading the code, I think it is important to use these types to make it as clear as possible what is happening.
@@ -103,36 +69,32 @@ Here is a function that utilizes all of these types to help make these ideas a r
 This function executes whenever we begin our coalescing operation on `free()` and `realloc()`. You can observe that when we encounter a duplicate our logic is slightly more complex than a simple doubly linked list with a head and tail, but we do not exceed O(1) in our time complexity of freeing a duplicate from the list. This also allows us to avoid fixups when coalescing duplicates, as discussed earlier. If you want to see how we handle the more complex case of coalescing the tree node that serves as the head of our linked list of duplicates, please see the code.
 
 ```c
-/* @brief free_coalesced_node  a specialized version of node freeing when we find a neighbor we
- *                             need to free from the tree before absorbing into our coalescing. If
- *                             this node is a duplicate we can splice it from a linked list.
- * @param *to_coalesce         the address for a node we must treat as a list or tree node.
- * @return                     the node we have now correctly freed given all cases to find it.
- */
-void *free_coalesced_node(void *to_coalesce) {
-    rb_node *tree_node = to_coalesce;
+static void *free_coalesced_node( void *to_coalesce )
+{
+    struct rb_node *tree_node = to_coalesce;
     // Go find and fix the node the normal way if it is unique.
-    if (tree_node->list_start == free_nodes.list_tail) {
-       return find_best_fit(get_size(tree_node->header));
+    if ( tree_node->list_start == free_nodes.list_tail ) {
+        return find_best_fit( get_size( tree_node->header ) );
     }
-    duplicate_node *list_node = to_coalesce;
-    rb_node *lft_tree_node = tree_node->links[L];
+    struct duplicate_node *list_node = to_coalesce;
+    struct rb_node *lft_tree_node = tree_node->links[L];
 
     // Coalescing the first node in linked list. Dummy head, aka lft_tree_node, is to the left.
-    if (lft_tree_node != free_nodes.black_nil && lft_tree_node->list_start == to_coalesce) {
+    if ( lft_tree_node != free_nodes.black_nil && lft_tree_node->list_start == to_coalesce ) {
         list_node->links[N]->parent = list_node->parent;
         lft_tree_node->list_start = list_node->links[N];
         list_node->links[N]->links[P] = list_node->links[P];
 
-    // All nodes besides the tree node head and the first duplicate node have parent set to NULL.
-    }else if (NULL == list_node->parent) {
+        // All nodes besides the tree node head and the first duplicate node have parent set to NULL.
+    } else if ( NULL == list_node->parent ) {
         list_node->links[P]->links[N] = list_node->links[N];
         list_node->links[N]->links[P] = list_node->links[P];
 
-    // Coalesce head of a doubly linked list in the tree. Remove and make a new head.
+        // Coalesce head of a doubly linked list in the tree. Remove and make a new head.
     } else {
-        remove_head(tree_node, lft_tree_node, tree_node->links[R]);
+        remove_head( tree_node, lft_tree_node, tree_node->links[R] );
     }
+    free_nodes.total--;
     return to_coalesce;
 }
 ```
@@ -146,5 +108,4 @@ This was the most challenging of all the allocators for me to implement. It requ
 - **`coalesce()`**- Both `free()` and `realloc()` coalesce left and right to maximize on reclaimed space. If the coalescing operation finds a duplicate node, it will be freed in O(1) time because I have setup the doubly linked list such that we know we are in the list and not the tree. We also have a node that perpetually serves as the tail to the list, its the same heap address we use for the null in the tree. This makes coalescing a duplicate a constant time operation. Because we always store the parent of a duplicate node in the first node of the linked list we can coalesce a duplicate in constant time. Great!
 - **`style`**- This was a challenging implementation to complete, but it is able to loosely follow the structure of all other implementations up to this point. The greatest concern for this allocator is the readability of the stack management. To improve the style of this code it would be important to come up with a consistent method for rearranging and managing the stack during fixup operations. There are specific adjustments to the path in the stack that are required for rotations and deciding where and when to adjust the nodes in the array is an important style question. Also, tracking the parent node in duplicate nodes was very difficult. The effort is aided by the fact that we use the `black_nil` aka `list_tail` to help with edgcases, but there are still details to consider. However, the benefit is extreme speed and space optimizations.
 
-> **Read the writeup for the next allocator, [`rbtree_topdown.md`](/docs/rbtree_topdown.md)**.
 

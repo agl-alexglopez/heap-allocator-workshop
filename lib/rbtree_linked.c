@@ -53,8 +53,7 @@ struct rb_node
     header header;
     struct rb_node *parent;
     struct rb_node *links[2];
-    // Points to a list which we will use P and N to manage to distinguish from
-    // the tree.
+    // Points to a list which we will use P and N to manage to distinguish from the tree.
     struct duplicate_node *list_start;
 };
 

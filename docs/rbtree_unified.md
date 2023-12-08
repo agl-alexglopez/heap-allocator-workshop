@@ -1,42 +1,5 @@
 # Unified Allocator
 
-## Navigation
-
-1. Home
-   - Documentation **([`README.md`](/README.md))**
-2. The CLRS Standard
-   - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
-   - Design **([`rbtree_clrs_utilities.h`](/lib/rbtree_clrs_utilities.h))**
-   - Implementation **([`rbtree_clrs_algorithm.c`](/lib/rbtree_clrs_algorithm.c))**
-3. Unified Symmetry
-   - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
-   - Design **([`rbtree_unified_utilities.h`](/lib/rbtree_unified_utilities.h))**
-   - Implementation **([`rbtree_unified_algorithm.c`](/lib/rbtree_unified_algorithm.c))**
-4. Doubly Linked Duplicates
-   - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
-   - Design **([`rbtree_linked_utilities.h`](/lib/rbtree_linked_utilities.h))**
-   - Implementation **([`rbtree_linked_algorithm.c`](/lib/rbtree_linked_algorithm.c))**
-5. Stack Based
-   - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
-   - Design **([`rbtree_stack_utilities.h`](/lib/rbtree_stack_utilities.h))**
-   - Implementation **([`rbtree_stack_algorithm.c`](/lib/rbtree_stack_algorithm.c))**
-6. Top-down Fixups
-   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Design **([`rbtree_topdown_utilities.h`](/lib/rbtree_topdown_utilities.h))**
-   - Implementation **([`rbtree_topdown_algorithm.c`](/lib/rbtree_topdown_algorithm.c))**
-7. List Allocators
-   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
-   - Design **([`list_addressorder_utilities.h`](/lib/list_addressorder_utilities.h))**
-   - Implementation **([`list_addressorder_algorithm.c`](/lib/list_addressorder_algorithm.c))**
-   - Design **([`list_bestfit_utilities.h`](/lib/list_bestfit_utilities.h))**
-   - Implementation **([`list_bestfit_algorithm.c`](/lib/list_bestfit_algorithm.c))**
-   - Design **([`list_segregated_utilities.h`](/lib/list_segregated_utilities.h))**
-   - Implementation **([`list_segregated_algorithm.c`](/lib/list_segregated_algorithm.c))**
-8. Runtime Analysis
-   - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-9. The Programs
-   - Documentation **([`programs.md`](/docs/programs.md))**
-
 ## Overview
 
 The downside to the CLRS implementation of a Red Black Tree is that there are many cases to consider, and for the major fixup operations after inserting and deleting, we have to consider two symmetric cases. It would be much more readable code if we could unite these cases and functions into the minimum possible lines of code. A great way to do this is with an array and an enum!
@@ -55,30 +18,29 @@ typedef struct rb_node {
 If we use an array for the left and right fields in the struct and pair that with smart use of an enum, we can do some clever tricks to unify left and right cases to simple logic points in the code. Here is the new setup.
 
 ```c
-typedef struct rb_node {
-    header info;
+struct rb_node
+{
+    // The header will store block size, allocation status, left neighbor status, and node color.
+    header header;
     struct rb_node *parent;
-    struct rb_node *links[TWO_NODE_ARRAY];
-}rb_node;
+    struct rb_node *links[2];
+    // A footer goes at end of unused blocks. Need at least 8 bytes of user space to fit footer.
+};
 
 // NOT(!) operator will flip this enum to the opposite field. !L == R and !R == L;
-typedef enum tree_link {
+enum tree_link
+{
     // (L == LEFT), (R == RIGHT)
     L = 0,
     R = 1
-} tree_link;
+};
 ```
 
 With this new approach, your traditional search function in a binary tree can look slightly more elegant, in my opinion.
 
 ```c
-/* @brief find_node_size  performs a standard binary search for a node based on the value of key.
- * @param key             the size_t representing the number of bytes a node must have in the tree.
- * @return                a pointer to the node with the desired size or NULL if size is not found.
- */
 rb_node *find_node_size(size_t key) {
     rb_node *current = tree_root;
-
     while(current != black_sentinel) {
         size_t cur_size = get_size(current->header);
         if (key == cur_size) {
@@ -94,11 +56,6 @@ rb_node *find_node_size(size_t key) {
 This might not look like much but the saving grow substantially with more complex functions. Here is the CLRS left rotation function. We also have to write the right rotation function as a perfect mirror for left and right.
 
 ```c
-/* @brief left_rotate  complete a left rotation to help repair a red-black tree. Assumes current is
- *                     not the tree.black_nil and that the right child is not black sentinel.
- * @param *current     current will move down the tree, it's right child will move up to replace.
- * @warning            this function assumes current and current->right are not tree.black_nil.
- */
 void left_rotate(rb_node *current) {
     rb_node *right_child = current->right;
     current->right = right_child->left;
@@ -122,13 +79,6 @@ void left_rotate(rb_node *current) {
 Now, use some clever naming and the `tree_link` type and you can unify both rotation functions into one.
 
 ```c
-/* @brief rotate     a unified version of the traditional left and right rotation functions. The
- *                   rotation is either left or right and opposite is its opposite direction. We
- *                   take the current nodes child, and swap them and their arbitrary subtrees are
- *                   re-linked correctly depending on the direction of the rotation.
- * @param *current   the node around which we will rotate.
- * @param rotation   either left or right. Determines the rotation and its opposite direction.
- */
 void rotate(rb_node *current, tree_link rotation) {
     rb_node *child = current->links[!rotation];
     current->links[!rotation] = child->links[rotation];
@@ -152,10 +102,6 @@ How much more clear and readable this is may be a matter up for debate, but we c
 Here is the CLRS version.
 
 ```c
-/* @brief fix_rb_insert  implements Cormen et.al. red black fixup after the insertion of a node.
- *                       Ensures that the rules of a red-black tree are upheld after insertion.
- * @param *current       the current node that has just been added to the red black tree.
- */
 void fix_rb_insert(rb_node *current) {
     while(extract_color(current->parent->header) == RED) {
         if (current->parent == current->parent->parent->left) {
@@ -199,11 +145,6 @@ void fix_rb_insert(rb_node *current) {
 Here is the unified version.
 
 ```c
-/* @brief fix_rb_insert  implements a modified Cormen et.al. red black fixup after the insertion of
- *                       a new node. Unifies the symmetric left and right cases with the use of
- *                       an array and an enum tree_link.
- * @param *current       the current node that has just been added to the red black tree.
- */
 void fix_rb_insert(rb_node *current) {
     while(extract_color(current->parent->header) == RED) {
         // Store the link from ancestor to parent. True == 1 == R, otherwise False == 0 == L
@@ -236,6 +177,4 @@ This implementation seems to speed up the allocator slightly on my desktop runni
 - **`malloc()`**- Searching the tree for the best fitting block requires one O(lgN) search of the tree. Deleting from a red black tree takes at most three rotations, but O(lgN) color adjustments on the way back up the tree in the worst case.
 - **`coalesce()`**- Both `free()` and `realloc()` coalesce left and right to maximize on reclaimed space. When they do this, if they find a block they will be able to immediately free it from its position in the tree and start the fixup operations. This is because we have the memory address of the block in our heap, and thus our tree. So, we use the parent field to start fixups immediately, costing O(lgN) time.
 - **`style`**- The style of this implementation is short, readable, and simple. The symmetric cases being unified helps make the key functions shorter to read. Thinking about the clearest way to name the `tree_link` and `links[]` pointer array operations for every function is key to helping others understand this more generalized code.
-
-> **Read the writeup for the next allocator, [`rbtree_linked.md`](/docs/rbtree_linked.md)**.
 

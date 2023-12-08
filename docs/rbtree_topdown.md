@@ -1,42 +1,5 @@
 # Unified Top-down
 
-## Navigation
-
-1. Home
-   - Documentation **([`README.md`](/README.md))**
-2. The CLRS Standard
-   - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
-   - Design **([`rbtree_clrs_utilities.h`](/lib/rbtree_clrs_utilities.h))**
-   - Implementation **([`rbtree_clrs_algorithm.c`](/lib/rbtree_clrs_algorithm.c))**
-3. Unified Symmetry
-   - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
-   - Design **([`rbtree_unified_utilities.h`](/lib/rbtree_unified_utilities.h))**
-   - Implementation **([`rbtree_unified_algorithm.c`](/lib/rbtree_unified_algorithm.c))**
-4. Doubly Linked Duplicates
-   - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
-   - Design **([`rbtree_linked_utilities.h`](/lib/rbtree_linked_utilities.h))**
-   - Implementation **([`rbtree_linked_algorithm.c`](/lib/rbtree_linked_algorithm.c))**
-5. Stack Based
-   - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
-   - Design **([`rbtree_stack_utilities.h`](/lib/rbtree_stack_utilities.h))**
-   - Implementation **([`rbtree_stack_algorithm.c`](/lib/rbtree_stack_algorithm.c))**
-6. Top-down Fixups
-   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Design **([`rbtree_topdown_utilities.h`](/lib/rbtree_topdown_utilities.h))**
-   - Implementation **([`rbtree_topdown_algorithm.c`](/lib/rbtree_topdown_algorithm.c))**
-7. List Allocators
-   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
-   - Design **([`list_addressorder_utilities.h`](/lib/list_addressorder_utilities.h))**
-   - Implementation **([`list_addressorder_algorithm.c`](/lib/list_addressorder_algorithm.c))**
-   - Design **([`list_bestfit_utilities.h`](/lib/list_bestfit_utilities.h))**
-   - Implementation **([`list_bestfit_algorithm.c`](/lib/list_bestfit_algorithm.c))**
-   - Design **([`list_segregated_utilities.h`](/lib/list_segregated_utilities.h))**
-   - Implementation **([`list_segregated_algorithm.c`](/lib/list_segregated_algorithm.c))**
-8. Runtime Analysis
-   - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-9. The Programs
-   - Documentation **([`programs.md`](/docs/programs.md))**
-
 ## Overview
 
 Just when I thought that a stack was a space efficient implementation, but sacrificed on some speed, it turns out there is a theoretically optimal solution that mitigates the cost of forgoing a parent field. We can consider repairing a Red Black tree on the way down to a node that we need to insert or remove. This is an amazing idea that I read on Julienne Walker's [**`Eternally Confuzzled`**](https://web.archive.org/web/20141129024312/http://www.eternallyconfuzzled.com/tuts/datastructures/jsw_tut_rbtree.aspx) website. I could only find the archived website at this point, but I am glad I did. This algorithm solves most of the problems that come with forgoing the parent field in a red black tree. There are, however, significant modifications to Walker's implementation required to make the topdown algorithms work with a heap allocator.
@@ -72,6 +35,4 @@ The best part of this implementation is seeing the variety in tree that is produ
 - **`malloc()`**- Searching the tree for the best fitting block requires one O(lgN) search of the tree. We fix the tree while we go with at most two rotations per node on the way down. We will remove a duplicate node in O(1) or replace the node that needs deletion with the inorder predecessor. The worst case to find the inorder predecessor is O(lgN). However, we do not adjust our search on the way down if we encounter a best fit that needs to be replaced. In other words, there is still one O(lgN) operation on the way down and we can consider the worst case the continued search for the inorder predecessor that may be slightly further down the tree. Again, there are no further fixups required as all necessary operations are complete when the new node is transplanted in.
 - **`coalesce()`**- Both `free()` and `realloc()` coalesce left and right to maximize on reclaimed space. If the coalescing operation finds a duplicate node, it will be freed in O(1) time because I have setup the doubly linked list such that we know we are in the list and not the tree. We also have the node in the tree serving as the head and the sentinel black tree node serving as the tail. This makes coalescing a duplicate a constant time operation. This implementation also stores the parent of any duplicate node in the first node of the linked list. Unique nodes are coalesced by removing them from the tree in one O(lgN) operation.
 - **`style`**- The ideas of this algorithm are beautiful. The implmentation is not. This code is currently riddled with long functions, an infinite loop, `break` and `continue` statements, and numerous `if`'s for a multitude of scenarios. If you ever have a chance to read Walker's original work, I would recommend it. Walker's implementation is elegant because Walker has constraints on duplicates and can copy data between nodes. Because I have to manage memory addresses directly and reconnect pointers, the cases I consider increase and functions are more dificult to decompose. I will try to discuss this with more experienced developers to see what strategies are possible to simplify the code. The problems this code solves for this particular implmentation are great. I never have more than one O(lgN) operation for any given request to the heap, versus the two O(lgN)+O(lgN) operations that all other implementations up to this point had in the worst case. However, I need to consider how to improve the style and readability of the code.
-
-> **Read the runtime analysis for all allocators, [`rbtree_analysis.md`](/docs/rbtree_analysis.md)**.
 
