@@ -14,7 +14,7 @@ The purpose of this repository is to put in place the tools needed to quickly de
 
 There are a number of heap allocators already implemented in this repository. To learn about them you can do the following.
 
-1. Read the wiki. I have an accompanying writeup for every allocator implemented in this repository as well as more conceptual writeups for more abstract CS concepts like Red Black Trees, Splay Trees, and Segregated Lists.
+1. **[Read the wiki](https://github.com/agl-alexglopez/heap-allocator-workshop/wiki)**. I have an accompanying writeup for every allocator implemented in this repository as well as more conceptual writeups for more abstract CS concepts like Red Black Trees, Splay Trees, and Segregated Lists.
 2. Plot performance. Run the `plot.cc` program. It gathers all available allocators and compares their performance across, malloc, realloc, free, or any specific script you have in mind. We can even see how we stack up against `libc`!
 3. Print internal data structures. Every allocator is responsible for implementing its own debugging functions, both logical and visual. The `print_peaks.c` program provides a peak into these internal representations in a controlled manner. This is a fun program to run for the tree based allocators.
 4. Read the tests. If you have ideas for your own allocator, read how they are tested. The Google Test framework provides a basic set of expectations for the core `malloc`, `realloc`, and `free` functions with additional behaviors enforced like coalescing. The `ctest.cc` program is the correctness check that is essential for debugging implementations.
