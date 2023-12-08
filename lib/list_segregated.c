@@ -720,11 +720,11 @@ static void print_fits( enum print_style style, struct seg_node table[], struct 
             printf( "%p: ", &table[i] );
         }
         if ( i == NUM_BUCKETS - 1 ) {
-            printf( "[CLASS:%ubytes+]=>", table[i].size );
+            printf( "[FIT:%ubytes+]", table[i].size );
         } else if ( i >= NUM_SMALL_BUCKETS ) {
-            printf( "[CLASS:%u-%ubytes]=>", table[i].size, table[i + 1].size - 1U );
+            printf( "[FIT:%u-%ubytes]", table[i].size, table[i + 1].size - 1U );
         } else {
-            printf( "[CLASS:%ubytes]=>", table[i].size );
+            printf( "[FIT:%ubytes]", table[i].size );
         }
         printf( COLOR_NIL );
         if ( alternate ) {
@@ -735,7 +735,7 @@ static void print_fits( enum print_style style, struct seg_node table[], struct 
 
         for ( struct free_node *cur = table[i].start; cur != nil; cur = cur->next ) {
             if ( cur ) {
-                printf( "<=>[" );
+                printf( "⇄[" );
                 if ( style == VERBOSE ) {
                     printf( "%p:", cur );
                 }
@@ -745,11 +745,11 @@ static void print_fits( enum print_style style, struct seg_node table[], struct 
                 break;
             }
         }
-        printf( "<=>[%p]\n", nil );
+        printf( "⇄[%p]\n", nil );
         printf( COLOR_NIL );
     }
     printf( COLOR_RED );
-    printf( "<-%p:SENTINEL->\n", nil );
+    printf( "←%p:SENTINEL→\n", nil );
     printf( COLOR_NIL );
 }
 
@@ -758,7 +758,7 @@ static void print_alloc_block( struct free_node *cur_header )
     size_t block_size = get_size( cur_header->header );
     printf( COLOR_GRN );
     // We will see from what direction our header is messed up by printing 16 digits.
-    printf( "%p: HEADER->0x%016zX->[ALOC-%zubytes]\n", cur_header, cur_header->header, block_size );
+    printf( "%p: HEADER→0x%016zX→[ALOC-%zubytes]\n", cur_header, cur_header->header, block_size );
     printf( COLOR_NIL );
 }
 

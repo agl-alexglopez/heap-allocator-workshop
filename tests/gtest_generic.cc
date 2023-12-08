@@ -127,10 +127,12 @@ void expect_frees( const std::vector<void *> &frees, const std::vector<heap_bloc
 
 /// Malloc returns void *ptr. So if you want a vector of returned pointers from calls to malloc of
 /// the same type provide that type in the template and this function will cast the resulting malloc
-/// to the specified type.
-/// Note: Don't pass in <T*>, but rather <T> to the template. Example:
+/// to the specified type. Note: Don't pass in <T*>, but rather <T> to the template. Example:
+///
 /// std::vector<char *> my_malloc_strings = expect_mallocs<char>( { { 88, OK }, { 32, OK }, { heap, OK } } );
-/// But you should prefer auto to avoid confusion.
+///
+/// But you should prefer auto to avoid type mismatches.
+///
 /// auto my_malloc_strings = expect_mallocs<char>( { { 88, OK }, { 32, OK }, { heap, OK } } );
 template <typename T> std::vector<T *> expect_mallocs( const std::vector<malloc_expectation> &expected )
 {
@@ -557,7 +559,6 @@ TEST( ReallocTests, ReallocDoesNotMoveWhenShrinking )
         { aligned, OK },
         { heap, OK },
     } );
-    // Two different pointers are just copies pointing to same location.
     void *req = expect_realloc( alloc[0], 32, OK );
     expect_state( {
         { alloc[0], myheap_align( 32 ), OK },
@@ -811,8 +812,6 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingRight )
         { bytes, OK },
         { heap, OK },
     } );
-    // Fill surroundings with terminator because we want the string views to keep looking until a null is found
-    // This may help us spot errors in how we move bytes around while reallocing.
     std::fill( alloc[0], alloc[0] + bytes, '\0' );
     std::copy( chars.begin(), chars.end(), alloc[1] );
     std::fill( alloc[2], alloc[2] + bytes, '\0' );
@@ -859,8 +858,6 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingLeft )
         { bytes, OK },
         { heap, OK },
     } );
-    // Fill surroundings with terminator because we want the string views to keep looking until a null is found
-    // This may help us spot errors in how we move bytes around while reallocing.
     std::fill( alloc[0], alloc[0] + bytes, '\0' );
     std::copy( chars.begin(), chars.end(), alloc[1] );
     std::fill( alloc[2], alloc[2] + bytes, '\0' );
@@ -906,8 +903,6 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingElsewhere )
         { bytes, OK },
         { heap, OK },
     } );
-    // Fill surroundings with terminator because we want the string views to keep looking until a null is found
-    // This may help us spot errors in how we move bytes around while reallocing.
     std::fill( alloc[0], alloc[0] + bytes, '\0' );
     std::copy( chars.begin(), chars.end(), alloc[1] );
     std::fill( alloc[2], alloc[2] + bytes, '\0' );

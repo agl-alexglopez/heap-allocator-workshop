@@ -1,42 +1,5 @@
 # CLRS Allocator
 
-## Navigation
-
-1. Home
-   - Documentation **([`README.md`](/README.md))**
-2. The CLRS Standard
-   - Documentation **([`rbtree_clrs.md`](/docs/rbtree_clrs.md))**
-   - Design **([`rbtree_clrs_utilities.h`](/lib/rbtree_clrs_utilities.h))**
-   - Implementation **([`rbtree_clrs_algorithm.c`](/lib/rbtree_clrs_algorithm.c))**
-3. Unified Symmetry
-   - Documentation **([`rbtree_unified.md`](/docs/rbtree_unified.md))**
-   - Design **([`rbtree_unified_utilities.h`](/lib/rbtree_unified_utilities.h))**
-   - Implementation **([`rbtree_unified_algorithm.c`](/lib/rbtree_unified_algorithm.c))**
-4. Doubly Linked Duplicates
-   - Documentation **([`rbtree_linked.md`](/docs/rbtree_linked.md))**
-   - Design **([`rbtree_linked_utilities.h`](/lib/rbtree_linked_utilities.h))**
-   - Implementation **([`rbtree_linked_algorithm.c`](/lib/rbtree_linked_algorithm.c))**
-5. Stack Based
-   - Documentation **([`rbtree_stack.md`](/docs/rbtree_stack.md))**
-   - Design **([`rbtree_stack_utilities.h`](/lib/rbtree_stack_utilities.h))**
-   - Implementation **([`rbtree_stack_algorithm.c`](/lib/rbtree_stack_algorithm.c))**
-6. Top-down Fixups
-   - Documentation **([`rbtree_topdown.md`](/docs/rbtree_topdown.md))**
-   - Design **([`rbtree_topdown_utilities.h`](/lib/rbtree_topdown_utilities.h))**
-   - Implementation **([`rbtree_topdown_algorithm.c`](/lib/rbtree_topdown_algorithm.c))**
-7. List Allocators
-   - Documentation **([`list_segregated.md`](/docs/list_segregated.md))**
-   - Design **([`list_addressorder_utilities.h`](/lib/list_addressorder_utilities.h))**
-   - Implementation **([`list_addressorder_algorithm.c`](/lib/list_addressorder_algorithm.c))**
-   - Design **([`list_bestfit_utilities.h`](/lib/list_bestfit_utilities.h))**
-   - Implementation **([`list_bestfit_algorithm.c`](/lib/list_bestfit_algorithm.c))**
-   - Design **([`list_segregated_utilities.h`](/lib/list_segregated_utilities.h))**
-   - Implementation **([`list_segregated_algorithm.c`](/lib/list_segregated_algorithm.c))**
-8. Runtime Analysis
-   - Documentation **([`rbtree_analysis.md`](/docs/rbtree_analysis.md))**
-9. The Programs
-   - Documentation **([`programs.md`](/docs/programs.md))**
-
 ## Overview
 
 I modeled the code in my first allocator directly from the pseudocode in the textbook and it was a challenging endeavor. Making sure that all the code across every symmetric case is correct, well named, and specific to the needs of a heap allocator was a bug prone journey. However, I now have a faithful reproduction of the textbook algorithm where applicable. I added logic to make deleting from the tree a best fit approach. For a call to `malloc` we are able to service the request in O(lgN) time while providing the best possible fitting node and splitting off any extra space and returning it to the tree if it is far too big.
@@ -59,5 +22,4 @@ It also turns out that red-black trees are perfectly capable of handling duplica
 - **`coalesce()`**- Both `free()` and `realloc()` coalesce left and right to maximize on reclaimed space. When they do this, if they find a block they will be able to immediately free it from its position in the tree and start the fixup operations. This is because we have the memory address of the block in our heap, and thus our tree. So, we use the parent field to start fixups immediately, costing O(lgN) time.
 - **`style`**- The style of this code is direct and understandable. It is clear what is happening in any given code block due to the use of the left and right cases. However, it can become overwhelming to try to trace through the code for a series of tree operations due to the length of the functions and the cost of the symmetry.
 
-> **See the next allocator writeup, [`rbtree_unified.md`](/docs/rbtree_unified.md)**.
 

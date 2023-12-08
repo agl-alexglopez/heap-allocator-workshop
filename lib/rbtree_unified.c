@@ -53,13 +53,11 @@ typedef size_t header;
 ///  - The 1st LSB holds the allocated status and 2nd LSB holds left neighbor status for coalescing.
 struct rb_node
 {
-    // The header will store block size, allocation status, left neighbor status,
-    // and node color.
+    // The header will store block size, allocation status, left neighbor status, and node color.
     header header;
     struct rb_node *parent;
     struct rb_node *links[2];
-    // A footer goes at end of unused blocks. Need at least 8 bytes of user space
-    // to fit footer.
+    // A footer goes at end of unused blocks. Need at least 8 bytes of user space to fit footer.
 };
 
 struct heap_range
@@ -94,10 +92,10 @@ enum rb_color
     RED = 1
 };
 
-// NOT(!) operator will flip this enum to the opposite field. !l == r and !r == l;
+// NOT(!) operator will flip this enum to the opposite field. !L == R and !R == L;
 enum tree_link
 {
-    // (l == LEFT), (r == RIGHT)
+    // (L == LEFT), (R == RIGHT)
     L = 0,
     R = 1
 };
