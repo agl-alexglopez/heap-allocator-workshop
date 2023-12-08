@@ -56,25 +56,25 @@ ctest-rel: build
 	@echo "Ran RELEASE Script Correctness Tests"
 
 gtest-deb: build
-	$(BUILD_DIR)deb/gtest_generic_list_segregated
-	$(BUILD_DIR)deb/gtest_generic_rbtree_clrs
-	$(BUILD_DIR)deb/gtest_generic_rbtree_unified
-	$(BUILD_DIR)deb/gtest_generic_rbtree_linked
-	$(BUILD_DIR)deb/gtest_generic_rbtree_stack
-	$(BUILD_DIR)deb/gtest_generic_rbtree_topdown
-	$(BUILD_DIR)deb/gtest_generic_splaytree_topdown
-	$(BUILD_DIR)deb/gtest_generic_splaytree_stack
+	$(BUILD_DIR)deb/gtest_list_segregated
+	$(BUILD_DIR)deb/gtest_rbtree_clrs
+	$(BUILD_DIR)deb/gtest_rbtree_unified
+	$(BUILD_DIR)deb/gtest_rbtree_linked
+	$(BUILD_DIR)deb/gtest_rbtree_stack
+	$(BUILD_DIR)deb/gtest_rbtree_topdown
+	$(BUILD_DIR)deb/gtest_splaytree_topdown
+	$(BUILD_DIR)deb/gtest_splaytree_stack
 	@echo "Ran DEBUG GTests"
 
 gtest-rel: build
-	$(BUILD_DIR)rel/gtest_generic_list_segregated
-	$(BUILD_DIR)rel/gtest_generic_rbtree_clrs
-	$(BUILD_DIR)rel/gtest_generic_rbtree_unified
-	$(BUILD_DIR)rel/gtest_generic_rbtree_linked
-	$(BUILD_DIR)rel/gtest_generic_rbtree_stack
-	$(BUILD_DIR)rel/gtest_generic_rbtree_topdown
-	$(BUILD_DIR)rel/gtest_generic_splaytree_topdown
-	$(BUILD_DIR)rel/gtest_generic_splaytree_stack
+	$(BUILD_DIR)rel/gtest_list_segregated
+	$(BUILD_DIR)rel/gtest_rbtree_clrs
+	$(BUILD_DIR)rel/gtest_rbtree_unified
+	$(BUILD_DIR)rel/gtest_rbtree_linked
+	$(BUILD_DIR)rel/gtest_rbtree_stack
+	$(BUILD_DIR)rel/gtest_rbtree_topdown
+	$(BUILD_DIR)rel/gtest_splaytree_topdown
+	$(BUILD_DIR)rel/gtest_splaytree_stack
 	@echo "Ran RELEASE GTests"
 
 test-deb-all: test-deb gtest-deb
