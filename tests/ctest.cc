@@ -7,12 +7,13 @@
 /// based on a limited api it can gain as a user of each heap allocator. However, it relies heavily
 /// on thorough implementations of the validation functions written by each allocator. This framework
 /// will allow the user to validate a variety of scripts with those internal debugging functions.
-/// This program is written with synchronized error cout and cerr. This is so that if it is run
-/// in a multithreaded or multiprocess environment error messages will not be garbled.
 /// This is based upon the test_harness program written in C by jzelenski and Nick Troccoli (Winter 18-19)
 /// but has been updated to C++ and modified for ease of use with the rest of my testing framework.
 /// I added more information for overlapping heap boundary errors and encapsulated alloc, realloc,
-/// and free logic to their own functions.
+/// and free logic to their own functions. I also created an output progress bar system so that we
+/// can see how many scripts we have left to check. Only the loading bar occurs on success and we
+/// should only see output of text when something fails. I have also separated script parsing out
+/// to another file because I have other programs, such as the print peaks program that uses scripts.
 #include "allocator.h"
 #include "osync.hh"
 #include "script.hh"

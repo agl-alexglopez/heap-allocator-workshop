@@ -1,19 +1,63 @@
+/// File: script.cc
+/// ---------------
+/// This file contains my implementation in C++ of a script parsing
+/// and execution helper library. It is based on the work of jzelenski and Nick Troccoli
+/// in that it parses scripts, but it has been updated to C++ and changed significantly.
+/// I also had to include more basic script execution and timing functions so that I
+/// could incorporate scripts and their execution in contexts where correctness does
+/// not matter and we just need to progress calls to a heap allocator library.
+/// So, this file includes function to exectute scripts and to time calls to
+/// scripts based on lines given. This allows much flexibility and fits in well
+/// with the rest of my testing framework.
 #include "script.hh"
 #include "allocator.h"
 #include "osync.hh"
 
 #include <algorithm>
+#include <cstddef>
 #include <cstdint>
 #include <ctime>
 #include <fstream>
 #include <iterator>
+#include <optional>
+#include <span>
 #include <sstream>
+#include <string>
 #include <string_view>
 
 namespace script {
 namespace {
 constexpr std::string_view ansi_bred = "\033[38;5;9m";
 constexpr std::string_view ansi_nil = "\033[0m";
+
+std::optional<line> tokens_pass( std::span<const std::string> toks, size_t lineno )
+{
+    try {
+        if ( toks.size() > 3 || toks.size() < 2 || !( toks[0] == "a" || toks[0] == "f" || toks[0] == "r" ) ) {
+            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
+            return {};
+        }
+        line ret{ .line = lineno };
+        ret.block_index = std::stoull( toks[1] );
+        if ( toks[0] == "a" || toks[0] == "r" ) {
+            ret.req = toks[0] == "a" ? op::alloc : op::reallocd;
+            ret.size = std::stoull( toks[2] );
+        } else if ( toks[0] == "f" ) {
+            ret.req = op::freed;
+        } else {
+            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
+            return {};
+        }
+        return ret;
+    } catch ( ... ) {
+        const auto err = std::string( "Could not convert size or id on line: " )
+                             .append( std::to_string( lineno ) )
+                             .append( "\n" );
+        osync::syncerr( err, ansi_bred );
+        return {};
+    }
+}
+
 } // namespace
 
 std::optional<requests> parse_script( const std::string &filepath )
@@ -49,34 +93,6 @@ std::optional<requests> parse_script( const std::string &filepath )
     return s;
 }
 
-std::optional<line> tokens_pass( std::span<const std::string> toks, size_t lineno )
-{
-    try {
-        if ( toks.size() > 3 || toks.size() < 2 || !( toks[0] == "a" || toks[0] == "f" || toks[0] == "r" ) ) {
-            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
-            return {};
-        }
-        line ret{ .line = lineno };
-        ret.block_index = std::stoull( toks[1] );
-        if ( toks[0] == "a" || toks[0] == "r" ) {
-            ret.req = toks[0] == "a" ? op::alloc : op::reallocd;
-            ret.size = std::stoull( toks[2] );
-        } else if ( toks[0] == "f" ) {
-            ret.req = op::freed;
-        } else {
-            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
-            return {};
-        }
-        return ret;
-    } catch ( ... ) {
-        const auto err = std::string( "Could not convert size or id on line: " )
-                             .append( std::to_string( lineno ) )
-                             .append( "\n" );
-        osync::syncerr( err, ansi_bred );
-        return {};
-    }
-}
-
 bool exec_malloc( const script::line &line, script::requests &s, void *&heap_end )
 {
     void *p = mymalloc( line.size );
@@ -84,10 +100,9 @@ bool exec_malloc( const script::line &line, script::requests &s, void *&heap_end
         osync::syncerr( "mymalloc() exhasted the heap\n", ansi_bred );
         return false;
     }
-    const std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size };
     // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
     // This is basically pointer arithmetic but the kind that makes clang-tidy happy ¯\_(ツ)_/¯
-    const std::span<uint8_t> end = cur_block.subspan( line.size );
+    const auto end = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size }.subspan( line.size );
     if ( end.data() > static_cast<uint8_t *>( heap_end ) ) {
         heap_end = end.data();
     }
@@ -105,8 +120,7 @@ bool exec_realloc( const script::line &line, script::requests &s, void *&heap_en
         return false;
     }
     s.blocks[line.block_index].second = 0;
-    const auto cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( new_ptr ), line.size };
-    const std::span<uint8_t> end = cur_block.subspan( line.size );
+    const auto end = std::span<uint8_t>{ static_cast<uint8_t *>( new_ptr ), line.size }.subspan( line.size );
     if ( end.data() > static_cast<uint8_t *>( heap_end ) ) {
         heap_end = end.data();
     }
@@ -170,10 +184,9 @@ std::optional<double> time_malloc( const script::line &line, script::requests &s
         osync::syncerr( err, ansi_bred );
         return {};
     }
-    const std::span<uint8_t> cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size };
     // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
     // This is basically pointer arithmetic but the kind that makes clang-tidy happy ¯\_(ツ)_/¯
-    const std::span<uint8_t> end = cur_block.subspan( line.size );
+    const auto end = std::span<uint8_t>{ static_cast<uint8_t *>( p ), line.size }.subspan( line.size );
     if ( end.data() > static_cast<uint8_t *>( heap_end ) ) {
         heap_end = end.data();
     }
@@ -203,8 +216,7 @@ std::optional<double> time_realloc( const script::line &line, script::requests &
         return {};
     }
     s.blocks[line.block_index].second = 0;
-    const auto cur_block = std::span<uint8_t>{ static_cast<uint8_t *>( new_ptr ), line.size };
-    const std::span<uint8_t> end = cur_block.subspan( line.size );
+    const auto end = std::span<uint8_t>{ static_cast<uint8_t *>( new_ptr ), line.size }.subspan( line.size );
     if ( end.data() > static_cast<uint8_t *>( heap_end ) ) {
         heap_end = end.data();
     }
