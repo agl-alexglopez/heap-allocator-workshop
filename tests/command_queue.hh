@@ -7,6 +7,8 @@
 #include <queue>
 #include <syncstream>
 #include <thread>
+#include <utility>
+#include <vector>
 
 /// The work we do to gather timing is trivially parallelizable. We just need a parent to
 /// monitor this small stat generation program and enter the results. So we can have

@@ -24,6 +24,8 @@
 #include <sstream>
 #include <string>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 namespace script {
 namespace {
@@ -66,7 +68,8 @@ std::optional<requests> parse_script( const std::string &filepath )
     if ( sfile.fail() ) {
         return {};
     }
-    size_t lineo = std::count( std::istreambuf_iterator<char>( sfile ), std::istreambuf_iterator<char>(), '\n' );
+    const size_t lineo
+        = std::count( std::istreambuf_iterator<char>( sfile ), std::istreambuf_iterator<char>(), '\n' );
     sfile.clear();
     sfile.seekg( 0 );
     requests s{ .lines{}, .blocks{}, .peak = 0 };
@@ -113,7 +116,6 @@ bool exec_malloc( const script::line &line, script::requests &s, void *&heap_end
 bool exec_realloc( const script::line &line, script::requests &s, void *&heap_end )
 {
     void *old_ptr = s.blocks.at( line.block_index ).first;
-    const size_t old_size = s.blocks.at( line.block_index ).second;
     void *new_ptr = wrealloc( old_ptr, line.size );
     if ( nullptr == new_ptr && line.size != 0 ) {
         osync::syncerr( "Realloc exhausted the heap.\n", ansi_bred );
@@ -197,7 +199,6 @@ std::optional<double> time_malloc( const script::line &line, script::requests &s
 std::optional<double> time_realloc( const script::line &line, script::requests &s, void *&heap_end )
 {
     void *old_ptr = s.blocks.at( line.block_index ).first;
-    const size_t old_size = s.blocks.at( line.block_index ).second;
     void *new_ptr = nullptr;
     auto start_time = std::clock();
     volatile void *start_report = new_ptr;
@@ -226,18 +227,17 @@ std::optional<double> time_realloc( const script::line &line, script::requests &
 
 double time_free( const line &line, requests &script )
 {
-    std::pair<void *, size_t> old_block = script.blocks.at( line.block_index );
+    const std::pair<void *, size_t> old_block = script.blocks.at( line.block_index );
     auto start_time = std::clock();
-    volatile void *start_addr = old_block.first;
+    volatile void *start_addr = old_block.first; // NOLINT
     wfree( old_block.first );
-    volatile void *end_addr = start_addr;
+    volatile void *end_addr = start_addr; // NOLINT
     auto end_time = std::clock();
     return 1000.0 * ( static_cast<double>( end_time - start_time ) / CLOCKS_PER_SEC );
 }
 
 std::optional<heap_delta> time_request( const line &line, requests &script, size_t heap_size, void *&heap_end )
 {
-    double cpu_time{};
     switch ( line.req ) {
     case script::op::alloc: {
         heap_size += line.size;
@@ -258,7 +258,7 @@ std::optional<heap_delta> time_request( const line &line, requests &script, size
     case script::op::freed: {
         std::pair<void *, size_t> &old_block = script.blocks.at( line.block_index );
         heap_size -= old_block.second;
-        double t = time_free( line, script );
+        const double t = time_free( line, script );
         old_block = { nullptr, 0 };
         return std::optional<heap_delta>{ { heap_size, t } };
     }

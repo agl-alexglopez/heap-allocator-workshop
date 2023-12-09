@@ -3,13 +3,16 @@
 #include "script.hh"
 #include "segment.h"
 
+#include <algorithm>
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace {
@@ -129,7 +132,7 @@ std::optional<size_t> time_allocator( script::requests &s, interval_reqs &user_r
                 cur_size = request_time.value().heap_size;
                 s.peak = std::max( s.peak, cur_size );
             }
-            double new_average = user_requests.interval_averages.emplace_back(
+            const double new_average = user_requests.interval_averages.emplace_back(
                 total_request_time / static_cast<double>( section.end_req - section.start_req )
             );
             auto output = std::to_string( total_request_time )

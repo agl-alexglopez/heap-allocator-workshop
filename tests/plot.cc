@@ -16,6 +16,8 @@
 #include <exception>
 #include <fcntl.h>
 #include <filesystem>
+#include <fstream>
+#include <ios>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -388,8 +390,16 @@ bool thread_run_analysis( const size_t allocator_index, const path_bin &cmd, run
 
 int plot_script_comparison( const std::vector<path_bin> &commands, plot_args &args )
 {
+    const std::string script_name_str( args.script_name.value() );
+    if ( !std::ifstream( script_name_str, std::ios_base::in ).good() ) {
+        const auto msg = std::string( "Could not find the following file for script comparison:\n" )
+                             .append( script_name_str )
+                             .append( "\n" );
+        osync::cerr( msg, osync::ansi_bred );
+        return 1;
+    }
     runtime_metrics m{};
-    std::string_view path_to_script{ args.script_name.value() };
+    std::string_view path_to_script{ script_name_str };
     std::string script( path_to_script.substr( path_to_script.find_last_of( '/' ) + 1 ) );
     script.erase( script.find_last_of( '.' ) );
     std::string save_interval = std::string( "output/interval-" ).append( script ).append( ".svg" );
@@ -612,7 +622,7 @@ bool scripts_generated()
     for ( const auto &command_series : big_o_timing ) {
         for ( const auto &commands : command_series ) {
             std::string fpath_and_name( commands.back() );
-            if ( !std::ifstream( fpath_and_name ).good() ) {
+            if ( !std::ifstream( fpath_and_name, std::ios_base::in ).good() ) {
                 missing_files.push_back( fpath_and_name );
             }
         }

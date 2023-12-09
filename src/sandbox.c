@@ -5,6 +5,8 @@
 #include "allocator.h"
 #include "segment.h"
 
+#include <stdbool.h>
+
 #define HEAP_SIZE 1ULL << 32
 
 static bool initialize_heap_allocator()
