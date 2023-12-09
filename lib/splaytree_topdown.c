@@ -191,7 +191,7 @@ static void print_all( struct heap_range r, size_t heap_size, struct node *tree_
 
 ///////////////////////////////   Shared Heap Functions   ////////////////////////////////
 
-size_t get_free_total( void )
+size_t wget_free_total( void )
 {
     return free_nodes.total;
 }
@@ -279,7 +279,7 @@ void wfree( void *ptr )
 
 //////////////////////////////////      Public Validation        /////////////////////////////////////////
 
-bool validate_heap( void )
+bool wvalidate_heap( void )
 {
 
     if ( !check_init( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
@@ -377,7 +377,7 @@ void wheap_diff( const struct heap_block expected[], struct heap_block actual[],
 
 /// @note  the red and blue links represent the heavy/light decomposition of a splay tree. For more
 ///        information on this interpretation see any Stanford 166 lecture on splay trees.
-void print_free_nodes( enum print_style style )
+void wprint_free_nodes( enum print_style style )
 {
     printf( "%s(X)%s", COLOR_CYN, COLOR_NIL );
     printf( " Indicates number of nodes in the subtree rooted at X.\n" );
@@ -407,7 +407,7 @@ void print_free_nodes( enum print_style style )
     print_tree( free_nodes.root, free_nodes.nil, style );
 }
 
-void dump_heap( void )
+void wdump_heap( void )
 {
     print_all(
         ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, free_nodes.root, free_nodes.nil

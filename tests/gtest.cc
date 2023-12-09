@@ -41,7 +41,7 @@ void assert_init( size_t size, enum status_error e ) // NOLINT(*cognitive-comple
     case OK: {
         ASSERT_NE( nullptr, segment );
         ASSERT_EQ( true, winit( segment, size ) );
-        ASSERT_EQ( true, validate_heap() );
+        ASSERT_EQ( true, wvalidate_heap() );
         break;
     }
     case ER: {
@@ -73,7 +73,7 @@ void *expect_malloc( size_t size, status_error e )
         break;
     }
     }
-    EXPECT_EQ( true, validate_heap() );
+    EXPECT_EQ( true, wvalidate_heap() );
     return m;
 }
 
@@ -97,14 +97,14 @@ void *expect_realloc( void *old_ptr, size_t new_size, enum status_error e )
         break;
     }
     }
-    EXPECT_EQ( true, validate_heap() );
+    EXPECT_EQ( true, wvalidate_heap() );
     return newptr;
 }
 
 void expect_free( void *addr )
 {
     wfree( addr );
-    EXPECT_EQ( true, validate_heap() );
+    EXPECT_EQ( true, wvalidate_heap() );
 }
 
 void expect_state( const std::vector<heap_block> &expected )

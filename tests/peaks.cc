@@ -117,7 +117,7 @@ int print_peaks( const std::string &script_name, user_breaks &user_reqs )
         if ( !script::exec_request( line, script, 0, dummy ) ) {
             return 1;
         }
-        const size_t total_free_nodes = get_free_total();
+        const size_t total_free_nodes = wget_free_total();
         free_nodes.push_back( total_free_nodes );
 
         if ( curr_breakpoint < user_reqs.breakpoints.size()
@@ -132,7 +132,7 @@ int print_peaks( const std::string &script_name, user_breaks &user_reqs )
                                  .append( osync::ansi_nil )
                                  .append( " free nodes.\n" );
             std::cout << msg;
-            print_free_nodes( user_reqs.style );
+            wprint_free_nodes( user_reqs.style );
             std::cout << msg;
             handle_user_breakpoints( user_reqs, { curr_breakpoint, script.lines.size() - 1 } );
             ++curr_breakpoint;
@@ -168,7 +168,7 @@ int print_peaks( const std::string &script_name, user_breaks &user_reqs )
                                  .append( osync::ansi_nil )
                                  .append( " free nodes.\n" );
             std::cout << msg;
-            print_free_nodes( user_reqs.style );
+            wprint_free_nodes( user_reqs.style );
             std::cout << msg;
         }
         ++req;

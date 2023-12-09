@@ -188,7 +188,7 @@ static void print_fits( enum print_style style, struct seg_node table[], struct 
 
 ///////////////////////////   Shared Heap Functions  ///////////////////////////////////////////
 
-size_t get_free_total( void )
+size_t wget_free_total( void )
 {
     return fits.total;
 }
@@ -301,7 +301,7 @@ void wfree( void *ptr )
 
 ///////////////////////     Shared Debugger      ///////////////////////////////////////////
 
-bool validate_heap( void )
+bool wvalidate_heap( void )
 {
     if ( !check_init( fits.table, heap.client_size ) ) {
         return false;
@@ -389,12 +389,12 @@ void wheap_diff( const struct heap_block expected[], struct heap_block actual[],
 
 ////////////////////////////     Shared Printer       ///////////////////////////////////////
 
-void print_free_nodes( enum print_style style )
+void wprint_free_nodes( enum print_style style )
 {
     print_fits( style, fits.table, &fits.nil );
 }
 
-void dump_heap( void )
+void wdump_heap( void )
 {
     print_all(
         ( struct heap_range ){ heap.client_start, heap.client_end }, heap.client_size, fits.table, &fits.nil

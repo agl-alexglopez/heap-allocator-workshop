@@ -218,7 +218,7 @@ print_all( struct heap_range r, size_t heap_size, struct rb_node *tree_root, str
 
 //////////////////////          Shared Heap Functions    ////////////////////////////////
 
-size_t get_free_total( void )
+size_t wget_free_total( void )
 {
     return free_nodes.total;
 }
@@ -310,7 +310,7 @@ void wfree( void *ptr )
 
 ////////////////////////////////       Shared Debugging    ////////////////////////////
 
-bool validate_heap( void )
+bool wvalidate_heap( void )
 {
     if ( !check_init( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
         return false;
@@ -418,14 +418,14 @@ void wheap_diff( const struct heap_block expected[], struct heap_block actual[],
 
 ////////////////////////         Shared Printer     ///////////////////////////////////
 
-void print_free_nodes( enum print_style style )
+void wprint_free_nodes( enum print_style style )
 {
     printf( COLOR_CYN "(+X)" COLOR_NIL );
     printf( " Indicates duplicate nodes in the tree linked by a doubly-linked list.\n" );
     print_rb_tree( free_nodes.tree_root, free_nodes.black_nil, style );
 }
 
-void dump_heap( void )
+void wdump_heap( void )
 {
     print_all(
         ( struct heap_range ){ heap.client_start, heap.client_end },

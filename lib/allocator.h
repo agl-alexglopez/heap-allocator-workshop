@@ -68,7 +68,7 @@ struct heap_block
 ///                    segment.h file for how this segment is obtained and how to aquire the heap_start pointer.
 ///                    This function should prepare any internal static data structures of the heap and prepare the
 ///                    the memory pool according to the design of the internal implementation. After this function
-///                    completes the allocator should be able to pass the validate_heap function.
+///                    completes the allocator should be able to pass the wvalidate_heap function.
 /// @param heap_start  the pointer provided by the segment.h mapping function.
 /// @param heap_size   the size we want to use for this memory pool. Total bytes available in the entire heap.
 /// @return            true if initialization was successful false if not.
@@ -94,31 +94,31 @@ void *wrealloc( void *old_ptr, size_t new_size );
 /// @param ptr     the location of the previously provided memory that should now be freed for management.
 void wfree( void *ptr );
 
-/// @brief validate_heap  runs the implementation defined internal consistency checks. This is a VERY IMPORTANT
-///                       function. In the .c file include the debug_break.h file and make use of the BREAKPOINT();
-///                       macro along with this function. To use it write your validation logic normally with
-///                       helper functions as required. When a failure happens and you wish to return false, place
-///                       a BREAKPOINT(); before the return false statement and the program will stop execution
-///                       at that location if in GDB. So, when debugging rerun the program and when this function
-///                       executes step up through the stack frames to the current validate_heap location and
-///                       examine internal heap state with other printing functions.
-/// @return               true if all checks pass false if not.
-bool validate_heap( void );
+/// @brief wvalidate_heap  runs the implementation defined internal consistency checks. This is a VERY IMPORTANT
+///                        function. In the .c file include debug_break.h file and make use of the BREAKPOINT();
+///                        macro along with this function. To use it write your validation logic normally with
+///                        helper functions as required. When a failure happens and you wish to return false, place
+///                        a BREAKPOINT(); before the return false statement and the program will stop execution
+///                        at that location if in GDB. So, when debugging rerun the program and when this function
+///                        executes step up through the stack frames to the current wvalidate_heap location and
+///                        examine internal heap state with other printing functions.
+/// @return                true if all checks pass false if not.
+bool wvalidate_heap( void );
 
-/// @brief get_free_total  returns the total number of free nodes the heap is managing currently. The expectaion
-///                        is this function runs in O(1) time as it may be called in hot timing loops targeted
-///                        at big O analysis and we do not want it interfering with runtime trends.
-/// @return                the number of free blocks of memory in our internal data structure.
-size_t get_free_total( void );
+/// @brief wget_free_total  returns the total number of free nodes the heap is managing currently. The expectaion
+///                         is this function runs in O(1) time as it may be called in hot timing loops targeted
+///                         at big O analysis and we do not want it interfering with runtime trends.
+/// @return                 the number of free blocks of memory in our internal data structure.
+size_t wget_free_total( void );
 
-/// @brief print_free_nodes  Prints a visual representation of the free nodes in the heap in the form of
-///                          the data structure being used to manage them. You can print the nodes in the
-///                          PLAIN or VERBOSE style. Plain will only show the sizes in bytes that the
-///                          blocks store, while VERBOSE will show their addresses in the heap and for the
-///                          tree allocators, the black height of the tree as well. This function will vary
-///                          depending on the implementation. See other allocator examples for ideas.
-/// @param style             VERBOSE or PLAIN depending on how many internal details are desired.
-void print_free_nodes( enum print_style style );
+/// @brief wprint_free_nodes  Prints a visual representation of the free nodes in the heap in the form of
+///                           the data structure being used to manage them. You can print the nodes in the
+///                           PLAIN or VERBOSE style. Plain will only show the sizes in bytes that the
+///                           blocks store, while VERBOSE will show their addresses in the heap and for the
+///                           tree allocators, the black height of the tree as well. This function will vary
+///                           depending on the implementation. See other allocator examples for ideas.
+/// @param style              VERBOSE or PLAIN depending on how many internal details are desired.
+void wprint_free_nodes( enum print_style style );
 
 /// @brief wheap_align   each heap allocator may align blocks differently. This function should return the internal
 ///                      block size used for an allocator when rounding up a request. For example, a request of 8
@@ -134,12 +134,12 @@ size_t wheap_align( size_t request );
 /// @return                 the number of bytes in the heap available to the client currently.
 size_t wheap_capacity( void );
 
-/// @brief wheap_diff   this is a transactional function targeted at the unit testing framework. For small unit
-///                     testing cases we can open up our allocators to verify certain expectations about the heap
-///                     state after or before malloc, realloc, and free. This is helpful for verifying correctness
-///                     in our coalescing implementation and reallocation logic. Given an array of expected
-///                     heap blocks, read each block and compare the expectation to the actual internal state of
-///                     of the heap. The checks should use the following logic.
+/// @brief wheap_diff      this is a transactional function targeted at the unit testing framework. For small unit
+///                        testing cases we can open up our allocators to verify certain expectations about the
+///                        heap state after or before malloc, realloc, and free. This is helpful for verifying
+///                        correctness in our coalescing implementation and reallocation logic. Given an array of
+///                        expected heap blocks, read each block and compare the expectation to the actual internal
+///                        state of the heap. The checks should use the following logic.
 ///                         - Expected free blocks have NULL as their address.
 ///                         - Expected allocated blocks have the user maintained address.
 ///                         - If NA is provided as the payload bytes, we don't care about payload. Respond with NA.

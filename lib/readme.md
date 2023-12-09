@@ -42,7 +42,7 @@ void wfree( void *ptr )
     UNIMPLEMENTED();
 }
 
-bool validate_heap( void )
+bool wvalidate_heap( void )
 {
     UNIMPLEMENTED();
 }
@@ -65,18 +65,18 @@ void wheap_diff( const struct heap_block expected[], struct heap_block actual[],
     (void)len;
     UNIMPLEMENTED();
 }
-size_t get_free_total( void )
+size_t wget_free_total( void )
 {
     UNIMPLEMENTED();
 }
 
-void print_free_nodes( print_style style )
+void wprint_free_nodes( print_style style )
 {
     (void)style;
     UNIMPLEMENTED();
 }
 
-void dump_heap( void )
+void wdump_heap( void )
 {
     UNIMPLEMENTED();
 }

@@ -118,8 +118,8 @@ std::optional<size_t> eval_correctness( script::requests &s )
         osync::syncerr( "winit() failed\n", ansi_bred );
         return {};
     }
-    if ( !validate_heap() ) {
-        osync::syncerr( "validate_heap() failed\n", ansi_bred );
+    if ( !wvalidate_heap() ) {
+        osync::syncerr( "wvalidate_heap() failed\n", ansi_bred );
         return {};
     }
     void *heap_end_addr = heap_segment_start();
@@ -167,8 +167,8 @@ std::optional<size_t> eval_correctness( script::requests &s )
             return {};
         }
         }
-        if ( !validate_heap() ) {
-            const auto err = std::string( "validate_heap() failed request " )
+        if ( !wvalidate_heap() ) {
+            const auto err = std::string( "wvalidate_heap() failed request " )
                                  .append( std::to_string( line.line ) )
                                  .append( "\n" );
             osync::syncerr( err, ansi_bred );

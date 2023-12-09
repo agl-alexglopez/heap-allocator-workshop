@@ -17,7 +17,7 @@
 #include <stddef.h>
 #include <stdlib.h>
 
-size_t get_free_total( void )
+size_t wget_free_total( void )
 {
     return 0;
 }
@@ -44,7 +44,7 @@ void wfree( void *ptr )
     free( ptr );
 }
 
-bool validate_heap( void )
+bool wvalidate_heap( void )
 {
     return true;
 }
@@ -67,10 +67,10 @@ void wheap_diff( const struct heap_block expected[], struct heap_block actual[],
     (void)len;
 }
 
-void print_free_nodes( enum print_style style )
+void wprint_free_nodes( enum print_style style )
 {
     (void)style;
 }
 
-void dump_heap( void )
+void wdump_heap( void )
 {}

@@ -171,7 +171,7 @@ static void print_all( struct heap_range r, size_t heap_size, struct rb_node *ro
 
 ///////////////////////////   Shared Heap Functions   ////////////////////////////////////////
 
-size_t get_free_total( void )
+size_t wget_free_total( void )
 {
     return tree.total;
 }
@@ -262,7 +262,7 @@ void wfree( void *ptr )
 
 ///////////////////////////////     Shared Debugger    /////////////////////////////////////////
 
-bool validate_heap( void )
+bool wvalidate_heap( void )
 {
     if ( !check_init( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
         return false;
@@ -369,12 +369,12 @@ void wheap_diff( const struct heap_block expected[], struct heap_block actual[],
 
 ////////////////////////////////     Shared Printer   /////////////////////////////////////////
 
-void print_free_nodes( enum print_style style )
+void wprint_free_nodes( enum print_style style )
 {
     print_rb_tree( tree.root, tree.black_nil, style );
 }
 
-void dump_heap( void )
+void wdump_heap( void )
 {
     print_all(
         ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size, tree.root, tree.black_nil
