@@ -173,8 +173,8 @@ struct allocator_entry
 };
 
 std::vector<path_bin> gather_timer_programs();
-void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &args );
-void plot_script_comparison( const std::vector<path_bin> &commands, plot_args &args );
+int run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &args );
+int plot_script_comparison( const std::vector<path_bin> &commands, plot_args &args );
 const data_set &set( const runtime_metrics &m, data_set_type request );
 const std::vector<double> &x_axis( const data_set &s );
 std::vector<double> &x_axis( data_set &s );
@@ -194,9 +194,10 @@ bool thread_run_cmd(
 );
 std::optional<size_t> specify_threads( std::string_view thread_request );
 bool thread_run_analysis( size_t allocator_index, const path_bin &cmd, runtime_metrics &m, heap_operation s );
+bool scripts_generated();
 void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool quiet );
 void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool quiet );
-void plot_runtime( const std::vector<path_bin> &commands, plot_args args );
+int plot_runtime( const std::vector<path_bin> &commands, plot_args args );
 
 //////////////////////////////////    User Argument Handling     ///////////////////////////////////
 
@@ -232,11 +233,12 @@ int plot( std::span<const char *const> cli_args )
             }
         }
         if ( args.op == heap_operation::script_comparison ) {
-            plot_script_comparison( commands, args );
-            return 0;
+            return plot_script_comparison( commands, args );
         }
-        run_bigo_analysis( commands, args );
-        return 0;
+        if ( !scripts_generated() ) {
+            return 1;
+        }
+        return run_bigo_analysis( commands, args );
     } catch ( std::exception &e ) {
         auto err = std::string( "Plot program caught exception " ).append( e.what() ).append( "\n" );
         osync::syncerr( err, osync::ansi_bred );
@@ -261,10 +263,10 @@ namespace {
 
 /////////////////////////  Threading Subproccesses and File Handling   ////////////////////////////////////////
 
-void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &args )
+int run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &args )
 {
     if ( args.op == heap_operation::malloc_free ) {
-        plot_runtime(
+        return plot_runtime(
             commands,
             plot_args(
                 heap_operation::malloc_free,
@@ -292,8 +294,9 @@ void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &
                 args.quiet
             )
         );
-    } else if ( args.op == heap_operation::realloc_free ) {
-        plot_runtime(
+    }
+    if ( args.op == heap_operation::realloc_free ) {
+        return plot_runtime(
             commands,
             plot_args(
                 heap_operation::realloc_free,
@@ -321,12 +324,12 @@ void run_bigo_analysis( const std::vector<path_bin> &commands, const plot_args &
                 args.quiet
             )
         );
-    } else {
-        osync::syncerr( "invalid options slipped through command line args.\n", osync::ansi_bred );
     }
+    osync::syncerr( "invalid options slipped through command line args.\n", osync::ansi_bred );
+    return 1;
 }
 
-void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
+int plot_runtime( const std::vector<path_bin> &commands, plot_args args )
 {
     runtime_metrics m{};
     x_axis( m.interval_speed ).push_back( 0 );
@@ -336,7 +339,7 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
         const double script_size = parse_quantity_n( args.back() );
         if ( script_size == 0 ) {
             osync::syncerr( "could not parse script size\n", osync::ansi_bred );
-            return;
+            return 1;
         }
         x_axis( m.interval_speed ).push_back( script_size );
         x_axis( m.average_response_time ).push_back( script_size );
@@ -371,6 +374,7 @@ void plot_runtime( const std::vector<path_bin> &commands, plot_args args )
     line_plot_stats( m, data_set_type::response, args.response_labels, args.quiet );
     line_plot_stats( m, data_set_type::utilization, args.utilization_labels, args.quiet );
     std::cout << osync::ansi_nil;
+    return 0;
 }
 
 bool thread_run_analysis( const size_t allocator_index, const path_bin &cmd, runtime_metrics &m, heap_operation s )
@@ -382,7 +386,7 @@ bool thread_run_analysis( const size_t allocator_index, const path_bin &cmd, run
     return true;
 }
 
-void plot_script_comparison( const std::vector<path_bin> &commands, plot_args &args )
+int plot_script_comparison( const std::vector<path_bin> &commands, plot_args &args )
 {
     runtime_metrics m{};
     std::string_view path_to_script{ args.script_name.value() };
@@ -434,6 +438,7 @@ void plot_script_comparison( const std::vector<path_bin> &commands, plot_args &a
     bar_chart_stats( m, data_set_type::interval, args.interval_labels, args.quiet );
     bar_chart_stats( m, data_set_type::response, args.response_labels, args.quiet );
     bar_chart_stats( m, data_set_type::utilization, args.utilization_labels, args.quiet );
+    return 0;
 }
 
 bool thread_run_cmd(
@@ -570,6 +575,61 @@ std::vector<path_bin> gather_timer_programs()
     return commands;
 }
 
+std::optional<size_t> specify_threads( std::string_view thread_request )
+{
+    if ( thread_request == "-j" ) {
+        osync::syncerr(
+            "Invalid core count requested. Did you mean -j[CORES] without a space?\n", osync::ansi_bred
+        );
+        return 1;
+    }
+    std::string cores
+        = std::string( std::string_view{ thread_request }.substr( thread_request.find_first_not_of( "-j" ) ) );
+    try {
+        size_t result = std::stoull( cores );
+        if ( result == 0 || result > max_cores ) {
+            result = default_worker_count;
+        }
+        if ( result == 1 ) {
+            return result;
+        }
+        // We spawn a process for each thread which means 2x processes so divide the request in half.
+        return result / 2;
+    } catch ( std::invalid_argument &e ) {
+        auto err = std::string( "Invalid core count requested from " )
+                       .append( e.what() )
+                       .append( ": " )
+                       .append( cores )
+                       .append( "\n" );
+        osync::syncerr( err, osync::ansi_bred );
+        return {};
+    }
+}
+
+bool scripts_generated()
+{
+    std::vector<std::string> missing_files{};
+    for ( const auto &command_series : big_o_timing ) {
+        for ( const auto &commands : command_series ) {
+            std::string fpath_and_name( commands.back() );
+            if ( !std::ifstream( fpath_and_name ).good() ) {
+                missing_files.push_back( fpath_and_name );
+            }
+        }
+    }
+    if ( missing_files.empty() ) {
+        return true;
+    }
+    osync::cerr(
+        "See script generation instructions. Missing the following files for plot analysis:\n", osync::ansi_bred
+    );
+    for ( const auto &missing : missing_files ) {
+        osync::cerr( missing, osync::ansi_bred );
+        osync::cerr( "\n", osync::ansi_bred );
+    }
+    return false;
+}
+
 //////////////////////////////   Plotting with Matplot++    ///////////////////////////////////////////
 
 void line_plot_stats( const runtime_metrics &m, data_set_type t, labels l, bool quiet )
@@ -646,37 +706,6 @@ void bar_chart_stats( const runtime_metrics &m, data_set_type t, labels l, bool 
     }
     // Because we are in quiet mode hopefully we have had no flashing and the this will be the only plot shown.
     p->show();
-}
-
-std::optional<size_t> specify_threads( std::string_view thread_request )
-{
-    if ( thread_request == "-j" ) {
-        osync::syncerr(
-            "Invalid core count requested. Did you mean -j[CORES] without a space?\n", osync::ansi_bred
-        );
-        return 1;
-    }
-    std::string cores
-        = std::string( std::string_view{ thread_request }.substr( thread_request.find_first_not_of( "-j" ) ) );
-    try {
-        size_t result = std::stoull( cores );
-        if ( result == 0 || result > max_cores ) {
-            result = default_worker_count;
-        }
-        if ( result == 1 ) {
-            return result;
-        }
-        // We spawn a process for each thread which means 2x processes so divide the request in half.
-        return result / 2;
-    } catch ( std::invalid_argument &e ) {
-        auto err = std::string( "Invalid core count requested from " )
-                       .append( e.what() )
-                       .append( ": " )
-                       .append( cores )
-                       .append( "\n" );
-        osync::syncerr( err, osync::ansi_bred );
-        return {};
-    }
 }
 
 //////////////////////////////    Helpers to Access Data in Types    //////////////////////////////////////
