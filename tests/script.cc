@@ -95,9 +95,9 @@ std::optional<requests> parse_script( const std::string &filepath )
 
 bool exec_malloc( const script::line &line, script::requests &s, void *&heap_end )
 {
-    void *p = mymalloc( line.size );
+    void *p = wmalloc( line.size );
     if ( nullptr == p && line.size != 0 ) {
-        osync::syncerr( "mymalloc() exhasted the heap\n", ansi_bred );
+        osync::syncerr( "wmalloc() exhasted the heap\n", ansi_bred );
         return false;
     }
     // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
@@ -114,7 +114,7 @@ bool exec_realloc( const script::line &line, script::requests &s, void *&heap_en
 {
     void *old_ptr = s.blocks.at( line.block_index ).first;
     const size_t old_size = s.blocks.at( line.block_index ).second;
-    void *new_ptr = myrealloc( old_ptr, line.size );
+    void *new_ptr = wrealloc( old_ptr, line.size );
     if ( nullptr == new_ptr && line.size != 0 ) {
         osync::syncerr( "Realloc exhausted the heap.\n", ansi_bred );
         return false;
@@ -153,7 +153,7 @@ std::optional<size_t> exec_request( const line &line, requests &script, size_t h
     } break;
     case script::op::freed: {
         std::pair<void *, size_t> &old_block = script.blocks.at( line.block_index );
-        myfree( old_block.first );
+        wfree( old_block.first );
         heap_size -= old_block.second;
         old_block = { nullptr, 0 };
     } break;
@@ -170,14 +170,14 @@ std::optional<double> time_malloc( const script::line &line, script::requests &s
     void *p = heap_end;
     auto start_time = std::clock();
     volatile void *start_report = p;
-    p = mymalloc( line.size );
+    p = wmalloc( line.size );
     volatile void *end_report = p;
     auto end_time = std::clock();
 
     if ( nullptr == p && line.size != 0 ) {
         auto printablestart = reinterpret_cast<uintptr_t>( start_report ); // NOLINT
         auto printableend = reinterpret_cast<uintptr_t>( end_report );     // NOLINT
-        auto err = std::string( "mymalloc() exhaustion (ignore the following)..." )
+        auto err = std::string( "wmalloc() exhaustion (ignore the following)..." )
                        .append( std::to_string( printablestart ) )
                        .append( std::to_string( printableend ) )
                        .append( "\n" );
@@ -201,14 +201,14 @@ std::optional<double> time_realloc( const script::line &line, script::requests &
     void *new_ptr = nullptr;
     auto start_time = std::clock();
     volatile void *start_report = new_ptr;
-    new_ptr = myrealloc( old_ptr, line.size );
+    new_ptr = wrealloc( old_ptr, line.size );
     volatile void *end_report = new_ptr;
     auto end_time = std::clock();
 
     if ( nullptr == new_ptr && line.size != 0 ) {
         auto printablestart = reinterpret_cast<uintptr_t>( start_report ); // NOLINT
         auto printableend = reinterpret_cast<uintptr_t>( end_report );     // NOLINT
-        auto err = std::string( "myrealloc() exhaustion (ignore the following)..." )
+        auto err = std::string( "wrealloc() exhaustion (ignore the following)..." )
                        .append( std::to_string( printablestart ) )
                        .append( std::to_string( printableend ) )
                        .append( "\n" );
@@ -229,7 +229,7 @@ double time_free( const line &line, requests &script )
     std::pair<void *, size_t> old_block = script.blocks.at( line.block_index );
     auto start_time = std::clock();
     volatile void *start_addr = old_block.first;
-    myfree( old_block.first );
+    wfree( old_block.first );
     volatile void *end_addr = start_addr;
     auto end_time = std::clock();
     return 1000.0 * ( static_cast<double>( end_time - start_time ) / CLOCKS_PER_SEC );

@@ -50,7 +50,7 @@ enum ignore_bytes
     NA = 0,
 };
 
-/// This is used for verifying internal state of the heap for small unit testing cases. See the myheap_diff
+/// This is used for verifying internal state of the heap for small unit testing cases. See the wheap_diff
 /// function for further details. Use this as a transactional type to check against the heap in unit tests.
 /// The address should be the address of the user maintained malloc'd memory or NULL if the user claims
 /// the block to be free. The payload bytes contains the amount or NA if we are not concerned with the
@@ -64,7 +64,7 @@ struct heap_block
     enum status_error err;
 };
 
-/// @brief myinit      initializes the mapped memory segment provided by the OS to our heap allocator. See the
+/// @brief winit       initializes the mapped memory segment provided by the OS to our heap allocator. See the
 ///                    segment.h file for how this segment is obtained and how to aquire the heap_start pointer.
 ///                    This function should prepare any internal static data structures of the heap and prepare the
 ///                    the memory pool according to the design of the internal implementation. After this function
@@ -72,27 +72,27 @@ struct heap_block
 /// @param heap_start  the pointer provided by the segment.h mapping function.
 /// @param heap_size   the size we want to use for this memory pool. Total bytes available in the entire heap.
 /// @return            true if initialization was successful false if not.
-bool myinit( void *heap_start, size_t heap_size );
+bool winit( void *heap_start, size_t heap_size );
 
-/// @brief mymalloc        obtains a free block from the heap and marks it as allocated for the user. The returned
+/// @brief wmalloc         obtains a free block from the heap and marks it as allocated for the user. The returned
 ///                        memory will be AT LEAST as large as the user requests.
 /// @param requested_size  the size in bytes of the requested memory block.
 /// @return                a block of memory at least as large as the user requested or NULL if impossible.
-void *mymalloc( size_t requested_size );
+void *wmalloc( size_t requested_size );
 
-/// @brief myrealloc  reallocates the old block of memory to at least as many bytes as the user requests. If the
+/// @brief wrealloc   reallocates the old block of memory to at least as many bytes as the user requests. If the
 ///                   pointer provided is NULL, this function is the same as malloc. If reallocation fails old
 ///                   memory is not altered or moved and the old_ptr will still be valid; however, NULL will be
 ///                   returned. If memory is found and the realloc is serviced assume the old pointer to be invalid.
 /// @param old_ptr    the previous location of memory we must move. Valid if realloc fails, invalid on success.
 /// @param new_size   the newly requested bytes. This may be larger or smaller than the previous size.
 /// @return           NULL if the operation failed, a new memory location if the request succeeded.
-void *myrealloc( void *old_ptr, size_t new_size );
+void *wrealloc( void *old_ptr, size_t new_size );
 
-/// @brief myfree  frees a block of memory previously allocated, adding it back to the heap for internal
+/// @brief wfree   frees a block of memory previously allocated, adding it back to the heap for internal
 ///                management. It is undefined to free an invalid address.
 /// @param ptr     the location of the previously provided memory that should now be freed for management.
-void myfree( void *ptr );
+void wfree( void *ptr );
 
 /// @brief validate_heap  runs the implementation defined internal consistency checks. This is a VERY IMPORTANT
 ///                       function. In the .c file include the debug_break.h file and make use of the BREAKPOINT();
@@ -120,21 +120,21 @@ size_t get_free_total( void );
 /// @param style             VERBOSE or PLAIN depending on how many internal details are desired.
 void print_free_nodes( enum print_style style );
 
-/// @brief myheap_align  each heap allocator may align blocks differently. This function should return the internal
+/// @brief wheap_align   each heap allocator may align blocks differently. This function should return the internal
 ///                      block size used for an allocator when rounding up a request. For example, a request of 8
 ///                      bytes will need to be rounded up to some larger amount to accomodate internal heap
 ///                      data structures in most implementations. This function should return that rounded figure.
 /// @param request       the client request unaware of any alignment requirements.
 /// @return              the total payload bytes available to the user after rounding operations.
-size_t myheap_align( size_t request );
+size_t wheap_align( size_t request );
 
-/// @brief myheap_capacity  returns the total number of free bytes available in the heap. This could be a slow
+/// @brief wheap_capacity   returns the total number of free bytes available in the heap. This could be a slow
 ///                         operation depending on the number of free nodes managed. It is required to run in
 ///                         in O(N) time but implementers could choose to make it a constant time operation.
 /// @return                 the number of bytes in the heap available to the client currently.
-size_t myheap_capacity( void );
+size_t wheap_capacity( void );
 
-/// @brief myheap_diff  this is a transactional function targeted at the unit testing framework. For small unit
+/// @brief wheap_diff   this is a transactional function targeted at the unit testing framework. For small unit
 ///                     testing cases we can open up our allocators to verify certain expectations about the heap
 ///                     state after or before malloc, realloc, and free. This is helpful for verifying correctness
 ///                     in our coalescing implementation and reallocation logic. Given an array of expected
@@ -150,7 +150,7 @@ size_t myheap_capacity( void );
 /// @param [\in] expected  the user provided expected state of all blocks in the heap.
 /// @param [\out] actual   the implementation defined state of the heap at the time of the request.
 /// @param len             the length of the expected array.
-void myheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len );
+void wheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len );
 
 #endif
 #ifdef __cplusplus

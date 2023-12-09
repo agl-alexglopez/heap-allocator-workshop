@@ -659,12 +659,15 @@ std::optional<size_t> specify_threads( std::string_view thread_request )
     std::string cores
         = std::string( std::string_view{ thread_request }.substr( thread_request.find_first_not_of( "-j" ) ) );
     try {
-        // We spawn a process for each thread which means 2x processes so divide the request in half.
-        size_t result = std::stoull( cores ) / 2;
+        size_t result = std::stoull( cores );
         if ( result == 0 || result > max_cores ) {
             result = default_worker_count;
         }
-        return result;
+        if ( result == 1 ) {
+            return result;
+        }
+        // We spawn a process for each thread which means 2x processes so divide the request in half.
+        return result / 2;
     } catch ( std::invalid_argument &e ) {
         auto err = std::string( "Invalid core count requested from " )
                        .append( e.what() )

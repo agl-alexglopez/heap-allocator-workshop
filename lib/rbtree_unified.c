@@ -176,7 +176,7 @@ size_t get_free_total( void )
     return tree.total;
 }
 
-bool myinit( void *heap_start, size_t heap_size )
+bool winit( void *heap_start, size_t heap_size )
 {
     // Initialize the root of the tree and heap addresses.
     size_t client_request = roundup( heap_size, ALIGNMENT );
@@ -203,7 +203,7 @@ bool myinit( void *heap_start, size_t heap_size )
     return true;
 }
 
-void *mymalloc( size_t requested_size )
+void *wmalloc( size_t requested_size )
 {
     if ( requested_size == 0 || requested_size > MAX_REQUEST_SIZE ) {
         return NULL;
@@ -217,16 +217,16 @@ void *mymalloc( size_t requested_size )
     return split_alloc( found_node, client_request, get_size( found_node->header ) );
 }
 
-void *myrealloc( void *old_ptr, size_t new_size )
+void *wrealloc( void *old_ptr, size_t new_size )
 {
     if ( new_size > MAX_REQUEST_SIZE ) {
         return NULL;
     }
     if ( old_ptr == NULL ) {
-        return mymalloc( new_size );
+        return wmalloc( new_size );
     }
     if ( new_size == 0 ) {
-        myfree( old_ptr );
+        wfree( old_ptr );
         return NULL;
     }
     size_t request = roundup( new_size, ALIGNMENT );
@@ -239,7 +239,7 @@ void *myrealloc( void *old_ptr, size_t new_size )
         }
         return split_alloc( report.current, request, report.available );
     }
-    void *elsewhere = mymalloc( request );
+    void *elsewhere = wmalloc( request );
     // No data has moved or been modified at this point we will will just do nothing.
     if ( !elsewhere ) {
         return NULL;
@@ -250,7 +250,7 @@ void *myrealloc( void *old_ptr, size_t new_size )
     return elsewhere;
 }
 
-void myfree( void *ptr )
+void wfree( void *ptr )
 {
     if ( ptr == NULL ) {
         return;
@@ -301,12 +301,12 @@ bool validate_heap( void )
     return true;
 }
 
-size_t myheap_align( size_t request )
+size_t wheap_align( size_t request )
 {
     return roundup( request, ALIGNMENT );
 }
 
-size_t myheap_capacity( void )
+size_t wheap_capacity( void )
 {
     size_t total_free_mem = 0;
     size_t block_size_check = 0;
@@ -320,7 +320,7 @@ size_t myheap_capacity( void )
     return total_free_mem;
 }
 
-void myheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
+void wheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
 {
     struct rb_node *cur_node = heap.client_start;
     size_t i = 0;

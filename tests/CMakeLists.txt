@@ -133,9 +133,9 @@ target_link_libraries(ctest_splaytree_topdown PUBLIC
 ###############   Segregated Lists   ######################
 
 add_executable(gtest_list_segregated gtest.cc)
-target_link_libraries(gtest_list_segregated 
-  GTest::gtest_main 
-  segment 
+target_link_libraries(gtest_list_segregated
+  GTest::gtest_main
+  segment
   list_segregated
 )
 gtest_discover_tests(gtest_list_segregated)
@@ -144,16 +144,16 @@ gtest_discover_tests(gtest_list_segregated)
 
 add_executable(gtest_splaytree_topdown gtest.cc)
 target_link_libraries(gtest_splaytree_topdown
-  GTest::gtest_main 
-  segment 
+  GTest::gtest_main
+  segment
   splaytree_topdown
 )
 gtest_discover_tests(gtest_splaytree_topdown)
 
 add_executable(gtest_splaytree_stack gtest.cc)
 target_link_libraries(gtest_splaytree_stack
-  GTest::gtest_main 
-  segment 
+  GTest::gtest_main
+  segment
   splaytree_stack
 )
 gtest_discover_tests(gtest_splaytree_stack)
@@ -162,40 +162,40 @@ gtest_discover_tests(gtest_splaytree_stack)
 
 add_executable(gtest_rbtree_clrs gtest.cc)
 target_link_libraries(gtest_rbtree_clrs
-  GTest::gtest_main 
-  segment 
+  GTest::gtest_main
+  segment
   rbtree_clrs
 )
 gtest_discover_tests(gtest_rbtree_clrs)
 
 add_executable(gtest_rbtree_unified gtest.cc)
 target_link_libraries(gtest_rbtree_unified
-  GTest::gtest_main 
-  segment 
+  GTest::gtest_main
+  segment
   rbtree_unified
 )
 gtest_discover_tests(gtest_rbtree_unified)
 
 add_executable(gtest_rbtree_linked gtest.cc)
 target_link_libraries(gtest_rbtree_linked
-  GTest::gtest_main 
-  segment 
+  GTest::gtest_main
+  segment
   rbtree_linked
 )
 gtest_discover_tests(gtest_rbtree_linked)
 
 add_executable(gtest_rbtree_stack gtest.cc)
 target_link_libraries(gtest_rbtree_stack
-  GTest::gtest_main 
-  segment 
+  GTest::gtest_main
+  segment
   rbtree_stack
 )
 gtest_discover_tests(gtest_rbtree_stack)
 
 add_executable(gtest_rbtree_topdown gtest.cc)
 target_link_libraries(gtest_rbtree_topdown
-  GTest::gtest_main 
-  segment 
+  GTest::gtest_main
+  segment
   rbtree_topdown
 )
 gtest_discover_tests(gtest_rbtree_topdown)
@@ -206,9 +206,9 @@ gtest_discover_tests(gtest_rbtree_topdown)
 
 ###############   Segregated Lists   ######################
 
-add_executable(print_peaks_list_segregated print_peaks.cc)
-target_link_libraries(print_peaks_list_segregated
-  segment 
+add_executable(peaks_list_segregated peaks.cc)
+target_link_libraries(peaks_list_segregated
+  segment
   matplot
   osync
   script
@@ -216,17 +216,17 @@ target_link_libraries(print_peaks_list_segregated
 
 ###############   Splay Trees   ######################
 
-add_executable(print_peaks_splaytree_topdown print_peaks.cc)
-target_link_libraries(print_peaks_splaytree_topdown 
-  segment 
+add_executable(peaks_splaytree_topdown peaks.cc)
+target_link_libraries(peaks_splaytree_topdown
+  segment
   matplot
   osync
   script
   splaytree_topdown)
 
-add_executable(print_peaks_splaytree_stack print_peaks.cc)
-target_link_libraries(print_peaks_splaytree_stack 
-  segment 
+add_executable(peaks_splaytree_stack peaks.cc)
+target_link_libraries(peaks_splaytree_stack
+  segment
   matplot
   osync
   script
@@ -234,41 +234,41 @@ target_link_libraries(print_peaks_splaytree_stack
 
 ###############   Red Black Trees   ######################
 
-add_executable(print_peaks_rbtree_clrs print_peaks.cc)
-target_link_libraries(print_peaks_rbtree_clrs 
-  segment 
+add_executable(peaks_rbtree_clrs peaks.cc)
+target_link_libraries(peaks_rbtree_clrs
+  segment
   matplot
   osync
   script
   rbtree_clrs)
 
-add_executable(print_peaks_rbtree_unified print_peaks.cc)
-target_link_libraries(print_peaks_rbtree_unified 
-  segment 
+add_executable(peaks_rbtree_unified peaks.cc)
+target_link_libraries(peaks_rbtree_unified
+  segment
   matplot
   osync
   script
   rbtree_unified)
 
-add_executable(print_peaks_rbtree_linked print_peaks.cc)
-target_link_libraries(print_peaks_rbtree_linked 
-  segment 
+add_executable(peaks_rbtree_linked peaks.cc)
+target_link_libraries(peaks_rbtree_linked
+  segment
   matplot
   osync
   script
   rbtree_linked)
 
-add_executable(print_peaks_rbtree_stack print_peaks.cc)
-target_link_libraries(print_peaks_rbtree_stack 
-  segment 
+add_executable(peaks_rbtree_stack peaks.cc)
+target_link_libraries(peaks_rbtree_stack
+  segment
   matplot
   osync
   script
   rbtree_stack)
 
-add_executable(print_peaks_rbtree_topdown print_peaks.cc)
-target_link_libraries(print_peaks_rbtree_topdown 
-  segment 
+add_executable(peaks_rbtree_topdown peaks.cc)
+target_link_libraries(peaks_rbtree_topdown
+  segment
   matplot
   osync
   script

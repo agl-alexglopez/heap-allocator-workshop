@@ -106,7 +106,7 @@ int time_script( std::string_view script_name, interval_reqs &user_requests )
 std::optional<size_t> time_allocator( script::requests &s, interval_reqs &user_requests )
 {
     init_heap_segment( heap_size );
-    if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
+    if ( !winit( heap_segment_start(), heap_segment_size() ) ) {
         osync::syncerr( "Heap initialization failure.", osync::ansi_bred );
         return {};
     }

@@ -104,7 +104,7 @@ int print_peaks( const std::string &script_name, user_breaks &user_reqs )
         return 1;
     }
     init_heap_segment( heap_size );
-    if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
+    if ( !winit( heap_segment_start(), heap_segment_size() ) ) {
         osync::cerr( "Could not initialize heap\n", osync::ansi_bred );
         return 1;
     }
@@ -147,7 +147,7 @@ int print_peaks( const std::string &script_name, user_breaks &user_reqs )
     // expose too much internals. Running it twice seems fine for now.
 
     init_heap_segment( heap_size );
-    if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
+    if ( !winit( heap_segment_start(), heap_segment_size() ) ) {
         osync::cerr( "Could not initialize heap\n", osync::ansi_bred );
         return 1;
     }

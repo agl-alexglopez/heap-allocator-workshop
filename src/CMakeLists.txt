@@ -1,12 +1,12 @@
 
-################################# OPTIONAL PROGRAM ############################################
+################################# SANDBOX PROGRAM ############################################
 
 
 ####### List Segregated ############
 
 
-add_executable(my_optional_program_list_segregated my_optional_program.c)
-target_link_libraries(my_optional_program_list_segregated PUBLIC
+add_executable(sandbox_list_segregated sandbox.c)
+target_link_libraries(sandbox_list_segregated PUBLIC
                       segment
                       script
                       list_segregated
@@ -15,8 +15,8 @@ target_link_libraries(my_optional_program_list_segregated PUBLIC
 ######## RBTree CLRS ###########
 
 
-add_executable(my_optional_program_rbtree_clrs my_optional_program.c)
-target_link_libraries(my_optional_program_rbtree_clrs PUBLIC
+add_executable(sandbox_rbtree_clrs sandbox.c)
+target_link_libraries(sandbox_rbtree_clrs PUBLIC
                       segment
                       script
                       rbtree_clrs
@@ -25,8 +25,8 @@ target_link_libraries(my_optional_program_rbtree_clrs PUBLIC
 ######## RBTree Unified ###########
 
 
-add_executable(my_optional_program_rbtree_unified my_optional_program.c)
-target_link_libraries(my_optional_program_rbtree_unified PUBLIC
+add_executable(sandbox_rbtree_unified sandbox.c)
+target_link_libraries(sandbox_rbtree_unified PUBLIC
                       segment
                       script
                       rbtree_unified
@@ -35,8 +35,8 @@ target_link_libraries(my_optional_program_rbtree_unified PUBLIC
 ######## RBTree Linked ###########
 
 
-add_executable(my_optional_program_rbtree_linked my_optional_program.c)
-target_link_libraries(my_optional_program_rbtree_linked PUBLIC
+add_executable(sandbox_rbtree_linked sandbox.c)
+target_link_libraries(sandbox_rbtree_linked PUBLIC
                       segment
                       script
                       rbtree_linked
@@ -45,8 +45,8 @@ target_link_libraries(my_optional_program_rbtree_linked PUBLIC
 #######  RBTree Stack ##########
 
 
-add_executable(my_optional_program_rbtree_stack my_optional_program.c)
-target_link_libraries(my_optional_program_rbtree_stack PUBLIC
+add_executable(sandbox_rbtree_stack sandbox.c)
+target_link_libraries(sandbox_rbtree_stack PUBLIC
                       segment
                       script
                       rbtree_stack
@@ -55,8 +55,8 @@ target_link_libraries(my_optional_program_rbtree_stack PUBLIC
 #######  RBTree Topdown ##########
 
 
-add_executable(my_optional_program_rbtree_topdown my_optional_program.c)
-target_link_libraries(my_optional_program_rbtree_topdown PUBLIC
+add_executable(sandbox_rbtree_topdown sandbox.c)
+target_link_libraries(sandbox_rbtree_topdown PUBLIC
                       segment
                       script
                       rbtree_topdown
@@ -65,8 +65,8 @@ target_link_libraries(my_optional_program_rbtree_topdown PUBLIC
 #######  Splay Tree Stack ##########
 
 
-add_executable(my_optional_program_splaytree_stack my_optional_program.c)
-target_link_libraries(my_optional_program_splaytree_stack PUBLIC
+add_executable(sandbox_splaytree_stack sandbox.c)
+target_link_libraries(sandbox_splaytree_stack PUBLIC
                       segment
                       script
                       splaytree_stack
@@ -75,8 +75,8 @@ target_link_libraries(my_optional_program_splaytree_stack PUBLIC
 #######  Splay Tree Topdown ##########
 
 
-add_executable(my_optional_program_splaytree_topdown my_optional_program.c)
-target_link_libraries(my_optional_program_splaytree_topdown PUBLIC
+add_executable(sandbox_splaytree_topdown sandbox.c)
+target_link_libraries(sandbox_splaytree_topdown PUBLIC
                       segment
                       script
                       splaytree_topdown

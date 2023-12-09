@@ -114,8 +114,8 @@ namespace {
 std::optional<size_t> eval_correctness( script::requests &s )
 {
     init_heap_segment( heap_size );
-    if ( !myinit( heap_segment_start(), heap_segment_size() ) ) {
-        osync::syncerr( "myinit() failed\n", ansi_bred );
+    if ( !winit( heap_segment_start(), heap_segment_size() ) ) {
+        osync::syncerr( "winit() failed\n", ansi_bred );
         return {};
     }
     if ( !validate_heap() ) {
@@ -188,9 +188,9 @@ std::optional<size_t> eval_correctness( script::requests &s )
 
 bool eval_malloc( const script::line &line, script::requests &s, void *&heap_end )
 {
-    void *p = mymalloc( line.size );
+    void *p = wmalloc( line.size );
     if ( nullptr == p && line.size != 0 ) {
-        osync::syncerr( "mymalloc() exhasted the heap\n", ansi_bred );
+        osync::syncerr( "wmalloc() exhasted the heap\n", ansi_bred );
         return false;
     }
     if ( !verify_block( p, line.size, s ) ) {
@@ -216,7 +216,7 @@ bool eval_realloc( const script::line &line, script::requests &s, void *&heap_en
     if ( !verify_payload( line.block_index, old_ptr, old_size ) ) {
         return false;
     }
-    void *new_ptr = myrealloc( old_ptr, line.size );
+    void *new_ptr = wrealloc( old_ptr, line.size );
     if ( nullptr == new_ptr && line.size != 0 ) {
         osync::syncerr( "Realloc exhausted the heap.\n", ansi_bred );
         return false;
@@ -242,7 +242,7 @@ bool eval_free( const script::line &line, script::requests &s )
         osync::syncerr( "Block corrupted before free\n", ansi_bred );
         return false;
     }
-    myfree( old_block.first );
+    wfree( old_block.first );
     return true;
 }
 

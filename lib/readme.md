@@ -16,58 +16,58 @@ Next, add the file and function stubs to your `.c` file. Here is a starting temp
 #include <stdbool.h>
 #include <stddef.h>
 
-bool myinit( void *heap_start, size_t heap_size )
+bool winit( void *heap_start, size_t heap_size )
 {
     (void)heap_start;
     (void)heap_size;
     UNIMPLEMENTED();
 }
 
-void *mymalloc( size_t requested_size )
+void *wmalloc( size_t requested_size )
 {
     (void)requested_size;
     UNIMPLEMENTED();
 }
 
-void *myrealloc( void *old_ptr, size_t new_size )
+void *wrealloc( void *old_ptr, size_t new_size )
 {
     (void)old_ptr;
     (void)new_size;
     UNIMPLEMENTED();
 }
 
-void myfree( void *ptr )
+void wfree( void *ptr )
 {
     (void)ptr;
     UNIMPLEMENTED();
 }
 
-bool validate_heap( void ) 
-{ 
-    UNIMPLEMENTED(); 
+bool validate_heap( void )
+{
+    UNIMPLEMENTED();
 }
 
-size_t myheap_align( size_t request )
+size_t wheap_align( size_t request )
 {
     (void)request;
     UNIMPLEMENTED();
 }
 
-size_t myheap_capacity( void )
+size_t wheap_capacity( void )
 {
     UNIMPLEMENTED();
 }
 
-void myheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
+void wheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
 {
     (void)expected;
     (void)actual;
     (void)len;
     UNIMPLEMENTED();
 }
-size_t get_free_total( void ) 
-{ 
-    UNIMPLEMENTED(); 
+size_t get_free_total( void )
+{
+    UNIMPLEMENTED();
 }
 
 void print_free_nodes( print_style style )
@@ -112,9 +112,9 @@ target_link_libraries(ctest_allocator_name PUBLIC
 ##########   My Allocator    #############
 
 add_executable(gtest_generic_allocator_name gtest_generic.cc)
-target_link_libraries(gtest_generic_allocator_name 
-  GTest::gtest_main 
-  segment 
+target_link_libraries(gtest_generic_allocator_name
+  GTest::gtest_main
+  segment
   allocator_name
 )
 gtest_discover_tests(gtest_generic_allocator_name)
