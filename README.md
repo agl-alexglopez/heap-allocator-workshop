@@ -16,7 +16,7 @@ There are a number of heap allocators already implemented in this repository. To
 
 1. **[Read the wiki](https://github.com/agl-alexglopez/heap-allocator-workshop/wiki)**. I have an accompanying writeup for every allocator implemented in this repository as well as more conceptual writeups for more abstract CS concepts like Red Black Trees, Splay Trees, and Segregated Lists.
 2. Plot performance. Run the `plot.cc` program. It gathers all available allocators and compares their performance across, malloc, realloc, free, or any specific script you have in mind. We can even see how we stack up against `libc`! **Before trying to plot the allocators be sure to generate any extra scripts that are missing.** By default I don't include all the script files because some are very large. Follow directions in the script generation section below to generate the missing scripts.
-3. Print internal data structures. Every allocator is responsible for implementing its own debugging functions, both logical and visual. The `print_peaks.c` program provides a peak into these internal representations in a controlled manner. This is a fun program to run for the tree based allocators.
+3. Print internal data structures. Every allocator is responsible for implementing its own debugging functions, both logical and visual. The `peaks.cc` program provides a peak into these internal representations in a controlled manner. This is a fun program to run for the tree based allocators.
 4. Read the tests. If you have ideas for your own allocator, read how they are tested. The Google Test framework provides a basic set of expectations for the core `malloc`, `realloc`, and `free` functions with additional behaviors enforced like coalescing. The `ctest.cc` program is the correctness check that is essential for debugging implementations.
 
 ## Create
@@ -90,14 +90,14 @@ This program acts as a mini GDB debugger, allowing you to see the state of the f
 
 ![matplot-peaks](/images/matplot-peaks.png)
 
-- All allocators have been prepended with the word `print_peaks_` and have been compiled to our `build/rel/` folder.
-  - `print_peaks_rbtree_clrs`, `print_peaks_rbtree_unified`, `print_peaks_rbtree_linked`, etc.
+- All allocators have been prepended with the word `peaks_` and have been compiled to our `build/rel/` folder.
+  - `peaks_rbtree_clrs`, `peaks_rbtree_unified`, `peaks_rbtree_linked`, etc.
 - Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
-  - `./build/rel/print_peaks_rbtree_stack scripts/pattern-mixed.script`
+  - `./build/rel/peaks_rbtree_stack scripts/pattern-mixed.script`
 - Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and extra information depending on the allocator. This is the printer I used because I needed to see memory addresses to better understand where errors were occurring.
-  - `./build/rel/print_peaks_list_segregated -v scripts/pattern-mixed.script`
+  - `./build/rel/peaks_list_segregated -v scripts/pattern-mixed.script`
 - Add breakpoints corresponding to line numbers in the script. This will show you how many free nodes existed after that line executes. You will also enter an interactive terminal session. You can decide if you want to continue to the next breakpoint, add a new future breakpoint, or continue to the end of the program execution. Be sure to follow the prompt directions.
-  - `./build/rel/print_peaks_list_bestfit -v 100 200 450 -q scripts/pattern-mixed.script`
+  - `./build/rel/peaks_list_bestfit -v 100 200 450 -q scripts/pattern-mixed.script`
 - Use the `-q` flag for quiet mode such that no Matplot++ graph pops up at the end.
 
 ### Correctness Tests
