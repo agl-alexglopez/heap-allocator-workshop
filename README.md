@@ -1,6 +1,6 @@
 # Heap Allocator Workshop
 
-![rb-tree-collage](/images/rb-tree-collage.png)
+![workshop-collage](/images/workshop-collage.png)
 
  *Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I interacted with them through the programs in this repository.*
 
