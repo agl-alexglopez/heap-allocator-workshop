@@ -82,7 +82,7 @@ void wdump_heap( void )
 }
 ```
 
-Finally, add the allocator to the CMake files where they are needed as libraries as you named it.
+Next, add the allocator to the CMake files where they are needed as libraries as you named it.
 
 The `lib/CMakeLists.txt` file.
 
