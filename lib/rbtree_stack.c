@@ -412,7 +412,7 @@ void wheap_diff( const struct heap_block expected[], struct heap_block actual[],
         return;
     }
     if ( cur_node != heap.client_end ) {
-        actual[i].err = HEAP_CONTINUES;
+        actual[len - 1].err = HEAP_CONTINUES;
     }
 }
 
