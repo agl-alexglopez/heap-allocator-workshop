@@ -111,13 +111,13 @@ target_link_libraries(ctest_allocator_name PUBLIC
 
 ##########   My Allocator    #############
 
-add_executable(gtest_generic_allocator_name gtest_generic.cc)
-target_link_libraries(gtest_generic_allocator_name
+add_executable(gtest_allocator_name gtest.cc)
+target_link_libraries(gtest_allocator_name
   GTest::gtest_main
   segment
   allocator_name
 )
-gtest_discover_tests(gtest_generic_allocator_name)
+gtest_discover_tests(gtest_allocator_name)
 ```
 
 Finally, once you know your implementation is correct and passes all tests and scripts, add your allocator to any other programs present in the repository such as `print_peaks` or otherwise. When in doubt follow the configuration of the other allocators present. Be sure to delete the build folder and reconfigure/compile the project when changing `CMakeLists.txt` files.
