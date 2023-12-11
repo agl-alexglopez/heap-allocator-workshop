@@ -4,11 +4,11 @@
 
  *Pictured Above: A sampling of the programs, tools, and analysis I used to complete this project. Explore the repository to see how I implemented the allocators, how I measured their performance, and how I interacted with them through the programs in this repository.*
 
-> **Notice:** Heap allocators are common university CS assignments. **NO heap allocator implementation that I submitted for any course at any institution is included here**. All implementations are original and written in my own free time, with sources cited when appropriate. The data structures and algorithms exceed the requirements and complexity of any introductory classes of which I am aware, limiting their helpfulness in implementing one's own first allocator. This is simply an exploration of the tradeoffs in heap allocator implementations, a broad and interesting topic. Please contact me if you feel otherwise. I hope you enjoy! 
+> **Notice:** Heap allocators are common university CS assignments. **NO heap allocator implementation that I submitted for any course at any institution is included here**. All implementations are original and written in my own free time, with sources cited when appropriate. The data structures and algorithms exceed the requirements and complexity of any introductory classes of which I am aware, limiting their helpfulness in implementing one's own first allocator. This is simply an exploration of the tradeoffs in heap allocator implementations, a broad and interesting topic. I hope you enjoy! 
 
 ## Quick Start
 
-The purpose of this repository is to put in place the tools needed to quickly develop and understand heap allocators. Is this a necessary skill to have in 2024 onward? Probably not. However, I find it enjoyable to learn about arguably the most convenient piece of software for day-to-day programming first hand, by implementing it yourself! And perhaps a need will arise for a custom allocator and this will serve as a great testing ground for new ideas. Here is what you can do with this repository.
+The purpose of this repository is to put in place the tools needed to quickly develop and understand heap allocators. I find it enjoyable to learn about arguably the most convenient piece of software for day-to-day programming first hand, by implementing it yourself! There are also many interesting data structures and algorithms we can apply to managing the heap. And perhaps a need will arise for a custom allocator and this will serve as a great testing ground for new ideas. Here is what you can do with this repository.
 
 ## Explore
 
