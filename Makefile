@@ -1,6 +1,7 @@
 .PHONY: default gcc-rel gcc-deb build format tidy clean ctest-deb ctest-rel gtest-deb gtest-rel test-deb-all test-rel-all
 
 MAKE := $(MAKE)
+MAKEFLAGS += --no-print-directory
 # Adjust parallel build jobs based on your available cores.
 JOBS ?= $(shell (command -v nproc > /dev/null 2>&1 && echo "-j$$(nproc)") || echo "")
 BUILD_DIR := build/
@@ -10,28 +11,28 @@ default: build
 
 gcc-rel:
 	cmake --preset=gcc-rel
-	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
+	cmake --build $(BUILD_DIR) $(JOBS)
 
 gcc-deb:
 	cmake --preset=gcc-deb
-	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
+	cmake --build $(BUILD_DIR) $(JOBS)
 
 clang-rel:
 	cmake --preset=clang-rel
-	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
+	cmake --build $(BUILD_DIR) $(JOBS)
 
 clang-deb:
 	cmake --preset=clang-deb
-	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
+	cmake --build $(BUILD_DIR) $(JOBS)
 
 build:
-	$(MAKE) --no-print-directory -C $(BUILD_DIR) $(JOBS)
+	cmake --build $(BUILD_DIR) $(JOBS)
 
 format:
-	$(MAKE) --no-print-directory -C $(BUILD_DIR) format
+	cmake --build $(BUILD_DIR) --target format
 
 tidy:
-	$(MAKE) --no-print-directory -C $(BUILD_DIR) tidy $(JOBS)
+	cmake --build $(BUILD_DIR) --target tidy $(JOBS)
 
 ctest-deb: build
 	$(BUILD_DIR)deb/ctest_list_segregated $(TEST_ARGS)

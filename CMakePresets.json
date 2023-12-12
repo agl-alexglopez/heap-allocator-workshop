@@ -1,8 +1,8 @@
 {
-  "version": 1,
+  "version": 3,
   "cmakeMinimumRequired": {
     "major": 3,
-    "minor": 20,
+    "minor": 21,
     "patch": 0
   },
   "configurePresets": [
@@ -10,7 +10,6 @@
       "name": "gcc-deb",
       "displayName": "GCC",
       "description": "Default build options for GCC",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
@@ -27,7 +26,6 @@
       "name": "gcc-rel",
       "displayName": "GCC",
       "description": "Default build options for GCC",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
@@ -44,7 +42,6 @@
       "name": "clang-deb",
       "displayName": "Clang",
       "description": "Default build options for Clang",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
@@ -61,7 +58,6 @@
       "name": "clang-rel",
       "displayName": "Clang",
       "description": "Default build options for Clang",
-      "generator": "Unix Makefiles",
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
