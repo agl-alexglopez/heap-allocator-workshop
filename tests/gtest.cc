@@ -57,26 +57,6 @@ void assert_init( size_t size, enum status_error e ) // NOLINT(*cognitive-comple
     }
 }
 
-void *expect_malloc( size_t size, status_error e )
-{
-    void *m = wmalloc( size );
-    switch ( e ) {
-    case OK:
-        EXPECT_NE( nullptr, m );
-        break;
-    case ER:
-        EXPECT_EQ( nullptr, m );
-        break;
-    default: {
-        std::cerr << "malloc can only expect err or ok error status, not bounds error.\n";
-        std::abort();
-        break;
-    }
-    }
-    EXPECT_EQ( true, wvalidate_heap() );
-    return m;
-}
-
 void *expect_realloc( void *old_ptr, size_t new_size, enum status_error e )
 {
     void *newptr = wrealloc( old_ptr, new_size );
@@ -125,10 +105,32 @@ void expect_frees( const std::vector<void *> &frees, const std::vector<heap_bloc
     EXPECT_GT( wheap_capacity(), old_capacity );
 }
 
-/// Malloc returns void *ptr. So if you want a vector of returned pointers from calls to malloc of
-/// the same type provide that type in the template and this function will cast the resulting malloc
+/// Malloc returns void *ptr. So if you want your own type from calls to malloc use this instead of casting.
+/// Provide the type in the template and this function will cast the resulting malloc
 /// to the specified type. Note: Don't pass in <T*>, but rather <T> to the template. Example:
-///
+/// auto *my_char_array_or_string = expect_malloc<char>( 500, OK );
+template <typename T> T *expect_malloc( size_t size, status_error e )
+{
+    auto m = static_cast<T *>( wmalloc( size ) );
+    switch ( e ) {
+    case OK:
+        EXPECT_NE( nullptr, m );
+        break;
+    case ER:
+        EXPECT_EQ( nullptr, m );
+        break;
+    default: {
+        std::cerr << "malloc can only expect err or ok error status, not bounds error.\n";
+        std::abort();
+        break;
+    }
+    }
+    EXPECT_EQ( true, wvalidate_heap() );
+    return m;
+}
+
+/// Again, same principle as normal expect_malloc but this time we are giving back an array of typed pointers.
+/// Examples:
 /// std::vector<char *> my_malloc_strings = expect_mallocs<char>( { { 88, OK }, { 32, OK }, { heap, OK } } );
 ///
 /// But you should prefer auto to avoid type mismatches.
@@ -142,7 +144,7 @@ template <typename T> std::vector<T *> expect_mallocs( const std::vector<malloc_
     addrs.reserve( expected.size() );
     for ( const auto &e : expected ) {
         if ( e.bytes != heap ) {
-            addrs.push_back( static_cast<T *>( expect_malloc( e.bytes, e.e ) ) );
+            addrs.push_back( expect_malloc<T>( e.bytes, e.e ) );
         }
     }
     EXPECT_GT( starting_capacity, wheap_capacity() );
@@ -218,7 +220,7 @@ TEST( MallocTests, SingleMallocGivesAdvertisedSpace )
     std::array<char, bytes> chars{};
     std::iota( chars.begin(), chars.end(), '@' );
     chars.back() = '\0';
-    auto *request = static_cast<char *>( expect_malloc( bytes, OK ) );
+    auto *request = expect_malloc<char>( bytes, OK );
     std::copy( chars.begin(), chars.end(), request );
     EXPECT_EQ( std::string_view( chars.data(), bytes ), std::string_view( request, bytes ) );
     // Now that we have copied our string into the bytes they gave us lets check the heap is not overwritten.
@@ -234,7 +236,7 @@ TEST( MallocTests, MallocExhaustsHeap )
 {
     assert_init( 100, OK );
     const size_t bytes = 100;
-    void *request3 = expect_malloc( bytes, ER );
+    auto *request3 = expect_malloc<void>( bytes, ER );
 }
 
 TEST( MallocFreeTests, SingleMallocSingleFree )
@@ -245,7 +247,7 @@ TEST( MallocFreeTests, SingleMallocSingleFree )
     std::iota( chars.begin(), chars.end(), '@' );
     chars.back() = '\0';
     const size_t original_capacity = wheap_capacity();
-    auto *request = static_cast<char *>( expect_malloc( 32, OK ) );
+    auto *request = expect_malloc<char>( 32, OK );
     std::copy( chars.begin(), chars.end(), request );
     EXPECT_EQ( std::string_view( chars.data(), bytes ), std::string_view( request, bytes ) );
     // Now that we have copied our string into the bytes they gave us lets check the heap is not overwritten.
