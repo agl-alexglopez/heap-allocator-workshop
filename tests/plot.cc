@@ -180,12 +180,8 @@ int plot_script_comparison( const std::vector<path_bin> &commands, plot_args &ar
 const data_set &set( const runtime_metrics &m, data_set_type request );
 const std::vector<double> &x_axis( const data_set &s );
 std::vector<double> &x_axis( data_set &s );
-const std::vector<double> &series( const data_set &s, size_t series_index );
 std::vector<double> &series( data_set &s, size_t series_index );
-const std::vector<data_series> &all_series( const data_set &s );
 std::vector<data_series> &all_series( data_set &s );
-const std::string &title( const data_set &s, size_t title_index );
-std::string &title( data_set &s, size_t title_index );
 void twiddle_cursor( command_queue &q );
 bool close_process( process_result res );
 double parse_quantity_n( std::string_view script_name );
@@ -746,34 +742,14 @@ std::vector<double> &x_axis( data_set &s )
     return s.first;
 }
 
-const std::vector<double> &series( const data_set &s, size_t series_index )
-{
-    return s.second[series_index].second;
-}
-
 std::vector<double> &series( data_set &s, size_t series_index )
 {
     return s.second[series_index].second;
 }
 
-const std::vector<data_series> &all_series( const data_set &s )
-{
-    return s.second;
-}
-
 std::vector<data_series> &all_series( data_set &s )
 {
     return s.second;
-}
-
-const std::string &title( const data_set &s, size_t title_index )
-{
-    return s.second[title_index].first;
-}
-
-std::string &title( data_set &s, size_t title_index )
-{
-    return s.second[title_index].first;
 }
 
 /////////////////////////////             Just for Fun             //////////////////////////////////////

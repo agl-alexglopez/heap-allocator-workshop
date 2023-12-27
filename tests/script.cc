@@ -30,7 +30,6 @@
 namespace script {
 namespace {
 constexpr std::string_view ansi_bred = "\033[38;5;9m";
-constexpr std::string_view ansi_nil = "\033[0m";
 
 std::optional<line> tokens_pass( std::span<const std::string> toks, size_t lineno )
 {
@@ -39,7 +38,12 @@ std::optional<line> tokens_pass( std::span<const std::string> toks, size_t linen
             osync::syncerr( "Request has an unknown format.\n", ansi_bred );
             return {};
         }
-        line ret{ .line = lineno };
+        line ret{
+            .req = op::empty,
+            .block_index = 0,
+            .size = 0,
+            .line = lineno,
+        };
         ret.block_index = std::stoull( toks[1] );
         if ( toks[0] == "a" || toks[0] == "r" ) {
             ret.req = toks[0] == "a" ? op::alloc : op::reallocd;
@@ -233,7 +237,15 @@ double time_free( const line &line, requests &script )
     wfree( old_block.first );
     volatile void *end_addr = start_addr; // NOLINT
     auto end_time = std::clock();
-    return 1000.0 * ( static_cast<double>( end_time - start_time ) / CLOCKS_PER_SEC );
+    const double result = 1000.0 * ( static_cast<double>( end_time - start_time ) / CLOCKS_PER_SEC );
+    // This silly check is to silence compiler warning about unused volatile.
+    if ( result < 0 ) {
+        std::stringstream s;
+        s << &end_addr;
+        const auto msg = std::string( "Error timing free. Last known address" ).append( s.str() );
+        osync::syncerr( msg, osync::ansi_bred );
+    }
+    return result;
 }
 
 std::optional<heap_delta> time_request( const line &line, requests &script, size_t heap_size, void *&heap_end )

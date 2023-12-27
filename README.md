@@ -29,31 +29,39 @@ If you would rather flush out performance characteristics of the allocators pres
 
 ### Build
 
-To build the project I use cmake with a convenience `Makefile` if you wish to use it. I have provided a `CMakePresets.json` file with configurations prepared for both `clang` and `gcc`. I can verify that the project builds with `cmake 3.24.2`, `clang 17.0.5`, and `gcc 12.2.0`. If you want to try your own preset or compiler flags if the project is not quite working the `CMakePresets.json` is a good place to look and provides sensible default configuration options that improve development of the allocators.
+To build the project I use cmake with a convenience `Makefile` if you wish to use it. I have provided a `CMakePresets.json` and `CMakeUserPresets.json` file with configurations prepared for both `clang` and `gcc`. I can verify that the project builds with `cmake 3.24.2`, `clang 17.0.5`, and `gcc 12.3.0`. I left the `CMakeUserPresets.json` file in version control as an example of how one might change build generators and compiler settings to their liking. For example, my system has two versions of GCC available so I specify `gcc-12` and `g++-12` as the compilers I want for this project; I also specify that Unix Makefiles is the generator that CMake should use when compiling with GCC. However, I have Ninja set as the build generator when Clang is in use and I do not need to specify which Clang version I want because I only have one installed on my system. If you run into issues compiling the project the first place to look would be at the `CMakeUserPrests.json` and `CMakePresets.json` files. Here is how to build the project.
 
-Clone the main branch. Configure the release project on gcc. Build from the root of the project.
+Clone the main branch. 
 
 ```bash
-cmake --preset=gcc-rel   
+git clone https://github.com/agl-alexglopez/heap-allocator-workshop.git
+```
+
+Configure the release project on gcc or clang. Build from the root of the project.
+
+GCC.
+
+```bash
+cmake --preset=mgcc-rel   
 # or
-make gcc-rel
+make mgcc-rel
 ```
 
 Clang.
 
 ```bash
-cmake --preset=clang-rel   
+cmake --preset=nclang-rel   
 # or
-make clang-rel
+make nclang-rel
 ```
 
 To build the debug versions run `rm -rf build/` or `make clean` and then run the same commands, replacing `-rel` with `-deb`.
 
-Then, regardless or your compiler, compile the project.
+Then, regardless or your compiler, compile the project. If you used the Makefile this step is not necessary.
 
 ```bash
 cmake --build build/
-# or 
+# If you edit files, you can recompile with the above command or use
 make
 ```
 

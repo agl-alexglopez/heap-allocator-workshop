@@ -23,8 +23,6 @@ namespace {
 using breakpoint = size_t;
 
 constexpr size_t heap_size = 1ULL << 32;
-constexpr int numeric_base = 10;
-constexpr int max_digits = 9;
 
 struct user_breaks
 {
@@ -40,7 +38,6 @@ struct break_limit
 };
 
 int print_peaks( const std::string &script_name, user_breaks &user_reqs );
-size_t print_allocator( script::requests &s, user_breaks &user_reqs );
 void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim );
 bool validate_breakpoints( script::requests &s, user_breaks &user_reqs );
 
