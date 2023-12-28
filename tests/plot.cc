@@ -1,3 +1,14 @@
+/// Author: Alexander G. Lopez
+/// File: plot.cc
+/// -------------
+/// This file is responsible for gathering all allocators, running them over predetermined or requested
+/// scripts and comparing the performance with Matplot++. See the README.md file for more instructions.
+/// If looking over the implementation, key points of interest might be the multiprocessing, the error
+/// messages if scripts are missing, or the commands used to measure performance across allocators.
+///
+/// The basic concept is that we create a small executable capable of timing code for each allocator.
+/// We then gather these executables and run them with a thread pool and multiprocessing. Once
+/// all the data is gathered we plot it with a single thread through Matplot++.
 #include "command_queue.hh"
 #include "osync.hh"
 
