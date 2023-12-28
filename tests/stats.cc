@@ -77,7 +77,10 @@ int stats( std::span<const char *const> args )
             } else if ( std::string::npos != arg_copy.find( ".script" ) ) {
                 filename = args[i];
             } else {
-                osync::syncerr( "Unknown flag. Only specify range -r [start] [end]'.\n", osync::ansi_bred );
+                const auto msg = std::string( "Unknown flag: " )
+                                     .append( args[i] )
+                                     .append( "\nOnly specify range -r [start] [end]'.\n" );
+                osync::syncerr( msg, osync::ansi_bred );
                 return 1;
             }
         }
@@ -196,27 +199,32 @@ bool validate_intervals( script::requests &s, interval_reqs &user_requests )
 
 bool set_interval( interval_reqs &user_reqs, std::span<const char *const> args, size_t i )
 {
-    if ( i + 1 >= args.size() ) {
-        osync::syncerr( "Starting breakpoint not specified\n", osync::ansi_bred );
-        return false;
-    }
-    interval intv = { 0, 0 };
-    intv.start_req = std::stoi( args[i + 1] );
-    if ( !user_reqs.intervals.empty() && user_reqs.intervals[i - 1].end_req >= intv.start_req ) {
-        osync::syncerr( "Stats does not support overlapping intervals.\n", osync::ansi_bred );
-        return false;
-    }
-    if ( i + 2 >= args.size() ) {
+    try {
+        if ( i + 1 >= args.size() ) {
+            osync::syncerr( "Starting breakpoint not specified\n", osync::ansi_bred );
+            return false;
+        }
+        interval intv = { 0, 0 };
+        intv.start_req = std::stoi( args[i + 1] );
+        if ( !user_reqs.intervals.empty() && user_reqs.intervals.back().end_req >= intv.start_req ) {
+            osync::syncerr( "Stats does not support overlapping intervals.\n", osync::ansi_bred );
+            return false;
+        }
+        if ( i + 2 >= args.size() ) {
+            user_reqs.intervals.push_back( intv );
+            return true;
+        }
+        intv.end_req = std::stoi( args[i + 2] );
+        if ( intv.end_req < intv.start_req ) {
+            osync::syncerr( "End of range precedes start.\n", osync::ansi_bred );
+            return false;
+        }
         user_reqs.intervals.push_back( intv );
         return true;
-    }
-    intv.end_req = std::stoi( args[i + 2] );
-    if ( intv.end_req < intv.start_req ) {
-        osync::syncerr( "End of range precedes start.\n", osync::ansi_bred );
+    } catch ( ... ) {
+        osync::syncerr( "Interval construction failed in converting range input to number.\n", osync::ansi_bred );
         return false;
     }
-    user_reqs.intervals.push_back( intv );
-    return true;
 }
 
 } // namespace

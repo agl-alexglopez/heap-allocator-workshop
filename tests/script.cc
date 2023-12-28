@@ -29,13 +29,12 @@
 
 namespace script {
 namespace {
-constexpr std::string_view ansi_bred = "\033[38;5;9m";
 
 std::optional<line> tokens_pass( std::span<const std::string> toks, size_t lineno )
 {
     try {
         if ( toks.size() > 3 || toks.size() < 2 || !( toks[0] == "a" || toks[0] == "f" || toks[0] == "r" ) ) {
-            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
+            osync::syncerr( "Request has an unknown format.\n", osync::ansi_bred );
             return {};
         }
         line ret{
@@ -51,7 +50,7 @@ std::optional<line> tokens_pass( std::span<const std::string> toks, size_t linen
         } else if ( toks[0] == "f" ) {
             ret.req = op::freed;
         } else {
-            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
+            osync::syncerr( "Request has an unknown format.\n", osync::ansi_bred );
             return {};
         }
         return ret;
@@ -59,7 +58,7 @@ std::optional<line> tokens_pass( std::span<const std::string> toks, size_t linen
         const auto err = std::string( "Could not convert size or id on line: " )
                              .append( std::to_string( lineno ) )
                              .append( "\n" );
-        osync::syncerr( err, ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return {};
     }
 }
@@ -70,6 +69,8 @@ std::optional<requests> parse_script( const std::string &filepath )
 {
     std::ifstream sfile( filepath );
     if ( sfile.fail() ) {
+        const auto msg = std::string( "Could not open file " ).append( filepath ).append( "\n" );
+        osync::syncerr( msg, osync::ansi_bred );
         return {};
     }
     const size_t lineo
@@ -104,7 +105,7 @@ bool exec_malloc( const script::line &line, script::requests &s, void *&heap_end
 {
     void *p = wmalloc( line.size );
     if ( nullptr == p && line.size != 0 ) {
-        osync::syncerr( "wmalloc() exhasted the heap\n", ansi_bred );
+        osync::syncerr( "wmalloc() exhasted the heap\n", osync::ansi_bred );
         return false;
     }
     // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
@@ -122,7 +123,7 @@ bool exec_realloc( const script::line &line, script::requests &s, void *&heap_en
     void *old_ptr = s.blocks.at( line.block_index ).first;
     void *new_ptr = wrealloc( old_ptr, line.size );
     if ( nullptr == new_ptr && line.size != 0 ) {
-        osync::syncerr( "Realloc exhausted the heap.\n", ansi_bred );
+        osync::syncerr( "Realloc exhausted the heap.\n", osync::ansi_bred );
         return false;
     }
     s.blocks[line.block_index].second = 0;
@@ -187,7 +188,7 @@ std::optional<double> time_malloc( const script::line &line, script::requests &s
                        .append( std::to_string( printablestart ) )
                        .append( std::to_string( printableend ) )
                        .append( "\n" );
-        osync::syncerr( err, ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return {};
     }
     // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
@@ -217,7 +218,7 @@ std::optional<double> time_realloc( const script::line &line, script::requests &
                        .append( std::to_string( printablestart ) )
                        .append( std::to_string( printableend ) )
                        .append( "\n" );
-        osync::syncerr( err, ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return {};
     }
     s.blocks[line.block_index].second = 0;
