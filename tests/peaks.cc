@@ -1,3 +1,23 @@
+/// Author: Alexander G. Lopez
+/// File: peaks.cc
+/// --------------
+/// This file contains the peaks program responsible for tracking changes in the
+/// heap free block management over its lifetime. By default this program will
+/// print the data structure at its peak size over the course of its lifetime.
+/// However, we can also set breakpoints to see what the free node management
+/// was like at any point in the heap lifetime. Do this as follows.
+///
+/// [THIS EXECUTABLE] [LINE NUMBER] [SCRIPT NAME]
+///
+/// Add any number of line numbers to break on.
+///
+/// [THIS EXECUTABLE] [LINE NUMBER] [LINE NUMBER] [LINE NUMBER] [LINE NUMBER] [SCRIPT NAME]
+///
+/// Add the quiet flag if you do not want the plotting pop up.
+///
+/// [THIS EXECUTABLE] [LINE NUMBER] [SCRIPT NAME] -q
+///
+/// Explore different scripts to see the strain they place on the heap.
 #include "allocator.h"
 #include "matplot/core/figure_registry.h"
 #include "matplot/freestanding/plot.h"
