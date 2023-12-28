@@ -35,19 +35,14 @@
 namespace {
 
 constexpr std::size_t heap_size = 1L << 32;
-constexpr size_t max_threads = 20;
-constexpr size_t default_workers = 4;
 constexpr size_t scale_to_whole_num = 100;
 constexpr size_t lowest_byte = 0xFFUL;
 constexpr std::string_view ansi_bred = "\033[38;5;9m";
 constexpr std::string_view ansi_bgrn = "\033[38;5;10m";
-constexpr std::string_view ansi_byel = "\033[38;5;11m";
-constexpr std::string_view ansi_nil = "\033[0m";
 constexpr std::string_view save_cursor = "\033[s";
 constexpr std::string_view restore_cursor = "\033[u";
 constexpr std::string_view background_loading_bar = "▒";
 constexpr std::string_view progress_bar = "█";
-constexpr std::string_view pass = "●";
 
 std::optional<size_t> eval_correctness( script::requests &s );
 bool verify_block( void *ptr, size_t size, const script::requests &s );

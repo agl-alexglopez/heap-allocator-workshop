@@ -29,17 +29,20 @@
 
 namespace script {
 namespace {
-constexpr std::string_view ansi_bred = "\033[38;5;9m";
-constexpr std::string_view ansi_nil = "\033[0m";
 
 std::optional<line> tokens_pass( std::span<const std::string> toks, size_t lineno )
 {
     try {
         if ( toks.size() > 3 || toks.size() < 2 || !( toks[0] == "a" || toks[0] == "f" || toks[0] == "r" ) ) {
-            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
+            osync::syncerr( "Request has an unknown format.\n", osync::ansi_bred );
             return {};
         }
-        line ret{ .line = lineno };
+        line ret{
+            .req = op::empty,
+            .block_index = 0,
+            .size = 0,
+            .line = lineno,
+        };
         ret.block_index = std::stoull( toks[1] );
         if ( toks[0] == "a" || toks[0] == "r" ) {
             ret.req = toks[0] == "a" ? op::alloc : op::reallocd;
@@ -47,7 +50,7 @@ std::optional<line> tokens_pass( std::span<const std::string> toks, size_t linen
         } else if ( toks[0] == "f" ) {
             ret.req = op::freed;
         } else {
-            osync::syncerr( "Request has an unknown format.\n", ansi_bred );
+            osync::syncerr( "Request has an unknown format.\n", osync::ansi_bred );
             return {};
         }
         return ret;
@@ -55,7 +58,7 @@ std::optional<line> tokens_pass( std::span<const std::string> toks, size_t linen
         const auto err = std::string( "Could not convert size or id on line: " )
                              .append( std::to_string( lineno ) )
                              .append( "\n" );
-        osync::syncerr( err, ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return {};
     }
 }
@@ -66,6 +69,8 @@ std::optional<requests> parse_script( const std::string &filepath )
 {
     std::ifstream sfile( filepath );
     if ( sfile.fail() ) {
+        const auto msg = std::string( "Could not open file " ).append( filepath ).append( "\n" );
+        osync::syncerr( msg, osync::ansi_bred );
         return {};
     }
     const size_t lineo
@@ -100,7 +105,7 @@ bool exec_malloc( const script::line &line, script::requests &s, void *&heap_end
 {
     void *p = wmalloc( line.size );
     if ( nullptr == p && line.size != 0 ) {
-        osync::syncerr( "wmalloc() exhasted the heap\n", ansi_bred );
+        osync::syncerr( "wmalloc() exhasted the heap\n", osync::ansi_bred );
         return false;
     }
     // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
@@ -118,7 +123,7 @@ bool exec_realloc( const script::line &line, script::requests &s, void *&heap_en
     void *old_ptr = s.blocks.at( line.block_index ).first;
     void *new_ptr = wrealloc( old_ptr, line.size );
     if ( nullptr == new_ptr && line.size != 0 ) {
-        osync::syncerr( "Realloc exhausted the heap.\n", ansi_bred );
+        osync::syncerr( "Realloc exhausted the heap.\n", osync::ansi_bred );
         return false;
     }
     s.blocks[line.block_index].second = 0;
@@ -183,7 +188,7 @@ std::optional<double> time_malloc( const script::line &line, script::requests &s
                        .append( std::to_string( printablestart ) )
                        .append( std::to_string( printableend ) )
                        .append( "\n" );
-        osync::syncerr( err, ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return {};
     }
     // Specs say subspan is undefined if Offset > .size(). So this is safe: new.data() == this->data() + Offset.
@@ -213,7 +218,7 @@ std::optional<double> time_realloc( const script::line &line, script::requests &
                        .append( std::to_string( printablestart ) )
                        .append( std::to_string( printableend ) )
                        .append( "\n" );
-        osync::syncerr( err, ansi_bred );
+        osync::syncerr( err, osync::ansi_bred );
         return {};
     }
     s.blocks[line.block_index].second = 0;
@@ -233,7 +238,15 @@ double time_free( const line &line, requests &script )
     wfree( old_block.first );
     volatile void *end_addr = start_addr; // NOLINT
     auto end_time = std::clock();
-    return 1000.0 * ( static_cast<double>( end_time - start_time ) / CLOCKS_PER_SEC );
+    const double result = 1000.0 * ( static_cast<double>( end_time - start_time ) / CLOCKS_PER_SEC );
+    // This silly check is to silence compiler warning about unused volatile.
+    if ( result < 0 ) {
+        std::stringstream s;
+        s << &end_addr;
+        const auto msg = std::string( "Error timing free. Last known address" ).append( s.str() );
+        osync::syncerr( msg, osync::ansi_bred );
+    }
+    return result;
 }
 
 std::optional<heap_delta> time_request( const line &line, requests &script, size_t heap_size, void *&heap_end )

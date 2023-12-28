@@ -236,7 +236,7 @@ TEST( MallocTests, MallocExhaustsHeap )
 {
     assert_init( 100, OK );
     const size_t bytes = 100;
-    auto *request3 = expect_malloc<void>( bytes, ER );
+    static_cast<void>( expect_malloc<void>( bytes, ER ) );
 }
 
 TEST( MallocFreeTests, SingleMallocSingleFree )
@@ -321,7 +321,6 @@ TEST( CoalesceTests, CoalesceRightWithPool )
     const size_t bytes = 64;
     const size_t aligned1 = wheap_align( bytes );
     const size_t aligned2 = aligned1;
-    const size_t aligned3 = aligned1;
     auto alloc = expect_mallocs<void>( {
         { bytes, OK },
         { bytes, OK },
@@ -703,6 +702,7 @@ TEST( ReallocTests, ReallocExhaustiveSearchFailureInPlace )
     // Upon failure NULL is returned and original memory is left intact though coalescing may have occured.
     const size_t overload_req = medium_heap_size << 1;
     void *new_addr = expect_realloc( alloc[1], overload_req, ER );
+    EXPECT_EQ( new_addr, alloc[1] );
     expect_state( {
         { alloc[0], aligned, OK },
         { alloc[1], aligned, OK },
@@ -740,6 +740,7 @@ TEST( ReallocTests, ReallocFailsIdempotently )
     const size_t overload_req = medium_heap_size << 1;
     void *new_addr = expect_realloc( alloc[1], overload_req, ER );
     // We should not alter anything if we fail a reallocation. The user should still have their pointer.
+    EXPECT_EQ( new_addr, alloc[1] );
     expect_state( {
         { freed, aligned, OK },
         { alloc[1], aligned, OK },
@@ -757,7 +758,6 @@ TEST( ReallocTests, ReallocFailsIdempotentlyPreservingData )
     std::array<char, bytes> chars{};
     std::iota( chars.begin(), chars.end(), '!' );
     chars.back() = '\0';
-    const size_t original_capacity = wheap_capacity();
     // Fill surroundings with terminator because we want the string views to keep looking until a null is found
     // This may help us spot errors in how we move bytes around while reallocing.
     auto alloc = expect_mallocs<char>( {
@@ -788,6 +788,7 @@ TEST( ReallocTests, ReallocFailsIdempotentlyPreservingData )
     const size_t overload_req = medium_heap_size << 1;
     auto *new_addr = static_cast<char *>( expect_realloc( alloc[1], overload_req, ER ) );
     // We should not alter anything if we fail a reallocation. The user should still have their data
+    EXPECT_EQ( new_addr, alloc[1] );
     expect_state( {
         { freed, aligned, OK },
         { alloc[1], aligned, OK },
@@ -806,7 +807,6 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingRight )
     std::array<char, bytes> chars{};
     std::iota( chars.begin(), chars.end(), '!' );
     chars.back() = '\0';
-    const size_t original_capacity = wheap_capacity();
     auto alloc = expect_mallocs<char>( {
         { bytes, OK },
         { bytes, OK },
@@ -852,7 +852,6 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingLeft )
     std::array<char, bytes> chars{};
     std::iota( chars.begin(), chars.end(), '!' );
     chars.back() = '\0';
-    const size_t original_capacity = wheap_capacity();
     auto alloc = expect_mallocs<char>( {
         { bytes, OK },
         { bytes, OK },
@@ -897,7 +896,6 @@ TEST( ReallocTests, ReallocPreservesDataWhenCoalescingElsewhere )
     std::array<char, bytes> chars{};
     std::iota( chars.begin(), chars.end(), '!' );
     chars.back() = '\0';
-    const size_t original_capacity = wheap_capacity();
     auto alloc = expect_mallocs<char>( {
         { bytes, OK },
         { bytes, OK },

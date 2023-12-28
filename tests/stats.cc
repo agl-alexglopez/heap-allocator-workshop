@@ -1,3 +1,26 @@
+/// Author: Alexander G. Lopez
+/// File: stats.cc
+/// --------------
+/// This file is a small helper program used to support the larger plot.cc file and program.
+/// However it could be used as a standalone timer program if desired. By default the output
+/// is as follows:
+///
+/// [TIME TO COMPLETE INTERVAL] [AVERAGE TIME PER REQUEST]
+/// [OVERALL UTILIZATION]
+///
+/// The times are in milliseconds for now. This simple two line output makes parsing it
+/// in other programs easier. If multiple intervals are timed then there would be multiple
+/// time outputs but still one utilization output as so.
+///
+/// [TIME TO COMPLETE INTERVAL] [AVERAGE TIME PER REQUEST]
+/// [TIME TO COMPLETE INTERVAL] [AVERAGE TIME PER REQUEST]
+/// [OVERALL UTILIZATION]
+///
+/// Specify a range of requests as follows.
+///
+/// $ [THIS EXECUTABLE] -r [SCRIPT LINE START] [SCRIPT LINE END]
+///
+/// See the commands used in the plotting program for how one might use the stat program.
 #include "allocator.h"
 #include "osync.hh"
 #include "script.hh"
@@ -28,11 +51,9 @@ struct interval_reqs
 {
     std::vector<interval> intervals{};
     std::vector<double> interval_averages{};
-    bool quiet{ false };
 };
 
 constexpr size_t heap_size = 1L << 32;
-constexpr int base_10 = 10;
 
 ///////////////////////  Prototypes and Arg Handling    ////////////////////////////////
 
@@ -48,9 +69,7 @@ int stats( std::span<const char *const> args )
         std::string_view filename{};
         for ( size_t i = 0; i < args.size(); ++i ) {
             auto arg_copy = std::string( args[i] );
-            if ( arg_copy == "-q" ) {
-                user_reqs.quiet = true;
-            } else if ( arg_copy == "-r" ) {
+            if ( arg_copy == "-r" ) {
                 if ( !set_interval( user_reqs, args, i ) ) {
                     return 1;
                 }
@@ -58,7 +77,10 @@ int stats( std::span<const char *const> args )
             } else if ( std::string::npos != arg_copy.find( ".script" ) ) {
                 filename = args[i];
             } else {
-                osync::syncerr( "Unknown flag. Only specify '-q' or '-r [start] [end]'.\n", osync::ansi_bred );
+                const auto msg = std::string( "Unknown flag: " )
+                                     .append( args[i] )
+                                     .append( "\nOnly specify range -r [start] [end]'.\n" );
+                osync::syncerr( msg, osync::ansi_bred );
                 return 1;
             }
         }
@@ -117,7 +139,7 @@ std::optional<size_t> time_allocator( script::requests &s, interval_reqs &user_r
     size_t cur_size = 0;
     int req = 0;
     size_t current_interval = 0;
-    while ( req < s.lines.size() ) {
+    while ( static_cast<size_t>( req ) < s.lines.size() ) {
         if ( current_interval < user_requests.intervals.size()
              && user_requests.intervals[current_interval].start_req == req ) {
             const interval &section = user_requests.intervals[current_interval];
@@ -157,7 +179,7 @@ std::optional<size_t> time_allocator( script::requests &s, interval_reqs &user_r
 bool validate_intervals( script::requests &s, interval_reqs &user_requests )
 {
     for ( size_t i = 0; i < user_requests.intervals.size(); ++i ) {
-        if ( s.lines.size() - 1 < user_requests.intervals[i].start_req ) {
+        if ( s.lines.size() - 1 < static_cast<size_t>( ( user_requests.intervals[i].start_req ) ) ) {
             auto err = std::string( "Interval out of range\n" )
                            .append( "Interval start: " )
                            .append( std::to_string( user_requests.intervals[i].start_req ) )
@@ -167,7 +189,8 @@ bool validate_intervals( script::requests &s, interval_reqs &user_requests )
             osync::syncerr( err, osync::ansi_bred );
             return false;
         }
-        if ( s.lines.size() - 1 < user_requests.intervals[i].end_req || 0 == user_requests.intervals[i].end_req ) {
+        if ( s.lines.size() - 1 < static_cast<size_t>( user_requests.intervals[i].end_req )
+             || 0 == user_requests.intervals[i].end_req ) {
             user_requests.intervals[i].end_req = static_cast<int>( s.lines.size() ) - 1;
         }
     }
@@ -176,27 +199,32 @@ bool validate_intervals( script::requests &s, interval_reqs &user_requests )
 
 bool set_interval( interval_reqs &user_reqs, std::span<const char *const> args, size_t i )
 {
-    if ( i + 1 >= args.size() ) {
-        osync::syncerr( "Starting breakpoint not specified\n", osync::ansi_bred );
-        return false;
-    }
-    interval intv = { 0, 0 };
-    intv.start_req = std::stoi( args[i + 1] );
-    if ( !user_reqs.intervals.empty() && user_reqs.intervals[i - 1].end_req >= intv.start_req ) {
-        osync::syncerr( "Stats does not support overlapping intervals.\n", osync::ansi_bred );
-        return false;
-    }
-    if ( i + 2 >= args.size() ) {
+    try {
+        if ( i + 1 >= args.size() ) {
+            osync::syncerr( "Starting breakpoint not specified\n", osync::ansi_bred );
+            return false;
+        }
+        interval intv = { 0, 0 };
+        intv.start_req = std::stoi( args[i + 1] );
+        if ( !user_reqs.intervals.empty() && user_reqs.intervals.back().end_req >= intv.start_req ) {
+            osync::syncerr( "Stats does not support overlapping intervals.\n", osync::ansi_bred );
+            return false;
+        }
+        if ( i + 2 >= args.size() ) {
+            user_reqs.intervals.push_back( intv );
+            return true;
+        }
+        intv.end_req = std::stoi( args[i + 2] );
+        if ( intv.end_req < intv.start_req ) {
+            osync::syncerr( "End of range precedes start.\n", osync::ansi_bred );
+            return false;
+        }
         user_reqs.intervals.push_back( intv );
         return true;
-    }
-    intv.end_req = std::stoi( args[i + 2] );
-    if ( intv.end_req < intv.start_req ) {
-        osync::syncerr( "End of range precedes start.\n", osync::ansi_bred );
+    } catch ( ... ) {
+        osync::syncerr( "Interval construction failed in converting range input to number.\n", osync::ansi_bred );
         return false;
     }
-    user_reqs.intervals.push_back( intv );
-    return true;
 }
 
 } // namespace

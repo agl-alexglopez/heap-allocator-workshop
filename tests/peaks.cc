@@ -1,3 +1,23 @@
+/// Author: Alexander G. Lopez
+/// File: peaks.cc
+/// --------------
+/// This file contains the peaks program responsible for tracking changes in the
+/// heap free block management over its lifetime. By default this program will
+/// print the data structure at its peak size over the course of its lifetime.
+/// However, we can also set breakpoints to see what the free node management
+/// was like at any point in the heap lifetime. Do this as follows.
+///
+/// [THIS EXECUTABLE] [LINE NUMBER] [SCRIPT NAME]
+///
+/// Add any number of line numbers to break on.
+///
+/// [THIS EXECUTABLE] [LINE NUMBER] [LINE NUMBER] [LINE NUMBER] [LINE NUMBER] [SCRIPT NAME]
+///
+/// Add the quiet flag if you do not want the plotting pop up.
+///
+/// [THIS EXECUTABLE] [LINE NUMBER] [SCRIPT NAME] -q
+///
+/// Explore different scripts to see the strain they place on the heap.
 #include "allocator.h"
 #include "matplot/core/figure_registry.h"
 #include "matplot/freestanding/plot.h"
@@ -23,8 +43,6 @@ namespace {
 using breakpoint = size_t;
 
 constexpr size_t heap_size = 1ULL << 32;
-constexpr int numeric_base = 10;
-constexpr int max_digits = 9;
 
 struct user_breaks
 {
@@ -40,7 +58,6 @@ struct break_limit
 };
 
 int print_peaks( const std::string &script_name, user_breaks &user_reqs );
-size_t print_allocator( script::requests &s, user_breaks &user_reqs );
 void handle_user_breakpoints( user_breaks &user_reqs, break_limit lim );
 bool validate_breakpoints( script::requests &s, user_breaks &user_reqs );
 
@@ -57,9 +74,9 @@ int peaks( std::span<const char *const> args )
                 auto strarg = std::string( arg );
                 if ( std::string::npos != strarg.find( ".script" ) ) {
                     file = std::move( strarg );
-                } else if ( strarg == "-v" ) {
+                } else if ( "-v" == strarg ) {
                     breaks.style = VERBOSE;
-                } else if ( strarg == "-q" ) {
+                } else if ( "-q" == strarg ) {
                     breaks.quiet = true;
                 } else {
                     auto err = std::string(
@@ -73,6 +90,10 @@ int peaks( std::span<const char *const> args )
             }
         }
         std::sort( breaks.breakpoints.begin(), breaks.breakpoints.end() );
+        // Fine for small N.
+        breaks.breakpoints.erase(
+            std::unique( breaks.breakpoints.begin(), breaks.breakpoints.end() ), breaks.breakpoints.end()
+        );
         return print_peaks( file, breaks );
     } catch ( std::exception &e ) {
         std::cerr << "Caught " << e.what() << "\n";

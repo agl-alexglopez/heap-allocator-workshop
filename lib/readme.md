@@ -120,7 +120,23 @@ target_link_libraries(gtest_allocator_name
 gtest_discover_tests(gtest_allocator_name)
 ```
 
-Finally, once you know your implementation is correct and passes all tests and scripts, add your allocator to any other programs present in the repository such as `print_peaks` or otherwise. When in doubt follow the configuration of the other allocators present. Be sure to delete the build folder and reconfigure/compile the project when changing `CMakeLists.txt` files.
+Finally, once you know your implementation is correct and passes all tests and scripts, add your allocator to any other programs present in the repository such as `print_peaks` or otherwise. When in doubt follow the configuration of the other allocators present. Be sure to delete the build folder and reconfigure/compile the project when changing `CMakeLists.txt` files. As a final touch consider following the established `.clang-tidy` and `.clang-format` checks. To do this run the following.
+
+Clang format will format your code to follow the style guidelines of this repository.
+
+```bash
+cmake --build build --target format
+# or
+make format
+```
+
+Clang tidy will run **extensive** checks on your code for easy to catch logical and stylistic bugs. It is pretty pedantic, but I like it. Do as you will. As a special note for Clang tidy, I have not had success running it with the ninja generator. In other words, if I want to run clang tidy, I run it with my GCC/Unix Makefiles preset. You could also use the Unix Makefile build generator if you prefer compiling with clang. Simply change the `CMakeUserPreset.json` file to use the tools you like. 
+
+```bash
+cmake --build build --target tidy
+# or
+make tidy
+```
 
 The `UNIMPLEMENTED();` macro allows you to compile the code and even run it, and it will abort the program with an error telling you which function you need to implement to continue. See the header file `allocator.h` for the general requirements of the functions. Here are some internal specifications that must be met and are enforced by the unit tests.
 

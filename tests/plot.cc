@@ -1,6 +1,18 @@
+/// Author: Alexander G. Lopez
+/// File: plot.cc
+/// -------------
+/// This file is responsible for gathering all allocators, running them over predetermined or requested
+/// scripts and comparing the performance with Matplot++. See the README.md file for more instructions.
+/// If looking over the implementation, key points of interest might be the multiprocessing, the error
+/// messages if scripts are missing, or the commands used to measure performance across allocators.
+///
+/// The basic concept is that we create a small executable capable of timing code for each allocator.
+/// We then gather these executables and run them with a thread pool and multiprocessing. Once
+/// all the data is gathered we plot it with a single thread through Matplot++.
 #include "command_queue.hh"
 #include "osync.hh"
 
+#include "matplot/core/figure_registry.h"
 #include "matplot/core/legend.h"
 #include "matplot/freestanding/axes_functions.h"
 #include "matplot/util/handle_types.h"
@@ -18,6 +30,7 @@
 #include <filesystem>
 #include <fstream>
 #include <ios>
+#include <iostream>
 #include <optional>
 #include <span>
 #include <stdexcept>
@@ -180,12 +193,8 @@ int plot_script_comparison( const std::vector<path_bin> &commands, plot_args &ar
 const data_set &set( const runtime_metrics &m, data_set_type request );
 const std::vector<double> &x_axis( const data_set &s );
 std::vector<double> &x_axis( data_set &s );
-const std::vector<double> &series( const data_set &s, size_t series_index );
 std::vector<double> &series( data_set &s, size_t series_index );
-const std::vector<data_series> &all_series( const data_set &s );
 std::vector<data_series> &all_series( data_set &s );
-const std::string &title( const data_set &s, size_t title_index );
-std::string &title( data_set &s, size_t title_index );
 void twiddle_cursor( command_queue &q );
 bool close_process( process_result res );
 double parse_quantity_n( std::string_view script_name );
@@ -390,6 +399,10 @@ bool thread_run_analysis( const size_t allocator_index, const path_bin &cmd, run
 
 int plot_script_comparison( const std::vector<path_bin> &commands, plot_args &args )
 {
+    if ( !args.script_name ) {
+        osync::cerr( "No script provided for plotting comparison", osync::ansi_bred );
+        return 1;
+    }
     const std::string script_name_str( args.script_name.value() );
     if ( !std::ifstream( script_name_str, std::ios_base::in ).good() ) {
         const auto msg = std::string( "Could not find the following file for script comparison:\n" )
@@ -399,12 +412,12 @@ int plot_script_comparison( const std::vector<path_bin> &commands, plot_args &ar
         return 1;
     }
     runtime_metrics m{};
-    std::string_view path_to_script{ script_name_str };
+    const std::string_view path_to_script{ script_name_str };
     std::string script( path_to_script.substr( path_to_script.find_last_of( '/' ) + 1 ) );
     script.erase( script.find_last_of( '.' ) );
-    std::string save_interval = std::string( "output/interval-" ).append( script ).append( ".svg" );
-    std::string save_response = std::string( "output/response-" ).append( script ).append( ".svg" );
-    std::string save_utilization = std::string( "output/utilization-" ).append( script ).append( ".svg" );
+    const auto save_interval = std::string( "output/interval-" ).append( script ).append( ".svg" );
+    const auto save_response = std::string( "output/response-" ).append( script ).append( ".svg" );
+    const auto save_utilization = std::string( "output/utilization-" ).append( script ).append( ".svg" );
     args.interval_labels = {
         .title = "Time(ms) to Complete Script",
         .x_label = "Allocators",
@@ -593,7 +606,7 @@ std::optional<size_t> specify_threads( std::string_view thread_request )
         );
         return 1;
     }
-    std::string cores
+    const auto cores
         = std::string( std::string_view{ thread_request }.substr( thread_request.find_first_not_of( "-j" ) ) );
     try {
         size_t result = std::stoull( cores );
@@ -621,7 +634,7 @@ bool scripts_generated()
     std::vector<std::string> missing_files{};
     for ( const auto &command_series : big_o_timing ) {
         for ( const auto &commands : command_series ) {
-            std::string fpath_and_name( commands.back() );
+            const std::string fpath_and_name( commands.back() );
             if ( !std::ifstream( fpath_and_name, std::ios_base::in ).good() ) {
                 missing_files.push_back( fpath_and_name );
             }
@@ -746,34 +759,14 @@ std::vector<double> &x_axis( data_set &s )
     return s.first;
 }
 
-const std::vector<double> &series( const data_set &s, size_t series_index )
-{
-    return s.second[series_index].second;
-}
-
 std::vector<double> &series( data_set &s, size_t series_index )
 {
     return s.second[series_index].second;
 }
 
-const std::vector<data_series> &all_series( const data_set &s )
-{
-    return s.second;
-}
-
 std::vector<data_series> &all_series( data_set &s )
 {
     return s.second;
-}
-
-const std::string &title( const data_set &s, size_t title_index )
-{
-    return s.second[title_index].first;
-}
-
-std::string &title( data_set &s, size_t title_index )
-{
-    return s.second[title_index].first;
 }
 
 /////////////////////////////             Just for Fun             //////////////////////////////////////

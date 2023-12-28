@@ -1,4 +1,4 @@
-.PHONY: default gcc-rel gcc-deb build format tidy clean ctest-deb ctest-rel gtest-deb gtest-rel test-deb-all test-rel-all
+.PHONY: default mgcc-rel mgcc-deb nclang-rel nclang-deb build format tidy clean ctest-deb ctest-rel gtest-deb gtest-rel test-deb-all test-rel-all
 
 MAKE := $(MAKE)
 MAKEFLAGS += --no-print-directory
@@ -9,20 +9,20 @@ TEST_ARGS := ./scripts/example* ./scripts/pattern* ./scripts/robust* ./scripts/t
 
 default: build
 
-gcc-rel:
-	cmake --preset=gcc-rel
+mgcc-rel:
+	cmake --preset=mgcc-rel
 	cmake --build $(BUILD_DIR) $(JOBS)
 
-gcc-deb:
-	cmake --preset=gcc-deb
+mgcc-deb:
+	cmake --preset=mgcc-deb
 	cmake --build $(BUILD_DIR) $(JOBS)
 
-clang-rel:
-	cmake --preset=clang-rel
+nclang-rel:
+	cmake --preset=nclang-rel
 	cmake --build $(BUILD_DIR) $(JOBS)
 
-clang-deb:
-	cmake --preset=clang-deb
+nclang-deb:
+	cmake --preset=nclang-deb
 	cmake --build $(BUILD_DIR) $(JOBS)
 
 build:
