@@ -54,9 +54,9 @@ int peaks( std::span<const char *const> args )
                 auto strarg = std::string( arg );
                 if ( std::string::npos != strarg.find( ".script" ) ) {
                     file = std::move( strarg );
-                } else if ( strarg == "-v" ) {
+                } else if ( "-v" == strarg ) {
                     breaks.style = VERBOSE;
-                } else if ( strarg == "-q" ) {
+                } else if ( "-q" == strarg ) {
                     breaks.quiet = true;
                 } else {
                     auto err = std::string(
@@ -70,6 +70,10 @@ int peaks( std::span<const char *const> args )
             }
         }
         std::sort( breaks.breakpoints.begin(), breaks.breakpoints.end() );
+        // Fine for small N.
+        breaks.breakpoints.erase(
+            std::unique( breaks.breakpoints.begin(), breaks.breakpoints.end() ), breaks.breakpoints.end()
+        );
         return print_peaks( file, breaks );
     } catch ( std::exception &e ) {
         std::cerr << "Caught " << e.what() << "\n";
