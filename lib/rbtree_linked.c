@@ -309,7 +309,6 @@ bool wvalidate_heap( void )
     if ( !check_init( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
         return false;
     }
-    // Check that after checking all headers we end on size 0 tail and then end of address space.
     size_t total_free_mem = 0;
     if ( !is_memory_balanced(
              &total_free_mem,
@@ -318,23 +317,18 @@ bool wvalidate_heap( void )
          ) ) {
         return false;
     }
-    // Does a tree search for all memory match the linear heap search for totals?
     if ( !is_rbtree_mem_valid( free_nodes.tree_root, free_nodes.black_nil, total_free_mem ) ) {
         return false;
     }
-    // Two red nodes in a row are invalid for the tree.
     if ( is_red_red( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }
-    // Does every path from a node to the black sentinel contain the same number of black nodes.
     if ( !is_bheight_valid( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }
-    // This comes from a more official write up on red black trees so I included it.
     if ( !is_bheight_valid_v2( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }
-    // Check that the parents and children are updated correctly if duplicates are deleted.
     if ( !is_parent_valid( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }

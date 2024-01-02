@@ -57,7 +57,6 @@ struct rb_node
     header header;
     struct rb_node *parent;
     struct rb_node *links[2];
-    // A footer goes at end of unused blocks. Need at least 8 bytes of user space to fit footer.
 };
 
 struct heap_range
@@ -275,23 +274,18 @@ bool wvalidate_heap( void )
          ) ) {
         return false;
     }
-    // Does a tree search for all memory match the linear heap search for totals?
     if ( !is_rbtree_mem_valid( tree.root, tree.black_nil, total_free_mem ) ) {
         return false;
     }
-    // Two red nodes in a row are invalid for the tree.
     if ( is_red_red( tree.root, tree.black_nil ) ) {
         return false;
     }
-    // Does every path from a node to the black sentinel contain the same number of black nodes.
     if ( !is_bheight_valid( tree.root, tree.black_nil ) ) {
         return false;
     }
-    // Check that the parents and children are updated correctly if duplicates are deleted.
     if ( !is_parent_valid( tree.root, tree.black_nil ) ) {
         return false;
     }
-    // This comes from a more official write up on red black trees so I included it.
     if ( !is_bheight_valid_v2( tree.root, tree.black_nil ) ) {
         return false;
     }

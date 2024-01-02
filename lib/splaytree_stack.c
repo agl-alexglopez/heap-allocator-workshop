@@ -246,7 +246,6 @@ void *wmalloc( size_t requested_size )
         return NULL;
     }
     size_t client_request = roundup( requested_size, ALIGNMENT );
-    // Search the tree for the best possible fitting node.
     struct node *found_node = find_best_fit( client_request );
     if ( found_node == free_nodes.nil ) {
         return NULL;
@@ -305,7 +304,6 @@ bool wvalidate_heap( void )
     if ( !check_init( ( struct heap_range ){ heap.client_start, heap.client_end }, heap.heap_size ) ) {
         return false;
     }
-    // Check that after checking all headers we end on size 0 tail and then end of address space.
     size_t total_free_mem = 0;
     if ( !is_memory_balanced(
              &total_free_mem,
@@ -314,7 +312,6 @@ bool wvalidate_heap( void )
          ) ) {
         return false;
     }
-    // Does a tree search for all memory match the linear heap search for totals?
     if ( !is_tree_mem_valid( free_nodes.root, free_nodes.nil, total_free_mem ) ) {
         return false;
     }
