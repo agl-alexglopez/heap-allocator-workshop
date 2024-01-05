@@ -114,6 +114,8 @@ Check if an allocator passes a specific script or glob of scripts with the `ctes
 
 ```bash
 ./build/rel/ctest_splaytree_stack scripts/example* scripts/trace* scripts/pattern*
+# or in debug mode
+./build/deb/ctest_splaytree_stack scripts/example* scripts/trace* scripts/pattern*
 ```
 
 - Multiple scripts can be tested and we can use the `*` to expand out any scripts starting with the specified prefix.
@@ -122,6 +124,8 @@ If you want to run a batch test of all allocators use the `Makefile`.
 
 ```bash
 make ctest-rel
+# or in debug mode
+make ctest-deb
 ```
 
 ### Unit Tests
@@ -130,12 +134,16 @@ The Google Test program provides more basic API unit tests regarding `malloc`, `
 
 ```bash
 ./build/rel/gtest_list_segregated
+# or in debug mode
+./build/deb/gtest_list_segregated
 ```
 
 Or, you can run all the allocators with the makefile.
 
 ```bash
 make gtest-rel
+# or in debug mode
+make gtest-deb
 ```
 
 ### Python Script Generation
