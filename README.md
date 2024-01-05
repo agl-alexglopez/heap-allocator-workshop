@@ -304,7 +304,7 @@ This was a program to help test the allocators in "real" `c` context. Ideally we
 
 #### How to Use the Sandbox
 
-- All allocators have been prepended with the word `sandbox_` and have been compiled to our `build/rel/` folder.
+- All allocators have been prepended with the word `sandbox_` and have been compiled to our `build/rel/` or `build/deb/` folder.
   - `sandbox_rbtree_clrs`, `sandbox_rbtree_unified`, `sandbox_splaytree_topdown`, etc.
 - The rest is up to you. Design whatever program you would like.
 
