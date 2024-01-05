@@ -75,6 +75,8 @@ Observe the runtimes of `malloc/free` and `realloc/free` for all allocators. In 
 
 ```bash
 ./build/rel/plot -j8 -malloc
+# or in debug mode
+./build/deb/plot -j8 -malloc
 ```
 
 - The `-j[JOB COUNT]` flag lets you run the data gathering portion of the plotting program in parallel which can significantly speed things up. If you know the number of cores on your system enter that or fewer as the job count. I would not reccomend exceeding the number of physical cores on your system as that may interfere with timing data. The more jobs you specify the fewer other processes I would reccomend running on your computer. The default is 4 threads running in parallel.
@@ -84,6 +86,8 @@ Compare performance of the allocators for a specific script.
 
 ```bash
 ./build/rel/plot -j8 scripts/time-trace-cargobuild.script
+# or in debug mode
+./build/deb/plot -j8 scripts/time-trace-cargobuild.script
 ```
 
 - The `.script` file can be found in the `scripts/` folder and specifies the specific script we want all of our allocators to run. We will then see a performance comparison plotted as a bar chart.
