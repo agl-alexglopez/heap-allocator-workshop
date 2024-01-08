@@ -1,8 +1,6 @@
 #ifndef PRINT_UTILITY_H
 #define PRINT_UTILITY_H
 
-#include <stddef.h>
-
 /// Text coloring macros (ANSI character escapes) for printing function colorful
 /// output. Consider changing to a more portable library like ncurses.h. However,
 /// I don't want others to install ncurses just to explore the project. They
@@ -30,23 +28,5 @@ enum print_link
     BRANCH = 0, // ├──
     LEAF = 1    // └──
 };
-
-/// A struct for plotting helpful data about a heap run on a script.
-struct gnuplots
-{
-    // Arrays that should be malloc'd due to possible large scripts. Think 1million+ requests.
-    double *util_percents; // Running utilization average.
-    size_t *free_nodes;    // Running count of free nodes.
-    double *request_times; // Running count of time per request.
-    // All arrays will have the same size as the number of script operations.
-    size_t num_ops;
-};
-
-///////////////////////////// Plot Desired Information about Allocator  ////////////////////
-
-/// @brief print_gnuplots  a wrapper for the three gnuplot functions with helpful information
-///                        in case someone is waiting for large data. It can take time.
-/// @brief *graphs         the gnuplots struct containing all the graphs to print.
-void print_gnuplots( struct gnuplots *graphs );
 
 #endif

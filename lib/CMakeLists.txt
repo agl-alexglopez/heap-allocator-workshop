@@ -1,6 +1,6 @@
 add_library(debug_break INTERFACE debug_break.h)
 
-add_library(print_utility print_utility.h print_utility.c)
+add_library(print_utility INTERFACE print_utility.h)
 
 #########################  Preparing Controlled Memory Segment  ###################################
 
