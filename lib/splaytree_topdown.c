@@ -729,6 +729,8 @@ static void add_duplicate( struct node *head, struct duplicate_node *add, struct
 
 /////////////////////////////   Basic Block, Header, and Tree Operations  //////////////////////////////////
 
+/// @warning this function has proven to be VERY important. The nil node often has garbage values associated
+/// with real nodes in our tree and if we access them by mistake it's bad!
 static inline void give_parent_subtree( struct node *parent, enum tree_link dir, struct node *subtree )
 {
     parent->links[dir] = subtree;
