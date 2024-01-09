@@ -138,6 +138,20 @@ cmake --build build --target tidy
 make tidy
 ```
 
+Optionally, you can use my pre-commit hooks that I have set up in this repository to catch any formatting errors on commit to your local copy of the repository. First install pre-commit.
+
+```bash
+pip install pre-commit
+```
+
+I have already installed the pre-commit hook in the `.git/hooks/pre-commit` location with the following command executed at the root of the repository.
+
+```bash
+pre-commit install
+```
+
+Now, you should be warned if your commit contained code that violated style specified in the `.clang-format` file.  The tool will repair the files and you simply need to perform the add and commit process again with the exact same commit message and you are set.
+
 The `UNIMPLEMENTED();` macro allows you to compile the code and even run it, and it will abort the program with an error telling you which function you need to implement to continue. See the header file `allocator.h` for the general requirements of the functions. Here are some internal specifications that must be met and are enforced by the unit tests.
 
 - Roundup/Align all headers and blocks of memory to a multiple of the alignment constant specified in the `allocator.h` file.
