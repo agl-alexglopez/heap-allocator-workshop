@@ -537,7 +537,7 @@ static struct rb_node *delete_duplicate( struct rb_node *head )
     next_node->links[N]->parent = next_node->parent;
     next_node->links[N]->links[P] = (struct duplicate_node *)head;
     head->list_start = next_node->links[N];
-    free_nodes.total--;
+    --free_nodes.total;
     return (struct rb_node *)next_node;
 }
 
@@ -579,7 +579,7 @@ static struct rb_node *delete_rb_node( struct rb_node *remove, struct path_slice
     if ( fixup_color_check == BLACK ) {
         fix_rb_delete( extra_black, path );
     }
-    free_nodes.total--;
+    --free_nodes.total;
     return remove;
 }
 
@@ -620,7 +620,7 @@ static void fix_rb_delete( struct rb_node *extra_black, struct path_slice path )
         if ( get_color( sibling->links[L]->header ) == BLACK && get_color( sibling->links[R]->header ) == BLACK ) {
             paint_node( sibling, RED );
             extra_black = path.nodes[path.len - 2];
-            path.len--;
+            --path.len;
         } else {
             if ( get_color( sibling->links[!symmetric_case]->header ) == BLACK ) {
                 paint_node( sibling->links[symmetric_case], BLACK );
@@ -664,7 +664,7 @@ static void *free_coalesced_node( void *to_coalesce )
     } else {
         remove_head( tree_node, lft_tree_node, tree_node->links[R] );
     }
-    free_nodes.total--;
+    --free_nodes.total;
     return to_coalesce;
 }
 
@@ -721,7 +721,7 @@ static void fix_rb_insert( struct path_slice path )
             paint_node( parent, BLACK );
             paint_node( grandparent, RED );
             rotate( !symmetric_case, grandparent, ( struct path_slice ){ path.nodes, path.len - 2 } );
-            path.len--;
+            --path.len;
         }
     }
     paint_node( free_nodes.tree_root, BLACK );

@@ -156,6 +156,7 @@ static struct free_nodes
 {
     struct node *root;
     // These two pointers will point to the same address. Used for clarity between tree and list.
+    // The nil will also serve as the furthest right dummy in our heap.
     struct node *nil;
     struct duplicate_node *list_tail;
     size_t total;
@@ -488,7 +489,7 @@ static void *free_coalesced_node( void *to_coalesce )
     } else {
         remove_head( tree_node, lft_tree_node, tree_node->links[R] );
     }
-    free_nodes.total--;
+    --free_nodes.total;
     return to_coalesce;
 }
 

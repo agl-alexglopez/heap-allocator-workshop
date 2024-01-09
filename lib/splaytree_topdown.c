@@ -138,6 +138,7 @@ static struct free_nodes
 {
     struct node *root;
     // These two pointers will point to the same address. Used for clarity between tree and list.
+    // The nil also searves as a dummy for the furthest right end of our heap.
     struct node *nil;
     struct duplicate_node *list_tail;
     size_t total;
@@ -491,7 +492,7 @@ static void *free_coalesced_node( void *to_coalesce )
         // Coalesce head of a doubly linked list in the tree. Remove and make a new head.
         remove_head( tree_node, lft_tree_node, tree_node->links[R] );
     }
-    free_nodes.total--;
+    --free_nodes.total;
     return to_coalesce;
 }
 
@@ -728,6 +729,8 @@ static void add_duplicate( struct node *head, struct duplicate_node *add, struct
 
 /////////////////////////////   Basic Block, Header, and Tree Operations  //////////////////////////////////
 
+/// @warning this function has proven to be VERY important. The nil node often has garbage values associated
+/// with real nodes in our tree and if we access them by mistake it's bad!
 static inline void give_parent_subtree( struct node *parent, enum tree_link dir, struct node *subtree )
 {
     parent->links[dir] = subtree;

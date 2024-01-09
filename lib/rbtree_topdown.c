@@ -595,7 +595,7 @@ static struct rb_node *remove_node( struct rb_node *parent, struct replacement r
     paint_node( r.replacement, get_color( r.remove->header ) );
     paint_node( free_nodes.black_nil, BLACK );
     paint_node( free_nodes.tree_root, BLACK );
-    free_nodes.total--;
+    --free_nodes.total;
     return r.remove;
 }
 
@@ -607,7 +607,7 @@ static struct rb_node *delete_duplicate( struct rb_node *head )
     next_node->links[N]->parent = next_node->parent;
     next_node->links[N]->links[P] = (struct duplicate_node *)head;
     head->list_start = next_node->links[N];
-    free_nodes.total--;
+    --free_nodes.total;
     return (struct rb_node *)next_node;
 }
 
@@ -648,7 +648,7 @@ static void *free_coalesced_node( void *to_coalesce )
     } else {
         remove_head( tree_node, lft_tree_node, tree_node->links[R] );
     }
-    free_nodes.total--;
+    --free_nodes.total;
     return to_coalesce;
 }
 
