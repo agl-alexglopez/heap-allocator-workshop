@@ -490,7 +490,7 @@ static struct rb_node *delete_rb_node( struct rb_node *remove )
     if ( fixup_color_check == BLACK ) {
         fix_rb_delete( extra_black );
     }
-    tree.total--;
+    --tree.total;
     return remove;
 }
 

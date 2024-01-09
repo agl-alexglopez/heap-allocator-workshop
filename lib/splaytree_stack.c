@@ -488,7 +488,7 @@ static void *free_coalesced_node( void *to_coalesce )
     } else {
         remove_head( tree_node, lft_tree_node, tree_node->links[R] );
     }
-    free_nodes.total--;
+    --free_nodes.total;
     return to_coalesce;
 }
 

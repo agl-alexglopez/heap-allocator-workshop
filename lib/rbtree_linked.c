@@ -519,7 +519,7 @@ static struct rb_node *delete_duplicate( struct rb_node *head )
     struct duplicate_node *next_node = head->list_start;
     next_node->links[N]->links[P] = (struct duplicate_node *)head;
     head->list_start = next_node->links[N];
-    free_nodes.total--;
+    --free_nodes.total;
     return (struct rb_node *)next_node;
 }
 
@@ -550,7 +550,7 @@ static struct rb_node *delete_rb_node( struct rb_node *remove )
     if ( fixup_color_check == BLACK ) {
         fix_rb_delete( extra_black );
     }
-    free_nodes.total--;
+    --free_nodes.total;
     return remove;
 }
 
@@ -624,7 +624,7 @@ static struct rb_node *free_coalesced_node( void *to_coalesce )
         list_node->links[P]->links[N] = list_node->links[N];
         list_node->links[N]->links[P] = list_node->links[P];
     }
-    free_nodes.total--;
+    --free_nodes.total;
     return to_coalesce;
 }
 

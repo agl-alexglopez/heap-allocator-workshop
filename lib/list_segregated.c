@@ -423,7 +423,7 @@ static void init_free_node( struct free_node *to_add, size_t block_size )
 
     size_t index = find_index( block_size );
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
-    // This is a major consideration for speedup. Right now this implementation is kindo of slow.
+    // This is a major consideration for speedup. Right now this implementation is kind of slow.
     struct free_node *cur = fits.table[index].start;
     fits.table[index].start = to_add;
     to_add->prev = &fits.nil;
@@ -503,7 +503,7 @@ static inline void splice_at_index( struct free_node *to_splice, size_t i )
         to_splice->next->prev = to_splice->prev;
         to_splice->prev->next = to_splice->next;
     }
-    fits.total--;
+    --fits.total;
 }
 
 static inline size_t roundup( size_t requested_size, size_t multiple )
