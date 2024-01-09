@@ -1,75 +1,78 @@
 {
-  "version": 3,
-  "cmakeMinimumRequired": {
-    "major": 3,
-    "minor": 21,
-    "patch": 0
-  },
-  "configurePresets": [
-    {
-      "name": "gcc-deb",
-      "binaryDir": "${sourceDir}/build",
-      "hidden": true,
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_C_STANDARD": "11",
-        "CMAKE_CXX_STANDARD": "20",
-        "CMAKE_C_COMPILER": "gcc",
-        "CMAKE_CXX_COMPILER": "g++",
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/deb",
-        "CMAKE_C_FLAGS": "-g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie -D_GNU_SOURCE",
-        "CMAKE_CXX_FLAGS": "-g3 -Wall -Wextra -D_GNU_SOURCE"
-      }
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
     },
-    {
-      "name": "gcc-rel",
-      "binaryDir": "${sourceDir}/build",
-      "hidden": true,
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_C_STANDARD": "11",
-        "CMAKE_CXX_STANDARD": "20",
-        "CMAKE_C_COMPILER": "gcc",
-        "CMAKE_CXX_COMPILER": "g++",
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/rel",
-        "CMAKE_C_FLAGS": "-Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie -D_GNU_SOURCE",
-        "CMAKE_CXX_FLAGS": "-Wall -Wextra -D_GNU_SOURCE"
-      }
-    },
-    {
-      "name": "clang-deb",
-      "binaryDir": "${sourceDir}/build",
-      "hidden": true,
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_C_STANDARD": "11",
-        "CMAKE_CXX_STANDARD": "20",
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/deb",
-        "CMAKE_C_FLAGS": "-g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie -D_GNU_SOURCE",
-        "CMAKE_CXX_FLAGS": "-g3 -Wall -Wextra"
-      }
-    },
-    {
-      "name": "clang-rel",
-      "binaryDir": "${sourceDir}/build",
-      "hidden": true,
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_C_STANDARD": "11",
-        "CMAKE_CXX_STANDARD": "20",
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "CMAKE_BUILD_TYPE": "Release",
-        "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/rel",
-        "CMAKE_C_FLAGS": "-Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie -D_GNU_SOURCE",
-        "CMAKE_CXX_FLAGS": "-Wall -Wextra"
-      }
-    }
-  ]
+    "configurePresets": [
+        {
+            "name": "gcc-deb",
+            "binaryDir": "${sourceDir}/build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_C_STANDARD": "11",
+                "CMAKE_CXX_STANDARD": "20",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/deb",
+                "CMAKE_C_FLAGS":
+                    "-g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie -D_GNU_SOURCE",
+                "CMAKE_CXX_FLAGS": "-g3 -Wall -Wextra -D_GNU_SOURCE"
+            }
+        },
+        {
+            "name": "gcc-rel",
+            "binaryDir": "${sourceDir}/build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_C_STANDARD": "11",
+                "CMAKE_CXX_STANDARD": "20",
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/rel",
+                "CMAKE_C_FLAGS":
+                    "-Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie -D_GNU_SOURCE",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra -D_GNU_SOURCE"
+            }
+        },
+        {
+            "name": "clang-deb",
+            "binaryDir": "${sourceDir}/build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_C_STANDARD": "11",
+                "CMAKE_CXX_STANDARD": "20",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/deb",
+                "CMAKE_C_FLAGS":
+                    "-g3 -Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie -D_GNU_SOURCE",
+                "CMAKE_CXX_FLAGS": "-g3 -Wall -Wextra"
+            }
+        },
+        {
+            "name": "clang-rel",
+            "binaryDir": "${sourceDir}/build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+                "CMAKE_C_STANDARD": "11",
+                "CMAKE_CXX_STANDARD": "20",
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "CMAKE_BUILD_TYPE": "Release",
+                "CMAKE_RUNTIME_OUTPUT_DIRECTORY": "${sourceDir}/build/rel",
+                "CMAKE_C_FLAGS":
+                    "-Wall -Wextra -Wfloat-equal -Wtype-limits -Wpointer-arith -Wshadow -Winit-self -fno-diagnostics-show-option -fcf-protection=none -fno-pic -fpie -D_GNU_SOURCE",
+                "CMAKE_CXX_FLAGS": "-Wall -Wextra"
+            }
+        }
+    ]
 }
-

@@ -138,6 +138,7 @@ static struct free_nodes
 {
     struct node *root;
     // These two pointers will point to the same address. Used for clarity between tree and list.
+    // The nil also searves as a dummy for the furthest right end of our heap.
     struct node *nil;
     struct duplicate_node *list_tail;
     size_t total;
