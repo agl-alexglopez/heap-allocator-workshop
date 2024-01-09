@@ -204,13 +204,11 @@ bool winit( void *heap_start, size_t heap_size )
     heap.client_end = (uint8_t *)heap.client_start + heap.client_size - HEAP_NODE_WIDTH;
     fits.nil.prev = NULL;
     fits.nil.next = NULL;
-    // Small sizes go from 32 to 56 by increments of 8, and lists will only hold those sizes
     size_t size = INDEX_0_BYTES;
     for ( size_t index = 0; index < NUM_SMALL_BUCKETS; index++, size += SMALL_TABLE_STEP ) {
         fits.table[index].size = size;
         fits.table[index].start = &fits.nil;
     }
-    // Large sizes double until end of array except last index needs special attention.
     size = LARGE_TABLE_MIN_BYTES;
     for ( size_t index = NUM_SMALL_BUCKETS; index < NUM_BUCKETS - 1; index++, size *= 2 ) {
         fits.table[index].size = size;
@@ -252,7 +250,6 @@ void *wmalloc( size_t requested_size )
         }
         // Whoops the best fitting estimate list was empty or didn't have our size! We'll try the next range up.
     }
-    // This should be strange. The heap would be exhausted.
     return NULL;
 }
 
