@@ -423,6 +423,7 @@ static void init_free_node( struct free_node *to_add, size_t block_size )
 
     size_t index = find_index( block_size );
     // For speed push nodes to front of the list. We are loosely sorted by at most powers of 2.
+    // This is a major consideration for speedup. Right now this implementation is kindo of slow.
     struct free_node *cur = fits.table[index].start;
     fits.table[index].start = to_add;
     to_add->prev = &fits.nil;
