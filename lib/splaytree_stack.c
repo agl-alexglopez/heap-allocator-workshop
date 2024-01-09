@@ -63,8 +63,7 @@ enum list_link
 /// We also have the additional optimization of tracking duplicates in a linked
 /// list of duplicate_node members. We can access that list via the list_start.
 /// If the list is empty it will point to our placeholder node that acts as nil.
-struct node
-{
+struct node{
     header header;
     struct node *links[2];
     struct duplicate_node *list_start;
@@ -77,8 +76,7 @@ struct node
 /// This helps in the case of a tree node being coalesced or removed from the
 /// tree. The duplicate can take its place, update the parent of the new node
 /// as its child and no splaying operations take place saving many instructions.
-struct duplicate_node
-{
+struct duplicate_node{
     header header;
     struct duplicate_node *links[2];
     struct node *parent;
@@ -156,6 +154,7 @@ static struct free_nodes
 {
     struct node *root;
     // These two pointers will point to the same address. Used for clarity between tree and list.
+    // The nil will also serve as the furthest right dummy in our heap.
     struct node *nil;
     struct duplicate_node *list_tail;
     size_t total;
