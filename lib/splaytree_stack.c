@@ -851,7 +851,7 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
         if ( is_block_allocated( cur_node->header ) ) {
             size_used += block_size_check + HEADERSIZE;
         } else {
-            total_free_nodes++;
+            ++total_free_nodes;
             *total_free_mem += block_size_check + HEADERSIZE;
         }
         cur_node = get_right_neighbor( cur_node, block_size_check );

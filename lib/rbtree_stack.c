@@ -761,7 +761,7 @@ static void insert_rb_node( struct rb_node *current )
     paint_node( current, RED );
     path[path_len++] = current;
     fix_rb_insert( ( struct path_slice ){ path, path_len } );
-    free_nodes.total++;
+    ++free_nodes.total;
 }
 
 static void add_duplicate( struct rb_node *head, struct duplicate_node *add, struct rb_node *parent )
@@ -779,7 +779,7 @@ static void add_duplicate( struct rb_node *head, struct duplicate_node *add, str
     add->links[N] = head->list_start;
     head->list_start = add;
     add->links[P] = (struct duplicate_node *)head;
-    free_nodes.total++;
+    ++free_nodes.total;
 }
 
 //////////////////////     Stack Based Rotation Helper   //////////////////////////
@@ -919,7 +919,7 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
         if ( is_block_allocated( cur_node->header ) ) {
             size_used += block_size_check + HEADERSIZE;
         } else {
-            total_free_nodes++;
+            ++total_free_nodes;
             *total_free_mem += block_size_check + HEADERSIZE;
         }
         cur_node = get_right_neighbor( cur_node, block_size_check );

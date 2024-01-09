@@ -130,7 +130,7 @@ cmake --build build --target format
 make format
 ```
 
-Clang tidy will run **extensive** checks on your code for easy to catch logical and stylistic bugs. It is pretty pedantic, but I like it. Do as you will. As a special note for Clang tidy, I have not had success running it with the ninja generator. In other words, if I want to run clang tidy, I run it with my GCC/Unix Makefiles preset. You could also use the Unix Makefile build generator if you prefer compiling with clang. Simply change the `CMakeUserPreset.json` file to use the tools you like. 
+Clang tidy will run **extensive** checks on your code for easy to catch logical and stylistic bugs. It is pretty pedantic, but I like it. Do as you will. As a special note for Clang tidy, I have not had success running it with the ninja generator. In other words, if I want to run clang tidy, I run it with my GCC/Unix Makefiles preset. You could also use the Unix Makefile build generator if you prefer compiling with clang. Simply change the `CMakeUserPreset.json` file to use the tools you like.
 
 ```bash
 cmake --build build --target tidy

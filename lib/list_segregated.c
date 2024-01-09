@@ -431,7 +431,7 @@ static void init_free_node( struct free_node *to_add, size_t block_size )
     to_add->prev = &fits.nil;
     to_add->next = cur;
     cur->prev = to_add;
-    fits.total++;
+    ++fits.total;
 }
 
 static struct coalesce_report check_neighbors( const void *old_ptr )

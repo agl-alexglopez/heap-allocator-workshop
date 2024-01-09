@@ -610,7 +610,7 @@ static void insert_rb_node( struct rb_node *current )
     current->right = tree.black_nil;
     paint_node( current, RED );
     fix_rb_insert( current );
-    tree.total++;
+    ++tree.total;
 }
 
 static void fix_rb_insert( struct rb_node *current )
@@ -798,7 +798,7 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
         if ( is_block_allocated( cur_node->header ) ) {
             size_used += block_size_check + HEADERSIZE;
         } else {
-            total_free_nodes++;
+            ++total_free_nodes;
             *total_free_mem += block_size_check + HEADERSIZE;
         }
         cur_node = get_right_neighbor( cur_node, block_size_check );

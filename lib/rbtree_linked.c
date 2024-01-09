@@ -678,7 +678,7 @@ static void insert_rb_node( struct rb_node *current )
     current->list_start = free_nodes.list_tail;
     paint_node( current, RED );
     fix_rb_insert( current );
-    free_nodes.total++;
+    ++free_nodes.total;
 }
 
 static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add )
@@ -692,7 +692,7 @@ static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add )
     to_add->links[N] = head->list_start;
     to_add->links[P] = (struct duplicate_node *)head;
     head->list_start = to_add;
-    free_nodes.total++;
+    ++free_nodes.total;
 }
 
 static void fix_rb_insert( struct rb_node *current )
@@ -844,7 +844,7 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
         if ( is_block_allocated( cur_node->header ) ) {
             size_used += block_size_check + HEADERSIZE;
         } else {
-            total_free_nodes++;
+            ++total_free_nodes;
             *total_free_mem += block_size_check + HEADERSIZE;
         }
         cur_node = get_right_neighbor( cur_node, block_size_check );

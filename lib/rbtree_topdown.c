@@ -739,7 +739,7 @@ static void insert_rb_topdown( struct rb_node *current )
         free_nodes.tree_root = child;
     }
     paint_node( free_nodes.tree_root, BLACK );
-    free_nodes.total++;
+    ++free_nodes.total;
 }
 
 static void add_duplicate( struct rb_node *head, struct duplicate_node *to_add, struct rb_node *parent )
@@ -891,7 +891,7 @@ static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, str
         if ( is_block_allocated( cur_node->header ) ) {
             size_used += block_size_check + HEADERSIZE;
         } else {
-            total_free_nodes++;
+            ++total_free_nodes;
             *total_free_mem += block_size_check + HEADERSIZE;
         }
         cur_node = get_right_neighbor( cur_node, block_size_check );
