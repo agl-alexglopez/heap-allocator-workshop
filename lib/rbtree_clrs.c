@@ -536,19 +536,19 @@ static void fix_rb_delete( struct rb_node *extra_black )
                  && get_color( right_sibling->right->header ) == BLACK ) {
                 paint_node( right_sibling, RED );
                 extra_black = extra_black->parent;
-            } else {
-                if ( get_color( right_sibling->right->header ) == BLACK ) {
-                    paint_node( right_sibling->left, BLACK );
-                    paint_node( right_sibling, RED );
-                    right_rotate( right_sibling );
-                    right_sibling = extra_black->parent->right;
-                }
-                paint_node( right_sibling, get_color( extra_black->parent->header ) );
-                paint_node( extra_black->parent, BLACK );
-                paint_node( right_sibling->right, BLACK );
-                left_rotate( extra_black->parent );
-                extra_black = tree.root;
+                continue;
             }
+            if ( get_color( right_sibling->right->header ) == BLACK ) {
+                paint_node( right_sibling->left, BLACK );
+                paint_node( right_sibling, RED );
+                right_rotate( right_sibling );
+                right_sibling = extra_black->parent->right;
+            }
+            paint_node( right_sibling, get_color( extra_black->parent->header ) );
+            paint_node( extra_black->parent, BLACK );
+            paint_node( right_sibling->right, BLACK );
+            left_rotate( extra_black->parent );
+            extra_black = tree.root;
             continue;
         }
         // This is a symmetric case, so it is identical with left and right switched.
@@ -623,32 +623,35 @@ static void fix_rb_insert( struct rb_node *current )
                 paint_node( uncle, BLACK );
                 paint_node( current->parent->parent, RED );
                 current = current->parent->parent;
-            } else { // uncle is BLACK
-                if ( current == current->parent->right ) {
-                    current = current->parent;
-                    left_rotate( current );
-                }
-                paint_node( current->parent, BLACK );
-                paint_node( current->parent->parent, RED );
-                right_rotate( current->parent->parent );
+                continue;
             }
-        } else {
-            struct rb_node *uncle = current->parent->parent->left;
-            if ( get_color( uncle->header ) == RED ) {
-                paint_node( current->parent, BLACK );
-                paint_node( uncle, BLACK );
-                paint_node( current->parent->parent, RED );
-                current = current->parent->parent;
-            } else { // uncle is BLACK
-                if ( current == current->parent->left ) {
-                    current = current->parent;
-                    right_rotate( current );
-                }
-                paint_node( current->parent, BLACK );
-                paint_node( current->parent->parent, RED );
-                left_rotate( current->parent->parent );
+            // Uncle is black
+            if ( current == current->parent->right ) {
+                current = current->parent;
+                left_rotate( current );
             }
+            paint_node( current->parent, BLACK );
+            paint_node( current->parent->parent, RED );
+            right_rotate( current->parent->parent );
+            continue;
         }
+        // Symmetric case
+        struct rb_node *uncle = current->parent->parent->left;
+        if ( get_color( uncle->header ) == RED ) {
+            paint_node( current->parent, BLACK );
+            paint_node( uncle, BLACK );
+            paint_node( current->parent->parent, RED );
+            current = current->parent->parent;
+            continue;
+        }
+        // Uncle is black
+        if ( current == current->parent->left ) {
+            current = current->parent;
+            right_rotate( current );
+        }
+        paint_node( current->parent, BLACK );
+        paint_node( current->parent->parent, RED );
+        left_rotate( current->parent->parent );
     }
     paint_node( tree.root, BLACK );
 }

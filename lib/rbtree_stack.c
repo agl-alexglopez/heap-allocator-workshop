@@ -621,19 +621,19 @@ static void fix_rb_delete( struct rb_node *extra_black, struct path_slice path )
             paint_node( sibling, RED );
             extra_black = path.nodes[path.len - 2];
             --path.len;
-        } else {
-            if ( get_color( sibling->links[!symmetric_case]->header ) == BLACK ) {
-                paint_node( sibling->links[symmetric_case], BLACK );
-                paint_node( sibling, RED );
-                rotate( !symmetric_case, sibling, path );
-                sibling = parent->links[!symmetric_case];
-            }
-            paint_node( sibling, get_color( parent->header ) );
-            paint_node( parent, BLACK );
-            paint_node( sibling->links[!symmetric_case], BLACK );
-            rotate( symmetric_case, parent, ( struct path_slice ){ path.nodes, path.len - 1 } );
-            extra_black = free_nodes.tree_root;
+            continue;
         }
+        if ( get_color( sibling->links[!symmetric_case]->header ) == BLACK ) {
+            paint_node( sibling->links[symmetric_case], BLACK );
+            paint_node( sibling, RED );
+            rotate( !symmetric_case, sibling, path );
+            sibling = parent->links[!symmetric_case];
+        }
+        paint_node( sibling, get_color( parent->header ) );
+        paint_node( parent, BLACK );
+        paint_node( sibling->links[!symmetric_case], BLACK );
+        rotate( symmetric_case, parent, ( struct path_slice ){ path.nodes, path.len - 1 } );
+        extra_black = free_nodes.tree_root;
     }
     // The extra_black has reached a red node, making it "red-and-black", or the root. Paint BLACK.
     paint_node( extra_black, BLACK );
@@ -711,18 +711,18 @@ static void fix_rb_insert( struct path_slice path )
             paint_node( parent, BLACK );
             paint_node( grandparent, RED );
             path.len -= 2;
-        } else {
-            if ( current == parent->links[!symmetric_case] ) {
-                current = parent;
-                struct rb_node *other_child = current->links[!symmetric_case];
-                rotate( symmetric_case, current, ( struct path_slice ){ path.nodes, path.len - 1 } );
-                parent = other_child;
-            }
-            paint_node( parent, BLACK );
-            paint_node( grandparent, RED );
-            rotate( !symmetric_case, grandparent, ( struct path_slice ){ path.nodes, path.len - 2 } );
-            --path.len;
+            continue;
         }
+        if ( current == parent->links[!symmetric_case] ) {
+            current = parent;
+            struct rb_node *other_child = current->links[!symmetric_case];
+            rotate( symmetric_case, current, ( struct path_slice ){ path.nodes, path.len - 1 } );
+            parent = other_child;
+        }
+        paint_node( parent, BLACK );
+        paint_node( grandparent, RED );
+        rotate( !symmetric_case, grandparent, ( struct path_slice ){ path.nodes, path.len - 2 } );
+        --path.len;
     }
     paint_node( free_nodes.tree_root, BLACK );
 }

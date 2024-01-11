@@ -702,7 +702,7 @@ TEST( ReallocTests, ReallocExhaustiveSearchFailureInPlace )
     // Upon failure NULL is returned and original memory is left intact though coalescing may have occured.
     const size_t overload_req = medium_heap_size << 1;
     void *new_addr = expect_realloc( alloc[1], overload_req, ER );
-    EXPECT_EQ( new_addr, alloc[1] );
+    EXPECT_EQ( new_addr, nullptr );
     expect_state( {
         { alloc[0], aligned, OK },
         { alloc[1], aligned, OK },
@@ -739,8 +739,8 @@ TEST( ReallocTests, ReallocFailsIdempotently )
     );
     const size_t overload_req = medium_heap_size << 1;
     void *new_addr = expect_realloc( alloc[1], overload_req, ER );
-    // We should not alter anything if we fail a reallocation. The user should still have their pointer.
-    EXPECT_EQ( new_addr, alloc[1] );
+    // We should not alter anything if we fail a reallocation. The user should still have their old pointer.
+    EXPECT_EQ( new_addr, nullptr );
     expect_state( {
         { freed, aligned, OK },
         { alloc[1], aligned, OK },
@@ -788,7 +788,7 @@ TEST( ReallocTests, ReallocFailsIdempotentlyPreservingData )
     const size_t overload_req = medium_heap_size << 1;
     auto *new_addr = static_cast<char *>( expect_realloc( alloc[1], overload_req, ER ) );
     // We should not alter anything if we fail a reallocation. The user should still have their data
-    EXPECT_EQ( new_addr, alloc[1] );
+    EXPECT_EQ( new_addr, nullptr );
     expect_state( {
         { freed, aligned, OK },
         { alloc[1], aligned, OK },

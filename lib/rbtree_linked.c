@@ -582,19 +582,19 @@ static void fix_rb_delete( struct rb_node *extra_black )
         if ( get_color( sibling->links[L]->header ) == BLACK && get_color( sibling->links[R]->header ) == BLACK ) {
             paint_node( sibling, RED );
             extra_black = extra_black->parent;
-        } else {
-            if ( get_color( sibling->links[!symmetric_case]->header ) == BLACK ) {
-                paint_node( sibling->links[symmetric_case], BLACK );
-                paint_node( sibling, RED );
-                rotate( sibling, !symmetric_case );
-                sibling = extra_black->parent->links[!symmetric_case];
-            }
-            paint_node( sibling, get_color( extra_black->parent->header ) );
-            paint_node( extra_black->parent, BLACK );
-            paint_node( sibling->links[!symmetric_case], BLACK );
-            rotate( extra_black->parent, symmetric_case );
-            extra_black = free_nodes.tree_root;
+            continue;
         }
+        if ( get_color( sibling->links[!symmetric_case]->header ) == BLACK ) {
+            paint_node( sibling->links[symmetric_case], BLACK );
+            paint_node( sibling, RED );
+            rotate( sibling, !symmetric_case );
+            sibling = extra_black->parent->links[!symmetric_case];
+        }
+        paint_node( sibling, get_color( extra_black->parent->header ) );
+        paint_node( extra_black->parent, BLACK );
+        paint_node( sibling->links[!symmetric_case], BLACK );
+        rotate( extra_black->parent, symmetric_case );
+        extra_black = free_nodes.tree_root;
     }
     // The extra_black has reached a red node, making it "red-and-black", or the root. Paint BLACK.
     paint_node( extra_black, BLACK );
@@ -705,15 +705,15 @@ static void fix_rb_insert( struct rb_node *current )
             paint_node( current->parent, BLACK );
             paint_node( current->parent->parent, RED );
             current = current->parent->parent;
-        } else {
-            if ( current == current->parent->links[!gparent_to_parent_dir] ) {
-                current = current->parent;
-                rotate( current, gparent_to_parent_dir );
-            }
-            paint_node( current->parent, BLACK );
-            paint_node( current->parent->parent, RED );
-            rotate( current->parent->parent, !gparent_to_parent_dir );
+            continue;
         }
+        if ( current == current->parent->links[!gparent_to_parent_dir] ) {
+            current = current->parent;
+            rotate( current, gparent_to_parent_dir );
+        }
+        paint_node( current->parent, BLACK );
+        paint_node( current->parent->parent, RED );
+        rotate( current->parent->parent, !gparent_to_parent_dir );
     }
     paint_node( free_nodes.tree_root, BLACK );
 }
