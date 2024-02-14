@@ -71,6 +71,13 @@ struct heap_range
     void *end;
 };
 
+struct tree_range
+{
+    struct rb_node *low;
+    struct rb_node *root;
+    struct rb_node *high;
+};
+
 struct bad_jump
 {
     struct rb_node *prev;
@@ -204,7 +211,7 @@ static bool is_rbtree_mem_valid( const struct rb_node *root, const void *nil_and
 static bool is_parent_valid( const struct rb_node *root, const struct rb_node *black_nil );
 static int calculate_bheight_v2( const struct rb_node *root, const struct rb_node *black_nil );
 static bool is_bheight_valid_v2( const struct rb_node *root, const struct rb_node *black_nil );
-static bool are_subtrees_valid( const struct rb_node *root, const struct rb_node *black_nil );
+static bool are_subtrees_valid( struct tree_range r, const struct rb_node *black_nil );
 static void print_rb_tree( const struct rb_node *root, void *nil_and_tail, enum print_style style );
 static void
 print_all( struct heap_range r, size_t heap_size, struct rb_node *tree_root, struct rb_node *black_nil );
@@ -317,6 +324,16 @@ bool wvalidate_heap( void )
          ) ) {
         return false;
     }
+    if ( !are_subtrees_valid(
+             ( struct tree_range ){
+                 .low = free_nodes.black_nil,
+                 .root = free_nodes.tree_root,
+                 .high = free_nodes.black_nil,
+             },
+             free_nodes.black_nil
+         ) ) {
+        return false;
+    }
     if ( !is_rbtree_mem_valid( free_nodes.tree_root, free_nodes.black_nil, total_free_mem ) ) {
         return false;
     }
@@ -330,9 +347,6 @@ bool wvalidate_heap( void )
         return false;
     }
     if ( !is_parent_valid( free_nodes.tree_root, free_nodes.black_nil ) ) {
-        return false;
-    }
-    if ( !are_subtrees_valid( free_nodes.tree_root, free_nodes.black_nil ) ) {
         return false;
     }
     return true;
@@ -956,37 +970,36 @@ static bool is_bheight_valid_v2( const struct rb_node *root, const struct rb_nod
     return calculate_bheight_v2( root, black_nil ) != 0;
 }
 
-static bool
-strict_bound_met( const struct rb_node *root, size_t root_size, enum tree_link dir, const struct rb_node *nil )
+static bool are_subtrees_valid( const struct tree_range r, const struct rb_node *nil )
 {
-    if ( root == nil ) {
+    if ( r.root == nil ) {
         return true;
     }
-    size_t rb_node_size = get_size( root->header );
-    if ( dir == L && rb_node_size > root_size ) {
+    const size_t root_size = get_size( r.root->header );
+    if ( r.low != nil && root_size < get_size( r.low->header ) ) {
         BREAKPOINT();
         return false;
     }
-    if ( dir == R && rb_node_size < root_size ) {
+    if ( r.high != nil && root_size > get_size( r.high->header ) ) {
         BREAKPOINT();
         return false;
     }
-    return strict_bound_met( root->links[L], root_size, dir, nil )
-           && strict_bound_met( root->links[R], root_size, dir, nil );
-}
-
-static bool are_subtrees_valid( const struct rb_node *root, const struct rb_node *nil )
-{
-    if ( root == nil ) {
-        return true;
-    }
-    size_t root_size = get_size( root->header );
-    if ( !strict_bound_met( root->links[L], root_size, L, nil )
-         || !strict_bound_met( root->links[R], root_size, R, nil ) ) {
-        BREAKPOINT();
-        return false;
-    }
-    return are_subtrees_valid( root->links[L], nil ) && are_subtrees_valid( root->links[R], nil );
+    return are_subtrees_valid(
+               ( struct tree_range ){
+                   .low = r.low,
+                   .root = r.root->links[L],
+                   .high = r.root,
+               },
+               nil
+           )
+           && are_subtrees_valid(
+               ( struct tree_range ){
+                   .low = r.root,
+                   .root = r.root->links[R],
+                   .high = r.high,
+               },
+               nil
+           );
 }
 
 /////////////////////////////           Printing Functions         //////////////////////////////////

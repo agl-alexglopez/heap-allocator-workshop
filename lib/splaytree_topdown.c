@@ -97,6 +97,14 @@ struct heap_range
     void *end;
 };
 
+/// Validates that invariants of a binary tree are upheld.
+struct tree_range
+{
+    struct node *low;
+    struct node *root;
+    struct node *high;
+};
+
 /// If a header is corrupted why trying to jump through the heap headers this
 /// will help us catch errors.
 struct bad_jump
@@ -184,7 +192,7 @@ static bool check_init( struct heap_range r, size_t heap_size );
 static bool is_memory_balanced( size_t *total_free_mem, struct heap_range r, struct size_total s );
 static size_t extract_tree_mem( const struct node *root, const void *nil_and_tail );
 static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail, size_t total_free_mem );
-static bool are_subtrees_valid( const struct node *root, const struct node *nil );
+static bool are_subtrees_valid( struct tree_range r, const struct node *black_nil );
 static bool
 is_duplicate_storing_parent( const struct node *parent, const struct node *root, const void *nil_and_tail );
 static void print_tree( const struct node *root, const void *nil_and_tail, enum print_style style );
@@ -293,10 +301,17 @@ bool wvalidate_heap( void )
          ) ) {
         return false;
     }
-    if ( !is_tree_mem_valid( free_nodes.root, free_nodes.nil, total_free_mem ) ) {
+    if ( !are_subtrees_valid(
+             ( struct tree_range ){
+                 .low = free_nodes.nil,
+                 .root = free_nodes.root,
+                 .high = free_nodes.nil,
+             },
+             free_nodes.nil
+         ) ) {
         return false;
     }
-    if ( !are_subtrees_valid( free_nodes.root, free_nodes.nil ) ) {
+    if ( !is_tree_mem_valid( free_nodes.root, free_nodes.nil, total_free_mem ) ) {
         return false;
     }
     if ( !is_duplicate_storing_parent( free_nodes.nil, free_nodes.root, free_nodes.nil ) ) {
@@ -865,37 +880,36 @@ static bool is_tree_mem_valid( const struct node *root, const void *nil_and_tail
     return true;
 }
 
-static bool
-strict_bound_met( const struct node *root, size_t root_size, enum tree_link dir, const struct node *nil )
+static bool are_subtrees_valid( const struct tree_range r, const struct node *nil )
 {
-    if ( root == nil ) {
+    if ( r.root == nil ) {
         return true;
     }
-    size_t node_size = get_size( root->header );
-    if ( dir == L && node_size > root_size ) {
+    const size_t root_size = get_size( r.root->header );
+    if ( r.low != nil && root_size < get_size( r.low->header ) ) {
         BREAKPOINT();
         return false;
     }
-    if ( dir == R && node_size < root_size ) {
+    if ( r.high != nil && root_size > get_size( r.high->header ) ) {
         BREAKPOINT();
         return false;
     }
-    return strict_bound_met( root->links[L], root_size, dir, nil )
-           && strict_bound_met( root->links[R], root_size, dir, nil );
-}
-
-static bool are_subtrees_valid( const struct node *root, const struct node *nil )
-{
-    if ( root == nil ) {
-        return true;
-    }
-    size_t root_size = get_size( root->header );
-    if ( !strict_bound_met( root->links[L], root_size, L, nil )
-         || !strict_bound_met( root->links[R], root_size, R, nil ) ) {
-        BREAKPOINT();
-        return false;
-    }
-    return are_subtrees_valid( root->links[L], nil ) && are_subtrees_valid( root->links[R], nil );
+    return are_subtrees_valid(
+               ( struct tree_range ){
+                   .low = r.low,
+                   .root = r.root->links[L],
+                   .high = r.root,
+               },
+               nil
+           )
+           && are_subtrees_valid(
+               ( struct tree_range ){
+                   .low = r.root,
+                   .root = r.root->links[R],
+                   .high = r.high,
+               },
+               nil
+           );
 }
 
 static bool
