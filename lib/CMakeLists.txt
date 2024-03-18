@@ -1,50 +1,20 @@
 add_library(debug_break INTERFACE debug_break.h)
-
 add_library(print_utility INTERFACE print_utility.h)
-
-#########################  Preparing Controlled Memory Segment  ###################################
-
 add_library(segment segment.h segment.c)
 
-############################# Libc Default Allocator ########################################
+macro(add_alloc ALLOCATOR_NAME)
+  add_library(${ALLOCATOR_NAME} allocator.h ${ALLOCATOR_NAME}.c)
+endmacro()
 
-add_library(libc_default allocator.h libc_default.c)
+# Enter the name of the .c file in the lib/ folder without the .c.
 
-############################# List Segregated Allocator ########################################
-
-
-add_library(list_segregated allocator.h list_segregated.c)
-
-############################# RBTree CLRS Allocator ########################################
-
-
-add_library(rbtree_clrs allocator.h rbtree_clrs.c)
-
-############################# RBTree Unified Allocator ########################################
-
-
-add_library(rbtree_unified allocator.h rbtree_unified.c)
-
-############################# RBTree Linked Allocator ########################################
-
-
-add_library(rbtree_linked allocator.h rbtree_linked.c)
-
-############################# RBTree Stack Allocator ########################################
-
-
-add_library(rbtree_stack allocator.h rbtree_stack.c)
-
-
-############################# RBTree Topdown Allocator ########################################
-
-add_library(rbtree_topdown allocator.h rbtree_topdown.c)
-
-############################# Splay Tree Stack Allocator ########################################
-
-add_library(splaytree_stack allocator.h splaytree_stack.c)
-
-############################# Splay Tree Topdown ########################################
-
-add_library(splaytree_topdown allocator.h splaytree_topdown.c)
+add_alloc(libc_default)
+add_alloc(list_segregated)
+add_alloc(rbtree_clrs)
+add_alloc(rbtree_unified)
+add_alloc(rbtree_linked)
+add_alloc(rbtree_stack)
+add_alloc(rbtree_topdown)
+add_alloc(splaytree_stack)
+add_alloc(splaytree_topdown)
 

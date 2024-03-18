@@ -89,7 +89,7 @@ The `lib/CMakeLists.txt` file.
 ```cmake
 ############################# My Heap Allocator ########################################
 
-add_library(allocator_name allocator.h allocator_name.c)
+add_alloc(allocator_name)
 ```
 
 While testing add your allocator to the test files.
@@ -101,23 +101,13 @@ The `tests/CMakeLists.txt` file.
 
 ##########   My Allocator    #############
 
-add_executable(ctest_allocator_name ctest.cc)
-target_link_libraries(ctest_allocator_name PUBLIC
-  segment
-  allocator_name
-)
+add_ctest(my_allocator)
 
 ###############   Generic Tests for all Allocators    ############
 
 ##########   My Allocator    #############
 
-add_executable(gtest_allocator_name gtest.cc)
-target_link_libraries(gtest_allocator_name
-  GTest::gtest_main
-  segment
-  allocator_name
-)
-gtest_discover_tests(gtest_allocator_name)
+add_gtest(my_allocator)
 ```
 
 Finally, once you know your implementation is correct and passes all tests and scripts, add your allocator to any other programs present in the repository such as `print_peaks` or otherwise. When in doubt follow the configuration of the other allocators present. Be sure to delete the build folder and reconfigure/compile the project when changing `CMakeLists.txt` files. As a final touch consider following the established `.clang-tidy` and `.clang-format` checks. To do this run the following.

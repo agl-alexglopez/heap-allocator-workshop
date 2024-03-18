@@ -1,84 +1,24 @@
 
 ################################# SANDBOX PROGRAM ############################################
 
+# The allocator name is that of the allocator found in the lib folder/
 
-####### List Segregated ############
+macro(add_sandbox ALLOCATOR_NAME)
+  add_executable(sandbox_${ALLOCATOR_NAME} sandbox.c)
+  target_link_libraries(sandbox_${ALLOCATOR_NAME} PUBLIC
+    segment
+    script
+    ${ALLOCATOR_NAME}
+  )
+endmacro()
 
-
-add_executable(sandbox_list_segregated sandbox.c)
-target_link_libraries(sandbox_list_segregated PUBLIC
-                      segment
-                      script
-                      list_segregated
-)
-
-######## RBTree CLRS ###########
-
-
-add_executable(sandbox_rbtree_clrs sandbox.c)
-target_link_libraries(sandbox_rbtree_clrs PUBLIC
-                      segment
-                      script
-                      rbtree_clrs
-)
-
-######## RBTree Unified ###########
-
-
-add_executable(sandbox_rbtree_unified sandbox.c)
-target_link_libraries(sandbox_rbtree_unified PUBLIC
-                      segment
-                      script
-                      rbtree_unified
-)
-
-######## RBTree Linked ###########
-
-
-add_executable(sandbox_rbtree_linked sandbox.c)
-target_link_libraries(sandbox_rbtree_linked PUBLIC
-                      segment
-                      script
-                      rbtree_linked
-)
-
-#######  RBTree Stack ##########
-
-
-add_executable(sandbox_rbtree_stack sandbox.c)
-target_link_libraries(sandbox_rbtree_stack PUBLIC
-                      segment
-                      script
-                      rbtree_stack
-)
-
-#######  RBTree Topdown ##########
-
-
-add_executable(sandbox_rbtree_topdown sandbox.c)
-target_link_libraries(sandbox_rbtree_topdown PUBLIC
-                      segment
-                      script
-                      rbtree_topdown
-)
-
-#######  Splay Tree Stack ##########
-
-
-add_executable(sandbox_splaytree_stack sandbox.c)
-target_link_libraries(sandbox_splaytree_stack PUBLIC
-                      segment
-                      script
-                      splaytree_stack
-)
-
-#######  Splay Tree Topdown ##########
-
-
-add_executable(sandbox_splaytree_topdown sandbox.c)
-target_link_libraries(sandbox_splaytree_topdown PUBLIC
-                      segment
-                      script
-                      splaytree_topdown
-)
+add_sandbox(list_segregated)
+add_sandbox(rbtree_clrs)
+add_sandbox(rbtree_unified)
+add_sandbox(rbtree_linked)
+add_sandbox(rbtree_stack)
+add_sandbox(rbtree_topdown)
+add_sandbox(splaytree_stack)
+add_sandbox(splaytree_topdown)
+add_sandbox(libc_default)
 

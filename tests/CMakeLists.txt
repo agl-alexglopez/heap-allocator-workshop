@@ -36,342 +36,92 @@ add_executable(plot plot.cc)
 target_link_libraries(plot PUBLIC matplot osync)
 
 
+# The allocator name is the name of the .c file in the lib/ folder.
 
 ###############    Correctness Tester    ##################
 
+macro(add_ctest ALLOCATOR_NAME)
+  add_executable(ctest_${ALLOCATOR_NAME} ctest.cc)
+  target_link_libraries(ctest_${ALLOCATOR_NAME} PUBLIC
+    segment
+    osync
+    script
+    ${ALLOCATOR_NAME}
+  )
+endmacro()
 
-########## List Segregated #############
+add_ctest(list_segregated)
+add_ctest(rbtree_clrs)
+add_ctest(rbtree_unified)
+add_ctest(rbtree_linked)
+add_ctest(rbtree_stack)
+add_ctest(rbtree_topdown)
+add_ctest(splaytree_stack)
+add_ctest(splaytree_topdown)
 
-
-add_executable(ctest_list_segregated ctest.cc)
-target_link_libraries(ctest_list_segregated PUBLIC
-  segment
-  osync
-  script
-  list_segregated
-)
-
-########## RBTree CLRS #############
-
-
-add_executable(ctest_rbtree_clrs ctest.cc)
-target_link_libraries(ctest_rbtree_clrs PUBLIC
-  segment
-  osync
-  script
-  rbtree_clrs
-)
-
-########## RBTree Unified #############
-
-
-add_executable(ctest_rbtree_unified ctest.cc)
-target_link_libraries(ctest_rbtree_unified PUBLIC
-  segment
-  osync
-  script
-  rbtree_unified
-)
-
-########## RBTree Linked #############
-
-
-add_executable(ctest_rbtree_linked ctest.cc)
-target_link_libraries(ctest_rbtree_linked PUBLIC
-  segment
-  osync
-  script
-  rbtree_linked
-)
-
-########## RBTree Stack #############
-
-
-add_executable(ctest_rbtree_stack ctest.cc)
-target_link_libraries(ctest_rbtree_stack PUBLIC
-  segment
-  osync
-  script
-  rbtree_stack
-)
-
-########## RBTree Topdown #############
-
-
-add_executable(ctest_rbtree_topdown ctest.cc)
-target_link_libraries(ctest_rbtree_topdown PUBLIC
-  segment
-  osync
-  script
-  rbtree_topdown
-)
-
-########## Splay Tree Stack #############
-
-
-add_executable(ctest_splaytree_stack ctest.cc)
-target_link_libraries(ctest_splaytree_stack PUBLIC
-  segment
-  osync
-  script
-  splaytree_stack
-)
-
-########## Splay Tree Topdown #############
-
-
-add_executable(ctest_splaytree_topdown ctest.cc)
-target_link_libraries(ctest_splaytree_topdown PUBLIC
-  segment
-  osync
-  script
-  splaytree_topdown
-)
 
 ###############   Generic Tests for all Allocators    ############
 
-###############   Segregated Lists   ######################
+macro(add_gtest ALLOCATOR_NAME)
+  add_executable(gtest_${ALLOCATOR_NAME} gtest.cc)
+  target_link_libraries(gtest_${ALLOCATOR_NAME}
+    GTest::gtest_main
+    segment
+    ${ALLOCATOR_NAME}
+  )
+  gtest_discover_tests(gtest_${ALLOCATOR_NAME})
+endmacro()
 
-add_executable(gtest_list_segregated gtest.cc)
-target_link_libraries(gtest_list_segregated
-  GTest::gtest_main
-  segment
-  list_segregated
-)
-gtest_discover_tests(gtest_list_segregated)
-
-###############   Splay Trees   ######################
-
-add_executable(gtest_splaytree_topdown gtest.cc)
-target_link_libraries(gtest_splaytree_topdown
-  GTest::gtest_main
-  segment
-  splaytree_topdown
-)
-gtest_discover_tests(gtest_splaytree_topdown)
-
-add_executable(gtest_splaytree_stack gtest.cc)
-target_link_libraries(gtest_splaytree_stack
-  GTest::gtest_main
-  segment
-  splaytree_stack
-)
-gtest_discover_tests(gtest_splaytree_stack)
-
-###############   Red Black Trees   ######################
-
-add_executable(gtest_rbtree_clrs gtest.cc)
-target_link_libraries(gtest_rbtree_clrs
-  GTest::gtest_main
-  segment
-  rbtree_clrs
-)
-gtest_discover_tests(gtest_rbtree_clrs)
-
-add_executable(gtest_rbtree_unified gtest.cc)
-target_link_libraries(gtest_rbtree_unified
-  GTest::gtest_main
-  segment
-  rbtree_unified
-)
-gtest_discover_tests(gtest_rbtree_unified)
-
-add_executable(gtest_rbtree_linked gtest.cc)
-target_link_libraries(gtest_rbtree_linked
-  GTest::gtest_main
-  segment
-  rbtree_linked
-)
-gtest_discover_tests(gtest_rbtree_linked)
-
-add_executable(gtest_rbtree_stack gtest.cc)
-target_link_libraries(gtest_rbtree_stack
-  GTest::gtest_main
-  segment
-  rbtree_stack
-)
-gtest_discover_tests(gtest_rbtree_stack)
-
-add_executable(gtest_rbtree_topdown gtest.cc)
-target_link_libraries(gtest_rbtree_topdown
-  GTest::gtest_main
-  segment
-  rbtree_topdown
-)
-gtest_discover_tests(gtest_rbtree_topdown)
-
+add_gtest(list_segregated)
+add_gtest(rbtree_clrs)
+add_gtest(rbtree_unified)
+add_gtest(rbtree_linked)
+add_gtest(rbtree_stack)
+add_gtest(rbtree_topdown)
+add_gtest(splaytree_stack)
+add_gtest(splaytree_topdown)
 
 ####################   Print and Plot Peaks   ########################
 
+macro(add_peaks ALLOCATOR_NAME)
+  add_executable(peaks_${ALLOCATOR_NAME} peaks.cc)
+  target_link_libraries(peaks_${ALLOCATOR_NAME}
+    segment
+    matplot
+    osync
+    script
+    ${ALLOCATOR_NAME}
+  )
+endmacro()
 
-###############   Segregated Lists   ######################
-
-add_executable(peaks_list_segregated peaks.cc)
-target_link_libraries(peaks_list_segregated
-  segment
-  matplot
-  osync
-  script
-  list_segregated)
-
-###############   Splay Trees   ######################
-
-add_executable(peaks_splaytree_topdown peaks.cc)
-target_link_libraries(peaks_splaytree_topdown
-  segment
-  matplot
-  osync
-  script
-  splaytree_topdown)
-
-add_executable(peaks_splaytree_stack peaks.cc)
-target_link_libraries(peaks_splaytree_stack
-  segment
-  matplot
-  osync
-  script
-  splaytree_stack)
-
-###############   Red Black Trees   ######################
-
-add_executable(peaks_rbtree_clrs peaks.cc)
-target_link_libraries(peaks_rbtree_clrs
-  segment
-  matplot
-  osync
-  script
-  rbtree_clrs)
-
-add_executable(peaks_rbtree_unified peaks.cc)
-target_link_libraries(peaks_rbtree_unified
-  segment
-  matplot
-  osync
-  script
-  rbtree_unified)
-
-add_executable(peaks_rbtree_linked peaks.cc)
-target_link_libraries(peaks_rbtree_linked
-  segment
-  matplot
-  osync
-  script
-  rbtree_linked)
-
-add_executable(peaks_rbtree_stack peaks.cc)
-target_link_libraries(peaks_rbtree_stack
-  segment
-  matplot
-  osync
-  script
-  rbtree_stack)
-
-add_executable(peaks_rbtree_topdown peaks.cc)
-target_link_libraries(peaks_rbtree_topdown
-  segment
-  matplot
-  osync
-  script
-  rbtree_topdown)
+add_peaks(list_segregated)
+add_peaks(rbtree_clrs)
+add_peaks(rbtree_unified)
+add_peaks(rbtree_linked)
+add_peaks(rbtree_stack)
+add_peaks(rbtree_topdown)
+add_peaks(splaytree_stack)
+add_peaks(splaytree_topdown)
 
 ################################# QUICK STAT PROGRAM ############################################
 
-########## Libc Default #############
+macro(add_stats ALLOCATOR_NAME)
+  add_executable(stats_${ALLOCATOR_NAME} stats.cc)
+  target_link_libraries(stats_${ALLOCATOR_NAME} PUBLIC
+    segment
+    osync
+    script
+    ${ALLOCATOR_NAME}
+  )
+endmacro()
 
-
-add_executable(stats_libc_default stats.cc)
-target_link_libraries(stats_libc_default PUBLIC
-                      segment
-                      osync
-                      script
-                      libc_default
-)
-
-########## List Segregated #############
-
-
-add_executable(stats_list_segregated stats.cc)
-target_link_libraries(stats_list_segregated PUBLIC
-                      segment
-                      osync
-                      script
-                      list_segregated
-)
-
-############ RBTree ClRS ###############
-
-
-add_executable(stats_rbtree_clrs stats.cc)
-target_link_libraries(stats_rbtree_clrs PUBLIC
-                      segment
-                      osync
-                      script
-                      rbtree_clrs
-)
-
-############ RBTree Unified ###############
-
-
-add_executable(stats_rbtree_unified stats.cc)
-target_link_libraries(stats_rbtree_unified PUBLIC
-                      segment
-                      osync
-                      script
-                      rbtree_unified
-)
-
-############ RBTree Linked ###############
-
-
-add_executable(stats_rbtree_linked stats.cc)
-target_link_libraries(stats_rbtree_linked PUBLIC
-                      segment
-                      osync
-                      script
-                      rbtree_linked
-)
-
-############ RBTree Stack ###############
-
-
-add_executable(stats_rbtree_stack stats.cc)
-target_link_libraries(stats_rbtree_stack PUBLIC
-                      segment
-                      osync
-                      script
-                      rbtree_stack
-)
-
-############ RBTree Topdown ###############
-
-
-add_executable(stats_rbtree_topdown stats.cc)
-target_link_libraries(stats_rbtree_topdown PUBLIC
-                      segment
-                      osync
-                      script
-                      rbtree_topdown
-)
-
-############ Splay Tree Stack ###############
-
-
-add_executable(stats_splaytree_stack stats.cc)
-target_link_libraries(stats_splaytree_stack PUBLIC
-                      segment
-                      osync
-                      script
-                      splaytree_stack
-)
-
-############ Splay Tree Topdown ###############
-
-
-add_executable(stats_splaytree_topdown stats.cc)
-target_link_libraries(stats_splaytree_topdown PUBLIC
-                      segment
-                      osync
-                      script
-                      splaytree_topdown
-)
+add_stats(list_segregated)
+add_stats(rbtree_clrs)
+add_stats(rbtree_unified)
+add_stats(rbtree_linked)
+add_stats(rbtree_stack)
+add_stats(rbtree_topdown)
+add_stats(splaytree_stack)
+add_stats(splaytree_topdown)
+add_stats(libc_default)
 
