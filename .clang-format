@@ -1,21 +1,23 @@
 ---
+Language: Cpp
 IndentWidth: 4
-ColumnLimit: 116
-SpacesInParentheses: true
-AlwaysBreakAfterReturnType: None
-AlwaysBreakAfterDefinitionReturnType: None
+ColumnLimit: 80
+SpacesInParentheses: false
+AlwaysBreakAfterReturnType: AllDefinitions
 BreakBeforeBinaryOperators: All
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: None
-AlignAfterOpenBracket: BlockIndent
+AlignAfterOpenBracket: Align
 AlignTrailingComments: Always
-BinPackArguments: false
-BinPackParameters: false
+BinPackArguments: true
+BinPackParameters: true
 BreakBeforeBraces: Custom
 BraceWrapping:
-  AfterControlStatement: Never
+  AfterControlStatement: Always
+  AfterCaseLabel: true
   AfterFunction: true
   AfterStruct: true
   AfterEnum: true
+  BeforeElse: true
   SplitEmptyFunction: false
-...
+---

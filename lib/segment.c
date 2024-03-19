@@ -2,8 +2,7 @@
 /// ---------------
 /// Handles low-level storage underneath the heap allocator. It reserves
 /// the large memory segment using the OS-level mmap facility.
-/// Written by jzelenski, updated Spring 2018
-///
+/// Written by jzelenski, updated Spring 2018, updated 2023 Alex Lopez
 
 #include "segment.h"
 #include <assert.h>
@@ -18,29 +17,35 @@
 static void *segment_start = NULL; // NOLINT(*-non-const-global-variables)
 static size_t segment_size = 0;    // NOLINT(*-non-const-global-variables)
 
-void *heap_segment_start()
+void *
+heap_segment_start()
 {
     return segment_start;
 }
 
-size_t heap_segment_size()
+size_t
+heap_segment_size()
 {
     return segment_size;
 }
 
-void *init_heap_segment( size_t total_size )
+void *
+init_heap_segment(size_t total_size)
 {
     // Discard any previous segment via munmap. Helpful for unit testing.
-    if ( segment_start != NULL ) {
-        if ( munmap( segment_start, total_size ) == -1 ) {
+    if (segment_start != NULL)
+    {
+        if (munmap(segment_start, total_size) == -1)
+        {
             return NULL;
         }
         segment_start = NULL;
         segment_size = 0;
     }
 
-    segment_start = mmap( HEAP_START_HINT, total_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0 );
-    assert( segment_start != MAP_FAILED );
+    segment_start = mmap(HEAP_START_HINT, total_size, PROT_READ | PROT_WRITE,
+                         MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    assert(segment_start != MAP_FAILED);
     segment_size = total_size;
     return segment_start;
 }

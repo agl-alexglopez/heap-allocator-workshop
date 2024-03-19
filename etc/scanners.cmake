@@ -1,8 +1,7 @@
 file (GLOB PROJ_C_FILES 
   ${CMAKE_SOURCE_DIR}/src/*.c 
-  ${CMAKE_SOURCE_DIR}/tests/plot.cc
-  ${CMAKE_SOURCE_DIR}/tests/peaks.cc
-  ${CMAKE_SOURCE_DIR}/tests/ctest.cc
+  ${CMAKE_SOURCE_DIR}/tests/*.cc
+  ${CMAKE_SOURCE_DIR}/tests/*.hh
   ${CMAKE_SOURCE_DIR}/lib/*.h 
   ${CMAKE_SOURCE_DIR}/lib/*.c)
 
