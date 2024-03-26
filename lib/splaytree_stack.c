@@ -802,9 +802,10 @@ splay(struct node *cur, struct path_slice p)
             p.len -= 2;
             continue;
         }
-        // We unite Zig-Zag and Zag-Zig branches by abstracting links. Here is
-        // one of the two symmetric cases. | gparent            gparent current
-        // | |      \                   \                     /       \      |
+        // We unite Zig-Zag and Zag-Zig branches by abstracting links.
+        // Here is one of the two symmetric cases.
+        // | gparent            gparent                      current       |
+        // |      \                   \                     /       \      |
         // |       parent  ->         current    ->   gparent       parent |
         // |      /                          \                             |
         // | current                         parent                        |
