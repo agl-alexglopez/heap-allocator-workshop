@@ -60,7 +60,7 @@ constexpr size_t starting_buf_size = 64;
 
 /// The script commands are carefully tuned to only time sections where the
 /// desired behavior is operating.
-constexpr std::array<std::array<std::array<std::string_view, 4>, 20>, 2>
+constexpr std::array<std::array<std::array<const char *, 4>, 20>, 2>
     big_o_timing = {{
         {{
             // Malloc and free commands are targeted at making many
@@ -215,9 +215,9 @@ double parse_quantity_n(std::string_view script_name);
 bool parse_metrics(const std::string &output, size_t allocator_index,
                    runtime_metrics &m);
 int start_subprocess(std::string_view cmd_path,
-                     const std::vector<std::string_view> &args);
+                     const std::vector<const char *> &args);
 bool thread_run_cmd(size_t allocator_index, const path_bin &cmd,
-                    runtime_metrics &m, std::vector<std::string_view> cmd_list);
+                    runtime_metrics &m, std::vector<const char *> cmd_list);
 std::optional<size_t> specify_threads(std::string_view thread_request);
 bool thread_run_analysis(size_t allocator_index, const path_bin &cmd,
                          runtime_metrics &m, heap_operation s);
@@ -451,7 +451,7 @@ thread_run_analysis(const size_t allocator_index, const path_bin &cmd,
     for (const auto &args : big_o_timing.at(s))
     {
         thread_run_cmd(allocator_index, cmd, m,
-                       std::vector<std::string_view>(args.begin(), args.end()));
+                       std::vector<const char *>(args.begin(), args.end()));
     }
     return true;
 }
@@ -523,7 +523,7 @@ plot_script_comparison(const std::vector<path_bin> &commands, plot_args &args)
         // could maybe work but seems overkill?
         workers.push([i, &args, &commands, &m]() -> bool {
             return thread_run_cmd(i, commands[i], m,
-                                  {args.script_name.value()});
+                                  {args.script_name.value().data()});
         });
     }
     for (size_t i = 0; i < args.threads; ++i)
@@ -545,14 +545,16 @@ plot_script_comparison(const std::vector<path_bin> &commands, plot_args &args)
 
 bool
 thread_run_cmd(const size_t allocator_index, const path_bin &cmd,
-               runtime_metrics &m, std::vector<std::string_view> cmd_list)
+               runtime_metrics &m, std::vector<const char *> cmd_list)
 {
     // I have had more success with subprocesses when using full paths but maybe
     // not necessary?
     std::string cur_path = std::filesystem::current_path();
     cur_path.append("/").append(cmd_list.back());
-    std::vector<std::string_view> commands{cmd.bin};
+    std::vector<const char *> commands{cmd.bin.data()};
     commands.insert(commands.end(), cmd_list.begin(), cmd_list.end());
+    // Be compliant with execv interface and end arguments with nullptr.
+    commands.push_back(nullptr);
     const int process = start_subprocess(cmd.path, commands);
     // Output from the program we use is two lines max.
     size_t remaining = starting_buf_size;
@@ -590,7 +592,7 @@ thread_run_cmd(const size_t allocator_index, const path_bin &cmd,
 
 int
 start_subprocess(std::string_view cmd_path,
-                 const std::vector<std::string_view> &args)
+                 const std::vector<const char *> &args)
 {
     std::array<int, 2> comms{0, 0};
     if (pipe2(comms.data(), O_CLOEXEC) < 0)
@@ -612,17 +614,8 @@ start_subprocess(std::string_view cmd_path,
         close(comms[1]);
         exit(1);
     }
-    std::vector<const char *> arg_copy{};
-    arg_copy.reserve(args.size() + 1);
-    for (const auto &arg : args)
-    {
-        arg_copy.push_back(arg.data());
-    }
-    arg_copy.push_back(nullptr);
-    // Is this even safe? Passing arguments from c++ to execv was awful. Not
-    // sure the safesest way.
-    execv(cmd_path.data(),
-          const_cast<char *const *>(arg_copy.data())); // NOLINT
+    // Passing arguments from c++ to execv is awful. NOLINTNEXTLINE
+    execv(cmd_path.data(), const_cast<char *const *>(args.data()));
     auto err = std::string("Child process failed abnormally errno: ")
                    .append(std::to_string(errno))
                    .append("\n");
@@ -794,11 +787,9 @@ scripts_generated()
 void
 line_plot_stats(const runtime_metrics &m, data_set_type t, labels l, bool quiet)
 {
-    // From what I can tell to get the "figure" we specify true for quiet mode
-    // so not every change causes a redraw.
+    // To get the "figure" specify quiet mode so changes don't cause redraw.
     auto p = matplot::gcf(true);
-    // The axes_object is the core "object" we are working with that will frame
-    // "plots".
+    // The axes_object frames "plots".
     auto axes = p->current_axes();
     axes->title(l.title);
     axes->xlabel(l.x_label);
@@ -807,13 +798,11 @@ line_plot_stats(const runtime_metrics &m, data_set_type t, labels l, bool quiet)
     size_t tick_style = 0;
     for (const auto &allocator : set(m, t).second)
     {
-        // Now we grab a "plot" where we want to put our actual data with x data
-        // and y data.
+        // Grab a "plot" where actual data with x data and y data belongs.
         auto plot = axes->plot(x_axis(m.overall_utilization), allocator.second,
                                line_ticks.at(tick_style));
         plot->line_width(2);
-        // It is always sketchy to use the .back() function, but I am not sure
-        // if there is a better associative way.
+        // Sketchy .back() function. Is there a better associative way?
         if (::matplot::legend()->strings().empty())
         {
             osync::syncerr("No legend entry generated for matplot++ plot. Has "
@@ -821,10 +810,9 @@ line_plot_stats(const runtime_metrics &m, data_set_type t, labels l, bool quiet)
                            osync::ansi_bred);
             return;
         }
-        // It seems the legend is freestanding but still associated with the
-        // current axes_object. Not plot! So a hidden legend entry is
-        // automatically generated when we add a plot. Edit this with correct
-        // name.
+        // Legend is freestanding but still associated with the current
+        // axes_object. Not plot! So a hidden legend entry is automatically
+        // generated when a plot is added. Edit this with correct name.
         ::matplot::legend()->strings().back() = allocator.first;
         // Need to plot the other allocator lines, not just one, so hold the
         // plots in between then plot all at end.
@@ -850,14 +838,11 @@ line_plot_stats(const runtime_metrics &m, data_set_type t, labels l, bool quiet)
     p->show();
 }
 
+// See comments in line plot status for what is happening here. It is same.
 void
 bar_chart_stats(const runtime_metrics &m, data_set_type t, labels l, bool quiet)
 {
-    // From what I can tell to get the "figure" we specify true for quiet mode
-    // so not every change causes a redraw.
     auto p = matplot::gcf(true);
-    // The axes_object is the core "object" we are working with that will frame
-    // "plots".
     auto axes = p->current_axes();
     axes->title(l.title);
     axes->xlabel(l.x_label);
@@ -868,8 +853,6 @@ bar_chart_stats(const runtime_metrics &m, data_set_type t, labels l, bool quiet)
     std::vector<double> bar_data{};
     for (const auto &allocator : set(m, t).second)
     {
-        // Now we grab a "plot" where we want to put our actual data with x data
-        // and y data.
         bar_data.push_back(allocator.second.front());
         tick_labels.push_back(allocator.first);
         ++tick_style %= line_ticks.size();
@@ -885,13 +868,10 @@ bar_chart_stats(const runtime_metrics &m, data_set_type t, labels l, bool quiet)
     {
         return;
     }
-    // Because we are in quiet mode hopefully we have had no flashing and the
-    // this will be the only plot shown.
     p->show();
 }
 
 //////////////////////////////    Helpers to Access Data in Types
-/////////////////////////////////////////
 
 const data_set &
 set(const runtime_metrics &m, data_set_type request)
