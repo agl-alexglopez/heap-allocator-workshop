@@ -109,6 +109,30 @@ expect_state(const std::vector<heap_block> &expected)
     EXPECT_EQ(expected, actual);
 }
 
+/// Give the heap addresses that one desires to free and the expected heap
+/// state and layout after those frees occur. Best used in conjunction with
+/// expect malloc when setting up a heap scenario. For example:
+///
+///    auto alloc = expect_mallocs<void>({
+///        {bytes, OK},
+///        {bytes, OK},
+///        {bytes, OK},
+///        {heap, OK},
+///    });
+///    const size_t remaining_mem = wheap_capacity();
+///    expect_frees(
+///        {
+///            alloc[1],
+///        },
+///        {
+///            {alloc[0], aligned1, OK},
+///            {freed, aligned2, OK},
+///            {alloc[2], aligned3, OK},
+///            {freed, remaining_mem, OK},
+///        });
+///
+/// In the above example the address at alloc[1] is freed and the result of
+/// that free is illustrated in the array below. See the tests for more.
 void
 expect_frees(const std::vector<void *> &frees,
              const std::vector<heap_block> &expected)
@@ -126,8 +150,8 @@ expect_frees(const std::vector<void *> &frees,
 /// Malloc returns void *ptr. So if you want your own type from calls to malloc
 /// use this instead of casting. Provide the type in the template and this
 /// function will cast the resulting malloc to the specified type. Note: Don't
-/// pass in <T*>, but rather <T> to the template. Example: auto
-/// *my_char_array_or_string = expect_malloc<char>( 500, OK );
+/// pass in <T*>, but rather <T> to the template. Example:
+/// auto *my_char_array_or_string = expect_malloc<char>( 500, OK );
 template <typename T>
 T *
 expect_malloc(size_t size, status_error e)
