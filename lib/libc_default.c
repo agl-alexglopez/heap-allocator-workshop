@@ -18,71 +18,61 @@
 #include <stdlib.h>
 
 size_t
-wget_free_total(void)
-{
+wget_free_total(void) {
     return 0;
 }
 
 bool
-winit(void *heap_start, size_t heap_size)
-{
+winit(void *heap_start, size_t heap_size) {
     (void)heap_start;
     (void)heap_size;
     return true;
 }
 
 void *
-wmalloc(size_t requested_size)
-{
+wmalloc(size_t requested_size) {
     return malloc(requested_size);
 }
 
 void *
-wrealloc(void *old_ptr, size_t new_size)
-{
+wrealloc(void *old_ptr, size_t new_size) {
     return realloc(old_ptr, new_size);
 }
 
 void
-wfree(void *ptr)
-{
+wfree(void *ptr) {
     free(ptr);
 }
 
 bool
-wvalidate_heap(void)
-{
+wvalidate_heap(void) {
     return true;
 }
 
 size_t
-wheap_align(size_t request)
-{
+wheap_align(size_t request) {
     (void)request;
     return 0;
 }
 
 size_t
-wheap_capacity(void)
-{
+wheap_capacity(void) {
     return 0;
 }
 
 void
 wheap_diff(const struct heap_block expected[], struct heap_block actual[],
-           size_t len)
-{
+           size_t len) {
     (void)expected;
     (void)actual;
     (void)len;
 }
 
 void
-wprint_free_nodes(enum print_style style)
-{
+wprint_free_nodes(enum print_style style) {
     (void)style;
 }
 
 void
-wdump_heap(void)
-{}
+wdump_heap(void) {
+}

@@ -16,8 +16,7 @@
 ///                    to step "(gdb) up" out of the raise function to wherever
 ///                    it triggered.
 #define BREAKPOINT()                                                           \
-    do                                                                         \
-    {                                                                          \
+    do {                                                                       \
         (void)fprintf(stderr, "\n!!Break. Line: %d File: %s, Func: %s\n ",     \
                       __LINE__, __FILE__, __func__);                           \
         (void)raise(SIGTRAP);                                                  \
@@ -26,8 +25,7 @@
 /// @brief unimplemented  tells you where you tried to run code in an
 ///                       unimplemented function.
 #define UNIMPLEMENTED()                                                        \
-    do                                                                         \
-    {                                                                          \
+    do {                                                                       \
         (void)fprintf(stderr,                                                  \
                       "\n!!Line: %d, File: %s. Func %s not implemented\n",     \
                       __LINE__, __FILE__, __func__);                           \

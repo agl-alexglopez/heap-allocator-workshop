@@ -11,13 +11,4 @@ AlignAfterOpenBracket: Align
 AlignTrailingComments: Always
 BinPackArguments: true
 BinPackParameters: true
-BreakBeforeBraces: Custom
-BraceWrapping:
-  AfterControlStatement: Always
-  AfterCaseLabel: true
-  AfterFunction: true
-  AfterStruct: true
-  AfterEnum: true
-  BeforeElse: true
-  SplitEmptyFunction: false
 ---

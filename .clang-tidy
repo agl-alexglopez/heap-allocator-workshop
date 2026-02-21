@@ -12,6 +12,10 @@ Checks: >
    -fuchsia-statically-constructed-objects,
    -fuchsia-default-arguments-calls,
    -fuchsia-default-arguments-declarations,
+   -readability-implicit-bool-conversion,
+   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+   -misc-use-anonymous-namespace,
+   -boost*,
    -abseil*,
 
 WarningsAsErrors: "*"

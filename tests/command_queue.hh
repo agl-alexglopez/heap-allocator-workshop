@@ -26,21 +26,17 @@ class command_queue {
     std::condition_variable wait_;
     std::vector<std::thread> workers_;
     void
-    start()
-    {
-        for (;;)
-        {
+    start() {
+        for (;;) {
             std::unique_lock<std::mutex> ul(lk_);
             wait_.wait(ul, [this]() -> bool { return !q_.empty(); });
             auto new_task = std::move(q_.front());
             q_.pop();
             ul.unlock();
-            if (!new_task.has_value())
-            {
+            if (!new_task.has_value()) {
                 return;
             }
-            if (!new_task.value()())
-            {
+            if (!new_task.value()()) {
                 std::osyncstream(std::cerr)
                     << "Error running requesting function.\n";
                 return;
@@ -49,32 +45,26 @@ class command_queue {
     }
 
   public:
-    explicit command_queue(size_t num_workers)
-    {
-        for (size_t i = 0; i < num_workers; ++i)
-        {
+    explicit command_queue(size_t num_workers) {
+        for (size_t i = 0; i < num_workers; ++i) {
             workers_.emplace_back([this]() { start(); });
         }
     }
-    ~command_queue()
-    {
-        for (auto &w : workers_)
-        {
+    ~command_queue() {
+        for (auto &w : workers_) {
             w.join();
         }
     }
 
     void
-    push(std::optional<std::function<bool()>> args)
-    {
+    push(std::optional<std::function<bool()>> args) {
         const std::unique_lock<std::mutex> ul(lk_);
         q_.push(std::move(args));
         wait_.notify_one();
     }
 
     [[nodiscard]] bool
-    empty()
-    {
+    empty() {
         const std::unique_lock<std::mutex> ul(lk_);
         return q_.empty();
     }

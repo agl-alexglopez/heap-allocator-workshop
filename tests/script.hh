@@ -9,6 +9,7 @@
 #define SCRIPT_HH
 
 #include <cstddef>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <utility>
@@ -16,31 +17,27 @@
 
 namespace script {
 
-enum op
-{
+enum op : uint8_t {
     empty = 0,
     alloc,
     reallocd,
     freed,
 };
 
-struct line
-{
+struct line {
     op req;
     size_t block_index;
     size_t size;
     size_t line;
 };
 
-struct requests
-{
+struct requests {
     std::vector<line> lines;
     std::vector<std::pair<void *, size_t>> blocks;
     size_t peak;
 };
 
-struct heap_delta
-{
+struct heap_delta {
     size_t heap_size;
     double delta_time;
 };

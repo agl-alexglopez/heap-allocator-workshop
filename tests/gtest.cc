@@ -12,8 +12,7 @@
 
 namespace {
 
-struct malloc_expectation
-{
+struct malloc_expectation {
     size_t bytes;
     status_error e;
 };
@@ -40,23 +39,19 @@ void
 assert_init(size_t size, enum status_error e) // NOLINT(*cognitive-complexity)
 {
     void *segment = init_heap_segment(size);
-    switch (e)
-    {
-    case OK:
-    {
+    switch (e) {
+    case OK: {
         ASSERT_NE(nullptr, segment);
         ASSERT_EQ(true, winit(segment, size));
         ASSERT_EQ(true, wvalidate_heap());
         break;
     }
-    case ER:
-    {
+    case ER: {
         ASSERT_NE(nullptr, segment);
         ASSERT_EQ(false, winit(segment, size));
         break;
     }
-    default:
-    {
+    default: {
         std::cerr << "init can only expect err or ok error status, not bounds "
                      "error.\n";
         std::abort();
@@ -66,24 +61,20 @@ assert_init(size_t size, enum status_error e) // NOLINT(*cognitive-complexity)
 }
 
 void *
-expect_realloc(void *old_ptr, size_t new_size, enum status_error e)
-{
+expect_realloc(void *old_ptr, size_t new_size, enum status_error e) {
     void *newptr = wrealloc(old_ptr, new_size);
-    if (new_size == 0)
-    {
+    if (new_size == 0) {
         EXPECT_EQ(nullptr, newptr);
         return nullptr;
     }
-    switch (e)
-    {
+    switch (e) {
     case OK:
         EXPECT_NE(nullptr, newptr);
         break;
     case ER:
         EXPECT_EQ(nullptr, newptr);
         break;
-    default:
-    {
+    default: {
         std::cerr << "realloc can only expect err or ok error status, not "
                      "bounds error.\n";
         std::abort();
@@ -95,15 +86,13 @@ expect_realloc(void *old_ptr, size_t new_size, enum status_error e)
 }
 
 void
-expect_free(void *addr)
-{
+expect_free(void *addr) {
     wfree(addr);
     EXPECT_EQ(true, wvalidate_heap());
 }
 
 void
-expect_state(const std::vector<heap_block> &expected)
-{
+expect_state(const std::vector<heap_block> &expected) {
     std::vector<heap_block> actual(expected.size());
     wheap_diff(expected.data(), actual.data(), expected.size());
     EXPECT_EQ(expected, actual);
@@ -135,12 +124,10 @@ expect_state(const std::vector<heap_block> &expected)
 /// that free is illustrated in the array below. See the tests for more.
 void
 expect_frees(const std::vector<void *> &frees,
-             const std::vector<heap_block> &expected)
-{
+             const std::vector<heap_block> &expected) {
     ASSERT_FALSE(frees.empty());
     const size_t old_capacity = wheap_capacity();
-    for (const auto &f : frees)
-    {
+    for (const auto &f : frees) {
         expect_free(f);
     }
     expect_state(expected);
@@ -154,19 +141,16 @@ expect_frees(const std::vector<void *> &frees,
 /// auto *my_char_array_or_string = expect_malloc<char>( 500, OK );
 template <typename T>
 T *
-expect_malloc(size_t size, status_error e)
-{
+expect_malloc(size_t size, status_error e) {
     auto m = static_cast<T *>(wmalloc(size));
-    switch (e)
-    {
+    switch (e) {
     case OK:
         EXPECT_NE(nullptr, m);
         break;
     case ER:
         EXPECT_EQ(nullptr, m);
         break;
-    default:
-    {
+    default: {
         std::cerr << "malloc can only expect err or ok error status, not "
                      "bounds error.\n";
         std::abort();
@@ -191,24 +175,20 @@ expect_malloc(size_t size, status_error e)
 /// });
 template <typename T>
 std::vector<T *>
-expect_mallocs(const std::vector<malloc_expectation> &expected)
-{
+expect_mallocs(const std::vector<malloc_expectation> &expected) {
     EXPECT_EQ(expected.empty(), false);
     const size_t starting_capacity = wheap_capacity();
     std::vector<T *> addrs{};
     addrs.reserve(expected.size());
-    for (const auto &e : expected)
-    {
-        if (e.bytes != heap)
-        {
+    for (const auto &e : expected) {
+        if (e.bytes != heap) {
             addrs.push_back(expect_malloc<T>(e.bytes, e.e));
         }
     }
     EXPECT_GT(starting_capacity, wheap_capacity());
     // The user claimed the rest of the heap is at the end so they do not intend
     // for the heap to exhaust.
-    if (expected.back().bytes == heap)
-    {
+    if (expected.back().bytes == heap) {
         EXPECT_NE(0, wheap_capacity());
     }
     return addrs;
@@ -218,18 +198,17 @@ expect_mallocs(const std::vector<malloc_expectation> &expected)
 
 //////////////////////////    GTest Needs Operators for EXPECT/ASSERT
 
+// NOLINTBEGIN(misc-use-internal-linkage)
+
 bool
-operator==(const heap_block &lhs, const heap_block &rhs)
-{
+operator==(const heap_block &lhs, const heap_block &rhs) {
     return lhs.address == rhs.address && lhs.payload_bytes == rhs.payload_bytes
            && lhs.err == rhs.err;
 }
 
 std::ostream &
-operator<<(std::ostream &os, const heap_block &b)
-{
-    switch (b.err)
-    {
+operator<<(std::ostream &os, const heap_block &b) {
+    switch (b.err) {
     case OK:
         os << "{ " << green_ok << b.address << ", "
            << (b.payload_bytes == NA ? "NA" : std::to_string(b.payload_bytes))
@@ -249,27 +228,25 @@ operator<<(std::ostream &os, const heap_block &b)
     return os << " }";
 }
 
+// NOLINTEND(misc-use-internal-linkage)
+
 /////////////////////////////////    Initialization Tests
 
-TEST(InitTests, SmallInitialization)
-{
+TEST(InitTests, SmallInitialization) {
     assert_init(small_heap_size, OK);
 }
 
-TEST(InitTests, MaxInitialization)
-{
+TEST(InitTests, MaxInitialization) {
     assert_init(max_heap_size, OK);
 }
 
-TEST(InitTests, FailInitializationTooSmall)
-{
+TEST(InitTests, FailInitializationTooSmall) {
     assert_init(8, ER);
 }
 
 //////////////////////////////////    Malloc Tests
 
-TEST(MallocTests, SingleMalloc)
-{
+TEST(MallocTests, SingleMalloc) {
     assert_init(small_heap_size, OK);
     const size_t bytes = 32;
     static_cast<void>(expect_mallocs<void>({
@@ -278,8 +255,7 @@ TEST(MallocTests, SingleMalloc)
     }));
 }
 
-TEST(MallocTests, SingleMallocGivesAdvertisedSpace)
-{
+TEST(MallocTests, SingleMallocGivesAdvertisedSpace) {
     assert_init(small_heap_size, OK);
     const size_t bytes = 32;
     std::array<char, bytes> chars{};
@@ -300,15 +276,13 @@ TEST(MallocTests, SingleMallocGivesAdvertisedSpace)
 // This test can get a little dicy because different internal schemes will have
 // different sizes available. Try to pick an easy malloc amount that is
 // obviously going to fail.
-TEST(MallocTests, MallocExhaustsHeap)
-{
+TEST(MallocTests, MallocExhaustsHeap) {
     assert_init(100, OK);
     const size_t bytes = 100;
     static_cast<void>(expect_malloc<void>(bytes, ER));
 }
 
-TEST(MallocFreeTests, SingleMallocSingleFree)
-{
+TEST(MallocFreeTests, SingleMallocSingleFree) {
     assert_init(small_heap_size, OK);
     const size_t bytes = 32;
     std::array<char, 32> chars{};
@@ -329,8 +303,7 @@ TEST(MallocFreeTests, SingleMallocSingleFree)
     EXPECT_EQ(original_capacity, wheap_capacity());
 }
 
-TEST(MallocFreeTests, ThreeMallocMiddleFree)
-{
+TEST(MallocFreeTests, ThreeMallocMiddleFree) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned1 = wheap_align(bytes);
@@ -355,8 +328,7 @@ TEST(MallocFreeTests, ThreeMallocMiddleFree)
         });
 }
 
-TEST(MallocFreeTests, ThreeMallocLeftEndFree)
-{
+TEST(MallocFreeTests, ThreeMallocLeftEndFree) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned1 = wheap_align(bytes);
@@ -383,8 +355,7 @@ TEST(MallocFreeTests, ThreeMallocLeftEndFree)
 
 ///////////////////////////////////    Coalesce Tests
 
-TEST(CoalesceTests, CoalesceRightWithPool)
-{
+TEST(CoalesceTests, CoalesceRightWithPool) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned1 = wheap_align(bytes);
@@ -406,8 +377,7 @@ TEST(CoalesceTests, CoalesceRightWithPool)
         });
 }
 
-TEST(CoalesceTests, CoalesceRightWhileSurrounded)
-{
+TEST(CoalesceTests, CoalesceRightWhileSurrounded) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -442,8 +412,7 @@ TEST(CoalesceTests, CoalesceRightWhileSurrounded)
         });
 }
 
-TEST(CoalesceTests, CoalesceLeftHeapStart)
-{
+TEST(CoalesceTests, CoalesceLeftHeapStart) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -475,8 +444,7 @@ TEST(CoalesceTests, CoalesceLeftHeapStart)
         });
 }
 
-TEST(CoalesceTests, CoalesceLeftWhileSurrounded)
-{
+TEST(CoalesceTests, CoalesceLeftWhileSurrounded) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -511,8 +479,7 @@ TEST(CoalesceTests, CoalesceLeftWhileSurrounded)
         });
 }
 
-TEST(CoalesceTests, CoalesceEntireHeap)
-{
+TEST(CoalesceTests, CoalesceEntireHeap) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -540,8 +507,7 @@ TEST(CoalesceTests, CoalesceEntireHeap)
         });
 }
 
-TEST(CoalesceTests, CoalesceLeftRightWhileSurrounded)
-{
+TEST(CoalesceTests, CoalesceLeftRightWhileSurrounded) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -581,8 +547,7 @@ TEST(CoalesceTests, CoalesceLeftRightWhileSurrounded)
 
 ////////////////////////////////    Realloc Tests
 
-TEST(ReallocTests, ReallocCanMalloc)
-{
+TEST(ReallocTests, ReallocCanMalloc) {
     assert_init(small_heap_size, OK);
     const size_t aligned = wheap_align(64);
     void *req = nullptr;
@@ -593,8 +558,7 @@ TEST(ReallocTests, ReallocCanMalloc)
     });
 }
 
-TEST(ReallocTests, ReallocCanFree)
-{
+TEST(ReallocTests, ReallocCanFree) {
     assert_init(small_heap_size, OK);
     const size_t aligned = wheap_align(64);
     void *req = nullptr;
@@ -609,8 +573,7 @@ TEST(ReallocTests, ReallocCanFree)
     });
 }
 
-TEST(ReallocTests, ReallocDoesNotMoveWhenShrinking)
-{
+TEST(ReallocTests, ReallocDoesNotMoveWhenShrinking) {
     assert_init(small_heap_size, OK);
     const size_t aligned = wheap_align(64);
     auto alloc = expect_mallocs<void>({
@@ -625,8 +588,7 @@ TEST(ReallocTests, ReallocDoesNotMoveWhenShrinking)
     EXPECT_EQ(req, alloc[0]);
 }
 
-TEST(ReallocTests, ReallocDoesNotMoveWhenGrowing)
-{
+TEST(ReallocTests, ReallocDoesNotMoveWhenGrowing) {
     assert_init(small_heap_size, OK);
     const size_t aligned = wheap_align(64);
     auto alloc = expect_mallocs<void>({
@@ -641,8 +603,7 @@ TEST(ReallocTests, ReallocDoesNotMoveWhenGrowing)
     EXPECT_EQ(req, alloc[0]);
 }
 
-TEST(ReallocTests, ReallocPrefersShortMoveEvenIfMemmoveRequired)
-{
+TEST(ReallocTests, ReallocPrefersShortMoveEvenIfMemmoveRequired) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -673,8 +634,7 @@ TEST(ReallocTests, ReallocPrefersShortMoveEvenIfMemmoveRequired)
     });
 }
 
-TEST(ReallocTests, ReallocCoalescesLeftAndRight)
-{
+TEST(ReallocTests, ReallocCoalescesLeftAndRight) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -706,8 +666,7 @@ TEST(ReallocTests, ReallocCoalescesLeftAndRight)
     });
 }
 
-TEST(ReallocTests, ReallocFindsSpaceElsewhere)
-{
+TEST(ReallocTests, ReallocFindsSpaceElsewhere) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -743,8 +702,7 @@ TEST(ReallocTests, ReallocFindsSpaceElsewhere)
     });
 }
 
-TEST(ReallocTests, ReallocExhaustiveSearchFailureInPlace)
-{
+TEST(ReallocTests, ReallocExhaustiveSearchFailureInPlace) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -769,8 +727,7 @@ TEST(ReallocTests, ReallocExhaustiveSearchFailureInPlace)
     });
 }
 
-TEST(ReallocTests, ReallocFailsIdempotently)
-{
+TEST(ReallocTests, ReallocFailsIdempotently) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -807,8 +764,7 @@ TEST(ReallocTests, ReallocFailsIdempotently)
     });
 }
 
-TEST(ReallocTests, ReallocFailsIdempotentlyPreservingData)
-{
+TEST(ReallocTests, ReallocFailsIdempotentlyPreservingData) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -858,8 +814,7 @@ TEST(ReallocTests, ReallocFailsIdempotentlyPreservingData)
     EXPECT_EQ(std::string_view(chars.data()), std::string_view(alloc[1]));
 }
 
-TEST(ReallocTests, ReallocPreservesDataWhenCoalescingRight)
-{
+TEST(ReallocTests, ReallocPreservesDataWhenCoalescingRight) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -903,8 +858,7 @@ TEST(ReallocTests, ReallocPreservesDataWhenCoalescingRight)
     EXPECT_EQ(std::string_view(chars.data()), std::string_view(alloc[1]));
 }
 
-TEST(ReallocTests, ReallocPreservesDataWhenCoalescingLeft)
-{
+TEST(ReallocTests, ReallocPreservesDataWhenCoalescingLeft) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);
@@ -948,8 +902,7 @@ TEST(ReallocTests, ReallocPreservesDataWhenCoalescingLeft)
     EXPECT_EQ(std::string_view(chars.data()), std::string_view(new_addr));
 }
 
-TEST(ReallocTests, ReallocPreservesDataWhenCoalescingElsewhere)
-{
+TEST(ReallocTests, ReallocPreservesDataWhenCoalescingElsewhere) {
     assert_init(medium_heap_size, OK);
     const size_t bytes = 64;
     const size_t aligned = wheap_align(bytes);

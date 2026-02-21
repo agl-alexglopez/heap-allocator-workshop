@@ -18,25 +18,20 @@ static void *segment_start = NULL; // NOLINT(*-non-const-global-variables)
 static size_t segment_size = 0;    // NOLINT(*-non-const-global-variables)
 
 void *
-heap_segment_start()
-{
+heap_segment_start() {
     return segment_start;
 }
 
 size_t
-heap_segment_size()
-{
+heap_segment_size() {
     return segment_size;
 }
 
 void *
-init_heap_segment(size_t total_size)
-{
+init_heap_segment(size_t total_size) {
     // Discard any previous segment via munmap. Helpful for unit testing.
-    if (segment_start != NULL)
-    {
-        if (munmap(segment_start, total_size) == -1)
-        {
+    if (segment_start != NULL) {
+        if (munmap(segment_start, total_size) == -1) {
             return NULL;
         }
         segment_start = NULL;

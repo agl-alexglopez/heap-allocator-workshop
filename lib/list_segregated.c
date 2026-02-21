@@ -32,8 +32,7 @@
 
 typedef size_t header;
 
-struct free_node
-{
+struct free_node {
     header header;
     struct free_node *next;
     struct free_node *prev;
@@ -44,52 +43,44 @@ struct free_node
 /// segment header with uint16_t. This limits us however to a final bucket being
 /// the catch all for any request greater than or equal to USHRT_MAX. If we want
 /// more powers of 2 segments we will need to change this to the wider uint32_t.
-struct seg_node
-{
+struct seg_node {
     uint16_t size;
     struct free_node *start;
 };
 
-struct heap_range
-{
+struct heap_range {
     void *start;
     void *end;
 };
 
-struct size_total
-{
+struct size_total {
     size_t byte_size;
     size_t count_total;
 };
 
-struct header_size
-{
+struct header_size {
     header header;
     size_t size;
 };
 
-struct bad_jump
-{
+struct bad_jump {
     struct free_node *current;
     struct free_node *prev;
 };
 
-struct coalesce_report
-{
+struct coalesce_report {
     struct free_node *left;
     struct free_node *current;
     struct free_node *right;
     size_t available;
 };
 
-enum bucket_sizes
-{
+enum bucket_sizes {
     NUM_BUCKETS = 17,
     NUM_SMALL_BUCKETS = 7,
 };
 
-enum bucket_bytes
-{
+enum bucket_bytes {
     INDEX_0_BYTES = 24,
     INDEX_1_BYTES = 32,
     INDEX_2_BYTES = 40,
@@ -143,8 +134,7 @@ enum bucket_bytes
 ///     lists.
 ///     - Be careful, last index is USHRT_MAX=65535!=65536. Mind the last index
 ///     size.
-static struct fits
-{
+static struct fits {
     struct seg_node table[NUM_BUCKETS];
     // One node can serve as the head and tail of all lists to allow some
     // invariant code patterns.
@@ -152,8 +142,7 @@ static struct fits
     size_t total;
 } fits;
 
-static struct heap
-{
+static struct heap {
     void *client_start;
     void *client_end;
     size_t client_size;
@@ -201,16 +190,13 @@ static void print_fits(enum print_style style, struct seg_node table[],
 ///////////////////////////   Shared Heap Functions
 
 size_t
-wget_free_total(void)
-{
+wget_free_total(void) {
     return fits.total;
 }
 
 bool
-winit(void *heap_start, size_t heap_size)
-{
-    if (heap_size < MIN_BLOCK_SIZE)
-    {
+winit(void *heap_start, size_t heap_size) {
+    if (heap_size < MIN_BLOCK_SIZE) {
         return false;
     }
 
@@ -222,15 +208,13 @@ winit(void *heap_start, size_t heap_size)
     fits.nil.next = NULL;
     size_t size = INDEX_0_BYTES;
     for (size_t index = 0; index < NUM_SMALL_BUCKETS;
-         index++, size += SMALL_TABLE_STEP)
-    {
+         index++, size += SMALL_TABLE_STEP) {
         fits.table[index].size = size;
         fits.table[index].start = &fits.nil;
     }
     size = LARGE_TABLE_MIN_BYTES;
     for (size_t index = NUM_SMALL_BUCKETS; index < NUM_BUCKETS - 1;
-         index++, size *= 2)
-    {
+         index++, size *= 2) {
         fits.table[index].size = size;
         fits.table[index].start = &fits.nil;
     }
@@ -257,23 +241,18 @@ winit(void *heap_start, size_t heap_size)
 }
 
 void *
-wmalloc(size_t requested_size)
-{
-    if (requested_size == 0 || requested_size > MAX_REQUEST_SIZE)
-    {
+wmalloc(size_t requested_size) {
+    if (requested_size == 0 || requested_size > MAX_REQUEST_SIZE) {
         return NULL;
     }
     const size_t rounded_request = roundup(requested_size, ALIGNMENT);
     // We are starting with a pretty good guess thanks to log2 properties but we
     // might not find anything.
-    for (size_t i = find_index(rounded_request); i < NUM_BUCKETS; ++i)
-    {
+    for (size_t i = find_index(rounded_request); i < NUM_BUCKETS; ++i) {
         for (struct free_node *node = fits.table[i].start; node != &fits.nil;
-             node = node->next)
-        {
+             node = node->next) {
             size_t free_space = get_size(node->header);
-            if (free_space >= rounded_request)
-            {
+            if (free_space >= rounded_request) {
                 splice_at_index(node, i);
                 return split_alloc(node, rounded_request, free_space);
             }
@@ -285,29 +264,23 @@ wmalloc(size_t requested_size)
 }
 
 void *
-wrealloc(void *old_ptr, size_t new_size)
-{
-    if (new_size > MAX_REQUEST_SIZE)
-    {
+wrealloc(void *old_ptr, size_t new_size) {
+    if (new_size > MAX_REQUEST_SIZE) {
         return NULL;
     }
-    if (old_ptr == NULL)
-    {
+    if (old_ptr == NULL) {
         return wmalloc(new_size);
     }
-    if (new_size == 0)
-    {
+    if (new_size == 0) {
         wfree(old_ptr);
         return NULL;
     }
     size_t request = roundup(new_size, ALIGNMENT);
     struct coalesce_report report = check_neighbors(old_ptr);
     size_t old_size = get_size(report.current->header);
-    if (report.available >= request)
-    {
+    if (report.available >= request) {
         coalesce(&report);
-        if (report.current == report.left)
-        {
+        if (report.current == report.left) {
             memmove(get_client_space(report.current), old_ptr,
                     old_size); // NOLINT(*UnsafeBufferHandling)
         }
@@ -315,8 +288,7 @@ wrealloc(void *old_ptr, size_t new_size)
     }
     void *elsewhere = wmalloc(request);
     // No data has moved or modified at this point we will will just do nothing.
-    if (!elsewhere)
-    {
+    if (!elsewhere) {
         return NULL;
     }
     memcpy(elsewhere, old_ptr, old_size); // NOLINT(*UnsafeBufferHandling)
@@ -326,10 +298,8 @@ wrealloc(void *old_ptr, size_t new_size)
 }
 
 void
-wfree(void *ptr)
-{
-    if (ptr == NULL)
-    {
+wfree(void *ptr) {
+    if (ptr == NULL) {
         return;
     }
     struct coalesce_report report = check_neighbors(ptr);
@@ -340,44 +310,36 @@ wfree(void *ptr)
 ///////////////////////     Shared Debugger
 
 bool
-wvalidate_heap(void)
-{
-    if (!check_init(fits.table, heap.client_size))
-    {
+wvalidate_heap(void) {
+    if (!check_init(fits.table, heap.client_size)) {
         return false;
     }
     size_t total_free_mem = 0;
     if (!is_memory_balanced(
             &total_free_mem,
             (struct heap_range){heap.client_start, heap.client_end},
-            (struct size_total){heap.client_size, fits.total}))
-    {
+            (struct size_total){heap.client_size, fits.total})) {
         return false;
     }
-    if (!are_fits_valid(total_free_mem, fits.table, &fits.nil))
-    {
+    if (!are_fits_valid(total_free_mem, fits.table, &fits.nil)) {
         return false;
     }
     return true;
 }
 
 size_t
-wheap_align(size_t request)
-{
+wheap_align(size_t request) {
     return roundup(request, ALIGNMENT);
 }
 
 size_t
-wheap_capacity(void)
-{
+wheap_capacity(void) {
     size_t total_free_mem = 0;
     size_t block_payload = 0;
     for (struct free_node *cur = heap.client_start; cur != heap.client_end;
-         cur = get_right_neighbor(cur, block_payload))
-    {
+         cur = get_right_neighbor(cur, block_payload)) {
         block_payload = get_size(cur->header);
-        if (!is_block_allocated(cur->header))
-        {
+        if (!is_block_allocated(cur->header)) {
             total_free_mem += block_payload;
         }
     }
@@ -386,43 +348,34 @@ wheap_capacity(void)
 
 void
 wheap_diff(const struct heap_block expected[], struct heap_block actual[],
-           size_t len)
-{
+           size_t len) {
     struct free_node *cur_node = heap.client_start;
     size_t i = 0;
-    for (; i < len && cur_node != heap.client_end; ++i)
-    {
+    for (; i < len && cur_node != heap.client_end; ++i) {
         bool is_allocated = is_block_allocated(cur_node->header);
         const size_t next_jump = get_size(cur_node->header);
         size_t cur_payload = get_size(cur_node->header);
         void *client_addr = get_client_space(cur_node);
         if ((!expected[i].address && is_allocated)
-            || (expected[i].address && expected[i].address != client_addr))
-        {
+            || (expected[i].address && expected[i].address != client_addr)) {
             actual[i] = (struct heap_block){
                 client_addr,
                 cur_payload,
                 ER,
             };
-        }
-        else if (NA == expected[i].payload_bytes)
-        {
+        } else if (NA == expected[i].payload_bytes) {
             actual[i] = (struct heap_block){
                 is_allocated ? client_addr : NULL,
                 NA,
                 OK,
             };
-        }
-        else if (expected[i].payload_bytes != cur_payload)
-        {
+        } else if (expected[i].payload_bytes != cur_payload) {
             actual[i] = (struct heap_block){
                 is_allocated ? client_addr : NULL,
                 cur_payload,
                 ER,
             };
-        }
-        else
-        {
+        } else {
             actual[i] = (struct heap_block){
                 is_allocated ? client_addr : NULL,
                 cur_payload,
@@ -431,16 +384,13 @@ wheap_diff(const struct heap_block expected[], struct heap_block actual[],
         }
         cur_node = get_right_neighbor(cur_node, next_jump);
     }
-    if (i < len)
-    {
-        for (size_t fill = i; fill < len; ++fill)
-        {
+    if (i < len) {
+        for (size_t fill = i; fill < len; ++fill) {
             actual[fill].err = OUT_OF_BOUNDS;
         }
         return;
     }
-    if (cur_node != heap.client_end)
-    {
+    if (cur_node != heap.client_end) {
         actual[len - 1].err = HEAP_CONTINUES;
     }
 }
@@ -448,14 +398,12 @@ wheap_diff(const struct heap_block expected[], struct heap_block actual[],
 ////////////////////////////     Shared Printer
 
 void
-wprint_free_nodes(enum print_style style)
-{
+wprint_free_nodes(enum print_style style) {
     print_fits(style, fits.table, &fits.nil);
 }
 
 void
-wdump_heap(void)
-{
+wdump_heap(void) {
     print_all((struct heap_range){heap.client_start, heap.client_end},
               heap.client_size, fits.table, &fits.nil);
 }
@@ -463,10 +411,8 @@ wdump_heap(void)
 //////////////////////////////   Static Helper Functions
 
 static void *
-split_alloc(struct free_node *free_block, size_t request, size_t block_space)
-{
-    if (block_space >= request + MIN_BLOCK_SIZE)
-    {
+split_alloc(struct free_node *free_block, size_t request, size_t block_space) {
+    if (block_space >= request + MIN_BLOCK_SIZE) {
         // This takes care of the neighbor and ITS neighbor with updates.
         init_free_node(get_right_neighbor(free_block, request),
                        block_space - request - HEADERSIZE);
@@ -479,8 +425,7 @@ split_alloc(struct free_node *free_block, size_t request, size_t block_space)
 }
 
 static void
-init_free_node(struct free_node *to_add, size_t block_size)
-{
+init_free_node(struct free_node *to_add, size_t block_size) {
     to_add->header = LEFT_ALLOCATED | block_size;
     header *footer = (header *)((uint8_t *)to_add + block_size);
     *footer = to_add->header;
@@ -500,23 +445,20 @@ init_free_node(struct free_node *to_add, size_t block_size)
 }
 
 static struct coalesce_report
-check_neighbors(const void *old_ptr)
-{
+check_neighbors(const void *old_ptr) {
     struct free_node *current_node = get_free_node(old_ptr);
     const size_t original_space = get_size(current_node->header);
     struct coalesce_report result = {NULL, current_node, NULL, original_space};
 
     struct free_node *rightmost_node
         = get_right_neighbor(current_node, original_space);
-    if (!is_block_allocated(rightmost_node->header))
-    {
+    if (!is_block_allocated(rightmost_node->header)) {
         result.available += get_size(rightmost_node->header) + HEADERSIZE;
         result.right = rightmost_node;
     }
 
     if (current_node != heap.client_start
-        && is_left_space(current_node->header))
-    {
+        && is_left_space(current_node->header)) {
         result.left = get_left_neighbor(current_node);
         result.available += get_size(result.left->header) + HEADERSIZE;
     }
@@ -524,16 +466,13 @@ check_neighbors(const void *old_ptr)
 }
 
 static inline void
-coalesce(struct coalesce_report *report)
-{
-    if (report->left)
-    {
+coalesce(struct coalesce_report *report) {
+    if (report->left) {
         report->current = report->left;
         splice_at_index(report->left,
                         find_index(get_size(report->left->header)));
     }
-    if (report->right)
-    {
+    if (report->right) {
         splice_at_index(report->right,
                         find_index(get_size(report->right->header)));
     }
@@ -543,10 +482,8 @@ coalesce(struct coalesce_report *report)
 /// @citation cool way to get log2 from intrinsics.
 /// https://github.com/pavel-kirienko/o1heap/tree/master.
 static inline size_t
-find_index(size_t any_block_size)
-{
-    switch (any_block_size)
-    {
+find_index(size_t any_block_size) {
+    switch (any_block_size) {
     case INDEX_0_BYTES:
         return I0;
     case INDEX_1_BYTES:
@@ -561,8 +498,7 @@ find_index(size_t any_block_size)
         return I5;
     case INDEX_6_BYTES:
         return I6;
-    default:
-    {
+    default: {
         const size_t index_from_floored_log2
             = ((uint_fast8_t)((sizeof(any_block_size) * CHAR_BIT) - 1U)
                - ((uint_fast8_t)LEADING_ZEROS(any_block_size)));
@@ -576,16 +512,12 @@ find_index(size_t any_block_size)
 /////////////////////////////   Basic Block and Header Operations
 
 static inline void
-splice_at_index(struct free_node *to_splice, size_t i)
-{
+splice_at_index(struct free_node *to_splice, size_t i) {
     // Catch if we are the first node pointed to by the lookup table.
-    if (&fits.nil == to_splice->prev)
-    {
+    if (&fits.nil == to_splice->prev) {
         fits.table[i].start = to_splice->next;
         to_splice->next->prev = &fits.nil;
-    }
-    else
-    {
+    } else {
         // Because we have a sentinel we don't need to worry about middle or
         // last node or NULL.
         to_splice->next->prev = to_splice->prev;
@@ -595,96 +527,81 @@ splice_at_index(struct free_node *to_splice, size_t i)
 }
 
 static inline size_t
-roundup(size_t requested_size, size_t multiple)
-{
+roundup(size_t requested_size, size_t multiple) {
     return requested_size <= HEAP_NODE_WIDTH
                ? HEAP_NODE_WIDTH
                : ((requested_size + multiple - 1) & ~(multiple - 1));
 }
 
 static inline size_t
-get_size(header header_val)
-{
+get_size(header header_val) {
     return header_val & SIZE_MASK;
 }
 
 static inline struct free_node *
-get_right_neighbor(struct free_node *cur_header, size_t block_size)
-{
+get_right_neighbor(struct free_node *cur_header, size_t block_size) {
     return (struct free_node *)((uint8_t *)cur_header + HEADERSIZE
                                 + block_size);
 }
 
 static inline struct free_node *
-get_left_neighbor(struct free_node *cur_header)
-{
+get_left_neighbor(struct free_node *cur_header) {
     header *left_footer = (header *)((uint8_t *)cur_header - HEADERSIZE);
     return (struct free_node *)((uint8_t *)cur_header
                                 - (*left_footer & SIZE_MASK) - HEADERSIZE);
 }
 
 static inline bool
-is_block_allocated(header header_val)
-{
+is_block_allocated(header header_val) {
     return header_val & ALLOCATED;
 }
 
 static inline void *
-get_client_space(struct free_node *cur_header)
-{
+get_client_space(struct free_node *cur_header) {
     return (uint8_t *)cur_header + HEADERSIZE;
 }
 
 static inline struct free_node *
-get_free_node(const void *user_mem_space)
-{
+get_free_node(const void *user_mem_space) {
     return (struct free_node *)((uint8_t *)user_mem_space - HEADERSIZE);
 }
 
 static inline void
 init_header(struct free_node *cur_header, size_t block_size,
-            header header_status)
-{
+            header header_status) {
     cur_header->header = LEFT_ALLOCATED | block_size | header_status;
 }
 
 static inline void
-init_footer(struct free_node *cur_header, size_t block_size)
-{
+init_footer(struct free_node *cur_header, size_t block_size) {
     header *footer = (header *)((uint8_t *)cur_header + block_size);
     *footer = LEFT_ALLOCATED | block_size | FREED;
 }
 
 static inline bool
-is_left_space(const header cur_header)
-{
+is_left_space(const header cur_header) {
     return !(cur_header & LEFT_ALLOCATED);
 }
 
 /////////////////////////////    Debugging and Testing Functions
 
 static bool
-is_header_corrupted(header header_val)
-{
+is_header_corrupted(header header_val) {
     return header_val & STATUS_CHECK;
 }
 
 static bool
-is_small_table_valid(struct seg_node table[])
-{
+is_small_table_valid(struct seg_node table[]) {
     // Check our lookup table. Sizes should never be altered and pointers should
     // never be NULL.
     uint16_t size = INDEX_0_BYTES;
-    for (size_t i = 0; i < NUM_SMALL_BUCKETS; i++, size += SMALL_TABLE_STEP)
-    {
-        if (table[i].size != size)
-        {
+    for (size_t i = 0; i < NUM_SMALL_BUCKETS; i++, size += SMALL_TABLE_STEP) {
+        if (table[i].size != size) {
             BREAKPOINT();
             return false;
         }
         // This should either be a valid node or the sentinel.
-        if (NULL == table[i].start)
-        {
+        if (NULL == table[i].start) {
             BREAKPOINT();
             return false;
         }
@@ -693,37 +610,30 @@ is_small_table_valid(struct seg_node table[])
 }
 
 static bool
-check_init(struct seg_node table[], size_t client_size)
-{
+check_init(struct seg_node table[], size_t client_size) {
     if ((size_t)(((uint8_t *)heap.client_end + HEAP_NODE_WIDTH)
                  - (uint8_t *)heap.client_start)
-        != client_size)
-    {
+        != client_size) {
         BREAKPOINT();
         return false;
     }
-    if (!is_small_table_valid(table))
-    {
+    if (!is_small_table_valid(table)) {
         BREAKPOINT();
         return false;
     }
     uint16_t size = LARGE_TABLE_MIN_BYTES;
-    for (size_t i = NUM_SMALL_BUCKETS; i < NUM_BUCKETS - 1; i++, size *= 2)
-    {
-        if (table[i].size != size)
-        {
+    for (size_t i = NUM_SMALL_BUCKETS; i < NUM_BUCKETS - 1; i++, size *= 2) {
+        if (table[i].size != size) {
             BREAKPOINT();
             return false;
         }
         // This should either be a valid node or the nil.
-        if (NULL == table[i].start)
-        {
+        if (NULL == table[i].start) {
             BREAKPOINT();
             return false;
         }
     }
-    if (table[NUM_BUCKETS - 1].size != USHRT_MAX)
-    {
+    if (table[NUM_BUCKETS - 1].size != USHRT_MAX) {
         BREAKPOINT();
         return false;
     }
@@ -731,22 +641,18 @@ check_init(struct seg_node table[], size_t client_size)
 }
 
 static bool
-is_valid_header(struct header_size hs, size_t client_size)
-{
+is_valid_header(struct header_size hs, size_t client_size) {
     // Most definitely impossible and our header is corrupted. Pointer
     // arithmetic would fail.
-    if (hs.size > client_size)
-    {
+    if (hs.size > client_size) {
         BREAKPOINT();
         return false;
     }
-    if (is_header_corrupted(hs.header))
-    {
+    if (is_header_corrupted(hs.header)) {
         BREAKPOINT();
         return false;
     }
-    if (hs.size % HEADERSIZE != 0)
-    {
+    if (hs.size % HEADERSIZE != 0) {
         BREAKPOINT();
         return false;
     }
@@ -755,47 +661,38 @@ is_valid_header(struct header_size hs, size_t client_size)
 
 static bool
 is_memory_balanced(size_t *total_free_mem, struct heap_range hr,
-                   struct size_total st)
-{
+                   struct size_total st) {
     // Check that after checking all headers we end on size 0 tail and then end
     // of address space.
     struct free_node *cur = hr.start;
     size_t size_used = HEAP_NODE_WIDTH;
     size_t total_free_nodes = 0;
-    while (cur != hr.end)
-    {
+    while (cur != hr.end) {
         size_t block_size_check = get_size(cur->header);
-        if (block_size_check == 0)
-        {
+        if (block_size_check == 0) {
             BREAKPOINT();
             return false;
         }
 
         if (!is_valid_header(
                 (struct header_size){cur->header, block_size_check},
-                st.byte_size))
-        {
+                st.byte_size)) {
             BREAKPOINT();
             return false;
         }
-        if (is_block_allocated(cur->header))
-        {
+        if (is_block_allocated(cur->header)) {
             size_used += block_size_check + HEADERSIZE;
-        }
-        else
-        {
+        } else {
             ++total_free_nodes;
             *total_free_mem += block_size_check + HEADERSIZE;
         }
         cur = get_right_neighbor(cur, block_size_check);
     }
-    if (size_used + *total_free_mem != st.byte_size)
-    {
+    if (size_used + *total_free_mem != st.byte_size) {
         BREAKPOINT();
         return false;
     }
-    if (total_free_nodes != st.count_total)
-    {
+    if (total_free_nodes != st.count_total) {
         BREAKPOINT();
         return false;
     }
@@ -804,32 +701,26 @@ is_memory_balanced(size_t *total_free_mem, struct heap_range hr,
 
 static size_t
 are_links_valid(struct seg_node table[], size_t table_index,
-                struct free_node *nil, size_t free_mem)
-{
+                struct free_node *nil, size_t free_mem) {
     for (struct free_node *cur = table[table_index].start; cur != nil;
-         cur = cur->next)
-    {
+         cur = cur->next) {
         size_t cur_size = get_size(cur->header);
         if (table_index != NUM_BUCKETS - 1
-            && cur_size >= table[table_index + 1].size)
-        {
+            && cur_size >= table[table_index + 1].size) {
             BREAKPOINT();
             return false;
         }
-        if (cur_size < table[table_index].size)
-        {
+        if (cur_size < table[table_index].size) {
             BREAKPOINT();
             return false;
         }
-        if (is_block_allocated(cur->header))
-        {
+        if (is_block_allocated(cur->header)) {
             BREAKPOINT();
             return false;
         }
         // This algorithm does not allow two free blocks to remain next to one
         // another.
-        if (is_left_space(cur->header))
-        {
+        if (is_left_space(cur->header)) {
             BREAKPOINT();
             return false;
         }
@@ -840,15 +731,12 @@ are_links_valid(struct seg_node table[], size_t table_index,
 
 static bool
 are_fits_valid(size_t total_free_mem, struct seg_node table[],
-               struct free_node *nil)
-{
+               struct free_node *nil) {
     size_t linked_free_mem = 0;
-    for (size_t i = 0; i < NUM_BUCKETS; i++)
-    {
+    for (size_t i = 0; i < NUM_BUCKETS; i++) {
         linked_free_mem = are_links_valid(table, i, nil, linked_free_mem);
     }
-    if (total_free_mem != linked_free_mem)
-    {
+    if (total_free_mem != linked_free_mem) {
         BREAKPOINT();
         return false;
     }
@@ -859,52 +747,36 @@ are_fits_valid(size_t total_free_mem, struct seg_node table[],
 
 static void
 print_fits(enum print_style style, struct seg_node table[],
-           struct free_node *nil)
-{
+           struct free_node *nil) {
     bool alternate = false;
-    for (size_t i = 0; i < NUM_BUCKETS; i++, alternate = !alternate)
-    {
+    for (size_t i = 0; i < NUM_BUCKETS; i++, alternate = !alternate) {
         printf(COLOR_GRN);
-        if (style == VERBOSE)
-        {
+        if (style == VERBOSE) {
             printf("%p: ", &table[i]);
         }
-        if (i == NUM_BUCKETS - 1)
-        {
+        if (i == NUM_BUCKETS - 1) {
             printf("[FIT:%ubytes+]", table[i].size);
-        }
-        else if (i >= NUM_SMALL_BUCKETS)
-        {
+        } else if (i >= NUM_SMALL_BUCKETS) {
             printf("[FIT:%u-%ubytes]", table[i].size, table[i + 1].size - 1U);
-        }
-        else
-        {
+        } else {
             printf("[FIT:%ubytes]", table[i].size);
         }
         printf(COLOR_NIL);
-        if (alternate)
-        {
+        if (alternate) {
             printf(COLOR_RED);
-        }
-        else
-        {
+        } else {
             printf(COLOR_CYN);
         }
 
         for (struct free_node *cur = table[i].start; cur != nil;
-             cur = cur->next)
-        {
-            if (cur)
-            {
+             cur = cur->next) {
+            if (cur) {
                 printf("⇄[");
-                if (style == VERBOSE)
-                {
+                if (style == VERBOSE) {
                     printf("%p:", cur);
                 }
                 printf("(%zubytes)]", get_size(cur->header));
-            }
-            else
-            {
+            } else {
                 printf("Something went wrong. NULL free fits node.\n");
                 break;
             }
@@ -918,8 +790,7 @@ print_fits(enum print_style style, struct seg_node table[],
 }
 
 static void
-print_alloc_block(struct free_node *cur_header)
-{
+print_alloc_block(struct free_node *cur_header) {
     size_t block_size = get_size(cur_header->header);
     printf(COLOR_GRN);
     // See from what direction our header is messed up by printing 16 digits.
@@ -929,14 +800,12 @@ print_alloc_block(struct free_node *cur_header)
 }
 
 static void
-print_free_block(struct free_node *cur_header)
-{
+print_free_block(struct free_node *cur_header) {
     size_t full_size = get_size(cur_header->header);
     header *footer = (header *)((uint8_t *)cur_header + full_size);
     // We should be able to see the header is the same as the footer. If they
     // are not the same we will face subtle bugs that are very hard to notice.
-    if (*footer != cur_header->header)
-    {
+    if (*footer != cur_header->header) {
         *footer = ULONG_MAX;
     }
     printf(COLOR_RED);
@@ -947,8 +816,7 @@ print_free_block(struct free_node *cur_header)
 
 static void
 print_bad_jump(struct bad_jump j, struct seg_node table[],
-               struct free_node *nil)
-{
+               struct free_node *nil) {
     size_t prev_size = get_size(j.prev->header);
     size_t cur_size = get_size(j.current->header);
     printf(COLOR_CYN);
@@ -969,8 +837,7 @@ print_bad_jump(struct bad_jump j, struct seg_node table[],
 
 static void
 print_all(struct heap_range hr, size_t client_size, struct seg_node table[],
-          struct free_node *nil)
-{
+          struct free_node *nil) {
     struct free_node *cur = hr.start;
     printf("Heap client segment starts at address %p, ends %p. %zu total bytes "
            "currently used.\n",
@@ -985,22 +852,17 @@ print_all(struct heap_range hr, size_t client_size, struct seg_node table[],
     printf("--END OF LOOKUP TABLE, START OF HEAP--\n");
 
     struct free_node *prev = cur;
-    while (cur != hr.end)
-    {
+    while (cur != hr.end) {
         size_t full_size = get_size(cur->header);
-        if (full_size == 0)
-        {
+        if (full_size == 0) {
             print_bad_jump((struct bad_jump){cur, prev}, table, nil);
             printf("Last known pointer before jump: %p", prev);
             return;
         }
 
-        if (is_block_allocated(cur->header))
-        {
+        if (is_block_allocated(cur->header)) {
             print_alloc_block(cur);
-        }
-        else
-        {
+        } else {
             print_free_block(cur);
         }
         prev = cur;

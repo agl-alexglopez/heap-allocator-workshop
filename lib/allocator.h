@@ -15,8 +15,7 @@ extern "C" {
 #include <stdbool.h>
 #include <stddef.h>
 
-enum
-{
+enum {
     /// Alignment requirement for all blocks
     ALIGNMENT = 8,
     /// maximum size of block that must be accommodated
@@ -33,16 +32,12 @@ enum
 #define GENERATE_ENUM(ENUM) ENUM,        /*NOLINT*/
 #define GENERATE_STRING(STRING) #STRING, /*NOLINT*/
 
-enum status_error
-{
-    FOREACH_ERR(GENERATE_ENUM)
-};
+enum status_error { FOREACH_ERR(GENERATE_ENUM) };
 
 static const char *const err_string[] = { // NOLINT
     FOREACH_ERR(GENERATE_STRING)};
 
-enum ignore_bytes
-{
+enum ignore_bytes {
     /// NA=Not Applicable. If you are running some testing checks and don't care
     /// about payload bytes insert this value as the payload. It is impossible
     /// to have a payload of zero. This is helpful when you want to unit test
@@ -62,8 +57,7 @@ enum ignore_bytes
 /// mismatch between expected and actual address or payload, HEAP_CONTINUES
 /// indicates the heap has more blocks than expected and the OUT_OF_BOUNDS error
 /// indicates that the heap has fewer than expected.
-struct heap_block
-{
+struct heap_block {
     void *address;
     size_t payload_bytes;
     enum status_error err;
