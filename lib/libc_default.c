@@ -74,5 +74,5 @@ wprint_free_nodes(enum print_style style) {
 }
 
 void
-wdump_heap(void) {
+wheap_dump(void) {
 }

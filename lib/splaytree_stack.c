@@ -4,7 +4,7 @@
 /// This file contains my implementation of a splay tree heap allocator. A splay
 /// tree is an interesting data structure to support the free nodes of a heap
 /// allocator because perhaps we can benefit from the frequencies in access
-/// patterns. This is just experimental, as I do not often here splay trees
+/// patterns. This is just experimental, as I do not often hear splay trees
 /// enter the discussion when considering allocator schemes. This is a bottom up
 /// splay tree that does not use a parent pointer, instead using a stack to
 /// track the history of a path to a node that will be splayed to the root and
@@ -439,7 +439,7 @@ wprint_free_nodes(enum print_style style) {
 }
 
 void
-wdump_heap(void) {
+wheap_dump(void) {
     print_all((struct heap_range){heap.client_start, heap.client_end},
               heap.heap_size, free_nodes.root, free_nodes.nil);
 }

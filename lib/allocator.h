@@ -205,6 +205,13 @@ size_t wheap_capacity(void);
 void wheap_diff(const struct heap_block expected[], struct heap_block actual[],
                 size_t len);
 
+/// @brief wheap_dump prints the contents of the heap as the implementer sees
+///                   fit. It is highly recommended to develop this function
+///                   immediately for faster development and debugging of the
+///                   heap allocator. Left as a interface function to encourage
+///                   implementation for new users.
+void wheap_dump(void);
+
 #endif
 #ifdef __cplusplus
 }

@@ -5,7 +5,7 @@
 #ifndef DEBUG_BREAK_H
 #define DEBUG_BREAK_H
 #include <signal.h>
-#include <stdio.h>
+#include <stdio.h> // IWYU pragma: keep
 #include <stdlib.h>
 
 /// @brief breakpoint  set this breakpoint on any line where you wish execution

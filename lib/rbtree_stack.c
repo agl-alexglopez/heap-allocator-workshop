@@ -461,7 +461,7 @@ wprint_free_nodes(enum print_style style) {
 }
 
 void
-wdump_heap(void) {
+wheap_dump(void) {
     print_all((struct heap_range){heap.client_start, heap.client_end},
               heap.heap_size, free_nodes.tree_root, free_nodes.black_nil);
 }

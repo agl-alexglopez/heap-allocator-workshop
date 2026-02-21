@@ -16,68 +16,69 @@ Next, add the file and function stubs to your `.c` file. Here is a starting temp
 #include <stdbool.h>
 #include <stddef.h>
 
-bool winit( void *heap_start, size_t heap_size )
-{
+bool
+winit(void *heap_start, size_t heap_size) {
     (void)heap_start;
     (void)heap_size;
     UNIMPLEMENTED();
 }
 
-void *wmalloc( size_t requested_size )
-{
+void *
+wmalloc(size_t requested_size) {
     (void)requested_size;
     UNIMPLEMENTED();
 }
 
-void *wrealloc( void *old_ptr, size_t new_size )
-{
+void *
+wrealloc(void *old_ptr, size_t new_size) {
     (void)old_ptr;
     (void)new_size;
     UNIMPLEMENTED();
 }
 
-void wfree( void *ptr )
-{
+void
+wfree(void *ptr) {
     (void)ptr;
     UNIMPLEMENTED();
 }
 
-bool wvalidate_heap( void )
-{
+bool
+wvalidate_heap(void) {
     UNIMPLEMENTED();
 }
 
-size_t wheap_align( size_t request )
-{
+size_t
+wheap_align(size_t request) {
     (void)request;
     UNIMPLEMENTED();
 }
 
-size_t wheap_capacity( void )
-{
+size_t
+wheap_capacity(void) {
     UNIMPLEMENTED();
 }
 
-void wheap_diff( const struct heap_block expected[], struct heap_block actual[], size_t len )
-{
+void
+wheap_diff(const struct heap_block expected[], struct heap_block actual[],
+           size_t len) {
     (void)expected;
     (void)actual;
     (void)len;
     UNIMPLEMENTED();
 }
-size_t wget_free_total( void )
-{
+size_t
+wget_free_total(void) {
     UNIMPLEMENTED();
 }
 
-void wprint_free_nodes( print_style style )
-{
+void
+wprint_free_nodes(print_style style) {
     (void)style;
     UNIMPLEMENTED();
 }
 
-void wdump_heap( void )
-{
+void
+wheap_dump(void) {
     UNIMPLEMENTED();
 }
 ```
@@ -146,7 +147,7 @@ The `UNIMPLEMENTED();` macro allows you to compile the code and even run it, and
 
 - Roundup/Align all headers and blocks of memory to a multiple of the alignment constant specified in the `allocator.h` file.
 - Coalesce both left and right. Coalescing should occur whenever possible. This means that upon any call to `free` or `realloc` we should check and coalesce other free nodes to our left and right. This creates the invariant that no two free nodes should be next to one another.
-- Blocks that are too large for a given request should be split and the remaining free space should be inserted back into the free data structure. This is obvious at the beggining when you only have one large pool of memory, but remember to choose some splitting metrics when things get more subtle.
+- Blocks that are too large for a given request should be split and the remaining free space should be inserted back into the free data structure. This is obvious at the beginning when you only have one large pool of memory, but remember to choose some splitting metrics when things get more subtle.
 
 Those are all the internal details that cannot be specified in the `allocator.h` file. Read the header file for more general requirements for the remaining functions. The rest is up to the implementer. Do not modularize the code into multiple header files. Prefer a monolithic `.c` file with all types and helper functions included and use `static` helper functions. The reason for this is to aid in creative freedom for implementations. In reading the code already here, you may see some repetition of logic, data structures, or implementation across the allocator files. While we could try to abstract out some clever shared header files and helper logic I recommend against it because the differences in implementation details can be subtle. This would also force any new implementation to adhere to some shared header file and avoid conflicts with types or functions already in use by the other allocators. Instead, everything should be encapsulated to one `.c` file. Allocators are not that lengthy to implement anyway. Exclude the validation and printers and there are not that many lines of code for an allocator and one `.c` file is manageable. This also allows complete creative freedom and no breaking changes if you wish to change internal implementation details later. Lastly, this aids in compilation time. I tried a more modular approach in the past and due to the sheer number of allocators and techniques the compilation times suffered. One file is good for now.
 
