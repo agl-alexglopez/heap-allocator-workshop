@@ -61,11 +61,11 @@ int time_script(std::string_view script_name, interval_reqs &user_requests);
 std::optional<size_t> time_allocator(script::requests &s,
                                      interval_reqs &user_requests);
 bool validate_intervals(script::requests &s, interval_reqs &user_requests);
-bool set_interval(interval_reqs &user_reqs, std::span<const char *const> args,
+bool set_interval(interval_reqs &user_reqs, std::span<char const *const> args,
                   size_t i);
 
 int
-stats(std::span<const char *const> args) {
+stats(std::span<char const *const> args) {
     try {
         interval_reqs user_reqs{};
         std::string_view filename{};
@@ -79,7 +79,7 @@ stats(std::span<const char *const> args) {
             } else if (std::string::npos != arg_copy.find(".script")) {
                 filename = args[i];
             } else {
-                const auto msg
+                auto const msg
                     = std::string("Unknown flag: ")
                           .append(args[i])
                           .append("\nOnly specify range -r [start] [end]'.\n");
@@ -105,7 +105,7 @@ stats(std::span<const char *const> args) {
 int
 main(int argc, char **argv) {
     auto args
-        = std::span<const char *const>{argv, static_cast<size_t>(argc)}.subspan(
+        = std::span<char const *const>{argv, static_cast<size_t>(argc)}.subspan(
             1);
     if (args.empty()) {
         return 0;
@@ -151,7 +151,7 @@ time_allocator(script::requests &s, interval_reqs &user_requests) {
     while (static_cast<size_t>(req) < s.lines.size()) {
         if (current_interval < user_requests.intervals.size()
             && user_requests.intervals[current_interval].start_req == req) {
-            const interval &section = user_requests.intervals[current_interval];
+            interval const &section = user_requests.intervals[current_interval];
             double total_request_time = 0;
             for (; req < section.end_req; ++req) {
                 std::optional<script::heap_delta> request_time
@@ -163,7 +163,7 @@ time_allocator(script::requests &s, interval_reqs &user_requests) {
                 cur_size = request_time.value().heap_size;
                 s.peak = std::max(s.peak, cur_size);
             }
-            const double new_average
+            double const new_average
                 = user_requests.interval_averages.emplace_back(
                     total_request_time
                     / static_cast<double>(section.end_req - section.start_req));
@@ -214,7 +214,7 @@ validate_intervals(script::requests &s, interval_reqs &user_requests) {
 }
 
 bool
-set_interval(interval_reqs &user_reqs, std::span<const char *const> args,
+set_interval(interval_reqs &user_reqs, std::span<char const *const> args,
              size_t i) {
     try {
         if (i + 1 >= args.size()) {

@@ -165,7 +165,7 @@ static struct free_node *get_right_neighbor(struct free_node *cur_header,
 static struct free_node *get_left_neighbor(struct free_node *cur_header);
 static bool is_block_allocated(header header_val);
 static void *get_client_space(struct free_node *cur_header);
-static struct free_node *get_free_node(const void *user_mem_space);
+static struct free_node *get_free_node(void const *user_mem_space);
 static inline void init_header(struct free_node *cur_header, size_t block_size,
                                header header_status);
 static void init_footer(struct free_node *cur_header, size_t block_size);
@@ -175,7 +175,7 @@ static void splice_at_index(struct free_node *to_splice, size_t i);
 static void init_free_node(struct free_node *to_add, size_t block_size);
 static void *split_alloc(struct free_node *free_block, size_t request,
                          size_t block_space);
-static struct coalesce_report check_neighbors(const void *old_ptr);
+static struct coalesce_report check_neighbors(void const *old_ptr);
 static void coalesce(struct coalesce_report *report);
 static bool check_init(struct seg_node table[], size_t client_size);
 static bool is_memory_balanced(size_t *total_free_mem, struct heap_range hr,
@@ -245,7 +245,7 @@ wmalloc(size_t requested_size) {
     if (requested_size == 0 || requested_size > MAX_REQUEST_SIZE) {
         return NULL;
     }
-    const size_t rounded_request = roundup(requested_size, ALIGNMENT);
+    size_t const rounded_request = roundup(requested_size, ALIGNMENT);
     // We are starting with a pretty good guess thanks to log2 properties but we
     // might not find anything.
     for (size_t i = find_index(rounded_request); i < NUM_BUCKETS; ++i) {
@@ -353,7 +353,7 @@ wheap_diff(const struct heap_block expected[], struct heap_block actual[],
     size_t i = 0;
     for (; i < len && cur_node != heap.client_end; ++i) {
         bool is_allocated = is_block_allocated(cur_node->header);
-        const size_t next_jump = get_size(cur_node->header);
+        size_t const next_jump = get_size(cur_node->header);
         size_t cur_payload = get_size(cur_node->header);
         void *client_addr = get_client_space(cur_node);
         if ((!expected[i].address && is_allocated)
@@ -445,9 +445,9 @@ init_free_node(struct free_node *to_add, size_t block_size) {
 }
 
 static struct coalesce_report
-check_neighbors(const void *old_ptr) {
+check_neighbors(void const *old_ptr) {
     struct free_node *current_node = get_free_node(old_ptr);
-    const size_t original_space = get_size(current_node->header);
+    size_t const original_space = get_size(current_node->header);
     struct coalesce_report result = {NULL, current_node, NULL, original_space};
 
     struct free_node *rightmost_node
@@ -484,28 +484,28 @@ coalesce(struct coalesce_report *report) {
 static inline size_t
 find_index(size_t any_block_size) {
     switch (any_block_size) {
-    case INDEX_0_BYTES:
-        return I0;
-    case INDEX_1_BYTES:
-        return I1;
-    case INDEX_2_BYTES:
-        return I2;
-    case INDEX_3_BYTES:
-        return I3;
-    case INDEX_4_BYTES:
-        return I4;
-    case INDEX_5_BYTES:
-        return I5;
-    case INDEX_6_BYTES:
-        return I6;
-    default: {
-        const size_t index_from_floored_log2
-            = ((uint_fast8_t)((sizeof(any_block_size) * CHAR_BIT) - 1U)
-               - ((uint_fast8_t)LEADING_ZEROS(any_block_size)));
-        return index_from_floored_log2 > NUM_BUCKETS - 1
-                   ? NUM_BUCKETS - 1
-                   : index_from_floored_log2;
-    }
+        case INDEX_0_BYTES:
+            return I0;
+        case INDEX_1_BYTES:
+            return I1;
+        case INDEX_2_BYTES:
+            return I2;
+        case INDEX_3_BYTES:
+            return I3;
+        case INDEX_4_BYTES:
+            return I4;
+        case INDEX_5_BYTES:
+            return I5;
+        case INDEX_6_BYTES:
+            return I6;
+        default: {
+            size_t const index_from_floored_log2
+                = ((uint_fast8_t)((sizeof(any_block_size) * CHAR_BIT) - 1U)
+                   - ((uint_fast8_t)LEADING_ZEROS(any_block_size)));
+            return index_from_floored_log2 > NUM_BUCKETS - 1
+                       ? NUM_BUCKETS - 1
+                       : index_from_floored_log2;
+        }
     }
 }
 
@@ -562,7 +562,7 @@ get_client_space(struct free_node *cur_header) {
 }
 
 static inline struct free_node *
-get_free_node(const void *user_mem_space) {
+get_free_node(void const *user_mem_space) {
     return (struct free_node *)((uint8_t *)user_mem_space - HEADERSIZE);
 }
 
@@ -579,7 +579,7 @@ init_footer(struct free_node *cur_header, size_t block_size) {
 }
 
 static inline bool
-is_left_space(const header cur_header) {
+is_left_space(header const cur_header) {
     return !(cur_header & LEFT_ALLOCATED);
 }
 

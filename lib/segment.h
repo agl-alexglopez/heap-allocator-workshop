@@ -6,8 +6,8 @@
 extern "C" {
 #endif
 #ifndef SEGMENT_H
-#define SEGMENT_H
-#include <stddef.h> // for size_t
+#    define SEGMENT_H
+#    include <stddef.h> // for size_t
 
 /// @brief init_heap_segment This function is called to initialize the heap
 /// segment and allocate the segment to hold total_size bytes. If

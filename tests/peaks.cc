@@ -55,18 +55,18 @@ struct break_limit {
     size_t max;
 };
 
-int print_peaks(const std::string &script_name, user_breaks &user_reqs);
+int print_peaks(std::string const &script_name, user_breaks &user_reqs);
 void handle_user_breakpoints(user_breaks &user_reqs, break_limit lim);
 bool validate_breakpoints(script::requests &s, user_breaks &user_reqs);
 
 int
-peaks(std::span<const char *const> args) {
+peaks(std::span<char const *const> args) {
     try {
         user_breaks breaks{};
         std::string file{};
-        for (const auto *arg : args) {
+        for (auto const *arg : args) {
             try {
-                const breakpoint found = std::stoull(arg);
+                breakpoint const found = std::stoull(arg);
                 breaks.breakpoints.push_back(found);
             } catch (...) {
                 auto strarg = std::string(arg);
@@ -104,7 +104,7 @@ peaks(std::span<const char *const> args) {
 int
 main(int argc, char **argv) {
     auto args
-        = std::span<const char *const>{argv, static_cast<size_t>(argc)}.subspan(
+        = std::span<char const *const>{argv, static_cast<size_t>(argc)}.subspan(
             1);
     if (args.empty()) {
         return 0;
@@ -115,7 +115,7 @@ main(int argc, char **argv) {
 namespace {
 
 int
-print_peaks(const std::string &script_name, user_breaks &user_reqs) {
+print_peaks(std::string const &script_name, user_breaks &user_reqs) {
     std::optional<script::requests> s = script::parse_script(script_name);
     if (!s) {
         return 1;
@@ -134,16 +134,16 @@ print_peaks(const std::string &script_name, user_breaks &user_reqs) {
     size_t peak_free_node_request = 0;
     size_t peak_free_node_count = 0;
     size_t curr_breakpoint = 0;
-    for (const auto &line : script.lines) {
+    for (auto const &line : script.lines) {
         if (!script::exec_request(line, script, 0, dummy)) {
             return 1;
         }
-        const size_t total_free_nodes = wget_free_total();
+        size_t const total_free_nodes = wget_free_total();
         free_nodes.push_back(total_free_nodes);
 
         if (curr_breakpoint < user_reqs.breakpoints.size()
             && user_reqs.breakpoints[curr_breakpoint] == line.line) {
-            const auto msg = std::string("After executing line ")
+            auto const msg = std::string("After executing line ")
                                  .append(osync::ansi_byel)
                                  .append(std::to_string(line.line))
                                  .append(osync::ansi_nil)
@@ -176,12 +176,12 @@ print_peaks(const std::string &script_name, user_breaks &user_reqs) {
     }
     dummy = heap_segment_start();
     size_t req = 0;
-    for (const auto &line : script.lines) {
+    for (auto const &line : script.lines) {
         if (!script::exec_request(line, script, 0, dummy)) {
             return 1;
         }
         if (req == peak_free_node_request) {
-            const auto msg = std::string("Peak free nodes occurred after line ")
+            auto const msg = std::string("Peak free nodes occurred after line ")
                                  .append(osync::ansi_byel)
                                  .append(std::to_string(req + 1))
                                  .append(osync::ansi_nil)
@@ -213,7 +213,7 @@ print_peaks(const std::string &script_name, user_breaks &user_reqs) {
 
 void
 handle_user_breakpoints(user_breaks &user_reqs, break_limit lim) {
-    const size_t min = user_reqs.breakpoints[lim.cur] + 1;
+    size_t const min = user_reqs.breakpoints[lim.cur] + 1;
     for (;;) {
         if (user_reqs.breakpoints[lim.cur] == lim.max) {
             auto msg = std::string();
@@ -227,9 +227,9 @@ handle_user_breakpoints(user_breaks &user_reqs, break_limit lim) {
         std::string buf{};
         std::getline(std::cin, buf);
         try {
-            const size_t breakpoint = std::stoull(buf);
+            size_t const breakpoint = std::stoull(buf);
             if (breakpoint > lim.max || breakpoint < min) {
-                const auto msg
+                auto const msg
                     = std::string("Breakpoint is past the last which is ")
                           .append(std::to_string(lim.max))
                           .append("\n");
@@ -246,7 +246,7 @@ handle_user_breakpoints(user_breaks &user_reqs, break_limit lim) {
             if (buf.empty() || buf == "c") {
                 return;
             }
-            const auto msg = std::string("Invalid entry: ")
+            auto const msg = std::string("Invalid entry: ")
                                  .append(osync::ansi_bred)
                                  .append(buf)
                                  .append(osync::ansi_nil)
@@ -258,7 +258,7 @@ handle_user_breakpoints(user_breaks &user_reqs, break_limit lim) {
 
 bool
 validate_breakpoints(script::requests &s, user_breaks &user_reqs) {
-    const size_t reqs = s.lines.size();
+    size_t const reqs = s.lines.size();
     return std::all_of(user_reqs.breakpoints.begin(),
                        user_reqs.breakpoints.end(),
                        [reqs](breakpoint b) { return b < reqs; });

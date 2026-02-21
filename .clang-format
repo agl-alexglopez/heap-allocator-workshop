@@ -3,12 +3,20 @@ Language: Cpp
 IndentWidth: 4
 ColumnLimit: 80
 SpacesInParentheses: false
-AlwaysBreakAfterReturnType: AllDefinitions
+IndentPPDirectives: AfterHash
+IndentCaseLabels: true
+BreakAfterReturnType: AllDefinitions
 BreakBeforeBinaryOperators: All
 AllowShortBlocksOnASingleLine: Empty
 AllowShortFunctionsOnASingleLine: None
-AlignAfterOpenBracket: Align
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: false
+AlignAfterOpenBracket: true
 AlignTrailingComments: Always
 BinPackArguments: true
 BinPackParameters: true
+QualifierAlignment: Custom
+QualifierOrder: [static, inline, friend, constexpr, type, const, volatile]
 ---

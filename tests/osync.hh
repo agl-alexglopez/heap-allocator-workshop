@@ -1,8 +1,8 @@
 #pragma once
 #ifndef OSYNC_HH
-#define OSYNC_HH
+#    define OSYNC_HH
 
-#include <string_view>
+#    include <string_view>
 
 /// I can't decide how many of these testers should be
 /// multithreaded/multiprocessed so I'm making io syncd and thread safe for now

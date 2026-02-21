@@ -9,11 +9,11 @@
 extern "C" {
 #endif
 #ifndef ALLOCATOR_H
-#define ALLOCATOR_H
+#    define ALLOCATOR_H
 
-#include "print_utility.h"
-#include <stdbool.h>
-#include <stddef.h>
+#    include "print_utility.h"
+#    include <stdbool.h>
+#    include <stddef.h>
 
 enum {
     /// Alignment requirement for all blocks
@@ -24,17 +24,19 @@ enum {
 
 /// The preproccesor will keep our error enum and strings in sync for printing
 /// from the testing suite.
-#define FOREACH_ERR(ERR) /*NOLINT*/                                            \
-    ERR(OK)                                                                    \
-    ERR(ER)                                                                    \
-    ERR(HEAP_CONTINUES)                                                        \
-    ERR(OUT_OF_BOUNDS)
-#define GENERATE_ENUM(ENUM) ENUM,        /*NOLINT*/
-#define GENERATE_STRING(STRING) #STRING, /*NOLINT*/
+#    define FOREACH_ERR(ERR) /*NOLINT*/                                        \
+        ERR(OK)                                                                \
+        ERR(ER)                                                                \
+        ERR(HEAP_CONTINUES)                                                    \
+        ERR(OUT_OF_BOUNDS)
+#    define GENERATE_ENUM(ENUM) ENUM,        /*NOLINT*/
+#    define GENERATE_STRING(STRING) #STRING, /*NOLINT*/
 
-enum status_error { FOREACH_ERR(GENERATE_ENUM) };
+enum status_error {
+    FOREACH_ERR(GENERATE_ENUM)
+};
 
-static const char *const err_string[] = { // NOLINT
+static char const *const err_string[] = { // NOLINT
     FOREACH_ERR(GENERATE_STRING)};
 
 enum ignore_bytes {

@@ -108,7 +108,10 @@ struct path_slice {
     int len;
 };
 
-enum rb_color { BLACK = 0, RED = 1 };
+enum rb_color {
+    BLACK = 0,
+    RED = 1
+};
 
 // Symmetry can be unified to one case because (!l == r) and (!r == l).
 enum tree_link {
@@ -183,7 +186,7 @@ static struct heap {
 static void init_free_node(struct rb_node *to_free, size_t block_size);
 static void *split_alloc(struct rb_node *free_block, size_t request,
                          size_t block_space);
-static struct coalesce_report check_neighbors(const void *old_ptr);
+static struct coalesce_report check_neighbors(void const *old_ptr);
 static void coalesce(struct coalesce_report *report);
 static void rotate(enum tree_link rotation, struct rb_node *current,
                    struct path_slice path);
@@ -214,7 +217,7 @@ static struct rb_node *get_right_neighbor(const struct rb_node *current,
                                           size_t payload);
 static struct rb_node *get_left_neighbor(const struct rb_node *node);
 static void *get_client_space(const struct rb_node *node_header);
-static struct rb_node *get_rb_node(const void *client_space);
+static struct rb_node *get_rb_node(void const *client_space);
 static bool check_init(struct heap_range r, size_t heap_size);
 static bool is_memory_balanced(size_t *total_free_mem, struct heap_range r,
                                struct size_total s);
@@ -223,9 +226,9 @@ static bool is_red_red(const struct rb_node *root,
 static bool is_bheight_valid(const struct rb_node *root,
                              const struct rb_node *black_nil);
 static size_t extract_tree_mem(const struct rb_node *root,
-                               const void *nil_and_tail);
+                               void const *nil_and_tail);
 static bool is_rbtree_mem_valid(const struct rb_node *root,
-                                const void *nil_and_tail,
+                                void const *nil_and_tail,
                                 size_t total_free_mem);
 static bool is_bheight_valid_v2(const struct rb_node *root,
                                 const struct rb_node *black_nil);
@@ -233,8 +236,8 @@ static bool are_subtrees_valid(struct tree_range r,
                                const struct rb_node *black_nil);
 static bool is_duplicate_storing_parent(const struct rb_node *parent,
                                         const struct rb_node *root,
-                                        const void *nil_and_tail);
-static void print_rb_tree(const struct rb_node *root, const void *nil_and_tail,
+                                        void const *nil_and_tail);
+static void print_rb_tree(const struct rb_node *root, void const *nil_and_tail,
                           enum print_style style);
 static void print_all(struct heap_range r, size_t heap_size,
                       struct rb_node *tree_root, struct rb_node *black_nil);
@@ -409,7 +412,7 @@ wheap_diff(const struct heap_block expected[], struct heap_block actual[],
     size_t i = 0;
     for (; i < len && cur_node != heap.client_end; ++i) {
         bool is_allocated = is_block_allocated(cur_node->header);
-        const size_t next_jump = get_size(cur_node->header);
+        size_t const next_jump = get_size(cur_node->header);
         size_t cur_size = get_size(cur_node->header);
         void *client_addr = get_client_space(cur_node);
         if (!expected[i].address && is_allocated) {
@@ -495,9 +498,9 @@ init_free_node(struct rb_node *to_free, size_t block_size) {
 }
 
 static struct coalesce_report
-check_neighbors(const void *old_ptr) {
+check_neighbors(void const *old_ptr) {
     struct rb_node *current_node = get_rb_node(old_ptr);
-    const size_t original_space = get_size(current_node->header);
+    size_t const original_space = get_size(current_node->header);
     struct coalesce_report result = {NULL, current_node, NULL, original_space};
 
     struct rb_node *rightmost_node
@@ -926,7 +929,7 @@ get_min(struct rb_node *root, struct rb_node *black_nil,
 }
 
 static inline bool
-is_block_allocated(const header block_header) {
+is_block_allocated(header const block_header) {
     return block_header & ALLOCATED;
 }
 
@@ -964,7 +967,7 @@ get_client_space(const struct rb_node *node_header) {
 }
 
 static inline struct rb_node *
-get_rb_node(const void *client_space) {
+get_rb_node(void const *client_space) {
     return (struct rb_node *)((uint8_t *)client_space - HEADERSIZE);
 }
 
@@ -1057,7 +1060,7 @@ is_bheight_valid(const struct rb_node *root, const struct rb_node *black_nil) {
 }
 
 static size_t
-extract_tree_mem(const struct rb_node *root, const void *nil_and_tail) {
+extract_tree_mem(const struct rb_node *root, void const *nil_and_tail) {
     if (root == nil_and_tail) {
         return 0UL;
     }
@@ -1071,7 +1074,7 @@ extract_tree_mem(const struct rb_node *root, const void *nil_and_tail) {
 }
 
 static bool
-is_rbtree_mem_valid(const struct rb_node *root, const void *nil_and_tail,
+is_rbtree_mem_valid(const struct rb_node *root, void const *nil_and_tail,
                     size_t total_free_mem) {
     if (total_free_mem != extract_tree_mem(root, nil_and_tail)) {
         BREAKPOINT();
@@ -1109,7 +1112,7 @@ are_subtrees_valid(const struct tree_range r, const struct rb_node *nil) {
     if (r.root == nil) {
         return true;
     }
-    const size_t root_size = get_size(r.root->header);
+    size_t const root_size = get_size(r.root->header);
     if (r.low != nil && root_size < get_size(r.low->header)) {
         BREAKPOINT();
         return false;
@@ -1137,7 +1140,7 @@ are_subtrees_valid(const struct tree_range r, const struct rb_node *nil) {
 static bool
 is_duplicate_storing_parent(const struct rb_node *parent,
                             const struct rb_node *root,
-                            const void *nil_and_tail) {
+                            void const *nil_and_tail) {
     if (root == nil_and_tail) {
         return true;
     }
@@ -1164,7 +1167,7 @@ get_black_height(const struct rb_node *root, const struct rb_node *black_nil) {
 }
 
 static void
-print_node(const struct rb_node *root, const void *nil_and_tail,
+print_node(const struct rb_node *root, void const *nil_and_tail,
            enum print_style style) {
     size_t block_size = get_size(root->header);
     get_color(root->header) == BLACK ? printf(COLOR_BLK) : printf(COLOR_RED);
@@ -1195,8 +1198,8 @@ print_node(const struct rb_node *root, const void *nil_and_tail,
 }
 
 static void
-print_inner_tree(const struct rb_node *root, const void *nil_and_tail,
-                 const char *prefix, const enum print_link node_type,
+print_inner_tree(const struct rb_node *root, void const *nil_and_tail,
+                 char const *prefix, const enum print_link node_type,
                  const enum tree_link dir, enum print_style style) {
     if (root == nil_and_tail) {
         return;
@@ -1234,7 +1237,7 @@ print_inner_tree(const struct rb_node *root, const void *nil_and_tail,
 }
 
 static void
-print_rb_tree(const struct rb_node *root, const void *nil_and_tail,
+print_rb_tree(const struct rb_node *root, void const *nil_and_tail,
               enum print_style style) {
     if (root == nil_and_tail) {
         return;
@@ -1311,7 +1314,7 @@ print_error_block(const struct rb_node *node, size_t block_size) {
 
 static void
 print_bad_jump(const struct rb_node *current, struct bad_jump j,
-               const void *nil_and_tail) {
+               void const *nil_and_tail) {
     size_t prev_size = get_size(j.prev->header);
     size_t cur_size = get_size(current->header);
     printf("A bad jump from the value of a header has occured. Bad distance to "

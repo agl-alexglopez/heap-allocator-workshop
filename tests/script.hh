@@ -6,14 +6,14 @@
 /// or timing program.
 #pragma once
 #ifndef SCRIPT_HH
-#define SCRIPT_HH
+#    define SCRIPT_HH
 
-#include <cstddef>
-#include <cstdint>
-#include <optional>
-#include <string>
-#include <utility>
-#include <vector>
+#    include <cstddef>
+#    include <cstdint>
+#    include <optional>
+#    include <string>
+#    include <utility>
+#    include <vector>
 
 namespace script {
 
@@ -49,7 +49,7 @@ struct heap_delta {
 /// @param filepath      the path the .script file we wish parsed.
 /// @return              an empty optional on failure, a requests object on
 /// success.
-std::optional<requests> parse_script(const std::string &filepath);
+std::optional<requests> parse_script(std::string const &filepath);
 
 /// @brief exec_request  executes a heap request on the current line object
 /// passed in and adjusts the
@@ -66,7 +66,7 @@ std::optional<requests> parse_script(const std::string &filepath);
 /// adjustment if needed.
 /// @return              the new size of the heap upon a successful request,
 /// empty on any failure.
-std::optional<size_t> exec_request(const line &line, requests &script,
+std::optional<size_t> exec_request(line const &line, requests &script,
                                    size_t heap_size, void *&heap_end);
 
 /// @brief time_request  executes a request with timing information regarding
@@ -80,7 +80,7 @@ std::optional<size_t> exec_request(const line &line, requests &script,
 /// adjustment if needed.
 /// @return              the new size of the heap and request time or nothing on
 /// failure.
-std::optional<heap_delta> time_request(const line &line, requests &script,
+std::optional<heap_delta> time_request(line const &line, requests &script,
                                        size_t heap_size, void *&heap_end);
 
 } // namespace script

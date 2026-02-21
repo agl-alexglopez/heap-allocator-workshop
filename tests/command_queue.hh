@@ -58,18 +58,18 @@ class command_queue {
 
     void
     push(std::optional<std::function<bool()>> args) {
-        const std::unique_lock<std::mutex> ul(lk_);
+        std::unique_lock<std::mutex> const ul(lk_);
         q_.push(std::move(args));
         wait_.notify_one();
     }
 
     [[nodiscard]] bool
     empty() {
-        const std::unique_lock<std::mutex> ul(lk_);
+        std::unique_lock<std::mutex> const ul(lk_);
         return q_.empty();
     }
-    command_queue(const command_queue &) = delete;
-    command_queue &operator=(const command_queue &) = delete;
+    command_queue(command_queue const &) = delete;
+    command_queue &operator=(command_queue const &) = delete;
     command_queue(command_queue &&) = delete;
     command_queue &operator=(command_queue &&) = delete;
 };

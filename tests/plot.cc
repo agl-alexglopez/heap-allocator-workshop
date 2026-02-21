@@ -61,7 +61,7 @@ constexpr size_t starting_buf_size = 64;
 
 /// The script commands are carefully tuned to only time sections where the
 /// desired behavior is operating.
-constexpr std::array<std::array<std::array<const char *, 4>, 20>, 2>
+constexpr std::array<std::array<std::array<char const *, 4>, 20>, 2>
     big_o_timing = {{
         {{
             // Malloc and free commands are targeted at making many
@@ -192,46 +192,46 @@ struct allocator_entry {
 };
 
 std::vector<path_bin> gather_timer_programs();
-int run_bigo_analysis(const std::vector<path_bin> &commands,
-                      const plot_args &args);
-int plot_script_comparison(const std::vector<path_bin> &commands,
+int run_bigo_analysis(std::vector<path_bin> const &commands,
+                      plot_args const &args);
+int plot_script_comparison(std::vector<path_bin> const &commands,
                            plot_args &args);
-const data_set &set(const runtime_metrics &m, data_set_type request);
-const std::vector<double> &x_axis(const data_set &s);
+data_set const &set(runtime_metrics const &m, data_set_type request);
+std::vector<double> const &x_axis(data_set const &s);
 std::vector<double> &x_axis(data_set &s);
 std::vector<double> &series(data_set &s, size_t series_index);
 std::vector<data_series> &all_series(data_set &s);
 void twiddle_cursor(command_queue &q);
 bool close_process(process_result res);
 double parse_quantity_n(std::string_view script_name);
-bool parse_metrics(const std::string &output, size_t allocator_index,
+bool parse_metrics(std::string const &output, size_t allocator_index,
                    runtime_metrics &m);
 int start_subprocess(std::string_view cmd_path,
-                     const std::vector<const char *> &args);
-bool thread_run_cmd(size_t allocator_index, const path_bin &cmd,
-                    runtime_metrics &m, std::vector<const char *> cmd_list);
+                     std::vector<char const *> const &args);
+bool thread_run_cmd(size_t allocator_index, path_bin const &cmd,
+                    runtime_metrics &m, std::vector<char const *> cmd_list);
 std::optional<size_t> specify_threads(std::string_view thread_request);
-bool thread_run_analysis(size_t allocator_index, const path_bin &cmd,
+bool thread_run_analysis(size_t allocator_index, path_bin const &cmd,
                          runtime_metrics &m, heap_operation s);
 bool scripts_generated();
-void line_plot_stats(const runtime_metrics &m, data_set_type t, labels l,
+void line_plot_stats(runtime_metrics const &m, data_set_type t, labels l,
                      bool quiet);
-void bar_chart_stats(const runtime_metrics &m, data_set_type t, labels l,
+void bar_chart_stats(runtime_metrics const &m, data_set_type t, labels l,
                      bool quiet);
-int plot_runtime(const std::vector<path_bin> &commands, plot_args args);
+int plot_runtime(std::vector<path_bin> const &commands, plot_args args);
 
 //////////////////////////////////    User Argument Handling
 
 int
-plot(std::span<const char *const> cli_args) {
+plot(std::span<char const *const> cli_args) {
     try {
-        const std::vector<path_bin> commands = gather_timer_programs();
+        std::vector<path_bin> const commands = gather_timer_programs();
         if (commands.empty()) {
             return 1;
         }
         plot_args args{};
-        for (const auto *arg : cli_args) {
-            const std::string arg_copy = std::string(arg);
+        for (auto const *arg : cli_args) {
+            std::string const arg_copy = std::string(arg);
             if (arg_copy == "-realloc") {
                 args.op = heap_operation::realloc_free;
             } else if (arg_copy == "-malloc") {
@@ -275,7 +275,7 @@ plot(std::span<const char *const> cli_args) {
 
 int
 main(int argc, char *argv[]) {
-    auto cli_args = std::span<const char *const>(argv, argc).subspan(1);
+    auto cli_args = std::span<char const *const>(argv, argc).subspan(1);
     if (cli_args.empty()) {
         return 0;
     }
@@ -289,8 +289,8 @@ namespace {
 /////////////////////////  Threading Subproccesses and File Handling
 
 int
-run_bigo_analysis(const std::vector<path_bin> &commands,
-                  const plot_args &args) {
+run_bigo_analysis(std::vector<path_bin> const &commands,
+                  plot_args const &args) {
     if (args.op == heap_operation::malloc_free) {
         return plot_runtime(
             commands, plot_args(heap_operation::malloc_free,
@@ -347,13 +347,13 @@ run_bigo_analysis(const std::vector<path_bin> &commands,
 }
 
 int
-plot_runtime(const std::vector<path_bin> &commands, plot_args args) {
+plot_runtime(std::vector<path_bin> const &commands, plot_args args) {
     runtime_metrics m{};
     x_axis(m.interval_speed).push_back(0);
     x_axis(m.average_response_time).push_back(0);
     x_axis(m.overall_utilization).push_back(0);
-    for (const auto &args : big_o_timing.at(args.op)) {
-        const double script_size = parse_quantity_n(args.back());
+    for (auto const &args : big_o_timing.at(args.op)) {
+        double const script_size = parse_quantity_n(args.back());
         if (script_size == 0) {
             osync::syncerr("could not parse script size\n", osync::ansi_bred);
             return 1;
@@ -362,7 +362,7 @@ plot_runtime(const std::vector<path_bin> &commands, plot_args args) {
         x_axis(m.average_response_time).push_back(script_size);
         x_axis(m.overall_utilization).push_back(script_size);
     }
-    for (const auto &c : commands) {
+    for (auto const &c : commands) {
         std::string title = c.bin.substr(c.bin.find('_') + 1);
         // Matplot reads underscores as subscripts which messes up legends on
         // graphs. Change to space.
@@ -407,25 +407,25 @@ plot_runtime(const std::vector<path_bin> &commands, plot_args args) {
 }
 
 bool
-thread_run_analysis(const size_t allocator_index, const path_bin &cmd,
+thread_run_analysis(size_t const allocator_index, path_bin const &cmd,
                     runtime_metrics &m, heap_operation s) {
-    for (const auto &args : big_o_timing.at(s)) {
+    for (auto const &args : big_o_timing.at(s)) {
         thread_run_cmd(allocator_index, cmd, m,
-                       std::vector<const char *>(args.begin(), args.end()));
+                       std::vector<char const *>(args.begin(), args.end()));
     }
     return true;
 }
 
 int
-plot_script_comparison(const std::vector<path_bin> &commands, plot_args &args) {
+plot_script_comparison(std::vector<path_bin> const &commands, plot_args &args) {
     if (!args.script_name) {
         osync::cerr("No script provided for plotting comparison",
                     osync::ansi_bred);
         return 1;
     }
-    const std::string script_name_str(args.script_name.value());
+    std::string const script_name_str(args.script_name.value());
     if (!std::ifstream(script_name_str, std::ios_base::in).good()) {
-        const auto msg
+        auto const msg
             = std::string(
                   "Could not find the following file for script comparison:\n")
                   .append(script_name_str)
@@ -434,15 +434,15 @@ plot_script_comparison(const std::vector<path_bin> &commands, plot_args &args) {
         return 1;
     }
     runtime_metrics m{};
-    const std::string_view path_to_script{script_name_str};
+    std::string_view const path_to_script{script_name_str};
     std::string script(
         path_to_script.substr(path_to_script.find_last_of('/') + 1));
     script.erase(script.find_last_of('.'));
-    const auto save_interval
+    auto const save_interval
         = std::string("output/interval-").append(script).append(".svg");
-    const auto save_response
+    auto const save_response
         = std::string("output/response-").append(script).append(".svg");
-    const auto save_utilization
+    auto const save_utilization
         = std::string("output/utilization-").append(script).append(".svg");
     args.interval_labels = {
         .title = "Time(ms) to Complete Script",
@@ -462,7 +462,7 @@ plot_script_comparison(const std::vector<path_bin> &commands, plot_args &args) {
         .y_label = "Percent %",
         .filename = save_utilization,
     };
-    for (const auto &c : commands) {
+    for (auto const &c : commands) {
         std::string title = c.bin.substr(c.bin.find('_') + 1);
         // Matplot reads underscores as subscripts which messes up legends on
         // graphs. Change to space.
@@ -498,17 +498,17 @@ plot_script_comparison(const std::vector<path_bin> &commands, plot_args &args) {
 }
 
 bool
-thread_run_cmd(const size_t allocator_index, const path_bin &cmd,
-               runtime_metrics &m, std::vector<const char *> cmd_list) {
+thread_run_cmd(size_t const allocator_index, path_bin const &cmd,
+               runtime_metrics &m, std::vector<char const *> cmd_list) {
     // I have had more success with subprocesses when using full paths but maybe
     // not necessary?
     std::string cur_path = std::filesystem::current_path();
     cur_path.append("/").append(cmd_list.back());
-    std::vector<const char *> commands{cmd.bin.data()};
+    std::vector<char const *> commands{cmd.bin.data()};
     commands.insert(commands.end(), cmd_list.begin(), cmd_list.end());
     // Be compliant with execv interface and end arguments with nullptr.
     commands.push_back(nullptr);
-    const int process = start_subprocess(cmd.path, commands);
+    int const process = start_subprocess(cmd.path, commands);
     // Output from the program we use is two lines max.
     size_t remaining = starting_buf_size;
     std::vector<char> vec_buf(remaining);
@@ -530,7 +530,7 @@ thread_run_cmd(const size_t allocator_index, const path_bin &cmd,
             osync::ansi_bred);
         return false;
     }
-    const std::string data = std::string(vec_buf.data());
+    std::string const data = std::string(vec_buf.data());
     if (!parse_metrics(data, allocator_index, m)) {
         osync::syncerr("This thread is quitting early due to parsing error\n",
                        osync::ansi_bred);
@@ -541,7 +541,7 @@ thread_run_cmd(const size_t allocator_index, const path_bin &cmd,
 
 int
 start_subprocess(std::string_view cmd_path,
-                 const std::vector<const char *> &args) {
+                 std::vector<char const *> const &args) {
     std::array<int, 2> comms{0, 0};
     if (pipe2(comms.data(), O_CLOEXEC) < 0) {
         osync::syncerr("Could not open pipe for communication\n",
@@ -573,7 +573,7 @@ bool
 close_process(process_result res) {
     close(res.process_id);
     int err = 0;
-    const int wait_err = waitpid(-1, &err, 0);
+    int const wait_err = waitpid(-1, &err, 0);
     if (WIFSIGNALED(err) && WTERMSIG(err) == SIGSEGV) { // NOLINT
         auto err = std::string("Seg fault waitpid returned ")
                        .append(std::to_string(wait_err))
@@ -590,9 +590,9 @@ close_process(process_result res) {
 
 double
 parse_quantity_n(std::string_view script_name) {
-    const size_t last_dash = script_name.find_last_of('-') + 1;
-    const size_t last_k = script_name.find_last_of('k');
-    const std::string num
+    size_t const last_dash = script_name.find_last_of('-') + 1;
+    size_t const last_k = script_name.find_last_of('k');
+    std::string const num
         = std::string(script_name.substr(last_dash, last_k - last_dash));
     try {
         return std::stod(num) * 1000;
@@ -606,19 +606,19 @@ parse_quantity_n(std::string_view script_name) {
 }
 
 bool
-parse_metrics(const std::string &output, const size_t allocator_index,
+parse_metrics(std::string const &output, size_t const allocator_index,
               runtime_metrics &m) {
     try {
-        const size_t first_space = output.find_first_of(' ');
-        const size_t first_newline = output.find_first_of('\n');
-        const std::string interval_time = output.substr(0, first_space);
+        size_t const first_space = output.find_first_of(' ');
+        size_t const first_newline = output.find_first_of('\n');
+        std::string const interval_time = output.substr(0, first_space);
         series(m.interval_speed, allocator_index)
             .emplace_back(stod(interval_time));
-        const std::string response_average
+        std::string const response_average
             = output.substr(first_space, first_newline - first_space);
         series(m.average_response_time, allocator_index)
             .emplace_back(stod(response_average));
-        const std::string utilization = output.substr(
+        std::string const utilization = output.substr(
             first_newline + 1, output.find_last_of('%') - (first_newline + 1));
         series(m.overall_utilization, allocator_index)
             .emplace_back(stod(utilization));
@@ -635,10 +635,10 @@ gather_timer_programs() {
     std::vector<path_bin> commands{};
     std::string path = std::filesystem::current_path();
     path.append(prog_path);
-    for (const auto &entry : std::filesystem::directory_iterator(path)) {
-        const std::string as_str = entry.path();
-        const size_t last_entry = as_str.find_last_of('/');
-        const std::string_view is_timer
+    for (auto const &entry : std::filesystem::directory_iterator(path)) {
+        std::string const as_str = entry.path();
+        size_t const last_entry = as_str.find_last_of('/');
+        std::string_view const is_timer
             = std::string_view{as_str}.substr(last_entry + 1);
         if (is_timer.starts_with("stats_")) {
             commands.emplace_back(as_str, std::string(is_timer));
@@ -655,7 +655,7 @@ specify_threads(std::string_view thread_request) {
                        osync::ansi_bred);
         return 1;
     }
-    const auto cores = std::string(std::string_view{thread_request}.substr(
+    auto const cores = std::string(std::string_view{thread_request}.substr(
         thread_request.find_first_not_of("-j")));
     try {
         size_t result = std::stoull(cores);
@@ -682,9 +682,9 @@ specify_threads(std::string_view thread_request) {
 bool
 scripts_generated() {
     std::vector<std::string> missing_files{};
-    for (const auto &command_series : big_o_timing) {
-        for (const auto &commands : command_series) {
-            const std::string fpath_and_name(commands.back());
+    for (auto const &command_series : big_o_timing) {
+        for (auto const &commands : command_series) {
+            std::string const fpath_and_name(commands.back());
             if (!std::ifstream(fpath_and_name, std::ios_base::in).good()) {
                 missing_files.push_back(fpath_and_name);
             }
@@ -696,7 +696,7 @@ scripts_generated() {
     osync::cerr("See script generation instructions. Missing the following "
                 "files for plot analysis:\n",
                 osync::ansi_bred);
-    for (const auto &missing : missing_files) {
+    for (auto const &missing : missing_files) {
         osync::cerr(missing, osync::ansi_bred);
         osync::cerr("\n", osync::ansi_bred);
     }
@@ -706,7 +706,7 @@ scripts_generated() {
 //////////////////////////////   Plotting with Matplot++
 
 void
-line_plot_stats(const runtime_metrics &m, data_set_type t, labels l,
+line_plot_stats(runtime_metrics const &m, data_set_type t, labels l,
                 bool quiet) {
     // To get the "figure" specify quiet mode so changes don't cause redraw.
     auto p = matplot::gcf(true);
@@ -717,7 +717,7 @@ line_plot_stats(const runtime_metrics &m, data_set_type t, labels l,
     axes->grid(true);
     axes->font_size(14.0);
     size_t tick_style = 0;
-    for (const auto &allocator : set(m, t).second) {
+    for (auto const &allocator : set(m, t).second) {
         // Grab a "plot" where actual data with x data and y data belongs.
         auto plot = axes->plot(x_axis(m.overall_utilization), allocator.second,
                                line_ticks.at(tick_style));
@@ -758,7 +758,7 @@ line_plot_stats(const runtime_metrics &m, data_set_type t, labels l,
 
 // See comments in line plot status for what is happening here. It is same.
 void
-bar_chart_stats(const runtime_metrics &m, data_set_type t, labels l,
+bar_chart_stats(runtime_metrics const &m, data_set_type t, labels l,
                 bool quiet) {
     auto p = matplot::gcf(true);
     auto axes = p->current_axes();
@@ -769,7 +769,7 @@ bar_chart_stats(const runtime_metrics &m, data_set_type t, labels l,
     size_t tick_style = 0;
     std::vector<std::string> tick_labels{};
     std::vector<double> bar_data{};
-    for (const auto &allocator : set(m, t).second) {
+    for (auto const &allocator : set(m, t).second) {
         bar_data.push_back(allocator.second.front());
         tick_labels.push_back(allocator.first);
         ++tick_style %= line_ticks.size();
@@ -789,26 +789,26 @@ bar_chart_stats(const runtime_metrics &m, data_set_type t, labels l,
 
 //////////////////////////////    Helpers to Access Data in Types
 
-const data_set &
-set(const runtime_metrics &m, data_set_type request) {
+data_set const &
+set(runtime_metrics const &m, data_set_type request) {
     switch (request) {
-    case interval:
-        return m.interval_speed;
-    case response:
-        return m.average_response_time;
-    case utilization:
-        return m.overall_utilization;
-    default: {
-        osync::syncerr(
-            "invalid request type for a data set that does not exist.\n",
-            osync::ansi_bred);
-        std::abort();
-    }
+        case interval:
+            return m.interval_speed;
+        case response:
+            return m.average_response_time;
+        case utilization:
+            return m.overall_utilization;
+        default: {
+            osync::syncerr(
+                "invalid request type for a data set that does not exist.\n",
+                osync::ansi_bred);
+            std::abort();
+        }
     }
 }
 
-const std::vector<double> &
-x_axis(const data_set &s) {
+std::vector<double> const &
+x_axis(data_set const &s) {
     return s.first;
 }
 

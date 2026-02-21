@@ -83,9 +83,15 @@ struct coalesce_report {
     size_t available;
 };
 
-enum rb_color { BLACK = 0, RED = 1 };
+enum rb_color {
+    BLACK = 0,
+    RED = 1
+};
 
-enum tree_link { L = 0, R = 1 };
+enum tree_link {
+    L = 0,
+    R = 1
+};
 
 #define SIZE_MASK ~0x7UL
 #define MIN_BLOCK_SIZE (uint8_t)40
@@ -130,7 +136,7 @@ static struct heap {
 
 /////////////////////////////   Forward Declarations
 
-static struct coalesce_report check_neighbors(const void *old_ptr);
+static struct coalesce_report check_neighbors(void const *old_ptr);
 static void coalesce(struct coalesce_report *report);
 static void init_free_node(struct rb_node *to_free, size_t block_size);
 static void *split_alloc(struct rb_node *free_block, size_t request,
@@ -157,7 +163,7 @@ static struct rb_node *get_right_neighbor(const struct rb_node *current,
                                           size_t payload);
 static struct rb_node *get_left_neighbor(const struct rb_node *node);
 static void *get_client_space(const struct rb_node *node_header);
-static struct rb_node *get_rb_node(const void *client_space);
+static struct rb_node *get_rb_node(void const *client_space);
 static bool check_init(struct heap_range r, size_t heap_size);
 static bool is_memory_balanced(size_t *total_free_mem, struct heap_range r,
                                struct size_total s);
@@ -346,7 +352,7 @@ wheap_diff(const struct heap_block expected[], struct heap_block actual[],
     size_t i = 0;
     for (; i < len && cur_node != heap.client_end; ++i) {
         bool is_allocated = is_block_allocated(cur_node->header);
-        const size_t next_jump = get_size(cur_node->header);
+        size_t const next_jump = get_size(cur_node->header);
         size_t cur_size = get_size(cur_node->header);
         void *client_addr = get_client_space(cur_node);
         if (!expected[i].address && is_allocated) {
@@ -428,9 +434,9 @@ init_free_node(struct rb_node *to_free, size_t block_size) {
 }
 
 static struct coalesce_report
-check_neighbors(const void *old_ptr) {
+check_neighbors(void const *old_ptr) {
     struct rb_node *current_node = get_rb_node(old_ptr);
-    const size_t original_space = get_size(current_node->header);
+    size_t const original_space = get_size(current_node->header);
     struct coalesce_report result = {NULL, current_node, NULL, original_space};
 
     struct rb_node *rightmost_node
@@ -752,7 +758,7 @@ get_min(struct rb_node *root, struct rb_node *black_nil) {
 }
 
 static inline bool
-is_block_allocated(const header block_header) {
+is_block_allocated(header const block_header) {
     return block_header & ALLOCATED;
 }
 
@@ -790,7 +796,7 @@ get_client_space(const struct rb_node *node_header) {
 }
 
 static inline struct rb_node *
-get_rb_node(const void *client_space) {
+get_rb_node(void const *client_space) {
     return (struct rb_node *)((uint8_t *)client_space - HEADERSIZE);
 }
 
@@ -948,7 +954,7 @@ are_subtrees_valid(const struct tree_range r, const struct rb_node *nil) {
     if (r.root == nil) {
         return true;
     }
-    const size_t root_size = get_size(r.root->header);
+    size_t const root_size = get_size(r.root->header);
     if (r.low != nil && root_size < get_size(r.low->header)) {
         BREAKPOINT();
         return false;
@@ -1011,7 +1017,7 @@ print_node(const struct rb_node *root, const struct rb_node *black_nil,
 
 static void
 print_inner_tree(const struct rb_node *root, const struct rb_node *black_nil,
-                 const char *prefix, const enum print_link node_type,
+                 char const *prefix, const enum print_link node_type,
                  enum print_style style) {
     if (root == black_nil) {
         return;
