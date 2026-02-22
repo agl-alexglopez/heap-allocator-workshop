@@ -65,7 +65,7 @@ cmake --build build/
 make
 ```
 
-Programs can then be found in the `build/rel/` folder if build in release mode or the `build/deb/` folder if built in debug mode.
+Programs can then be found in the `build/bin/` folder if build in release mode or the `build/debug/bin/` folder if built in debug mode.
 
 ### Plot
 
@@ -74,9 +74,9 @@ Using `Matplot++`, we can plot the performance characteristics of each allocator
 Observe the runtimes of `malloc/free` and `realloc/free` for all allocators. In other words, as the number of free blocks of memory we need to manage grows, what is the growth in runtime we see from our allocators? This question is answered with the following command.
 
 ```bash
-./build/rel/plot -j8 -malloc
+./build/bin/plot -j8 -malloc
 # or in debug mode
-./build/deb/plot -j8 -malloc
+./build/debug/bin/plot -j8 -malloc
 ```
 
 - The `-j[JOB COUNT]` flag lets you run the data gathering portion of the plotting program in parallel which can significantly speed things up. If you know the number of cores on your system enter that or fewer as the job count. I would not reccomend exceeding the number of physical cores on your system as that may interfere with timing data. The more jobs you specify the fewer other processes I would reccomend running on your computer. The default is 4 threads running in parallel.
@@ -85,9 +85,9 @@ Observe the runtimes of `malloc/free` and `realloc/free` for all allocators. In 
 Compare performance of the allocators for a specific script.
 
 ```bash
-./build/rel/plot -j8 scripts/time-trace-cargobuild.script
+./build/bin/plot -j8 scripts/time-trace-cargobuild.script
 # or in debug mode
-./build/deb/plot -j8 scripts/time-trace-cargobuild.script
+./build/debug/bin/plot -j8 scripts/time-trace-cargobuild.script
 ```
 
 - The `.script` file can be found in the `scripts/` folder and specifies the specific script we want all of our allocators to run. We will then see a performance comparison plotted as a bar chart.
@@ -102,14 +102,14 @@ This program acts as a mini GDB debugger, allowing you to see the state of the f
 
 ![matplot-peaks](/images/matplot-peaks.png)
 
-- All allocators have been prepended with the word `peaks_` and have been compiled to our `build/rel/` folder.
+- All allocators have been prepended with the word `peaks_` and have been compiled to our `build/bin/` folder.
   - `peaks_rbtree_clrs`, `peaks_rbtree_unified`, `peaks_rbtree_linked`, etc.
 - Run the default options to see what line of the script created the peak number of free nodes. Look at my printing debugger function for that allocator to see how the nodes are organized.
-  - `./build/rel/peaks_rbtree_stack scripts/pattern-mixed.script`
+  - `./build/bin/peaks_rbtree_stack scripts/pattern-mixed.script`
 - Run the default options in verbose mode with the `-v` flag. This flag can be included in any future options as well. This displays the free data structure with memory addresses included and extra information depending on the allocator. This is the printer I used because I needed to see memory addresses to better understand where errors were occurring.
-  - `./build/rel/peaks_list_segregated -v scripts/pattern-mixed.script`
+  - `./build/bin/peaks_list_segregated -v scripts/pattern-mixed.script`
 - Add breakpoints corresponding to line numbers in the script. This will show you how many free nodes existed after that line executes. You will also enter an interactive terminal session. You can decide if you want to continue to the next breakpoint, add a new future breakpoint, or continue to the end of the program execution. Be sure to follow the prompt directions.
-  - `./build/rel/peaks_list_bestfit -v 100 200 450 -q scripts/pattern-mixed.script`
+  - `./build/bin/peaks_list_bestfit -v 100 200 450 -q scripts/pattern-mixed.script`
 - Use the `-q` flag for quiet mode such that no Matplot++ graph pops up at the end.
 
 ### Correctness Tests
@@ -117,9 +117,9 @@ This program acts as a mini GDB debugger, allowing you to see the state of the f
 Check if an allocator passes a specific script or glob of scripts with the `ctest.cc` program. Use it as follows. This program runs extensive checks via its own logic and the internal validators of the heap allocators to ensure a correct implementation. Be careful running it on very large scripts, it may take quite a while!
 
 ```bash
-./build/rel/ctest_splaytree_stack scripts/example* scripts/trace* scripts/pattern*
+./build/bin/ctest_splaytree_stack scripts/example* scripts/trace* scripts/pattern*
 # or in debug mode
-./build/deb/ctest_splaytree_stack scripts/example* scripts/trace* scripts/pattern*
+./build/debug/bin/ctest_splaytree_stack scripts/example* scripts/trace* scripts/pattern*
 ```
 
 - Multiple scripts can be tested and we can use the `*` to expand out any scripts starting with the specified prefix.
@@ -137,9 +137,9 @@ make ctest-deb
 The Google Test program provides more basic API unit tests regarding `malloc`, `realloc`, and `free`. There are also test for coalescing and some internal block management expectations. This program also uses an API enforced across all allocators to verify some basic internal state.
 
 ```bash
-./build/rel/gtest_list_segregated
+./build/bin/gtest_list_segregated
 # or in debug mode
-./build/deb/gtest_list_segregated
+./build/debug/bin/gtest_list_segregated
 ```
 
 Or, you can run all the allocators with the makefile.
@@ -304,7 +304,7 @@ This was a program to help test the allocators in "real" `c` context. Ideally we
 
 #### How to Use the Sandbox
 
-- All allocators have been prepended with the word `sandbox_` and have been compiled to our `build/rel/` or `build/deb/` folder.
+- All allocators have been prepended with the word `sandbox_` and have been compiled to our `build/bin/` or `build/debug/bin/` folder.
   - `sandbox_rbtree_clrs`, `sandbox_rbtree_unified`, `sandbox_splaytree_topdown`, etc.
 - The rest is up to you. Design whatever program you would like.
 

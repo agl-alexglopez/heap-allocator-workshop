@@ -4,16 +4,15 @@
 /// Given a script file it will return the completed script::requests object
 /// with all lines ready for running through a program like a correctness tester
 /// or timing program.
-#pragma once
 #ifndef SCRIPT_HH
-#    define SCRIPT_HH
+#define SCRIPT_HH
 
-#    include <cstddef>
-#    include <cstdint>
-#    include <optional>
-#    include <string>
-#    include <utility>
-#    include <vector>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace script {
 

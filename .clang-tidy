@@ -2,12 +2,13 @@
 Checks: >
    *,
    -altera-*,
-   -llvmlibc-*,
+   -boost*,
+   -abseil*,
+   -llvm*,
    -readability-identifier-length,
    -concurrency-mt-unsafe,
    -modernize*,
    -*magic-numbers,
-   -llvm-header-guard,
    -fuchsia-overloaded-operator,
    -fuchsia-statically-constructed-objects,
    -fuchsia-default-arguments-calls,
@@ -15,12 +16,13 @@ Checks: >
    -readability-implicit-bool-conversion,
    -cppcoreguidelines*,
    -misc-use-anonymous-namespace,
-   -boost*,
-   -abseil*,
+   -clang-analyzer-security*,
+   -performance-enum-size
 
 CheckOptions:
    - { key: hicpp-signed-bitwise.IgnorePositiveIntegerLiterals, value: true }
    - { key: bugprone-unused-return-value.AllowCastToVoid, value: true }
+   - { key: clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling, value: false }
    - { key: readability-identifier-naming.TypedefCase, value: Leading_upper_snake_case }
    - { key: readability-identifier-naming.EnumConstantCase, value: UPPER_CASE }
    - { key: readability-identifier-naming.EnumCase, value: Leading_upper_snake_case }

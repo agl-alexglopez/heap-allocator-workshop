@@ -4,6 +4,11 @@ add_library(segment segment.h segment.c)
 
 macro(add_alloc ALLOCATOR_NAME)
   add_library(${ALLOCATOR_NAME} allocator.h ${ALLOCATOR_NAME}.c)
+  target_link_libraries(${ALLOCATOR_NAME} 
+    PRIVATE
+      debug_break
+      print_utility
+)
 endmacro()
 
 # Enter the name of the .c file in the lib/ folder without the .c.

@@ -19,7 +19,7 @@
 #include "matplot/core/legend.h"
 #include "matplot/freestanding/axes_functions.h"
 #include "matplot/util/handle_types.h"
-#include <matplot/matplot.h>
+#include <matplot/matplot.h> // IWYU pragma: keep
 
 #include <algorithm>
 #include <array>
@@ -119,7 +119,7 @@ struct Allocator_entry {
 } // namespace
 
 #ifdef NDEBUG
-static constexpr std::string_view prog_path = "/build/rel";
+static constexpr std::string_view prog_path = "/build/bin";
 #else
 static constexpr std::string_view prog_path = "/build/deb";
 #endif

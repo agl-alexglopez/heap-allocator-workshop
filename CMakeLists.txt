@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(red-black-tree-allocators VERSION 1.0 LANGUAGES C CXX)
+project(heap-allocator-workshop VERSION 1.0 LANGUAGES C CXX)
 
 include(etc/scanners.cmake)
 

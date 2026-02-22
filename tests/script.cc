@@ -189,9 +189,9 @@ static std::optional<double>
 time_malloc(script::Line const &line, script::Requests &s, void *&heap_end) {
     void *p = heap_end;
     auto start_time = std::clock();
-    void volatile *start_report = p;
+    void const volatile *const start_report = p;
     p = wmalloc(line.size);
-    void volatile *end_report = p;
+    void const volatile *const end_report = p;
     auto end_time = std::clock();
 
     if (nullptr == p && line.size != 0) {
@@ -224,9 +224,9 @@ time_realloc(script::Line const &line, script::Requests &s, void *&heap_end) {
     void *old_ptr = s.blocks.at(line.block_index).first;
     void *new_ptr = nullptr;
     auto start_time = std::clock();
-    void volatile *start_report = new_ptr;
+    void const volatile *const start_report = new_ptr;
     new_ptr = wrealloc(old_ptr, line.size);
-    void volatile *end_report = new_ptr;
+    void const volatile *const end_report = new_ptr;
     auto end_time = std::clock();
 
     if (nullptr == new_ptr && line.size != 0) {
@@ -258,9 +258,9 @@ time_free(Line const &line, Requests &script) {
     std::pair<void *, size_t> const old_block
         = script.blocks.at(line.block_index);
     auto start_time = std::clock();
-    void volatile *start_addr = old_block.first; // NOLINT
+    void const volatile *const start_addr = old_block.first; // NOLINT
     wfree(old_block.first);
-    void volatile *end_addr = start_addr; // NOLINT
+    void const volatile *const end_addr = start_addr; // NOLINT
     auto end_time = std::clock();
     double const result
         = 1000.0
@@ -268,7 +268,7 @@ time_free(Line const &line, Requests &script) {
     // This silly check is to silence compiler warning about unused volatile.
     if (result < 0) {
         std::stringstream s;
-        s << static_cast<void *>(&end_addr);
+        s << static_cast<void const *>(&end_addr);
         auto const msg = std::string("Error timing free. Last known address")
                              .append(s.str());
         osync::syncerr(msg, osync::ansi_bred);
