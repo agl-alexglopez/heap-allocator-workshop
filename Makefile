@@ -35,47 +35,47 @@ tidy:
 	cmake --build $(BUILD_DIR) --target tidy $(JOBS)
 
 ctest-deb: build
-	$(BUILD_DIR)deb/ctest_list_segregated $(TEST_ARGS)
-	$(BUILD_DIR)deb/ctest_rbtree_clrs $(TEST_ARGS)
-	$(BUILD_DIR)deb/ctest_rbtree_unified $(TEST_ARGS)
-	$(BUILD_DIR)deb/ctest_rbtree_linked $(TEST_ARGS)
-	$(BUILD_DIR)deb/ctest_rbtree_stack $(TEST_ARGS)
-	$(BUILD_DIR)deb/ctest_rbtree_topdown $(TEST_ARGS)
-	$(BUILD_DIR)deb/ctest_splaytree_stack $(TEST_ARGS)
-	$(BUILD_DIR)deb/ctest_splaytree_topdown $(TEST_ARGS)
+	$(BUILD_DIR)debug/bin/ctest_list_segregated $(TEST_ARGS)
+	$(BUILD_DIR)debug/bin/ctest_rbtree_clrs $(TEST_ARGS)
+	$(BUILD_DIR)debug/bin/ctest_rbtree_unified $(TEST_ARGS)
+	$(BUILD_DIR)debug/bin/ctest_rbtree_linked $(TEST_ARGS)
+	$(BUILD_DIR)debug/bin/ctest_rbtree_stack $(TEST_ARGS)
+	$(BUILD_DIR)debug/bin/ctest_rbtree_topdown $(TEST_ARGS)
+	$(BUILD_DIR)debug/bin/ctest_splaytree_stack $(TEST_ARGS)
+	$(BUILD_DIR)debug/bin/ctest_splaytree_topdown $(TEST_ARGS)
 	@echo "Ran DEBUG Script Correctness Tests"
 
 ctest-rel: build
-	$(BUILD_DIR)rel/ctest_list_segregated $(TEST_ARGS)
-	$(BUILD_DIR)rel/ctest_rbtree_clrs $(TEST_ARGS)
-	$(BUILD_DIR)rel/ctest_rbtree_unified $(TEST_ARGS)
-	$(BUILD_DIR)rel/ctest_rbtree_linked $(TEST_ARGS)
-	$(BUILD_DIR)rel/ctest_rbtree_stack $(TEST_ARGS)
-	$(BUILD_DIR)rel/ctest_rbtree_topdown $(TEST_ARGS)
-	$(BUILD_DIR)rel/ctest_splaytree_stack $(TEST_ARGS)
-	$(BUILD_DIR)rel/ctest_splaytree_topdown $(TEST_ARGS)
+	$(BUILD_DIR)bin/ctest_list_segregated $(TEST_ARGS)
+	$(BUILD_DIR)bin/ctest_rbtree_clrs $(TEST_ARGS)
+	$(BUILD_DIR)bin/ctest_rbtree_unified $(TEST_ARGS)
+	$(BUILD_DIR)bin/ctest_rbtree_linked $(TEST_ARGS)
+	$(BUILD_DIR)bin/ctest_rbtree_stack $(TEST_ARGS)
+	$(BUILD_DIR)bin/ctest_rbtree_topdown $(TEST_ARGS)
+	$(BUILD_DIR)bin/ctest_splaytree_stack $(TEST_ARGS)
+	$(BUILD_DIR)bin/ctest_splaytree_topdown $(TEST_ARGS)
 	@echo "Ran RELEASE Script Correctness Tests"
 
 gtest-deb: build
-	$(BUILD_DIR)deb/gtest_list_segregated
-	$(BUILD_DIR)deb/gtest_rbtree_clrs
-	$(BUILD_DIR)deb/gtest_rbtree_unified
-	$(BUILD_DIR)deb/gtest_rbtree_linked
-	$(BUILD_DIR)deb/gtest_rbtree_stack
-	$(BUILD_DIR)deb/gtest_rbtree_topdown
-	$(BUILD_DIR)deb/gtest_splaytree_topdown
-	$(BUILD_DIR)deb/gtest_splaytree_stack
+	$(BUILD_DIR)debug/bin/gtest_list_segregated
+	$(BUILD_DIR)debug/bin/gtest_rbtree_clrs
+	$(BUILD_DIR)debug/bin/gtest_rbtree_unified
+	$(BUILD_DIR)debug/bin/gtest_rbtree_linked
+	$(BUILD_DIR)debug/bin/gtest_rbtree_stack
+	$(BUILD_DIR)debug/bin/gtest_rbtree_topdown
+	$(BUILD_DIR)debug/bin/gtest_splaytree_topdown
+	$(BUILD_DIR)debug/bin/gtest_splaytree_stack
 	@echo "Ran DEBUG GTests"
 
 gtest-rel: build
-	$(BUILD_DIR)rel/gtest_list_segregated
-	$(BUILD_DIR)rel/gtest_rbtree_clrs
-	$(BUILD_DIR)rel/gtest_rbtree_unified
-	$(BUILD_DIR)rel/gtest_rbtree_linked
-	$(BUILD_DIR)rel/gtest_rbtree_stack
-	$(BUILD_DIR)rel/gtest_rbtree_topdown
-	$(BUILD_DIR)rel/gtest_splaytree_topdown
-	$(BUILD_DIR)rel/gtest_splaytree_stack
+	$(BUILD_DIR)bin/gtest_list_segregated
+	$(BUILD_DIR)bin/gtest_rbtree_clrs
+	$(BUILD_DIR)bin/gtest_rbtree_unified
+	$(BUILD_DIR)bin/gtest_rbtree_linked
+	$(BUILD_DIR)bin/gtest_rbtree_stack
+	$(BUILD_DIR)bin/gtest_rbtree_topdown
+	$(BUILD_DIR)bin/gtest_splaytree_topdown
+	$(BUILD_DIR)bin/gtest_splaytree_stack
 	@echo "Ran RELEASE GTests"
 
 test-deb-all: test-deb gtest-deb
