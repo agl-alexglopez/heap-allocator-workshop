@@ -59,7 +59,7 @@ wheap_capacity(void) {
 }
 
 void
-wheap_diff(const struct heap_block expected[], struct heap_block actual[],
+wheap_diff(const struct Heap_block expected[], struct Heap_block actual[],
            size_t len) {
     (void)expected;
     (void)actual;
@@ -72,7 +72,7 @@ wget_free_total(void) {
 }
 
 void
-wprint_free_nodes(print_style style) {
+wprint_free_nodes(enum Print_style style) {
     (void)style;
     UNIMPLEMENTED();
 }

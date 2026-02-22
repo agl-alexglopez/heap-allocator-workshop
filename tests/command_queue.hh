@@ -18,20 +18,20 @@
 /// in the future and the threads each spawn a child process we have 2x the
 /// processes. Use a work queue to cap the processes but still maintain
 /// consistent parallelism.
-class command_queue {
+class Command_queue {
     // I queue subprocess handling which can often fail so I figured we need
     // more info than void. Futures?
-    std::queue<std::optional<std::function<bool()>>> q_;
-    std::mutex lk_;
-    std::condition_variable wait_;
-    std::vector<std::thread> workers_;
+    std::queue<std::optional<std::function<bool()>>> q;
+    std::mutex lk;
+    std::condition_variable wait;
+    std::vector<std::thread> workers;
     void
     start() {
         for (;;) {
-            std::unique_lock<std::mutex> ul(lk_);
-            wait_.wait(ul, [this]() -> bool { return !q_.empty(); });
-            auto new_task = std::move(q_.front());
-            q_.pop();
+            std::unique_lock<std::mutex> ul(lk);
+            wait.wait(ul, [this]() -> bool { return !q.empty(); });
+            auto new_task = std::move(q.front());
+            q.pop();
             ul.unlock();
             if (!new_task.has_value()) {
                 return;
@@ -45,31 +45,31 @@ class command_queue {
     }
 
   public:
-    explicit command_queue(size_t num_workers) {
+    explicit Command_queue(size_t num_workers) {
         for (size_t i = 0; i < num_workers; ++i) {
-            workers_.emplace_back([this]() { start(); });
+            workers.emplace_back([this]() { start(); });
         }
     }
-    ~command_queue() {
-        for (auto &w : workers_) {
+    ~Command_queue() {
+        for (auto &w : workers) {
             w.join();
         }
     }
 
     void
     push(std::optional<std::function<bool()>> args) {
-        std::unique_lock<std::mutex> const ul(lk_);
-        q_.push(std::move(args));
-        wait_.notify_one();
+        std::unique_lock<std::mutex> const ul(lk);
+        q.push(std::move(args));
+        wait.notify_one();
     }
 
     [[nodiscard]] bool
     empty() {
-        std::unique_lock<std::mutex> const ul(lk_);
-        return q_.empty();
+        std::unique_lock<std::mutex> const ul(lk);
+        return q.empty();
     }
-    command_queue(command_queue const &) = delete;
-    command_queue &operator=(command_queue const &) = delete;
-    command_queue(command_queue &&) = delete;
-    command_queue &operator=(command_queue &&) = delete;
+    Command_queue(Command_queue const &) = delete;
+    Command_queue &operator=(Command_queue const &) = delete;
+    Command_queue(Command_queue &&) = delete;
+    Command_queue &operator=(Command_queue &&) = delete;
 };

@@ -29,9 +29,8 @@
 #include <vector>
 
 namespace script {
-namespace {
 
-std::optional<line>
+static std::optional<Line>
 tokens_pass(std::span<std::string const> toks, size_t lineno) {
     try {
         if (toks.size() > 3 || toks.size() < 2
@@ -40,18 +39,18 @@ tokens_pass(std::span<std::string const> toks, size_t lineno) {
                            osync::ansi_bred);
             return {};
         }
-        line ret{
-            .req = op::empty,
+        Line ret{
+            .req = Op::EMPTY,
             .block_index = 0,
             .size = 0,
             .line = lineno,
         };
         ret.block_index = std::stoull(toks[1]);
         if (toks[0] == "a" || toks[0] == "r") {
-            ret.req = toks[0] == "a" ? op::alloc : op::reallocd;
+            ret.req = toks[0] == "a" ? Op::ALLOC : Op::REALLOCD;
             ret.size = std::stoull(toks[2]);
         } else if (toks[0] == "f") {
-            ret.req = op::freed;
+            ret.req = Op::FREED;
         } else {
             osync::syncerr("Request has an unknown format.\n",
                            osync::ansi_bred);
@@ -67,9 +66,7 @@ tokens_pass(std::span<std::string const> toks, size_t lineno) {
     }
 }
 
-} // namespace
-
-std::optional<requests>
+std::optional<Requests>
 parse_script(std::string const &filepath) {
     std::ifstream sfile(filepath);
     if (sfile.fail()) {
@@ -82,7 +79,7 @@ parse_script(std::string const &filepath) {
                                     std::istreambuf_iterator<char>(), '\n');
     sfile.clear();
     sfile.seekg(0);
-    requests s{.lines{}, .blocks{}, .peak = 0};
+    Requests s{.lines{}, .blocks{}, .peak = 0};
     s.lines.reserve(lineo + 1);
     size_t line = 0;
     size_t max_id = 0;
@@ -95,7 +92,7 @@ parse_script(std::string const &filepath) {
             || tokens_split_on_whitespace.front().starts_with("#")) {
             continue;
         }
-        std::optional<struct line> const parsed
+        std::optional<struct Line> const parsed
             = tokens_pass(tokens_split_on_whitespace, line);
         if (!parsed) {
             return {};
@@ -109,7 +106,7 @@ parse_script(std::string const &filepath) {
 }
 
 static bool
-exec_malloc(script::line const &line, script::requests &s, void *&heap_end) {
+exec_malloc(script::Line const &line, script::Requests &s, void *&heap_end) {
     void *p = wmalloc(line.size);
     if (nullptr == p && line.size != 0) {
         osync::syncerr("wmalloc() exhasted the heap\n", osync::ansi_bred);
@@ -129,7 +126,7 @@ exec_malloc(script::line const &line, script::requests &s, void *&heap_end) {
 }
 
 static bool
-exec_realloc(script::line const &line, script::requests &s, void *&heap_end) {
+exec_realloc(script::Line const &line, script::Requests &s, void *&heap_end) {
     void *old_ptr = s.blocks.at(line.block_index).first;
     void *new_ptr = wrealloc(old_ptr, line.size);
     if (nullptr == new_ptr && line.size != 0) {
@@ -148,10 +145,10 @@ exec_realloc(script::line const &line, script::requests &s, void *&heap_end) {
 }
 
 std::optional<size_t>
-exec_request(line const &line, requests &script, size_t heap_size,
+exec_request(Line const &line, Requests &script, size_t heap_size,
              void *&heap_end) {
     switch (line.req) {
-        case script::op::alloc: {
+        case script::Op::ALLOC: {
             heap_size += line.size;
             if (!exec_malloc(line, script, heap_end)) {
                 auto const err = std::string("Malloc request failure line ")
@@ -161,7 +158,7 @@ exec_request(line const &line, requests &script, size_t heap_size,
                 return {};
             }
         } break;
-        case script::op::reallocd: {
+        case script::Op::REALLOCD: {
             heap_size
                 += (line.size - script.blocks.at(line.block_index).second);
             if (!exec_realloc(line, script, heap_end)) {
@@ -172,7 +169,7 @@ exec_request(line const &line, requests &script, size_t heap_size,
                 return {};
             }
         } break;
-        case script::op::freed: {
+        case script::Op::FREED: {
             std::pair<void *, size_t> &old_block
                 = script.blocks.at(line.block_index);
             wfree(old_block.first);
@@ -189,7 +186,7 @@ exec_request(line const &line, requests &script, size_t heap_size,
 }
 
 static std::optional<double>
-time_malloc(script::line const &line, script::requests &s, void *&heap_end) {
+time_malloc(script::Line const &line, script::Requests &s, void *&heap_end) {
     void *p = heap_end;
     auto start_time = std::clock();
     void volatile *start_report = p;
@@ -223,7 +220,7 @@ time_malloc(script::line const &line, script::requests &s, void *&heap_end) {
 }
 
 static std::optional<double>
-time_realloc(script::line const &line, script::requests &s, void *&heap_end) {
+time_realloc(script::Line const &line, script::Requests &s, void *&heap_end) {
     void *old_ptr = s.blocks.at(line.block_index).first;
     void *new_ptr = nullptr;
     auto start_time = std::clock();
@@ -257,7 +254,7 @@ time_realloc(script::line const &line, script::requests &s, void *&heap_end) {
 }
 
 static double
-time_free(line const &line, requests &script) {
+time_free(Line const &line, Requests &script) {
     std::pair<void *, size_t> const old_block
         = script.blocks.at(line.block_index);
     auto start_time = std::clock();
@@ -279,34 +276,34 @@ time_free(line const &line, requests &script) {
     return result;
 }
 
-std::optional<heap_delta>
-time_request(line const &line, requests &script, size_t heap_size,
+std::optional<Heap_delta>
+time_request(Line const &line, Requests &script, size_t heap_size,
              void *&heap_end) {
     switch (line.req) {
-        case script::op::alloc: {
+        case script::Op::ALLOC: {
             heap_size += line.size;
             std::optional<double> t = time_malloc(line, script, heap_end);
             if (!t) {
                 return {};
             }
-            return std::optional<heap_delta>{{heap_size, t.value()}};
+            return std::optional<Heap_delta>{{heap_size, t.value()}};
         }
-        case script::op::reallocd: {
+        case script::Op::REALLOCD: {
             heap_size
                 += (line.size - script.blocks.at(line.block_index).second);
             std::optional<double> t = time_realloc(line, script, heap_end);
             if (!t) {
                 return {};
             }
-            return std::optional<heap_delta>{{heap_size, t.value()}};
+            return std::optional<Heap_delta>{{heap_size, t.value()}};
         }
-        case script::op::freed: {
+        case script::Op::FREED: {
             std::pair<void *, size_t> &old_block
                 = script.blocks.at(line.block_index);
             heap_size -= old_block.second;
             double const t = time_free(line, script);
             old_block = {nullptr, 0};
-            return std::optional<heap_delta>{{heap_size, t}};
+            return std::optional<Heap_delta>{{heap_size, t}};
         }
         default: {
             osync::syncerr("Unknown request slipped through script validation",

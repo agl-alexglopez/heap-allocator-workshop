@@ -12,31 +12,33 @@
 
 namespace {
 
-struct malloc_expectation {
+struct Malloc_expectation {
     size_t bytes;
-    status_error e;
+    Status_error e;
 };
 
-constexpr size_t small_heap_size = 256;
-constexpr size_t medium_heap_size = 1 << 15;
-constexpr size_t max_heap_size = 1 << 30;
-constexpr std::string_view red_err = "\033[38;5;9m";
-constexpr std::string_view green_ok = "\033[38;5;10m";
-constexpr std::string_view nil = "\033[0m";
+} // namespace
+
+static constexpr size_t small_heap_size = 256;
+static constexpr size_t medium_heap_size = 1 << 15;
+static constexpr size_t max_heap_size = 1 << 30;
+static constexpr std::string_view red_err = "\033[38;5;9m";
+static constexpr std::string_view green_ok = "\033[38;5;10m";
+static constexpr std::string_view nil = "\033[0m";
 /// This will be a semantic stand in for a free block of heap memory. We only
 /// need the falseyness so nullptr might confuse people while reading a test.
 /// Use to indicate we don't know/care what address the heap is using to track
 /// this free block of memory.
-constexpr std::nullptr_t freed = nullptr;
+static constexpr std::nullptr_t freed = nullptr;
 /// Use this when you are done with your array of mallocs. It indicates that you
 /// expect the rest of the heap that is available to be at your indicated index
 /// in the array.
-constexpr size_t heap = 0;
+static constexpr size_t heap = 0;
 
 //////////////////////////    Wrappers for Heap Allocator Calls with Checks
 
-void
-assert_init(size_t size, enum status_error e) // NOLINT(*cognitive-complexity)
+static void
+assert_init(size_t size, enum Status_error e) // NOLINT(*cognitive-complexity)
 {
     void *segment = init_heap_segment(size);
     switch (e) {
@@ -61,8 +63,8 @@ assert_init(size_t size, enum status_error e) // NOLINT(*cognitive-complexity)
     }
 }
 
-void *
-expect_realloc(void *old_ptr, size_t new_size, enum status_error e) {
+static void *
+expect_realloc(void *old_ptr, size_t new_size, enum Status_error e) {
     void *newptr = wrealloc(old_ptr, new_size);
     if (new_size == 0) {
         EXPECT_EQ(nullptr, newptr);
@@ -86,15 +88,15 @@ expect_realloc(void *old_ptr, size_t new_size, enum status_error e) {
     return newptr;
 }
 
-void
+static void
 expect_free(void *addr) {
     wfree(addr);
     EXPECT_EQ(true, wvalidate_heap());
 }
 
-void
-expect_state(std::vector<heap_block> const &expected) {
-    std::vector<heap_block> actual(expected.size());
+static void
+expect_state(std::vector<Heap_block> const &expected) {
+    std::vector<Heap_block> actual(expected.size());
     wheap_diff(expected.data(), actual.data(), expected.size());
     EXPECT_EQ(expected, actual);
 }
@@ -123,9 +125,9 @@ expect_state(std::vector<heap_block> const &expected) {
 ///
 /// In the above example the address at alloc[1] is freed and the result of
 /// that free is illustrated in the array below. See the tests for more.
-void
+static void
 expect_frees(std::vector<void *> const &frees,
-             std::vector<heap_block> const &expected) {
+             std::vector<Heap_block> const &expected) {
     ASSERT_FALSE(frees.empty());
     size_t const old_capacity = wheap_capacity();
     for (auto const &f : frees) {
@@ -141,8 +143,8 @@ expect_frees(std::vector<void *> const &frees,
 /// pass in <T*>, but rather <T> to the template. Example:
 /// auto *my_char_array_or_string = expect_malloc<char>( 500, OK );
 template <typename T>
-T *
-expect_malloc(size_t size, status_error e) {
+static T *
+expect_malloc(size_t size, Status_error e) {
     auto m = static_cast<T *>(wmalloc(size));
     switch (e) {
         case OK:
@@ -175,8 +177,8 @@ expect_malloc(size_t size, status_error e) {
 ///     {88, OK}, {32, OK}, {heap, OK}
 /// });
 template <typename T>
-std::vector<T *>
-expect_mallocs(std::vector<malloc_expectation> const &expected) {
+static std::vector<T *>
+expect_mallocs(std::vector<Malloc_expectation> const &expected) {
     EXPECT_EQ(expected.empty(), false);
     size_t const starting_capacity = wheap_capacity();
     std::vector<T *> addrs{};
@@ -195,20 +197,18 @@ expect_mallocs(std::vector<malloc_expectation> const &expected) {
     return addrs;
 }
 
-} // namespace
-
 //////////////////////////    GTest Needs Operators for EXPECT/ASSERT
 
 // NOLINTBEGIN(misc-use-internal-linkage)
 
 bool
-operator==(heap_block const &lhs, heap_block const &rhs) {
+operator==(Heap_block const &lhs, Heap_block const &rhs) {
     return lhs.address == rhs.address && lhs.payload_bytes == rhs.payload_bytes
            && lhs.err == rhs.err;
 }
 
 std::ostream &
-operator<<(std::ostream &os, heap_block const &b) {
+operator<<(std::ostream &os, Heap_block const &b) {
     switch (b.err) {
         case OK:
             os << "{ " << green_ok << b.address << ", "

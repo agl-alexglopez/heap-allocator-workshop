@@ -11,7 +11,7 @@ extern "C" {
 #ifndef ALLOCATOR_H
 #    define ALLOCATOR_H
 
-#    include "print_utility.h"
+#    include "print_utility.h" // IWYU pragma: keep
 #    include <stdbool.h>
 #    include <stddef.h>
 
@@ -32,14 +32,14 @@ enum {
 #    define GENERATE_ENUM(ENUM) ENUM,        /*NOLINT*/
 #    define GENERATE_STRING(STRING) #STRING, /*NOLINT*/
 
-enum status_error {
+enum Status_error {
     FOREACH_ERR(GENERATE_ENUM)
 };
 
 static char const *const err_string[] = { // NOLINT
     FOREACH_ERR(GENERATE_STRING)};
 
-enum ignore_bytes {
+enum Ignore_bytes {
     /// NA=Not Applicable. If you are running some testing checks and don't care
     /// about payload bytes insert this value as the payload. It is impossible
     /// to have a payload of zero. This is helpful when you want to unit test
@@ -59,10 +59,10 @@ enum ignore_bytes {
 /// mismatch between expected and actual address or payload, HEAP_CONTINUES
 /// indicates the heap has more blocks than expected and the OUT_OF_BOUNDS error
 /// indicates that the heap has fewer than expected.
-struct heap_block {
+struct Heap_block {
     void *address;
     size_t payload_bytes;
-    enum status_error err;
+    enum Status_error err;
 };
 
 /// @brief winit       initializes the mapped memory segment provided by the OS
@@ -151,7 +151,7 @@ size_t wget_free_total(void);
 ///                           ideas.
 /// @param style              VERBOSE or PLAIN depending on how many internal
 ///                           details are desired.
-void wprint_free_nodes(enum print_style style);
+void wprint_free_nodes(enum Print_style style);
 
 /// @brief wheap_align   each heap allocator may align blocks differently. This
 ///                      function should return the internal
@@ -204,7 +204,7 @@ size_t wheap_capacity(void);
 /// @param [\out] actual   the implementation defined state of the heap at the
 ///                        time of the request.
 /// @param len             the length of the expected array.
-void wheap_diff(const struct heap_block expected[], struct heap_block actual[],
+void wheap_diff(const struct Heap_block expected[], struct Heap_block actual[],
                 size_t len);
 
 /// @brief wheap_dump prints the contents of the heap as the implementer sees

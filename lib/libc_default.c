@@ -61,7 +61,7 @@ wheap_capacity(void) {
 }
 
 void
-wheap_diff(const struct heap_block expected[], struct heap_block actual[],
+wheap_diff(struct Heap_block const *expected, struct Heap_block *actual,
            size_t len) {
     (void)expected;
     (void)actual;
@@ -69,7 +69,7 @@ wheap_diff(const struct heap_block expected[], struct heap_block actual[],
 }
 
 void
-wprint_free_nodes(enum print_style style) {
+wprint_free_nodes(enum Print_style style) {
     (void)style;
 }
 

@@ -17,27 +17,27 @@
 
 namespace script {
 
-enum op : uint8_t {
-    empty = 0,
-    alloc,
-    reallocd,
-    freed,
+enum Op : uint8_t {
+    EMPTY = 0,
+    ALLOC,
+    REALLOCD,
+    FREED,
 };
 
-struct line {
-    op req;
+struct Line {
+    Op req;
     size_t block_index;
     size_t size;
     size_t line;
 };
 
-struct requests {
-    std::vector<line> lines;
+struct Requests {
+    std::vector<Line> lines;
     std::vector<std::pair<void *, size_t>> blocks;
     size_t peak;
 };
 
-struct heap_delta {
+struct Heap_delta {
     size_t heap_size;
     double delta_time;
 };
@@ -49,7 +49,7 @@ struct heap_delta {
 /// @param filepath      the path the .script file we wish parsed.
 /// @return              an empty optional on failure, a requests object on
 /// success.
-std::optional<requests> parse_script(std::string const &filepath);
+std::optional<Requests> parse_script(std::string const &filepath);
 
 /// @brief exec_request  executes a heap request on the current line object
 /// passed in and adjusts the
@@ -66,7 +66,7 @@ std::optional<requests> parse_script(std::string const &filepath);
 /// adjustment if needed.
 /// @return              the new size of the heap upon a successful request,
 /// empty on any failure.
-std::optional<size_t> exec_request(line const &line, requests &script,
+std::optional<size_t> exec_request(Line const &line, Requests &script,
                                    size_t heap_size, void *&heap_end);
 
 /// @brief time_request  executes a request with timing information regarding
@@ -80,7 +80,7 @@ std::optional<size_t> exec_request(line const &line, requests &script,
 /// adjustment if needed.
 /// @return              the new size of the heap and request time or nothing on
 /// failure.
-std::optional<heap_delta> time_request(line const &line, requests &script,
+std::optional<Heap_delta> time_request(Line const &line, Requests &script,
                                        size_t heap_size, void *&heap_end);
 
 } // namespace script

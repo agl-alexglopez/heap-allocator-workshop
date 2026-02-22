@@ -43,31 +43,35 @@ namespace {
 
 // Requests to the heap are zero indexed, but we can allow users to enter line
 // no. then subtract 1.
-struct interval {
+struct Interval {
     int start_req;
     int end_req;
 };
 
-struct interval_reqs {
-    std::vector<interval> intervals;
+struct Interval_reqs {
+    std::vector<Interval> intervals;
     std::vector<double> interval_averages;
 };
 
-constexpr size_t heap_size = 1L << 32;
+} // namespace
+
+static constexpr size_t heap_size = 1L << 32;
 
 ///////////////////////  Prototypes and Arg Handling
 
-int time_script(std::string_view script_name, interval_reqs &user_requests);
-std::optional<size_t> time_allocator(script::requests &s,
-                                     interval_reqs &user_requests);
-bool validate_intervals(script::requests &s, interval_reqs &user_requests);
-bool set_interval(interval_reqs &user_reqs, std::span<char const *const> args,
-                  size_t i);
+static int time_script(std::string_view script_name,
+                       Interval_reqs &user_requests);
+static std::optional<size_t> time_allocator(script::Requests &s,
+                                            Interval_reqs &user_requests);
+static bool validate_intervals(script::Requests &s,
+                               Interval_reqs &user_requests);
+static bool set_interval(Interval_reqs &user_reqs,
+                         std::span<char const *const> args, size_t i);
 
-int
+static int
 stats(std::span<char const *const> args) {
     try {
-        interval_reqs user_reqs{};
+        Interval_reqs user_reqs{};
         std::string_view filename{};
         for (size_t i = 0; i < args.size(); ++i) {
             auto arg_copy = std::string(args[i]);
@@ -100,8 +104,6 @@ stats(std::span<char const *const> args) {
     }
 }
 
-} // namespace
-
 int
 main(int argc, char **argv) {
     auto args
@@ -113,11 +115,9 @@ main(int argc, char **argv) {
     return stats(args);
 }
 
-namespace {
-
-int
-time_script(std::string_view script_name, interval_reqs &user_requests) {
-    std::optional<script::requests> s
+static int
+time_script(std::string_view script_name, Interval_reqs &user_requests) {
+    std::optional<script::Requests> s
         = script::parse_script(std::string(script_name));
     if (!s) {
         return 1;
@@ -137,8 +137,8 @@ time_script(std::string_view script_name, interval_reqs &user_requests) {
     return 0;
 }
 
-std::optional<size_t>
-time_allocator(script::requests &s, interval_reqs &user_requests) {
+static std::optional<size_t>
+time_allocator(script::Requests &s, Interval_reqs &user_requests) {
     init_heap_segment(heap_size);
     if (!winit(heap_segment_start(), heap_segment_size())) {
         osync::syncerr("Heap initialization failure.", osync::ansi_bred);
@@ -151,10 +151,10 @@ time_allocator(script::requests &s, interval_reqs &user_requests) {
     while (static_cast<size_t>(req) < s.lines.size()) {
         if (current_interval < user_requests.intervals.size()
             && user_requests.intervals[current_interval].start_req == req) {
-            interval const &section = user_requests.intervals[current_interval];
+            Interval const &section = user_requests.intervals[current_interval];
             double total_request_time = 0;
             for (; req < section.end_req; ++req) {
-                std::optional<script::heap_delta> request_time
+                std::optional<script::Heap_delta> request_time
                     = script::time_request(s.lines[req], s, cur_size, heap_end);
                 if (!request_time) {
                     return {};
@@ -188,8 +188,8 @@ time_allocator(script::requests &s, interval_reqs &user_requests) {
            - static_cast<uint8_t *>(heap_segment_start());
 }
 
-bool
-validate_intervals(script::requests &s, interval_reqs &user_requests) {
+static bool
+validate_intervals(script::Requests &s, Interval_reqs &user_requests) {
     for (size_t i = 0; i < user_requests.intervals.size(); ++i) {
         if (s.lines.size() - 1
             < static_cast<size_t>((user_requests.intervals[i].start_req))) {
@@ -213,8 +213,8 @@ validate_intervals(script::requests &s, interval_reqs &user_requests) {
     return true;
 }
 
-bool
-set_interval(interval_reqs &user_reqs, std::span<char const *const> args,
+static bool
+set_interval(Interval_reqs &user_reqs, std::span<char const *const> args,
              size_t i) {
     try {
         if (i + 1 >= args.size()) {
@@ -222,7 +222,7 @@ set_interval(interval_reqs &user_reqs, std::span<char const *const> args,
                            osync::ansi_bred);
             return false;
         }
-        interval intv = {0, 0};
+        Interval intv = {0, 0};
         intv.start_req = std::stoi(args[i + 1]);
         if (!user_reqs.intervals.empty()
             && user_reqs.intervals.back().end_req >= intv.start_req) {
@@ -248,5 +248,3 @@ set_interval(interval_reqs &user_reqs, std::span<char const *const> args,
         return false;
     }
 }
-
-} // namespace

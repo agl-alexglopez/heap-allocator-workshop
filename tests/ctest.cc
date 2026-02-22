@@ -36,29 +36,25 @@
 #include <utility>
 #include <vector>
 
-namespace {
+static constexpr std::size_t heap_size = 1L << 32;
+static constexpr size_t scale_to_whole_num = 100;
+static constexpr size_t lowest_byte = 0xFFUL;
+static constexpr std::string_view ansi_bred = "\033[38;5;9m";
+static constexpr std::string_view ansi_bgrn = "\033[38;5;10m";
+static constexpr std::string_view save_cursor = "\033[s";
+static constexpr std::string_view restore_cursor = "\033[u";
+static constexpr std::string_view background_loading_bar = "▒";
+static constexpr std::string_view progress_bar = "█";
 
-constexpr std::size_t heap_size = 1L << 32;
-constexpr size_t scale_to_whole_num = 100;
-constexpr size_t lowest_byte = 0xFFUL;
-constexpr std::string_view ansi_bred = "\033[38;5;9m";
-constexpr std::string_view ansi_bgrn = "\033[38;5;10m";
-constexpr std::string_view save_cursor = "\033[s";
-constexpr std::string_view restore_cursor = "\033[u";
-constexpr std::string_view background_loading_bar = "▒";
-constexpr std::string_view progress_bar = "█";
-
-std::optional<size_t> eval_correctness(script::requests &s);
-bool verify_block(void *ptr, size_t size, script::requests const &s);
-bool verify_payload(size_t block_id, void *ptr, size_t size);
-bool eval_malloc(script::line const &line, script::requests &s,
-                 void *&heap_end);
-bool eval_realloc(script::line const &line, script::requests &s,
-                  void *&heap_end);
-bool eval_free(script::line const &line, script::requests &s);
-int test(std::span<char const *const> args);
-
-} // namespace
+static std::optional<size_t> eval_correctness(script::Requests &s);
+static bool verify_block(void *ptr, size_t size, script::Requests const &s);
+static bool verify_payload(size_t block_id, void *ptr, size_t size);
+static bool eval_malloc(script::Line const &line, script::Requests &s,
+                        void *&heap_end);
+static bool eval_realloc(script::Line const &line, script::Requests &s,
+                         void *&heap_end);
+static bool eval_free(script::Line const &line, script::Requests &s);
+static int test(std::span<char const *const> args);
 
 int
 main(int argc, char *argv[]) {
@@ -72,9 +68,7 @@ main(int argc, char *argv[]) {
     return test(args);
 }
 
-namespace {
-
-int
+static int
 test(std::span<char const *const> args) {
     try {
         size_t utilization = 0;
@@ -85,7 +79,7 @@ test(std::span<char const *const> args) {
         std::cout << std::flush;
         std::cout << restore_cursor;
         for (auto const *arg : args) {
-            std::optional<script::requests> script = script::parse_script(arg);
+            std::optional<script::Requests> script = script::parse_script(arg);
             if (!script) {
                 auto const err = std::string("Failed to parse script ")
                                      .append(arg)
@@ -122,8 +116,8 @@ test(std::span<char const *const> args) {
     }
 }
 
-std::optional<size_t>
-eval_correctness(script::requests &s) {
+static std::optional<size_t>
+eval_correctness(script::Requests &s) {
     init_heap_segment(heap_size);
     if (!winit(heap_segment_start(), heap_segment_size())) {
         osync::syncerr("winit() failed\n", ansi_bred);
@@ -135,10 +129,10 @@ eval_correctness(script::requests &s) {
     }
     void *heap_end_addr = heap_segment_start();
     size_t heap_size = 0;
-    for (script::line const &line : s.lines) {
+    for (script::Line const &line : s.lines) {
         switch (line.req) {
 
-            case script::op::alloc: {
+            case script::Op::ALLOC: {
                 heap_size += line.size;
                 if (!eval_malloc(line, s, heap_end_addr)) {
                     auto const err = std::string("Malloc request failure line ")
@@ -149,7 +143,7 @@ eval_correctness(script::requests &s) {
                 }
             } break;
 
-            case script::op::reallocd: {
+            case script::Op::REALLOCD: {
                 heap_size += (line.size - s.blocks.at(line.block_index).second);
                 if (!eval_realloc(line, s, heap_end_addr)) {
                     auto const err
@@ -161,7 +155,7 @@ eval_correctness(script::requests &s) {
                 }
             } break;
 
-            case script::op::freed: {
+            case script::Op::FREED: {
                 if (!eval_free(line, s)) {
                     auto const err = std::string("Free request failure line ")
                                          .append(std::to_string(line.line))
@@ -202,8 +196,8 @@ eval_correctness(script::requests &s) {
            - static_cast<uint8_t *>(heap_segment_start());
 }
 
-bool
-eval_malloc(script::line const &line, script::requests &s, void *&heap_end) {
+static bool
+eval_malloc(script::Line const &line, script::Requests &s, void *&heap_end) {
     void *p = wmalloc(line.size);
     if (nullptr == p && line.size != 0) {
         osync::syncerr("wmalloc() exhasted the heap\n", ansi_bred);
@@ -230,8 +224,8 @@ eval_malloc(script::line const &line, script::requests &s, void *&heap_end) {
     return true;
 }
 
-bool
-eval_realloc(script::line const &line, script::requests &s, void *&heap_end) {
+static bool
+eval_realloc(script::Line const &line, script::Requests &s, void *&heap_end) {
     void *old_ptr = s.blocks.at(line.block_index).first;
     size_t const old_size = s.blocks.at(line.block_index).second;
     if (!verify_payload(line.block_index, old_ptr, old_size)) {
@@ -259,8 +253,8 @@ eval_realloc(script::line const &line, script::requests &s, void *&heap_end) {
     return true;
 }
 
-bool
-eval_free(script::line const &line, script::requests &s) {
+static bool
+eval_free(script::Line const &line, script::Requests &s) {
     std::pair<void *, size_t> const old_block = s.blocks.at(line.block_index);
     if (!verify_payload(line.block_index, old_block.first, old_block.second)) {
         osync::syncerr("Block corrupted before free\n", ansi_bred);
@@ -270,8 +264,8 @@ eval_free(script::line const &line, script::requests &s) {
     return true;
 }
 
-bool
-verify_block(void *ptr, size_t size, script::requests const &s) {
+static bool
+verify_block(void *ptr, size_t size, script::Requests const &s) {
     if (reinterpret_cast<uintptr_t>(ptr) % ALIGNMENT != 0) // NOLINT
     {
         osync::syncerr("block is out of alignment.\n", ansi_bred);
@@ -359,12 +353,10 @@ verify_block(void *ptr, size_t size, script::requests const &s) {
     return true;
 }
 
-bool
+static bool
 verify_payload(size_t block_id, void *ptr, size_t size) {
     uint8_t const signature = block_id & lowest_byte;
     return std::ranges::all_of(
         std::span<uint8_t const>(static_cast<uint8_t *>(ptr), size),
         [signature](uint8_t const byte) { return byte == signature; });
 }
-
-} // namespace

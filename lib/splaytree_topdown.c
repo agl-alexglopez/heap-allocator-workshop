@@ -43,7 +43,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-typedef size_t header;
+typedef size_t Header;
 
 /// The children of a node in a tree can be an array *nodes[2]. I prefer to
 /// code binary trees this way because when the opportunity arrises you
@@ -51,7 +51,7 @@ typedef size_t header;
 /// that uses a `tree_link dir = parent->links[R] == cur;` approach. Then
 /// you have a `dir` and a `!dir` without needing to write code for each case
 /// of the dir being left or right, just invert the direction you stored.
-enum tree_link {
+enum Tree_link {
     L = 0,
     R = 1
 };
@@ -61,7 +61,7 @@ enum tree_link {
 /// avoid confusion and make it type-clear that we are dealing with list nodes
 /// not tree nodes. This requires some limited and intentional casting but
 /// is worth it for clarity/sanity while coding up these complicated cases.
-enum list_link {
+enum List_link {
     P = 0,
     N = 1
 };
@@ -70,10 +70,10 @@ enum list_link {
 /// additional optimization of tracking duplicates in a linked list of
 /// duplicate_node members. We can access that list via the list_start. If the
 /// list is empty it will point to our placeholder node that acts as nil.
-struct node {
-    header header;
-    struct node *links[2];
-    struct duplicate_node *list_start;
+struct Node {
+    Header header;
+    struct Node *links[2];
+    struct Duplicate_node *list_start;
 };
 
 /// A node in the duplicate_node list contains the same number of payload bytes
@@ -83,53 +83,53 @@ struct node {
 /// This helps in the case of a tree node being coalesced or removed from the
 /// tree. The duplicate can take its place, update the parent of the new node
 /// as its child and no splaying operations take place saving many instructions.
-struct duplicate_node {
-    header header;
-    struct duplicate_node *links[2];
-    struct node *parent;
+struct Duplicate_node {
+    Header header;
+    struct Duplicate_node *links[2];
+    struct Node *parent;
 };
 
 /// Mainly for internal validation and bookeeping. Run over the heap with this.
-struct heap_range {
+struct Heap_range {
     void *start;
     void *end;
 };
 
 /// Validates that invariants of a binary tree are upheld.
-struct tree_range {
-    struct node *low;
-    struct node *root;
-    struct node *high;
+struct Tree_range {
+    struct Node *low;
+    struct Node *root;
+    struct Node *high;
 };
 
 /// If a header is corrupted why trying to jump through the heap headers this
 /// will help us catch errors.
-struct bad_jump {
-    struct node *prev;
-    struct node *root;
+struct Bad_jump {
+    struct Node *prev;
+    struct Node *root;
 };
 
 /// Generic struct for tracking a size in bytes and quantity that makes up those
 /// bytes.
-struct size_total {
+struct Size_total {
     size_t size;
     size_t total;
 };
 
-struct coalesce_report {
-    struct node *left;
-    struct node *current;
-    struct node *right;
+struct Coalesce_report {
+    struct Node *left;
+    struct Node *current;
+    struct Node *right;
     size_t available;
 };
 
 #define SIZE_MASK ~0x7UL
 #define HEADERSIZE sizeof(size_t)
-#define BLOCK_SIZE (sizeof(struct node) + HEADERSIZE)
+#define BLOCK_SIZE (sizeof(struct Node) + HEADERSIZE)
 #define FREED 0x0UL
 #define ALLOCATED 0x1UL
 #define LEFT_ALLOCATED 0x2UL
-#define HEAP_NODE_WIDTH sizeof(struct node)
+#define HEAP_NODE_WIDTH sizeof(struct Node)
 #define LEFT_FREE ~0x2UL
 
 // NOLINTBEGIN(*-non-const-global-variables)
@@ -138,19 +138,19 @@ struct coalesce_report {
 /// than NULL, similar to what CLRS recommends for a Red-Black Tree. This helps
 /// with some invariant coding patterns that I like especially for the duplicate
 /// list.
-static struct free_nodes {
-    struct node *root;
+static struct Free_nodes {
+    struct Node *root;
     // These two pointers will point to the same address. Used for clarity
     // between tree and list. The nil also searves as a dummy for the furthest
     // right end of our heap.
-    struct node *nil;
-    struct duplicate_node *list_tail;
+    struct Node *nil;
+    struct Duplicate_node *list_tail;
     size_t total;
 } free_nodes;
 
 /// Useful for internal tracking and validating of the heap to speedup
 /// development.
-static struct heap {
+static struct Heap {
     void *client_start;
     void *client_end;
     size_t heap_size;
@@ -161,50 +161,50 @@ static struct heap {
 /////////////////////////////   Forward Declarations
 
 static size_t roundup(size_t requested_size, size_t multiple);
-static size_t get_size(header header_val);
-static bool is_block_allocated(header block_header);
-static bool is_left_space(const struct node *node);
-static void init_header_size(struct node *node, size_t payload);
-static void init_footer(struct node *node, size_t payload);
-static struct node *get_right_neighbor(const struct node *current,
+static size_t get_size(Header header_val);
+static bool is_block_allocated(Header block_header);
+static bool is_left_space(const struct Node *node);
+static void init_header_size(struct Node *node, size_t payload);
+static void init_footer(struct Node *node, size_t payload);
+static struct Node *get_right_neighbor(const struct Node *current,
                                        size_t payload);
-static struct node *get_left_neighbor(const struct node *node);
-static void *get_client_space(const struct node *node_header);
-static struct node *get_node(void const *client_space);
-static void give_parent_subtree(struct node *parent, enum tree_link dir,
-                                struct node *subtree);
-static void init_free_node(struct node *to_free, size_t block_size);
-static void *split_alloc(struct node *free_block, size_t request,
+static struct Node *get_left_neighbor(const struct Node *node);
+static void *get_client_space(const struct Node *node_header);
+static struct Node *get_node(void const *client_space);
+static void give_parent_subtree(struct Node *parent, enum Tree_link dir,
+                                struct Node *subtree);
+static void init_free_node(struct Node *to_free, size_t block_size);
+static void *split_alloc(struct Node *free_block, size_t request,
                          size_t block_space);
-static struct coalesce_report check_neighbors(void const *old_ptr);
-static void coalesce(struct coalesce_report *report);
-static struct node *coalesce_splay(size_t key);
-static void remove_head(struct node *head, struct node *lft_child,
-                        struct node *rgt_child);
+static struct Coalesce_report check_neighbors(void const *old_ptr);
+static void coalesce(struct Coalesce_report *report);
+static struct Node *coalesce_splay(size_t key);
+static void remove_head(struct Node *head, struct Node *lft_child,
+                        struct Node *rgt_child);
 static void *free_coalesced_node(void *to_coalesce);
-static struct node *find_best_fit(size_t key);
-static void insert_node(struct node *current);
-static struct node *splay(struct node *root, size_t key);
-static struct node *splay_bestfit(struct node *root, size_t key);
-static void add_duplicate(struct node *head, struct duplicate_node *add,
-                          struct node *parent);
-static struct node *delete_duplicate(struct node *head);
-static bool check_init(struct heap_range r, size_t heap_size);
-static bool is_memory_balanced(size_t *total_free_mem, struct heap_range r,
-                               struct size_total s);
-static size_t extract_tree_mem(const struct node *root,
+static struct Node *find_best_fit(size_t key);
+static void insert_node(struct Node *current);
+static struct Node *splay(struct Node *root, size_t key);
+static struct Node *splay_bestfit(struct Node *root, size_t key);
+static void add_duplicate(struct Node *head, struct Duplicate_node *add,
+                          struct Node *parent);
+static struct Node *delete_duplicate(struct Node *head);
+static bool check_init(struct Heap_range r, size_t heap_size);
+static bool is_memory_balanced(size_t *total_free_mem, struct Heap_range r,
+                               struct Size_total s);
+static size_t extract_tree_mem(const struct Node *root,
                                void const *nil_and_tail);
-static bool is_tree_mem_valid(const struct node *root, void const *nil_and_tail,
+static bool is_tree_mem_valid(const struct Node *root, void const *nil_and_tail,
                               size_t total_free_mem);
-static bool are_subtrees_valid(struct tree_range r,
-                               const struct node *black_nil);
-static bool is_duplicate_storing_parent(const struct node *parent,
-                                        const struct node *root,
+static bool are_subtrees_valid(struct Tree_range r,
+                               const struct Node *black_nil);
+static bool is_duplicate_storing_parent(const struct Node *parent,
+                                        const struct Node *root,
                                         void const *nil_and_tail);
-static void print_tree(const struct node *root, void const *nil_and_tail,
-                       enum print_style style);
-static void print_all(struct heap_range r, size_t heap_size,
-                      struct node *tree_root, struct node *nil);
+static void print_tree(const struct Node *root, void const *nil_and_tail,
+                       enum Print_style style);
+static void print_all(struct Heap_range r, size_t heap_size,
+                      struct Node *tree_root, struct Node *nil);
 
 ///////////////////////////////   Shared Heap Functions
 
@@ -246,7 +246,7 @@ wmalloc(size_t requested_size) {
         return NULL;
     }
     size_t client_request = roundup(requested_size, ALIGNMENT);
-    struct node *found_node = find_best_fit(client_request);
+    struct Node *found_node = find_best_fit(client_request);
     if (found_node == free_nodes.nil) {
         return NULL;
     }
@@ -267,7 +267,7 @@ wrealloc(void *old_ptr, size_t new_size) {
         return NULL;
     }
     size_t request = roundup(new_size, ALIGNMENT);
-    struct coalesce_report report = check_neighbors(old_ptr);
+    struct Coalesce_report report = check_neighbors(old_ptr);
     size_t old_size = get_size(report.current->header);
     if (report.available >= request) {
         coalesce(&report);
@@ -294,7 +294,7 @@ wfree(void *ptr) {
     if (ptr == NULL) {
         return;
     }
-    struct coalesce_report report = check_neighbors(ptr);
+    struct Coalesce_report report = check_neighbors(ptr);
     coalesce(&report);
     init_free_node(report.current, get_size(report.current->header));
 }
@@ -304,19 +304,19 @@ wfree(void *ptr) {
 bool
 wvalidate_heap(void) {
 
-    if (!check_init((struct heap_range){heap.client_start, heap.client_end},
+    if (!check_init((struct Heap_range){heap.client_start, heap.client_end},
                     heap.heap_size)) {
         return false;
     }
     size_t total_free_mem = 0;
     if (!is_memory_balanced(
             &total_free_mem,
-            (struct heap_range){heap.client_start, heap.client_end},
-            (struct size_total){heap.heap_size, free_nodes.total})) {
+            (struct Heap_range){heap.client_start, heap.client_end},
+            (struct Size_total){heap.heap_size, free_nodes.total})) {
         return false;
     }
     if (!are_subtrees_valid(
-            (struct tree_range){
+            (struct Tree_range){
                 .low = free_nodes.nil,
                 .root = free_nodes.root,
                 .high = free_nodes.nil,
@@ -343,7 +343,7 @@ size_t
 wheap_capacity(void) {
     size_t total_free_mem = 0;
     size_t block_size_check = 0;
-    for (struct node *cur_node = heap.client_start; cur_node != heap.client_end;
+    for (struct Node *cur_node = heap.client_start; cur_node != heap.client_end;
          cur_node = get_right_neighbor(cur_node, block_size_check)) {
         block_size_check = get_size(cur_node->header);
         if (!is_block_allocated(cur_node->header)) {
@@ -354,9 +354,9 @@ wheap_capacity(void) {
 }
 
 void
-wheap_diff(const struct heap_block expected[], struct heap_block actual[],
+wheap_diff(const struct Heap_block expected[], struct Heap_block actual[],
            size_t len) {
-    struct node *cur_node = heap.client_start;
+    struct Node *cur_node = heap.client_start;
     size_t i = 0;
     for (; i < len && cur_node != heap.client_end; ++i) {
         bool is_allocated = is_block_allocated(cur_node->header);
@@ -364,25 +364,25 @@ wheap_diff(const struct heap_block expected[], struct heap_block actual[],
         size_t cur_size = get_size(cur_node->header);
         void *client_addr = get_client_space(cur_node);
         if (!expected[i].address && is_allocated) {
-            actual[i] = (struct heap_block){
+            actual[i] = (struct Heap_block){
                 client_addr,
                 cur_size,
                 ER,
             };
         } else if (NA == expected[i].payload_bytes) {
-            actual[i] = (struct heap_block){
+            actual[i] = (struct Heap_block){
                 is_allocated ? client_addr : NULL,
                 NA,
                 OK,
             };
         } else if (expected[i].payload_bytes != cur_size) {
-            actual[i] = (struct heap_block){
+            actual[i] = (struct Heap_block){
                 is_allocated ? client_addr : NULL,
                 cur_size,
                 ER,
             };
         } else {
-            actual[i] = (struct heap_block){
+            actual[i] = (struct Heap_block){
                 is_allocated ? client_addr : NULL,
                 cur_size,
                 OK,
@@ -408,7 +408,7 @@ wheap_diff(const struct heap_block expected[], struct heap_block actual[],
 ///        information on this interpretation see any Stanford 166 lecture on
 ///        splay trees.
 void
-wprint_free_nodes(enum print_style style) {
+wprint_free_nodes(enum Print_style style) {
     printf("%s(X)%s", COLOR_CYN, COLOR_NIL);
     printf(" Indicates number of nodes in the subtree rooted at X.\n");
     printf("%sBlue%s edge means total nodes rooted at X %s<=%s ((number of "
@@ -427,14 +427,14 @@ wprint_free_nodes(enum print_style style) {
 
 void
 wheap_dump(void) {
-    print_all((struct heap_range){heap.client_start, heap.client_end},
+    print_all((struct Heap_range){heap.client_start, heap.client_end},
               heap.heap_size, free_nodes.root, free_nodes.nil);
 }
 
 /////////////////////    Static Heap Helper Functions
 
 static void *
-split_alloc(struct node *free_block, size_t request, size_t block_space) {
+split_alloc(struct Node *free_block, size_t request, size_t block_space) {
     if (block_space >= request + BLOCK_SIZE) {
         // This takes care of the neighbor and ITS neighbor with appropriate
         // updates.
@@ -451,7 +451,7 @@ split_alloc(struct node *free_block, size_t request, size_t block_space) {
 }
 
 static void
-init_free_node(struct node *to_free, size_t block_size) {
+init_free_node(struct Node *to_free, size_t block_size) {
     to_free->header = block_size | LEFT_ALLOCATED;
     to_free->list_start = free_nodes.list_tail;
     init_footer(to_free, block_size);
@@ -459,13 +459,13 @@ init_free_node(struct node *to_free, size_t block_size) {
     insert_node(to_free);
 }
 
-static struct coalesce_report
+static struct Coalesce_report
 check_neighbors(void const *old_ptr) {
-    struct node *current_node = get_node(old_ptr);
+    struct Node *current_node = get_node(old_ptr);
     size_t const original_space = get_size(current_node->header);
-    struct coalesce_report result = {NULL, current_node, NULL, original_space};
+    struct Coalesce_report result = {NULL, current_node, NULL, original_space};
 
-    struct node *rightmost_node
+    struct Node *rightmost_node
         = get_right_neighbor(current_node, original_space);
     if (!is_block_allocated(rightmost_node->header)) {
         result.available += get_size(rightmost_node->header) + HEADERSIZE;
@@ -480,7 +480,7 @@ check_neighbors(void const *old_ptr) {
 }
 
 static inline void
-coalesce(struct coalesce_report *report) {
+coalesce(struct Coalesce_report *report) {
     if (report->left) {
         report->current = free_coalesced_node(report->left);
     }
@@ -492,13 +492,13 @@ coalesce(struct coalesce_report *report) {
 
 static void *
 free_coalesced_node(void *to_coalesce) {
-    struct node *tree_node = to_coalesce;
+    struct Node *tree_node = to_coalesce;
     // Go find and fix the node the normal way if it is unique.
     if (tree_node->list_start == free_nodes.list_tail) {
         return coalesce_splay(get_size(tree_node->header));
     }
-    struct duplicate_node *list_node = to_coalesce;
-    struct node *lft_tree_node = tree_node->links[L];
+    struct Duplicate_node *list_node = to_coalesce;
+    struct Node *lft_tree_node = tree_node->links[L];
 
     if (lft_tree_node != free_nodes.nil
         && lft_tree_node->list_start == to_coalesce) {
@@ -521,12 +521,12 @@ free_coalesced_node(void *to_coalesce) {
     return to_coalesce;
 }
 
-static struct node *
+static struct Node *
 coalesce_splay(size_t key) {
     if (free_nodes.root == free_nodes.nil) {
         return free_nodes.nil;
     }
-    struct node *to_return = splay(free_nodes.root, key);
+    struct Node *to_return = splay(free_nodes.root, key);
     free_nodes.root = to_return;
     if (get_size(to_return->header) < key) {
         return free_nodes.nil;
@@ -550,14 +550,14 @@ coalesce_splay(size_t key) {
 }
 
 static void
-remove_head(struct node *head, struct node *lft_child, struct node *rgt_child) {
+remove_head(struct Node *head, struct Node *lft_child, struct Node *rgt_child) {
     // Store the parent in an otherwise unused field for a major O(1) coalescing
     // speed boost.
-    struct node *tree_parent = head->list_start->parent;
+    struct Node *tree_parent = head->list_start->parent;
     head->list_start->header = head->header;
     head->list_start->links[N]->parent = head->list_start->parent;
 
-    struct node *new_tree_node = (struct node *)head->list_start;
+    struct Node *new_tree_node = (struct Node *)head->list_start;
     new_tree_node->list_start = head->list_start->links[N];
     new_tree_node->links[L] = lft_child;
     new_tree_node->links[R] = rgt_child;
@@ -579,12 +579,12 @@ remove_head(struct node *head, struct node *lft_child, struct node *rgt_child) {
 
 ////////////////////////      Splay Tree Best Fit Implementation
 
-static struct node *
+static struct Node *
 find_best_fit(size_t key) {
     if (free_nodes.root == free_nodes.nil) {
         return free_nodes.nil;
     }
-    struct node *to_return = splay_bestfit(free_nodes.root, key);
+    struct Node *to_return = splay_bestfit(free_nodes.root, key);
     free_nodes.root = to_return;
     if (get_size(to_return->header) < key) {
         return free_nodes.nil;
@@ -607,30 +607,30 @@ find_best_fit(size_t key) {
     return to_return;
 }
 
-static struct node *
-delete_duplicate(struct node *head) {
-    struct duplicate_node *next_node = head->list_start;
+static struct Node *
+delete_duplicate(struct Node *head) {
+    struct Duplicate_node *next_node = head->list_start;
     // Take care of the possible node to the right in the doubly linked list
     // first. This could be another node or it could be free_nodes.list_tail, it
     // does not matter either way.
     next_node->links[N]->parent = next_node->parent;
-    next_node->links[N]->links[P] = (struct duplicate_node *)head;
+    next_node->links[N]->links[P] = (struct Duplicate_node *)head;
     head->list_start = next_node->links[N];
     --free_nodes.total;
-    return (struct node *)next_node;
+    return (struct Node *)next_node;
 }
 
 /////////////////////   Core Splay Operations for Insertion and Deletion
 
-static struct node *
-splay_bestfit(struct node *root, size_t key) {
+static struct Node *
+splay_bestfit(struct Node *root, size_t key) {
     // Pointers in an array and we can use the symmetric enum and flip it to
     // choose the Left or Right subtree. Another benefit of our nil node: use it
     // as our helper tree because we don't need its Left Right fields.
     free_nodes.nil->links[L] = free_nodes.nil;
     free_nodes.nil->links[R] = free_nodes.nil;
-    struct node *left_right_subtrees[2] = {free_nodes.nil, free_nodes.nil};
-    struct node *finger = NULL;
+    struct Node *left_right_subtrees[2] = {free_nodes.nil, free_nodes.nil};
+    struct Node *finger = NULL;
     size_t best_fit = ULLONG_MAX;
     for (;;) {
         size_t root_size = get_size(root->header);
@@ -647,14 +647,14 @@ splay_bestfit(struct node *root, size_t key) {
         best_fit = right_child_size < best_fit && right_child_size >= key
                        ? right_child_size
                        : best_fit;
-        enum tree_link link_to_descend = root_size < key;
+        enum Tree_link link_to_descend = root_size < key;
         if (key == root_size
             || root->links[link_to_descend] == free_nodes.nil) {
             break;
         }
 
         size_t child_size = get_size(root->links[link_to_descend]->header);
-        enum tree_link link_to_descend_from_child = child_size < key;
+        enum Tree_link link_to_descend_from_child = child_size < key;
         if (key != child_size
             && link_to_descend == link_to_descend_from_child) {
             finger = root->links[link_to_descend];
@@ -686,24 +686,24 @@ splay_bestfit(struct node *root, size_t key) {
     return root;
 }
 
-static struct node *
-splay(struct node *root, size_t key) {
+static struct Node *
+splay(struct Node *root, size_t key) {
     // Pointers in an array and we can use the symmetric enum and flip it to
     // choose the Left or Right subtree. Another benefit of our nil node: use it
     // as our helper tree because we don't need its Left Right fields.
     free_nodes.nil->links[L] = free_nodes.nil;
     free_nodes.nil->links[R] = free_nodes.nil;
-    struct node *left_right_subtrees[2] = {free_nodes.nil, free_nodes.nil};
-    struct node *finger = NULL;
+    struct Node *left_right_subtrees[2] = {free_nodes.nil, free_nodes.nil};
+    struct Node *finger = NULL;
     for (;;) {
         size_t root_size = get_size(root->header);
-        enum tree_link link_to_descend = root_size < key;
+        enum Tree_link link_to_descend = root_size < key;
         if (key == root_size
             || root->links[link_to_descend] == free_nodes.nil) {
             break;
         }
         size_t child_size = get_size(root->links[link_to_descend]->header);
-        enum tree_link link_to_descend_from_child = child_size < key;
+        enum Tree_link link_to_descend_from_child = child_size < key;
         if (key != child_size
             && link_to_descend == link_to_descend_from_child) {
             finger = root->links[link_to_descend];
@@ -730,7 +730,7 @@ splay(struct node *root, size_t key) {
 /////////////////////////    Splay Tree Insertion Logic
 
 static void
-insert_node(struct node *current) {
+insert_node(struct Node *current) {
     size_t current_key = get_size(current->header);
     if (free_nodes.root == free_nodes.nil) {
         current->links[L] = free_nodes.nil;
@@ -746,11 +746,11 @@ insert_node(struct node *current) {
         if (free_nodes.root->list_start != free_nodes.list_tail) {
             free_nodes.root->list_start->parent = free_nodes.nil;
         }
-        add_duplicate(free_nodes.root, (struct duplicate_node *)current,
+        add_duplicate(free_nodes.root, (struct Duplicate_node *)current,
                       free_nodes.nil);
         return;
     }
-    enum tree_link link = found_size < current_key;
+    enum Tree_link link = found_size < current_key;
     give_parent_subtree(current, link, free_nodes.root->links[link]);
     give_parent_subtree(current, !link, free_nodes.root);
     free_nodes.root->links[link] = free_nodes.nil;
@@ -759,8 +759,8 @@ insert_node(struct node *current) {
 }
 
 static void
-add_duplicate(struct node *head, struct duplicate_node *add,
-              struct node *parent) {
+add_duplicate(struct Node *head, struct Duplicate_node *add,
+              struct Node *parent) {
     add->header = head->header;
     // The first node in the list can store the tree nodes parent for faster
     // coalescing later.
@@ -775,7 +775,7 @@ add_duplicate(struct node *head, struct duplicate_node *add,
     head->list_start->links[P] = add;
     add->links[N] = head->list_start;
     head->list_start = add;
-    add->links[P] = (struct duplicate_node *)head;
+    add->links[P] = (struct Duplicate_node *)head;
     ++free_nodes.total;
 }
 
@@ -785,8 +785,8 @@ add_duplicate(struct node *head, struct duplicate_node *add,
 /// has garbage values associated with real nodes in our tree and if we access
 /// them by mistake it's bad!
 static inline void
-give_parent_subtree(struct node *parent, enum tree_link dir,
-                    struct node *subtree) {
+give_parent_subtree(struct Node *parent, enum Tree_link dir,
+                    struct Node *subtree) {
     parent->links[dir] = subtree;
     if (subtree != free_nodes.nil
         && subtree->list_start != free_nodes.list_tail) {
@@ -802,51 +802,51 @@ roundup(size_t requested_size, size_t multiple) {
 }
 
 static inline size_t
-get_size(header header_val) {
+get_size(Header header_val) {
     return SIZE_MASK & header_val;
 }
 
 static inline bool
-is_block_allocated(header const block_header) {
+is_block_allocated(Header const block_header) {
     return block_header & ALLOCATED;
 }
 
 static inline bool
-is_left_space(const struct node *node) {
+is_left_space(const struct Node *node) {
     return !(node->header & LEFT_ALLOCATED);
 }
 
 static inline void
-init_header_size(struct node *node, size_t payload) {
+init_header_size(struct Node *node, size_t payload) {
     node->header = LEFT_ALLOCATED | payload;
 }
 
 static inline void
-init_footer(struct node *node, size_t payload) {
-    header *footer = (header *)((uint8_t *)node + payload);
+init_footer(struct Node *node, size_t payload) {
+    Header *footer = (Header *)((uint8_t *)node + payload);
     *footer = node->header;
 }
 
-static inline struct node *
-get_right_neighbor(const struct node *current, size_t payload) {
-    return (struct node *)((uint8_t *)current + HEADERSIZE + payload);
+static inline struct Node *
+get_right_neighbor(const struct Node *current, size_t payload) {
+    return (struct Node *)((uint8_t *)current + HEADERSIZE + payload);
 }
 
-static inline struct node *
-get_left_neighbor(const struct node *node) {
-    header *left_footer = (header *)((uint8_t *)node - HEADERSIZE);
-    return (struct node *)((uint8_t *)node - (*left_footer & SIZE_MASK)
+static inline struct Node *
+get_left_neighbor(const struct Node *node) {
+    Header *left_footer = (Header *)((uint8_t *)node - HEADERSIZE);
+    return (struct Node *)((uint8_t *)node - (*left_footer & SIZE_MASK)
                            - HEADERSIZE);
 }
 
 static inline void *
-get_client_space(const struct node *node_header) {
+get_client_space(const struct Node *node_header) {
     return (uint8_t *)node_header + HEADERSIZE;
 }
 
-static inline struct node *
+static inline struct Node *
 get_node(void const *client_space) {
-    return (struct node *)((uint8_t *)client_space - HEADERSIZE);
+    return (struct Node *)((uint8_t *)client_space - HEADERSIZE);
 }
 
 /////////////////////////////    Debugging and Testing Functions
@@ -854,7 +854,7 @@ get_node(void const *client_space) {
 // NOLINTBEGIN(misc-no-recursion)
 
 static bool
-check_init(struct heap_range r, size_t heap_size) {
+check_init(struct Heap_range r, size_t heap_size) {
     if (is_left_space(r.start)) {
         BREAKPOINT();
         return false;
@@ -867,11 +867,11 @@ check_init(struct heap_range r, size_t heap_size) {
 }
 
 static bool
-is_memory_balanced(size_t *total_free_mem, struct heap_range r,
-                   struct size_total s) {
+is_memory_balanced(size_t *total_free_mem, struct Heap_range r,
+                   struct Size_total s) {
     // Check that after checking all headers we end on size 0 tail and then end
     // of address space.
-    struct node *cur_node = r.start;
+    struct Node *cur_node = r.start;
     size_t size_used = HEAP_NODE_WIDTH;
     size_t total_free_nodes = 0;
     while (cur_node != r.end) {
@@ -901,12 +901,12 @@ is_memory_balanced(size_t *total_free_mem, struct heap_range r,
 }
 
 static size_t
-extract_tree_mem(const struct node *root, void const *nil_and_tail) {
+extract_tree_mem(const struct Node *root, void const *nil_and_tail) {
     if (root == nil_and_tail) {
         return 0UL;
     }
     size_t total_mem = get_size(root->header) + HEADERSIZE;
-    for (struct duplicate_node *tally_list = root->list_start;
+    for (struct Duplicate_node *tally_list = root->list_start;
          tally_list != nil_and_tail; tally_list = tally_list->links[N]) {
         total_mem += get_size(tally_list->header) + HEADERSIZE;
     }
@@ -915,7 +915,7 @@ extract_tree_mem(const struct node *root, void const *nil_and_tail) {
 }
 
 static bool
-is_tree_mem_valid(const struct node *root, void const *nil_and_tail,
+is_tree_mem_valid(const struct Node *root, void const *nil_and_tail,
                   size_t total_free_mem) {
     if (total_free_mem != extract_tree_mem(root, nil_and_tail)) {
         BREAKPOINT();
@@ -925,7 +925,7 @@ is_tree_mem_valid(const struct node *root, void const *nil_and_tail,
 }
 
 static bool
-are_subtrees_valid(const struct tree_range r, const struct node *nil) {
+are_subtrees_valid(const struct Tree_range r, const struct Node *nil) {
     if (r.root == nil) {
         return true;
     }
@@ -939,14 +939,14 @@ are_subtrees_valid(const struct tree_range r, const struct node *nil) {
         return false;
     }
     return are_subtrees_valid(
-               (struct tree_range){
+               (struct Tree_range){
                    .low = r.low,
                    .root = r.root->links[L],
                    .high = r.root,
                },
                nil)
            && are_subtrees_valid(
-               (struct tree_range){
+               (struct Tree_range){
                    .low = r.root,
                    .root = r.root->links[R],
                    .high = r.high,
@@ -955,7 +955,7 @@ are_subtrees_valid(const struct tree_range r, const struct node *nil) {
 }
 
 static bool
-is_duplicate_storing_parent(const struct node *parent, const struct node *root,
+is_duplicate_storing_parent(const struct Node *parent, const struct Node *root,
                             void const *nil_and_tail) {
     if (root == nil_and_tail) {
         return true;
@@ -972,7 +972,7 @@ is_duplicate_storing_parent(const struct node *parent, const struct node *root,
 /////////////////////////////        Printing Functions
 
 static size_t
-get_subtree_size(const struct node *root) {
+get_subtree_size(const struct Node *root) {
     if (root == free_nodes.nil) {
         return 0;
     }
@@ -981,7 +981,7 @@ get_subtree_size(const struct node *root) {
 }
 
 static char const *
-get_edge_color(const struct node *root, size_t parent_size) {
+get_edge_color(const struct Node *root, size_t parent_size) {
     if (root == free_nodes.nil) {
         return "";
     }
@@ -990,8 +990,8 @@ get_edge_color(const struct node *root, size_t parent_size) {
 }
 
 static void
-print_node(const struct node *root, void const *nil_and_tail,
-           enum print_style style) {
+print_node(const struct Node *root, void const *nil_and_tail,
+           enum Print_style style) {
     size_t block_size = get_size(root->header);
     if (style == VERBOSE) {
         printf("%p:", root);
@@ -1001,7 +1001,7 @@ print_node(const struct node *root, void const *nil_and_tail,
     // If a node is a duplicate, we will give it a special mark among nodes.
     if (root->list_start != nil_and_tail) {
         int duplicates = 1;
-        struct duplicate_node *duplicate = root->list_start;
+        struct Duplicate_node *duplicate = root->list_start;
         for (; (duplicate = duplicate->links[N]) != nil_and_tail;
              duplicates++) {}
         printf("(+%d)", duplicates);
@@ -1013,10 +1013,10 @@ print_node(const struct node *root, void const *nil_and_tail,
 /// I know this function is rough but it's tricky to focus on edge color rather
 /// than node color.
 static void
-print_inner_tree(const struct node *root, size_t parent_size,
+print_inner_tree(const struct Node *root, size_t parent_size,
                  char const *prefix, char const *prefix_branch_color,
-                 const enum print_link node_type, const enum tree_link dir,
-                 enum print_style style) {
+                 const enum Print_link node_type, const enum Tree_link dir,
+                 enum Print_style style) {
     if (root == free_nodes.nil) {
         return;
     }
@@ -1064,8 +1064,8 @@ print_inner_tree(const struct node *root, size_t parent_size,
 }
 
 static void
-print_tree(const struct node *root, void const *nil_and_tail,
-           enum print_style style) {
+print_tree(const struct Node *root, void const *nil_and_tail,
+           enum Print_style style) {
     if (root == nil_and_tail) {
         return;
     }
@@ -1091,7 +1091,7 @@ print_tree(const struct node *root, void const *nil_and_tail,
 }
 
 static void
-print_alloc_block(const struct node *node) {
+print_alloc_block(const struct Node *node) {
     size_t block_size = get_size(node->header);
     // We will see from what direction our header is messed up by printing 16
     // digits.
@@ -1100,10 +1100,10 @@ print_alloc_block(const struct node *node) {
 }
 
 static void
-print_free_block(const struct node *node) {
+print_free_block(const struct Node *node) {
     size_t block_size = get_size(node->header);
-    header *footer = (header *)((uint8_t *)node + block_size);
-    header to_print = *footer;
+    Header *footer = (Header *)((uint8_t *)node + block_size);
+    Header to_print = *footer;
     if (get_size(*footer) != get_size(node->header)) {
         to_print = ULLONG_MAX;
     }
@@ -1129,13 +1129,13 @@ print_free_block(const struct node *node) {
 }
 
 static void
-print_error_block(const struct node *node, size_t block_size) {
+print_error_block(const struct Node *node, size_t block_size) {
     printf("\n%p: HDR->0x%016zX->%zubyts\n", node, node->header, block_size);
     printf("Block size is too large and header is corrupted.\n");
 }
 
 static void
-print_bad_jump(const struct node *current, struct bad_jump j,
+print_bad_jump(const struct Node *current, struct Bad_jump j,
                void const *nil_and_tail) {
     size_t prev_size = get_size(j.prev->header);
     size_t cur_size = get_size(current->header);
@@ -1154,9 +1154,9 @@ print_bad_jump(const struct node *current, struct bad_jump j,
 }
 
 static void
-print_all(struct heap_range r, size_t heap_size, struct node *tree_root,
-          struct node *nil) {
-    struct node *node = r.start;
+print_all(struct Heap_range r, size_t heap_size, struct Node *tree_root,
+          struct Node *nil) {
+    struct Node *node = r.start;
     printf("Heap client segment starts at address %p, ends %p. %zu total bytes "
            "currently used.\n",
            node, r.end, heap_size);
@@ -1164,12 +1164,12 @@ print_all(struct heap_range r, size_t heap_size, struct node *tree_root,
     printf("COLOR KEY: " COLOR_GRN "[ALLOCATED BLOCK]" COLOR_NIL "\n\n");
 
     printf("%p: START OF  HEADERS ARE NOT INCLUDED IN BLOCK BYTES:\n", r.start);
-    struct node *prev = node;
+    struct Node *prev = node;
     while (node != r.end) {
         size_t full_size = get_size(node->header);
 
         if (full_size == 0) {
-            print_bad_jump(node, (struct bad_jump){prev, tree_root}, nil);
+            print_bad_jump(node, (struct Bad_jump){prev, tree_root}, nil);
             printf("Last known pointer before jump: %p", prev);
             return;
         }

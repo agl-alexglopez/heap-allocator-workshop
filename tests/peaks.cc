@@ -40,33 +40,35 @@
 
 namespace {
 
-using breakpoint = size_t;
+using Breakpoint = size_t;
 
-constexpr size_t heap_size = 1ULL << 32;
-
-struct user_breaks {
-    enum print_style style;
-    std::vector<breakpoint> breakpoints;
+struct User_breaks {
+    enum Print_style style;
+    std::vector<Breakpoint> breakpoints;
     bool quiet{false};
 };
 
-struct break_limit {
+struct Break_limit {
     size_t cur;
     size_t max;
 };
 
-int print_peaks(std::string const &script_name, user_breaks &user_reqs);
-void handle_user_breakpoints(user_breaks &user_reqs, break_limit lim);
-bool validate_breakpoints(script::requests &s, user_breaks &user_reqs);
+} // namespace
 
-int
+constexpr size_t heap_size = 1ULL << 32;
+
+static int print_peaks(std::string const &script_name, User_breaks &user_reqs);
+static void handle_user_breakpoints(User_breaks &user_reqs, Break_limit lim);
+static bool validate_breakpoints(script::Requests &s, User_breaks &user_reqs);
+
+static int
 peaks(std::span<char const *const> args) {
     try {
-        user_breaks breaks{};
+        User_breaks breaks{};
         std::string file{};
         for (auto const *arg : args) {
             try {
-                breakpoint const found = std::stoull(arg);
+                Breakpoint const found = std::stoull(arg);
                 breaks.breakpoints.push_back(found);
             } catch (...) {
                 auto strarg = std::string(arg);
@@ -99,8 +101,6 @@ peaks(std::span<char const *const> args) {
     }
 }
 
-} // namespace
-
 int
 main(int argc, char **argv) {
     auto args
@@ -112,15 +112,13 @@ main(int argc, char **argv) {
     return peaks(args);
 }
 
-namespace {
-
-int
-print_peaks(std::string const &script_name, user_breaks &user_reqs) {
-    std::optional<script::requests> s = script::parse_script(script_name);
+static int
+print_peaks(std::string const &script_name, User_breaks &user_reqs) {
+    std::optional<script::Requests> s = script::parse_script(script_name);
     if (!s) {
         return 1;
     }
-    script::requests &script = s.value();
+    script::Requests &script = s.value();
     if (!validate_breakpoints(script, user_reqs)) {
         return 1;
     }
@@ -211,8 +209,8 @@ print_peaks(std::string const &script_name, user_breaks &user_reqs) {
     return 0;
 }
 
-void
-handle_user_breakpoints(user_breaks &user_reqs, break_limit lim) {
+static void
+handle_user_breakpoints(User_breaks &user_reqs, Break_limit lim) {
     size_t const min = user_reqs.breakpoints[lim.cur] + 1;
     for (;;) {
         if (user_reqs.breakpoints[lim.cur] == lim.max) {
@@ -256,12 +254,10 @@ handle_user_breakpoints(user_breaks &user_reqs, break_limit lim) {
     }
 }
 
-bool
-validate_breakpoints(script::requests &s, user_breaks &user_reqs) {
+static bool
+validate_breakpoints(script::Requests &s, User_breaks &user_reqs) {
     size_t const reqs = s.lines.size();
     return std::all_of(user_reqs.breakpoints.begin(),
                        user_reqs.breakpoints.end(),
-                       [reqs](breakpoint b) { return b < reqs; });
+                       [reqs](Breakpoint b) { return b < reqs; });
 }
-
-} // namespace

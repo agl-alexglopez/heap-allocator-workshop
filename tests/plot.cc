@@ -19,7 +19,6 @@
 #include "matplot/core/legend.h"
 #include "matplot/freestanding/axes_functions.h"
 #include "matplot/util/handle_types.h"
-// NOLINTNEXTLINE(*include-cleaner)
 #include <matplot/matplot.h>
 
 #include <algorithm>
@@ -49,19 +48,88 @@
 
 namespace {
 
+using Quantity_measurement
+    = std::pair<std::vector<double>, std::vector<double>>;
+using Data_series = std::pair<std::string, std::vector<double>>;
+using Data_set = std::pair<std::vector<double>, std::vector<Data_series>>;
+
+struct Process_result {
+    int process_id;
+    ssize_t bytes_read;
+};
+
+struct Path_bin {
+    std::string path;
+    std::string bin;
+};
+
+enum Heap_operation : uint8_t {
+    MALLOC_FREE,
+    REALLOC_FREE,
+    SCRIPT_COMPARISON,
+};
+
+enum Data_set_type : uint8_t {
+    INTERVAL,
+    RESPONSE,
+    UTILIZATION,
+};
+
+struct Runtime_metrics {
+    Data_set interval_speed;
+    Data_set average_response_time;
+    Data_set overall_utilization;
+};
+
+struct Labels {
+    std::string_view title;
+    std::string_view x_label;
+    std::string_view y_label;
+    std::string_view filename;
+};
+
+struct Label_pack {
+    Labels interval_labels;
+    Labels response_labels;
+    Labels utilization_labels;
+};
+
+struct Plot_args {
+    Heap_operation op{};
+    Labels interval_labels;
+    Labels response_labels;
+    Labels utilization_labels;
+    size_t threads{4};
+    bool quiet{false};
+    std::optional<std::string> script_name;
+    Plot_args(Heap_operation h, Label_pack l, size_t threads, bool quiet)
+        : op(h), interval_labels(l.interval_labels),
+          response_labels(l.response_labels),
+          utilization_labels(l.utilization_labels), threads(threads),
+          quiet(quiet) {
+    }
+    Plot_args() = default;
+};
+
+struct Allocator_entry {
+    size_t index;
+    double script_size;
+};
+
+} // namespace
+
 #ifdef NDEBUG
-constexpr std::string_view prog_path = "/build/rel";
+static constexpr std::string_view prog_path = "/build/rel";
 #else
-constexpr std::string_view prog_path = "/build/deb";
+static constexpr std::string_view prog_path = "/build/deb";
 #endif
 
-constexpr size_t default_worker_count = 4;
-constexpr size_t max_cores = 20;
-constexpr size_t starting_buf_size = 64;
+static constexpr size_t max_cores = 20;
+static constexpr size_t starting_buf_size = 64;
 
 /// The script commands are carefully tuned to only time sections where the
 /// desired behavior is operating.
-constexpr std::array<std::array<std::array<char const *, 4>, 20>, 2>
+static constexpr std::array<std::array<std::array<char const *, 4>, 20>, 2>
     big_o_timing = {{
         {{
             // Malloc and free commands are targeted at making many
@@ -114,128 +182,61 @@ constexpr std::array<std::array<std::array<char const *, 4>, 20>, 2>
 
     }};
 
-constexpr std::array<std::string_view, 5> line_ticks
+static constexpr std::array<std::string_view, 5> line_ticks
     = {"-o", "--", "-+", "-s", "-*"};
-constexpr std::array<std::string_view, 9> loading_bar
+static constexpr std::array<std::string_view, 9> loading_bar
     = {"⣿", "⣷", "⣯", "⣟", "⡿", "⢿", "⣻", "⣽", "⣾"};
-constexpr std::string_view save_cursor = "\033[s";
-constexpr std::string_view restore_cursor = "\033[u";
+static constexpr std::string_view save_cursor = "\033[s";
+static constexpr std::string_view restore_cursor = "\033[u";
 
-constexpr size_t loading_limit = 50;
+static constexpr size_t loading_limit = 50;
 
-using quantity_measurement
-    = std::pair<std::vector<double>, std::vector<double>>;
-using data_series = std::pair<std::string, std::vector<double>>;
-using data_set = std::pair<std::vector<double>, std::vector<data_series>>;
-
-struct process_result {
-    int process_id;
-    ssize_t bytes_read;
-};
-
-struct path_bin {
-    std::string path;
-    std::string bin;
-};
-
-enum heap_operation : uint8_t {
-    malloc_free,
-    realloc_free,
-    script_comparison,
-};
-
-enum data_set_type : uint8_t {
-    interval,
-    response,
-    utilization,
-};
-
-struct runtime_metrics {
-    data_set interval_speed;
-    data_set average_response_time;
-    data_set overall_utilization;
-};
-
-struct labels {
-    std::string_view title;
-    std::string_view x_label;
-    std::string_view y_label;
-    std::string_view filename;
-};
-
-struct label_pack {
-    labels interval_labels;
-    labels response_labels;
-    labels utilization_labels;
-};
-
-struct plot_args {
-    heap_operation op{};
-    labels interval_labels;
-    labels response_labels;
-    labels utilization_labels;
-    size_t threads{default_worker_count};
-    bool quiet{false};
-    std::optional<std::string> script_name;
-    plot_args(heap_operation h, label_pack l, size_t threads, bool quiet)
-        : op(h), interval_labels(l.interval_labels),
-          response_labels(l.response_labels),
-          utilization_labels(l.utilization_labels), threads(threads),
-          quiet(quiet) {
-    }
-    plot_args() = default;
-};
-
-struct allocator_entry {
-    size_t index;
-    double script_size;
-};
-
-std::vector<path_bin> gather_timer_programs();
-int run_bigo_analysis(std::vector<path_bin> const &commands,
-                      plot_args const &args);
-int plot_script_comparison(std::vector<path_bin> const &commands,
-                           plot_args &args);
-data_set const &set(runtime_metrics const &m, data_set_type request);
-std::vector<double> const &x_axis(data_set const &s);
-std::vector<double> &x_axis(data_set &s);
-std::vector<double> &series(data_set &s, size_t series_index);
-std::vector<data_series> &all_series(data_set &s);
-void twiddle_cursor(command_queue &q);
-bool close_process(process_result res);
-double parse_quantity_n(std::string_view script_name);
-bool parse_metrics(std::string const &output, size_t allocator_index,
-                   runtime_metrics &m);
-int start_subprocess(std::string_view cmd_path,
-                     std::vector<char const *> const &args);
-bool thread_run_cmd(size_t allocator_index, path_bin const &cmd,
-                    runtime_metrics &m, std::vector<char const *> cmd_list);
-std::optional<size_t> specify_threads(std::string_view thread_request);
-bool thread_run_analysis(size_t allocator_index, path_bin const &cmd,
-                         runtime_metrics &m, heap_operation s);
-bool scripts_generated();
-void line_plot_stats(runtime_metrics const &m, data_set_type t, labels l,
-                     bool quiet);
-void bar_chart_stats(runtime_metrics const &m, data_set_type t, labels l,
-                     bool quiet);
-int plot_runtime(std::vector<path_bin> const &commands, plot_args args);
+static std::vector<Path_bin> gather_timer_programs();
+static int run_bigo_analysis(std::vector<Path_bin> const &commands,
+                             Plot_args const &args);
+static int plot_script_comparison(std::vector<Path_bin> const &commands,
+                                  Plot_args &args);
+static Data_set const &set(Runtime_metrics const &m, Data_set_type request);
+static std::vector<double> const &x_axis(Data_set const &s);
+static std::vector<double> &x_axis(Data_set &s);
+static std::vector<double> &series(Data_set &s, size_t series_index);
+static std::vector<Data_series> &all_series(Data_set &s);
+static void twiddle_cursor(Command_queue &q);
+static bool close_process(Process_result res);
+static double parse_quantity_n(std::string_view script_name);
+static bool parse_metrics(std::string const &output, size_t allocator_index,
+                          Runtime_metrics &m);
+static int start_subprocess(std::string_view cmd_path,
+                            std::vector<char const *> const &args);
+static bool thread_run_cmd(size_t allocator_index, Path_bin const &cmd,
+                           Runtime_metrics &m,
+                           std::vector<char const *> cmd_list);
+static std::optional<size_t> specify_threads(std::string_view thread_request);
+static bool thread_run_analysis(size_t allocator_index, Path_bin const &cmd,
+                                Runtime_metrics &m, Heap_operation s);
+static bool scripts_generated();
+static void line_plot_stats(Runtime_metrics const &m, Data_set_type t, Labels l,
+                            bool quiet);
+static void bar_chart_stats(Runtime_metrics const &m, Data_set_type t, Labels l,
+                            bool quiet);
+static int plot_runtime(std::vector<Path_bin> const &commands, Plot_args args);
 
 //////////////////////////////////    User Argument Handling
 
-int
+static int
 plot(std::span<char const *const> cli_args) {
     try {
-        std::vector<path_bin> const commands = gather_timer_programs();
+        std::vector<Path_bin> const commands = gather_timer_programs();
         if (commands.empty()) {
             return 1;
         }
-        plot_args args{};
+        Plot_args args{};
         for (auto const *arg : cli_args) {
             std::string const arg_copy = std::string(arg);
             if (arg_copy == "-realloc") {
-                args.op = heap_operation::realloc_free;
+                args.op = Heap_operation::REALLOC_FREE;
             } else if (arg_copy == "-malloc") {
-                args.op = heap_operation::malloc_free;
+                args.op = Heap_operation::MALLOC_FREE;
             } else if (arg_copy.starts_with("-j")) {
                 std::optional<size_t> threads = specify_threads(arg_copy);
                 if (!threads) {
@@ -245,7 +246,7 @@ plot(std::span<char const *const> cli_args) {
             } else if (arg_copy == "-q") {
                 args.quiet = true;
             } else if (arg_copy.find('/') != std::string::npos) {
-                args.op = heap_operation::script_comparison;
+                args.op = Heap_operation::SCRIPT_COMPARISON;
                 args.script_name.emplace(arg_copy);
             } else {
                 auto err = std::string("Invalid command line request: ")
@@ -255,7 +256,7 @@ plot(std::span<char const *const> cli_args) {
                 return 1;
             }
         }
-        if (args.op == heap_operation::script_comparison) {
+        if (args.op == Heap_operation::SCRIPT_COMPARISON) {
             return plot_script_comparison(commands, args);
         }
         if (!scripts_generated()) {
@@ -271,8 +272,6 @@ plot(std::span<char const *const> cli_args) {
     }
 }
 
-} // namespace
-
 int
 main(int argc, char *argv[]) {
     auto cli_args = std::span<char const *const>(argv, argc).subspan(1);
@@ -284,16 +283,14 @@ main(int argc, char *argv[]) {
 
 ///////////////////////////       Performance Testing Implementation
 
-namespace {
-
 /////////////////////////  Threading Subproccesses and File Handling
 
-int
-run_bigo_analysis(std::vector<path_bin> const &commands,
-                  plot_args const &args) {
-    if (args.op == heap_operation::malloc_free) {
+static int
+run_bigo_analysis(std::vector<Path_bin> const &commands,
+                  Plot_args const &args) {
+    if (args.op == Heap_operation::MALLOC_FREE) {
         return plot_runtime(
-            commands, plot_args(heap_operation::malloc_free,
+            commands, Plot_args(Heap_operation::MALLOC_FREE,
                                 {
                                     .interval_labels{
                                         "Time(ms) to Complete N Requests",
@@ -316,9 +313,9 @@ run_bigo_analysis(std::vector<path_bin> const &commands,
                                 },
                                 args.threads, args.quiet));
     }
-    if (args.op == heap_operation::realloc_free) {
+    if (args.op == Heap_operation::REALLOC_FREE) {
         return plot_runtime(
-            commands, plot_args(heap_operation::realloc_free,
+            commands, Plot_args(Heap_operation::REALLOC_FREE,
                                 {
                                     .interval_labels{
                                         "Time(ms) to Complete N Requests",
@@ -346,9 +343,9 @@ run_bigo_analysis(std::vector<path_bin> const &commands,
     return 1;
 }
 
-int
-plot_runtime(std::vector<path_bin> const &commands, plot_args args) {
-    runtime_metrics m{};
+static int
+plot_runtime(std::vector<Path_bin> const &commands, Plot_args args) {
+    Runtime_metrics m{};
     x_axis(m.interval_speed).push_back(0);
     x_axis(m.average_response_time).push_back(0);
     x_axis(m.overall_utilization).push_back(0);
@@ -380,7 +377,7 @@ plot_runtime(std::vector<path_bin> const &commands, plot_args args) {
             .back()
             .second.reserve(big_o_timing.at(args.op).size());
     }
-    command_queue workers(args.threads);
+    Command_queue workers(args.threads);
     for (size_t i = 0; i < commands.size(); ++i) {
         // Not sure if bool is ok here but the filesystem and subproccesses can
         // often fail so signal with bool for easier thread shutdown. Futures
@@ -396,19 +393,19 @@ plot_runtime(std::vector<path_bin> const &commands, plot_args args) {
     // This is just some cursor animation while we wait from main thread. But
     // don't put anything before it!
     twiddle_cursor(workers);
-    line_plot_stats(m, data_set_type::interval, args.interval_labels,
+    line_plot_stats(m, Data_set_type::INTERVAL, args.interval_labels,
                     args.quiet);
-    line_plot_stats(m, data_set_type::response, args.response_labels,
+    line_plot_stats(m, Data_set_type::RESPONSE, args.response_labels,
                     args.quiet);
-    line_plot_stats(m, data_set_type::utilization, args.utilization_labels,
+    line_plot_stats(m, Data_set_type::UTILIZATION, args.utilization_labels,
                     args.quiet);
     std::cout << osync::ansi_nil;
     return 0;
 }
 
-bool
-thread_run_analysis(size_t const allocator_index, path_bin const &cmd,
-                    runtime_metrics &m, heap_operation s) {
+static bool
+thread_run_analysis(size_t const allocator_index, Path_bin const &cmd,
+                    Runtime_metrics &m, Heap_operation s) {
     for (auto const &args : big_o_timing.at(s)) {
         thread_run_cmd(allocator_index, cmd, m,
                        std::vector<char const *>(args.begin(), args.end()));
@@ -416,8 +413,8 @@ thread_run_analysis(size_t const allocator_index, path_bin const &cmd,
     return true;
 }
 
-int
-plot_script_comparison(std::vector<path_bin> const &commands, plot_args &args) {
+static int
+plot_script_comparison(std::vector<Path_bin> const &commands, Plot_args &args) {
     if (!args.script_name) {
         osync::cerr("No script provided for plotting comparison",
                     osync::ansi_bred);
@@ -433,7 +430,7 @@ plot_script_comparison(std::vector<path_bin> const &commands, plot_args &args) {
         osync::cerr(msg, osync::ansi_bred);
         return 1;
     }
-    runtime_metrics m{};
+    Runtime_metrics m{};
     std::string_view const path_to_script{script_name_str};
     std::string script(
         path_to_script.substr(path_to_script.find_last_of('/') + 1));
@@ -471,7 +468,7 @@ plot_script_comparison(std::vector<path_bin> const &commands, plot_args &args) {
         all_series(m.average_response_time).push_back({title, {}});
         all_series(m.overall_utilization).push_back({title, {}});
     }
-    command_queue workers(args.threads);
+    Command_queue workers(args.threads);
     for (size_t i = 0; i < commands.size(); ++i) {
         // Not sure if bool is ok here but the filesystem and subproccesses can
         // often fail so signal with bool for easier thread shutdown. Futures
@@ -488,18 +485,18 @@ plot_script_comparison(std::vector<path_bin> const &commands, plot_args &args) {
     // This is just some cursor animation while we wait from main thread. But
     // don't put anything before it!
     twiddle_cursor(workers);
-    bar_chart_stats(m, data_set_type::interval, args.interval_labels,
+    bar_chart_stats(m, Data_set_type::INTERVAL, args.interval_labels,
                     args.quiet);
-    bar_chart_stats(m, data_set_type::response, args.response_labels,
+    bar_chart_stats(m, Data_set_type::RESPONSE, args.response_labels,
                     args.quiet);
-    bar_chart_stats(m, data_set_type::utilization, args.utilization_labels,
+    bar_chart_stats(m, Data_set_type::UTILIZATION, args.utilization_labels,
                     args.quiet);
     return 0;
 }
 
-bool
-thread_run_cmd(size_t const allocator_index, path_bin const &cmd,
-               runtime_metrics &m, std::vector<char const *> cmd_list) {
+static bool
+thread_run_cmd(size_t const allocator_index, Path_bin const &cmd,
+               Runtime_metrics &m, std::vector<char const *> cmd_list) {
     // I have had more success with subprocesses when using full paths but maybe
     // not necessary?
     std::string cur_path = std::filesystem::current_path();
@@ -539,7 +536,7 @@ thread_run_cmd(size_t const allocator_index, path_bin const &cmd,
     return true;
 }
 
-int
+static int
 start_subprocess(std::string_view cmd_path,
                  std::vector<char const *> const &args) {
     std::array<int, 2> comms{0, 0};
@@ -569,8 +566,8 @@ start_subprocess(std::string_view cmd_path,
     exit(1);
 }
 
-bool
-close_process(process_result res) {
+static bool
+close_process(Process_result res) {
     close(res.process_id);
     int err = 0;
     int const wait_err = waitpid(-1, &err, 0);
@@ -588,7 +585,7 @@ close_process(process_result res) {
     return true;
 }
 
-double
+static double
 parse_quantity_n(std::string_view script_name) {
     size_t const last_dash = script_name.find_last_of('-') + 1;
     size_t const last_k = script_name.find_last_of('k');
@@ -605,9 +602,9 @@ parse_quantity_n(std::string_view script_name) {
     }
 }
 
-bool
+static bool
 parse_metrics(std::string const &output, size_t const allocator_index,
-              runtime_metrics &m) {
+              Runtime_metrics &m) {
     try {
         size_t const first_space = output.find_first_of(' ');
         size_t const first_newline = output.find_first_of('\n');
@@ -630,9 +627,9 @@ parse_metrics(std::string const &output, size_t const allocator_index,
     }
 }
 
-std::vector<path_bin>
+static std::vector<Path_bin>
 gather_timer_programs() {
-    std::vector<path_bin> commands{};
+    std::vector<Path_bin> commands{};
     std::string path = std::filesystem::current_path();
     path.append(prog_path);
     for (auto const &entry : std::filesystem::directory_iterator(path)) {
@@ -647,7 +644,7 @@ gather_timer_programs() {
     return commands;
 }
 
-std::optional<size_t>
+static std::optional<size_t>
 specify_threads(std::string_view thread_request) {
     if (thread_request == "-j") {
         osync::syncerr("Invalid core count requested. Did you mean -j[CORES] "
@@ -660,7 +657,7 @@ specify_threads(std::string_view thread_request) {
     try {
         size_t result = std::stoull(cores);
         if (result == 0 || result > max_cores) {
-            result = default_worker_count;
+            result = 4;
         }
         if (result == 1) {
             return result;
@@ -679,7 +676,7 @@ specify_threads(std::string_view thread_request) {
     }
 }
 
-bool
+static bool
 scripts_generated() {
     std::vector<std::string> missing_files{};
     for (auto const &command_series : big_o_timing) {
@@ -705,8 +702,8 @@ scripts_generated() {
 
 //////////////////////////////   Plotting with Matplot++
 
-void
-line_plot_stats(runtime_metrics const &m, data_set_type t, labels l,
+static void
+line_plot_stats(Runtime_metrics const &m, Data_set_type t, Labels l,
                 bool quiet) {
     // To get the "figure" specify quiet mode so changes don't cause redraw.
     auto p = matplot::gcf(true);
@@ -757,8 +754,8 @@ line_plot_stats(runtime_metrics const &m, data_set_type t, labels l,
 }
 
 // See comments in line plot status for what is happening here. It is same.
-void
-bar_chart_stats(runtime_metrics const &m, data_set_type t, labels l,
+static void
+bar_chart_stats(Runtime_metrics const &m, Data_set_type t, Labels l,
                 bool quiet) {
     auto p = matplot::gcf(true);
     auto axes = p->current_axes();
@@ -789,14 +786,14 @@ bar_chart_stats(runtime_metrics const &m, data_set_type t, labels l,
 
 //////////////////////////////    Helpers to Access Data in Types
 
-data_set const &
-set(runtime_metrics const &m, data_set_type request) {
+static Data_set const &
+set(Runtime_metrics const &m, Data_set_type request) {
     switch (request) {
-        case interval:
+        case INTERVAL:
             return m.interval_speed;
-        case response:
+        case RESPONSE:
             return m.average_response_time;
-        case utilization:
+        case UTILIZATION:
             return m.overall_utilization;
         default: {
             osync::syncerr(
@@ -807,30 +804,30 @@ set(runtime_metrics const &m, data_set_type request) {
     }
 }
 
-std::vector<double> const &
-x_axis(data_set const &s) {
+static std::vector<double> const &
+x_axis(Data_set const &s) {
     return s.first;
 }
 
-std::vector<double> &
-x_axis(data_set &s) {
+static std::vector<double> &
+x_axis(Data_set &s) {
     return s.first;
 }
 
-std::vector<double> &
-series(data_set &s, size_t series_index) {
+static std::vector<double> &
+series(Data_set &s, size_t series_index) {
     return s.second[series_index].second;
 }
 
-std::vector<data_series> &
-all_series(data_set &s) {
+static std::vector<Data_series> &
+all_series(Data_set &s) {
     return s.second;
 }
 
 /////////////////////////////             Just for Fun
 
-void
-twiddle_cursor(command_queue &q) {
+static void
+twiddle_cursor(Command_queue &q) {
     size_t dist = 0;
     bool max_loading_bar = false;
     std::cout << osync::ansi_bred;
@@ -854,5 +851,3 @@ twiddle_cursor(command_queue &q) {
     }
     std::cout << "\n";
 }
-
-} // namespace

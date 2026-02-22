@@ -17,13 +17,13 @@
 
 /// PLAIN prints free block sizes, VERBOSE shows address in the heap and black
 /// height of tree.
-enum print_style {
+enum Print_style {
     PLAIN = 0,
     VERBOSE = 1
 };
 
 /// Printing enum for printing red black tree structure.
-enum print_link {
+enum Print_link {
     BRANCH = 0, // ├──
     LEAF = 1    // └──
 };
