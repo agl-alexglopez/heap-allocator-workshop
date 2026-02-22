@@ -20,6 +20,10 @@ FetchContent_Declare(
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 include(GoogleTest)
+target_compile_options(gtest PRIVATE "-w")
+target_compile_options(gtest_main PRIVATE "-w")
+get_target_property(gtest_SOURCE_DIR gtest SOURCE_DIR)
+get_target_property(gtest_main_SOURCE_DIR gtest_main SOURCE_DIR)
 
 ###############    Performance Plotter Tester    ##################
 
@@ -30,7 +34,8 @@ FetchContent_Declare(matplotplusplus
 FetchContent_GetProperties(matplotplusplus)
 if(NOT matplotplusplus_POPULATED)
     FetchContent_Populate(matplotplusplus)
-    add_subdirectory(${matplotplusplus_SOURCE_DIR} ${matplotplusplus_BINARY_DIR} EXCLUDE_FROM_ALL)
+    add_subdirectory(${matplotplusplus_SOURCE_DIR} ${matplotplusplus_BINARY_DIR} EXCLUDE_FROM_ALL SYSTEM)
+    target_compile_options(matplot PRIVATE "-w")
 endif()
 add_executable(plot plot.cc)
 target_link_libraries(plot PUBLIC matplot osync)
@@ -64,6 +69,12 @@ add_ctest(splaytree_topdown)
 
 macro(add_gtest ALLOCATOR_NAME)
   add_executable(gtest_${ALLOCATOR_NAME} gtest.cc)
+  target_include_directories(gtest_${ALLOCATOR_NAME}
+    SYSTEM 
+    PRIVATE 
+        ${gtest_SOURCE_DIR}
+        ${gtest_main_SOURCE_DIR}
+  )
   target_link_libraries(gtest_${ALLOCATOR_NAME}
     GTest::gtest_main
     segment
